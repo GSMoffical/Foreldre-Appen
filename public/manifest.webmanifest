@@ -1,0 +1,18 @@
+{
+  "name": "ForeldrePortalen",
+  "short_name": "ForeldrePortalen",
+  "description": "Familiekalender for foreldre",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f1eb",
+  "theme_color": "#f4f1eb",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

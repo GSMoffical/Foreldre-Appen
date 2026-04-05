@@ -1,0 +1,29 @@
+# Dependencies (downloaded again with npm ci)
+node_modules/
+
+# Production build output
+dist/
+
+# Local secrets — never commit (Supabase keys live here)
+.env
+.env.local
+.env.*.local
+
+# Tests & coverage
+coverage/
+test-results/
+playwright-report/
+playwright/.cache/
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs & OS noise
+*.log
+.DS_Store
+Thumbs.db
+
+# Editor (optional — many teams ignore these)
+.idea/
+.vscode/*
+!.vscode/extensions.json

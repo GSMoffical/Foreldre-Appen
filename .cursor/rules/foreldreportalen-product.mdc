@@ -1,0 +1,15 @@
+---
+description: ForeldrePortalen product strategy and roadmap – read for MVP scope and future features
+globs: "**/*"
+alwaysApply: true
+---
+
+# ForeldrePortalen product context
+
+- **MVP focus**: Polished simple parenting calendar. Resist scope creep; defer Tankestrømmen, mail scraper, and school integrations until after MVP.
+- **Audience**: All family shapes; primary use case = 2 parents, 1–3 kids. Keep data model and UX flexible (no hardcoded “mom/dad/2 kids”).
+- **Roadmap** (see `docs/PRODUCT.md` for full text):
+  1. **Tankestrømmen**: Info dump (voice, notes, screenshots, images) → AI sorts → auto-add to calendar. Use `Event.metadata` / `sourceId` and extension points (e.g. `useAutoFillWeek`) for future integration.
+  2. **Mail scraper**: Parse email → auto-add events; same event model, source attribution, idempotency.
+  3. **Norwegian school app integration**: When widespread; school events into same calendar.
+- When adding features or refactoring, preserve extensibility for these (metadata, automation hooks, Norwegian copy).
