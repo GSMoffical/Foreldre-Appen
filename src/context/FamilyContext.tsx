@@ -11,6 +11,7 @@ import {
 } from '../lib/familyApi'
 import { fetchProfile } from '../lib/profileApi'
 import { formatFamilyLoadError, formatFamilySeedError } from '../lib/supabaseErrors'
+import { useMobileRefreshTriggers, useRealtimeRefresh } from '../features/sync/useRefreshTriggers'
 
 interface FamilyContextValue {
   people: Person[]
@@ -61,67 +62,21 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     }, 350)
   }, [])
 
-  useEffect(() => {
-    function onVisibilityChange() {
-      if (document.visibilityState === 'visible') {
-        queueRefresh()
-      }
-    }
-    document.addEventListener('visibilitychange', onVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
-  }, [queueRefresh])
+  // Mobile/PWA fallback: visibility/focus/pageshow + visible polling.
+  useMobileRefreshTriggers({
+    enabled: Boolean(user && effectiveUserId),
+    onRefresh: queueRefresh,
+    includeVisibilityChange: true,
+  })
 
-  // Mobile/PWA fallback: force a refresh on focus/pageshow and periodic polling
-  // while visible, in case realtime sockets are throttled/suspended.
-  useEffect(() => {
-    if (!user || !effectiveUserId) return
-
-    const bump = () => queueRefresh()
-    const onFocus = () => bump()
-    const onPageShow = () => bump()
-
-    window.addEventListener('focus', onFocus)
-    window.addEventListener('pageshow', onPageShow)
-
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        bump()
-      }
-    }, 10000)
-
-    return () => {
-      window.removeEventListener('focus', onFocus)
-      window.removeEventListener('pageshow', onPageShow)
-      window.clearInterval(interval)
-    }
-  }, [user, effectiveUserId, queueRefresh])
-
-  // Live updates: refresh family_members immediately when the family changes
-  // (e.g. owner should see newly added parent without closing/reloading).
-  useEffect(() => {
-    if (!user || !effectiveUserId) return
-
-    const channel = supabase
-      .channel(`realtime-family-members-${effectiveUserId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'family_members',
-          filter: `user_id=eq.${effectiveUserId}`,
-        },
-        () => {
-          queueRefresh()
-        }
-      )
-
-    channel.subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [user, effectiveUserId, queueRefresh])
+  // Live updates: refresh family_members immediately when the family changes.
+  useRealtimeRefresh({
+    enabled: Boolean(user && effectiveUserId),
+    channelName: `realtime-family-members-${effectiveUserId ?? 'none'}`,
+    table: 'family_members',
+    filter: `user_id=eq.${effectiveUserId ?? ''}`,
+    onRefresh: queueRefresh,
+  })
 
   useEffect(() => {
     async function loadFamily() {

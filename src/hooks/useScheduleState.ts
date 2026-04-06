@@ -31,7 +31,6 @@ import {
   deleteEventsByGroup,
   deleteAllEventsForUser,
 } from '../lib/eventsApi'
-import { supabase } from '../lib/supabaseClient'
 import { useFamily } from '../context/FamilyContext'
 import { buildBackgroundEventsForDate } from '../lib/backgroundEvents'
 import { filterForegroundEvents } from '../lib/eventLayer'
@@ -41,6 +40,7 @@ import {
   todayKeyOslo,
   weekDateKeysMondayStartOslo,
 } from '../lib/osloCalendar'
+import { useMobileRefreshTriggers, useRealtimeRefresh } from '../features/sync/useRefreshTriggers'
 
 /** Week timeline uses a tighter scale so the strip fits on screen without feeling crammed. */
 export const WEEK_TIMELINE_PIXELS_PER_HOUR = 56
@@ -216,56 +216,20 @@ export function useScheduleState() {
     })()
   }, [refreshKey, selectedDate, user?.id])
 
-  // Mobile/PWA fallback refresh: focus/pageshow + periodic visible polling.
-  // Ensures schedule updates even if realtime connection is paused by OS.
-  useEffect(() => {
-    if (!user || !effectiveUserId) return
-
-    const refresh = () => queueRefresh()
-    const onFocus = () => refresh()
-    const onPageShow = () => refresh()
-
-    window.addEventListener('focus', onFocus)
-    window.addEventListener('pageshow', onPageShow)
-
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        refresh()
-      }
-    }, 10000)
-
-    return () => {
-      window.removeEventListener('focus', onFocus)
-      window.removeEventListener('pageshow', onPageShow)
-      window.clearInterval(interval)
-    }
-  }, [user, effectiveUserId, queueRefresh])
+  // Mobile/PWA fallback refresh: focus/pageshow + visible polling.
+  useMobileRefreshTriggers({
+    enabled: Boolean(user && effectiveUserId),
+    onRefresh: queueRefresh,
+  })
 
   // Live updates: silently refresh current week when events change.
-  useEffect(() => {
-    if (!user || !effectiveUserId) return
-
-    const channel = supabase
-      .channel(`realtime-events-${effectiveUserId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'events',
-          filter: `user_id=eq.${effectiveUserId}`,
-        },
-        () => {
-          queueRefresh()
-        }
-      )
-
-    channel.subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [user, effectiveUserId, queueRefresh])
+  useRealtimeRefresh({
+    enabled: Boolean(user && effectiveUserId),
+    channelName: `realtime-events-${effectiveUserId ?? 'none'}`,
+    table: 'events',
+    filter: `user_id=eq.${effectiveUserId ?? ''}`,
+    onRefresh: queueRefresh,
+  })
 
   useEffect(
     () => () => {
