@@ -7,6 +7,7 @@ import { AddTaskSheet } from '../tasks/components/AddTaskSheet'
 import type { Event, Task } from '../../types'
 import type { UseEventControllerReturn } from './hooks/useEventController'
 import type { UseTaskControllerReturn } from '../tasks/hooks/useTaskController'
+import { fireNotification } from '../../lib/notifyPartner'
 
 interface CalendarOverlaysProps {
   selectedEvent: { event: Event; date: string } | null
@@ -24,6 +25,7 @@ interface CalendarOverlaysProps {
   editingEvent: { event: Event; date: string; scope: 'this' | 'all' } | null
   setEditingEvent: (value: { event: Event; date: string; scope: 'this' | 'all' } | null) => void
   controller: UseEventControllerReturn
+  mePersonId?: string | null
   onAddFlowSaved: () => void
   onAddFlowClosedWithoutSave: () => void
   onConflictResolved: () => void
@@ -50,6 +52,7 @@ export function CalendarOverlays({
   editingEvent,
   setEditingEvent,
   controller,
+  mePersonId,
   onAddFlowSaved,
   onAddFlowClosedWithoutSave,
   onConflictResolved,
@@ -70,6 +73,22 @@ export function CalendarOverlays({
           onDuplicate={async (targetDate, start, end) => {
             try {
               await controller.duplicateEvent(targetDate, selectedEvent.event, start, end)
+            } catch {
+              // feedback handled by controller
+            }
+          }}
+          onMove={async (targetDate) => {
+            try {
+              await controller.moveEvent(selectedEvent.date, selectedEvent.event, targetDate)
+              setSelectedEvent(null)
+            } catch {
+              // feedback handled by controller
+            }
+          }}
+          mePersonId={mePersonId}
+          onQuickAssignTransport={async (role, personId) => {
+            try {
+              await controller.assignTransport(selectedEvent.date, selectedEvent.event, role, personId)
             } catch {
               // feedback handled by controller
             }
@@ -126,6 +145,7 @@ export function CalendarOverlays({
               }
               setAddFlowSaved(true)
               onAddFlowSaved()
+              fireNotification('ForeldrePortalen', `Ny hendelse: ${data.title}`)
             } catch {
               // feedback handled by controller
             }
@@ -165,10 +185,11 @@ export function CalendarOverlays({
           onSave={async (data) => {
             try {
               await taskController.createTask(data)
+              setIsAddingTask(false)
+              fireNotification('ForeldrePortalen', `Nytt gjøremål: ${data.title}`)
             } catch {
-              // feedback handled by controller
+              // feedback handled by controller; sheet stays open
             }
-            setIsAddingTask(false)
           }}
           onClose={() => setIsAddingTask(false)}
         />
@@ -181,10 +202,10 @@ export function CalendarOverlays({
           onSave={async (data) => {
             try {
               await taskController.editTask(editingTask, data)
+              setEditingTask(null)
             } catch {
-              // feedback handled by controller
+              // feedback handled by controller; sheet stays open
             }
-            setEditingTask(null)
           }}
           onClose={() => setEditingTask(null)}
         />

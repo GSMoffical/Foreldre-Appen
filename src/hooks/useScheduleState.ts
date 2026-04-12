@@ -29,11 +29,17 @@ import {
   deleteEvent as deleteEventApi,
   updateEventsByGroup,
   deleteEventsByGroup,
-  deleteAllEventsForUser,
+  deleteAllEventsOwnerOnly,
 } from '../lib/eventsApi'
 import { useFamily } from '../context/FamilyContext'
 import { buildBackgroundEventsForDate } from '../lib/backgroundEvents'
-import { filterForegroundEvents } from '../lib/eventLayer'
+import {
+  filterForegroundEvents,
+  isAllDayEvent,
+  getEventEndDate,
+  filterTimedEvents,
+  filterAllDayEvents,
+} from '../lib/eventLayer'
 import {
   addCalendarDaysOslo,
   getRecurrenceOccurrenceDatesOslo,
@@ -50,7 +56,10 @@ export interface WeekDayLayout {
   dayLabel: string
   dayAbbr: string
   personIdsWithEvents: PersonId[]
+  /** Timed foreground events — rendered in the hourly timeline / list. */
   events: Event[]
+  /** All-day / multi-day foreground events — rendered in the AllDayRow, NOT in the timeline. */
+  allDayEvents: Event[]
   layoutItems: TimelineLayoutItem[]
   backgroundLayoutItems: TimelineLayoutItem[]
   gaps: GapInfo[]
@@ -182,6 +191,34 @@ export function useScheduleState() {
     setScheduleError(null)
   }, [effectiveUserId])
 
+  // Keep the open event detail panel in sync with the live event store.
+  // When a realtime refresh or a partner edit updates userEventsByDate, the event
+  // snapshot inside selectedEvent would otherwise become stale.
+  // When the event is deleted by the partner, close the sheet so the user is not
+  // left staring at a ghost event (which would throw on any edit attempt).
+  useEffect(() => {
+    if (!selectedEvent) return
+    const targetId = selectedEvent.event.id
+
+    for (const [date, events] of Object.entries(userEventsByDate)) {
+      const latest = events.find((e) => e.id === targetId)
+      if (latest) {
+        if (latest !== selectedEvent.event) {
+          setSelectedEvent({ event: latest, date })
+        }
+        return
+      }
+    }
+
+    // Event not found in any loaded date.
+    // Only close the sheet if the event's original date has already been fetched
+    // (confirms the event was deleted, not merely that the date isn't loaded yet).
+    const dateIsLoaded = selectedEvent.date in userEventsByDate
+    if (dateIsLoaded) {
+      setSelectedEvent(null)
+    }
+  }, [userEventsByDate]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Silent refresh trigger (no loading skeleton/flicker).
   useEffect(() => {
     if (!user) return
@@ -216,10 +253,13 @@ export function useScheduleState() {
     })()
   }, [refreshKey, selectedDate, user?.id])
 
-  // Mobile/PWA fallback refresh: focus/pageshow + visible polling.
+  // Mobile/PWA fallback refresh: focus/pageshow + visibility change + polling.
+  // includeVisibilityChange ensures iOS PWA foreground transitions trigger a refresh
+  // even when the focus event is not reliably fired.
   useMobileRefreshTriggers({
     enabled: Boolean(user && effectiveUserId),
     onRefresh: queueRefresh,
+    includeVisibilityChange: true,
   })
 
   // Live updates: silently refresh current week when events change.
@@ -246,10 +286,13 @@ export function useScheduleState() {
     const prev = userEventsByDate[prevDate] ?? []
 
     const out: Event[] = []
+    const seenIds = new Set<string>()
 
     for (const e of own) {
-      if (isOvernightEvent(e)) {
-        // On start date, render until end-of-day.
+      seenIds.add(e.id)
+      if (isAllDayEvent(e)) {
+        out.push(e)
+      } else if (isOvernightEvent(e)) {
         out.push({ ...e, end: '23:59' })
       } else {
         out.push(e)
@@ -257,13 +300,26 @@ export function useScheduleState() {
     }
 
     for (const e of prev) {
+      if (seenIds.has(e.id)) continue
+      if (isAllDayEvent(e)) continue
       if (!isOvernightEvent(e)) continue
-      // Spillover from previous date into this date.
-      out.push({
-        ...e,
-        start: '00:00',
-        end: e.end,
-      })
+      seenIds.add(e.id)
+      out.push({ ...e, start: '00:00', end: e.end })
+    }
+
+    // Project multi-day all-day events anchored on earlier dates onto this date.
+    // Attach __anchorDate so delete/edit operations resolve the correct DB row.
+    for (const [anchorDate, anchorEvents] of Object.entries(userEventsByDate)) {
+      if (anchorDate >= date) continue
+      for (const e of anchorEvents) {
+        if (seenIds.has(e.id)) continue
+        if (!isAllDayEvent(e)) continue
+        const endDate = getEventEndDate(e, anchorDate)
+        if (endDate >= date) {
+          seenIds.add(e.id)
+          out.push({ ...e, metadata: { ...e.metadata, __anchorDate: anchorDate } })
+        }
+      }
     }
 
     return out
@@ -356,15 +412,17 @@ export function useScheduleState() {
     const updated = await updateEventApi(effectiveUserId!, eventId, updates, newDate)
     if (!updated) throw new Error('Could not update event')
 
+    // Always use the server-returned row so concurrent partner edits are not clobbered.
     setUserEventsByDate((prev) => {
       const next = { ...prev }
       if (newDate && newDate !== date) {
         next[date] = (prev[date] ?? []).filter((e) => e.id !== eventId)
-        const updatedEvent = { ...(prev[date] ?? []).find((e) => e.id === eventId)!, ...updates }
-        next[newDate] = [...(prev[newDate] ?? []), updatedEvent]
+        // Also remove from target date in case a realtime insert already landed it there,
+        // then add the authoritative server row.
+        next[newDate] = [...(prev[newDate] ?? []).filter((e) => e.id !== eventId), updated]
       } else {
         const list = prev[date] ?? []
-        next[date] = list.map((e) => (e.id === eventId ? { ...e, ...updates } : e))
+        next[date] = list.map((e) => (e.id === eventId ? updated : e))
       }
       return next
     })
@@ -433,10 +491,12 @@ export function useScheduleState() {
 
   async function clearAllEvents() {
     if (isLinked) {
-      throw new Error('Kun eieren av kalenderen kan slette alle aktiviteter.')
+      throw new Error('Kun eieren av kalenderen kan slette alle hendelser.')
     }
     if (user) {
-      const ok = await deleteAllEventsForUser(effectiveUserId!)
+      // Uses a SECURITY DEFINER RPC that rejects linked users at the DB level,
+      // so even a client bypass cannot bulk-delete another family's events.
+      const ok = await deleteAllEventsOwnerOnly()
       if (!ok) throw new Error('Could not clear events')
     }
     setUserEventsByDate({})
@@ -452,9 +512,11 @@ export function useScheduleState() {
       const dayEvents = getAllEventsForDate(day.date)
       const visible = calculateVisibleEvents(dayEvents, selectedPersonIds)
       const foreground = filterForegroundEvents(visible)
+      const timed = filterTimedEvents(foreground)
+      const allDay = filterAllDayEvents(foreground)
       const background = buildBackgroundEventsForDate(day.date, people, selectedPersonIds)
-      const busyForGaps = [...foreground, ...background]
-      const layoutItems = layoutTimelineWithOverlapGroups(foreground, WEEK_TIMELINE_PIXELS_PER_HOUR)
+      const busyForGaps = [...timed, ...background]
+      const layoutItems = layoutTimelineWithOverlapGroups(timed, WEEK_TIMELINE_PIXELS_PER_HOUR)
       const backgroundLayoutItems = normalizeBackgroundColumns(
         layoutTimelineWithOverlapGroups(
           background,
@@ -463,13 +525,14 @@ export function useScheduleState() {
         people
       )
       const gaps = calculateGaps(busyForGaps, WEEK_TIMELINE_PIXELS_PER_HOUR)
-      const visiblePersonIds: PersonId[] = [...new Set(foreground.flatMap((e) => getEventParticipantIds(e)))]
+      const visiblePersonIds: PersonId[] = [...new Set(timed.flatMap((e) => getEventParticipantIds(e)))]
       return {
         date: day.date,
         dayLabel: day.dayLabel,
         dayAbbr: day.dayAbbr,
         personIdsWithEvents: visiblePersonIds,
-        events: foreground,
+        events: timed,
+        allDayEvents: allDay,
         layoutItems,
         backgroundLayoutItems,
         gaps,
@@ -499,18 +562,28 @@ export function useScheduleState() {
     [visibleStoredEvents]
   )
 
+  const foregroundTimedEvents = useMemo(
+    () => filterTimedEvents(foregroundEvents),
+    [foregroundEvents]
+  )
+
+  const allDayEventsForDay = useMemo(
+    () => filterAllDayEvents(foregroundEvents),
+    [foregroundEvents]
+  )
+
   const backgroundEvents = useMemo(
     () => buildBackgroundEventsForDate(selectedDate, people, selectedPersonIds),
     [selectedDate, people, selectedPersonIds]
   )
   const busyEventsForGaps = useMemo(
-    () => [...foregroundEvents, ...backgroundEvents],
-    [foregroundEvents, backgroundEvents]
+    () => [...foregroundTimedEvents, ...backgroundEvents],
+    [foregroundTimedEvents, backgroundEvents]
   )
 
   const layoutItems = useMemo(
-    () => layoutTimelineWithOverlapGroups(foregroundEvents, pixelsPerHour),
-    [foregroundEvents, pixelsPerHour]
+    () => layoutTimelineWithOverlapGroups(foregroundTimedEvents, pixelsPerHour),
+    [foregroundTimedEvents, pixelsPerHour]
   )
 
   const backgroundLayoutItems = useMemo(
@@ -525,8 +598,8 @@ export function useScheduleState() {
 
   const daySummary = useMemo((): DaySummary => {
     const now = isToday(selectedDate) ? getNowMinutes() : undefined
-    return buildDaySummary(foregroundEvents, selectedDate, now, busyEventsForGaps)
-  }, [foregroundEvents, selectedDate, busyEventsForGaps])
+    return buildDaySummary(foregroundTimedEvents, selectedDate, now, busyEventsForGaps)
+  }, [foregroundTimedEvents, selectedDate, busyEventsForGaps])
 
   return {
     selectedDate,
@@ -542,6 +615,7 @@ export function useScheduleState() {
     weekDays,
     weekLayoutData,
     visibleEvents: foregroundEvents,
+    allDayEventsForDay,
     layoutItems,
     backgroundLayoutItems,
     gaps,

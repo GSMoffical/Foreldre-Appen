@@ -26,6 +26,8 @@ export function UndoProvider({ children }: { children: ReactNode }) {
     message: string
     onUndo: () => void | Promise<void>
   } | null>(null)
+  const [undoError, setUndoError] = useState(false)
+  const undoErrorTimerRef = useRef<number | null>(null)
   const idRef = useRef(0)
   const timeoutRef = useRef<number | null>(null)
   const reducedMotion = useReducedMotion() ?? false
@@ -62,7 +64,12 @@ export function UndoProvider({ children }: { children: ReactNode }) {
     try {
       await Promise.resolve(fn())
     } catch {
-      // best-effort
+      if (undoErrorTimerRef.current != null) window.clearTimeout(undoErrorTimerRef.current)
+      setUndoError(true)
+      undoErrorTimerRef.current = window.setTimeout(() => {
+        setUndoError(false)
+        undoErrorTimerRef.current = null
+      }, 3500)
     }
   }, [payload, dismiss])
 
@@ -70,7 +77,7 @@ export function UndoProvider({ children }: { children: ReactNode }) {
     <UndoContext.Provider value={{ showUndo }}>
       {children}
       <AnimatePresence>
-        {payload && (
+        {payload && !undoError && (
           <motion.div
             key={payload.id}
             role="status"
@@ -93,6 +100,27 @@ export function UndoProvider({ children }: { children: ReactNode }) {
               >
                 Angre
               </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {undoError && (
+          <motion.div
+            key="undo-error"
+            role="alert"
+            aria-live="assertive"
+            initial={reducedMotion ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={springSnappy}
+            className="pointer-events-none fixed inset-x-0 z-[50] flex justify-center px-3"
+            style={{
+              bottom: 'calc(72px + env(safe-area-inset-bottom, 0px))',
+            }}
+          >
+            <div className="pointer-events-none flex w-full max-w-[390px] items-center gap-3 rounded-2xl border-2 border-rose-400/30 bg-rose-600 px-3 py-2.5 text-white shadow-planner">
+              <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug">Angre mislyktes — prøv igjen.</p>
             </div>
           </motion.div>
         )}

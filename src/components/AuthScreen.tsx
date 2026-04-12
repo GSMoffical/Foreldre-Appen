@@ -102,15 +102,7 @@ export function AuthScreen() {
         </div>
       )}
       <header className="flex flex-col px-4 pt-3 pb-4 bg-white rounded-b-[32px] border-b border-zinc-200">
-        <div className="flex items-center justify-between text-[11px] text-zinc-400">
-          <span>9:41</span>
-          <div className="flex items-center gap-1" aria-hidden>
-            <span className="h-2 w-2 rounded-full bg-zinc-400" />
-            <span className="h-2 w-4 rounded bg-zinc-400" />
-            <span className="h-2 w-5 rounded bg-zinc-400" />
-          </div>
-        </div>
-        <div className="mt-2 flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="font-display text-[22px] font-bold text-brandNavy drop-shadow-[0_3px_0_rgba(255,255,255,0.9)]">
               ForeldrePortalen
@@ -316,9 +308,6 @@ export function AuthScreen() {
             </button>
           </form>
 
-          <p className="mt-4 text-[11px] text-zinc-400">
-            Supabase: Aktiver e-post under Authentication → Providers → Email hvis innlogging feiler.
-          </p>
         </div>
 
         <div className="mt-4 border border-zinc-200 bg-zinc-50 rounded-[24px] px-4 py-3 text-center text-[12px] text-zinc-800">

@@ -36,7 +36,7 @@ export function usePermissions() {
     canManageFamilyMembers: isCalendarOwner,
     /** Create invite links (only owner) */
     canInviteOthers: isCalendarOwner,
-    /** “Slett alle aktiviteter” (only owner — big blast radius) */
+    /** "Slett alle hendelser" (only owner — big blast radius) */
     canClearAllEvents: isCalendarOwner,
     canEditFamilyMember,
     selfFamilyMemberId,

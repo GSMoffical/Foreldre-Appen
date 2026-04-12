@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FamilyFilterBar } from '../../components/FamilyFilterBar'
 import { SearchBar } from '../../components/SearchBar'
@@ -8,9 +8,12 @@ import { ScheduleLoadingSkeleton } from '../../components/ScheduleLoadingSkeleto
 import { EmptyState } from '../../components/EmptyState'
 import { WeeklyList } from '../../components/WeeklyList'
 import { TimelineContainer } from '../../components/TimelineContainer'
+import { AllDayRow } from '../../components/AllDayRow'
 import { springSnappy } from '../../lib/motion'
+import { logEvent } from '../../lib/appLogger'
 import { COPY } from '../../lib/norwegianCopy'
 import { todayKeyOslo } from '../../lib/osloCalendar'
+import { useFamily } from '../../context/FamilyContext'
 import type { Event, Task, PersonId, TimelineLayoutItem, GapInfo } from '../../types'
 import type { SaveFeedbackState } from '../app/hooks/useSaveFeedback'
 import type { WeekDayLayout } from '../../hooks/useScheduleState'
@@ -40,10 +43,10 @@ interface CalendarHomeTabProps {
   onSelectBackgroundEvent: (event: Event) => void
   onDragReschedule: (eventId: string, times: { prevStart: string; prevEnd: string; nextStart: string; nextEnd: string }) => Promise<void>
   onDeleteWeeklyEvent: (event: Event, date: string) => Promise<void>
-  onMoveWeeklyEvent: (event: Event, fromDate: string, toDate: string) => Promise<void>
   openAddTask: () => void
   taskCountByDate: Record<string, number>
   dayTasks: Task[]
+  allDayEvents: Event[]
 }
 
 export function CalendarHomeTab({
@@ -71,12 +74,29 @@ export function CalendarHomeTab({
   onSelectBackgroundEvent,
   onDragReschedule,
   onDeleteWeeklyEvent,
-  onMoveWeeklyEvent,
   openAddTask,
   taskCountByDate,
   dayTasks,
+  allDayEvents,
 }: CalendarHomeTabProps) {
   const [showTodayPanel, setShowTodayPanel] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const { people } = useFamily()
+
+  const openTasksWithPerson = useMemo(() =>
+    dayTasks
+      .filter((t) => !t.completedAt)
+      .sort((a, b) => (a.dueTime ?? '99:99').localeCompare(b.dueTime ?? '99:99'))
+      .map((t) => ({
+        task: t,
+        person: people.find((p) => p.id === (t.childPersonId ?? t.assignedToPersonId)),
+      })),
+    [dayTasks, people]
+  )
+
+  useEffect(() => {
+    if (searchOpen) logEvent('search_opened', {})
+  }, [searchOpen])
   const todayKey = todayKeyOslo()
   const todayDayData = weekLayoutData.find((d) => d.date === todayKey)
   const todayEvents = todayDayData?.events ?? []
@@ -84,86 +104,106 @@ export function CalendarHomeTab({
   const todayHasData = todayEvents.length > 0 || todayOpenTasks.length > 0
 
   return (
-    <div className="relative mt-3 flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden px-3 pb-4">
+    <div className="relative mt-2 flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden pb-4">
       <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-hidden">
         <FamilyFilterBar
           selectedPersonIds={selectedPersonIds}
           onFilterChange={setSelectedPersonIds}
           mePersonId={mePersonId}
         />
-        <div className="flex items-center justify-between gap-3 px-4 pb-1 pt-1">
-          <div className="flex shrink-0 gap-2">
-            <button
-              id="onb-add-event"
-              type="button"
-              onClick={() => openAddEvent()}
-              className="rounded-full bg-brandTeal px-3.5 py-1.5 text-[13px] font-semibold text-white shadow-planner transition hover:brightness-95 active:translate-y-px active:shadow-planner-press focus:outline-none focus:ring-2 focus:ring-brandTeal focus:ring-offset-2"
-            >
-              + Aktivitet
-            </button>
-            <button
-              id="onb-add-task"
-              type="button"
-              onClick={() => openAddTask()}
-              className="rounded-full border-2 border-brandTeal px-3.5 py-1.5 text-[13px] font-semibold text-brandTeal shadow-planner-sm transition hover:bg-brandTeal/10 active:translate-y-px active:shadow-planner-press focus:outline-none focus:ring-2 focus:ring-brandTeal focus:ring-offset-2"
-            >
-              + Oppgave
-            </button>
-          </div>
-          <div className="min-w-0 flex-1">
+        {/* Controls row — collapses to a full-width search strip when search is open */}
+        {searchOpen ? (
+          /* Search mode: only the SearchBar (input + X button), full row width */
+          <div className="flex items-center px-3 pb-1.5 pt-0.5">
             <SearchBar
+              open={true}
+              onOpenChange={setSearchOpen}
               weekLayoutData={weekLayoutData}
               onJumpToDate={setSelectedDate}
               onSelectEvent={handleSelectEvent}
             />
           </div>
-        </div>
-        <div className="flex items-center justify-between gap-2 flex-wrap px-4 pb-1 pt-1 text-[12px]">
-          <div className="flex gap-2 items-center">
+        ) : (
+          /* Normal mode: nav + action buttons + search icon at right */
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-3 pb-1.5 pt-0.5">
             <button
               type="button"
               onClick={() => handleChangeWeek(-1)}
-              className="rounded-full border-2 border-brandNavy/15 bg-white px-3 py-1 font-medium text-brandNavy shadow-planner-sm transition hover:bg-brandSky/40 active:translate-y-px active:shadow-planner-press"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 shadow-soft transition hover:bg-zinc-50 active:bg-zinc-100 touch-manipulation"
+              aria-label="Forrige uke"
             >
-              ‹ Forrige uke
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 19.5-7.5-7.5 7.5-7.5" />
+              </svg>
+            </button>
+            <button
+              id="onb-jump-today"
+              type="button"
+              onClick={handleJumpToToday}
+              className="shrink-0 rounded-xl border border-zinc-200 bg-white px-2.5 py-1.5 text-caption font-medium text-zinc-600 shadow-soft transition hover:bg-zinc-50 active:bg-zinc-100 touch-manipulation"
+            >
+              I dag
             </button>
             <button
               type="button"
               onClick={() => handleChangeWeek(1)}
-              className="rounded-full border-2 border-brandNavy/15 bg-white px-3 py-1 font-medium text-brandNavy shadow-planner-sm transition hover:bg-brandSky/40 active:translate-y-px active:shadow-planner-press"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 shadow-soft transition hover:bg-zinc-50 active:bg-zinc-100 touch-manipulation"
+              aria-label="Neste uke"
             >
-              Neste uke ›
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+            <div className="h-5 w-px shrink-0 bg-zinc-200" />
+            <button
+              id="onb-add-event"
+              type="button"
+              onClick={() => openAddEvent()}
+              className="shrink-0 rounded-pill bg-brandTeal px-3 py-1.5 text-caption font-semibold text-white shadow-planner-sm transition hover:brightness-95 active:translate-y-px active:shadow-planner-press focus:outline-none focus:ring-2 focus:ring-brandTeal/50 touch-manipulation"
+            >
+              + Hendelse
             </button>
             <button
+              id="onb-add-task"
               type="button"
-              onClick={handleJumpToToday}
-              className="rounded-full border-2 border-brandNavy/15 bg-white px-3 py-1 font-medium text-brandNavy shadow-planner-sm transition hover:bg-brandSky/40 active:translate-y-px active:shadow-planner-press"
+              onClick={() => openAddTask()}
+              className="shrink-0 rounded-pill border border-brandTeal px-3 py-1.5 text-caption font-semibold text-brandTeal transition hover:bg-brandTeal/10 active:translate-y-px focus:outline-none focus:ring-2 focus:ring-brandTeal/50 touch-manipulation"
             >
-              Gå til i dag
+              + Gjøremål
             </button>
-          </div>
-          {saveFeedback && (
-            <motion.span
-              initial={reducedMotion ? false : { scale: 0.85, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={springSnappy}
-              className={`inline-flex items-center gap-1.5 text-[12px] font-medium ${
-                saveFeedback === 'error' ? 'text-rose-700' : saveFeedback === 'saving' ? 'text-zinc-700' : 'text-emerald-700'
-              }`}
-            >
-              {saveFeedback !== 'saving' && (
-                <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                </svg>
+            {/* Right-side: save indicator + search icon — grouped so ml-auto works */}
+            <div className="ml-auto flex shrink-0 items-center gap-1.5">
+              {saveFeedback && (
+                <motion.span
+                  initial={reducedMotion ? false : { scale: 0.85, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={springSnappy}
+                  className={`inline-flex shrink-0 items-center gap-1 text-caption font-medium ${
+                    saveFeedback === 'error' ? 'text-rose-600' : saveFeedback === 'saving' ? 'text-zinc-400' : 'text-emerald-600'
+                  }`}
+                >
+                  {saveFeedback !== 'saving' && (
+                    <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                    </svg>
+                  )}
+                  {saveFeedback === 'saving'
+                    ? COPY.feedback.saving
+                    : saveFeedback === 'error'
+                      ? COPY.feedback.saveFailed
+                      : COPY.feedback.saved}
+                </motion.span>
               )}
-              {saveFeedback === 'saving'
-                ? COPY.feedback.saving
-                : saveFeedback === 'error'
-                  ? COPY.feedback.saveFailed
-                  : COPY.feedback.saved}
-            </motion.span>
-          )}
-        </div>
+              <SearchBar
+                open={false}
+                onOpenChange={setSearchOpen}
+                weekLayoutData={weekLayoutData}
+                onJumpToDate={setSelectedDate}
+                onSelectEvent={handleSelectEvent}
+              />
+            </div>
+          </div>
+        )}
         <div id="onb-week-strip">
           <WeekStrip
             days={weekLayoutData}
@@ -175,24 +215,24 @@ export function CalendarHomeTab({
         </div>
         <CalendarDayNote date={selectedDate} />
         {todayHasData && (
-          <div className="px-4 pb-1">
+          <div className="px-3 pb-1">
             <button
               type="button"
               onClick={() => setShowTodayPanel((v) => !v)}
-              className="flex w-full items-center gap-2 py-1 text-left"
+              className="flex w-full items-center gap-2 rounded-xl px-1 py-1.5 text-left transition hover:bg-zinc-50"
             >
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">I dag</span>
-              <span className="flex-1 text-[11px] text-zinc-500">
-                {todayEvents.length > 0 && `${todayEvents.length} aktivitet${todayEvents.length === 1 ? '' : 'er'}`}
+              <span className="text-caption font-semibold uppercase tracking-wider text-zinc-400">I dag</span>
+              <span className="min-w-0 flex-1 truncate text-caption text-zinc-400">
+                {todayEvents.length > 0 && `${todayEvents.length} ${todayEvents.length === 1 ? 'hendelse' : 'hendelser'}`}
                 {todayEvents.length > 0 && todayOpenTasks.length > 0 && ' · '}
                 {todayOpenTasks.length > 0 && (
-                  <span className="text-amber-600">{todayOpenTasks.length} oppgave{todayOpenTasks.length === 1 ? '' : 'r'}</span>
+                  <span className="text-amber-500">{todayOpenTasks.length} gjøremål</span>
                 )}
               </span>
               <motion.svg
                 animate={{ rotate: showTodayPanel ? 180 : 0 }}
                 transition={springSnappy}
-                className="h-3 w-3 shrink-0 text-zinc-400"
+                className="h-3 w-3 shrink-0 text-zinc-300"
                 fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
@@ -207,13 +247,13 @@ export function CalendarHomeTab({
                   transition={{ duration: 0.18 }}
                   className="overflow-hidden"
                 >
-                  <div className="space-y-3 pb-2 pt-1">
+                  <div className="space-y-2 px-1 pb-2 pt-0.5">
                     {todayEvents.length > 0 && (
                       <div className="space-y-1">
                         {todayEvents.map((e) => (
                           <div key={e.id} className="flex items-center gap-2">
-                            <span className="shrink-0 tabular-nums text-[11px] text-zinc-400">{e.start}–{e.end}</span>
-                            <span className="min-w-0 truncate text-[12px] font-medium text-zinc-800">{e.title}</span>
+                            <span className="shrink-0 tabular-nums text-caption text-zinc-400">{e.start}–{e.end}</span>
+                            <span className="min-w-0 truncate text-label font-medium text-zinc-800">{e.title}</span>
                           </div>
                         ))}
                       </div>
@@ -224,9 +264,9 @@ export function CalendarHomeTab({
                           <div key={t.id} className="flex items-center gap-2">
                             <span className="h-1.5 w-1.5 shrink-0 rounded-sm bg-amber-400" />
                             {t.dueTime && (
-                              <span className="shrink-0 tabular-nums text-[11px] font-semibold text-amber-500">{t.dueTime}</span>
+                              <span className="shrink-0 tabular-nums text-caption font-semibold text-amber-500">{t.dueTime}</span>
                             )}
-                            <span className="min-w-0 truncate text-[12px] font-medium text-zinc-800">{t.title}</span>
+                            <span className="min-w-0 truncate text-label font-medium text-zinc-800">{t.title}</span>
                           </div>
                         ))}
                       </div>
@@ -237,26 +277,50 @@ export function CalendarHomeTab({
             </AnimatePresence>
           </div>
         )}
-        {dayTasks.some((t) => !t.completedAt) && (
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-none px-4 pb-2 pt-1">
-            {dayTasks
-              .filter((t) => !t.completedAt)
-              .sort((a, b) => (a.dueTime ?? '99:99').localeCompare(b.dueTime ?? '99:99'))
-              .map((task) => (
-                <div
-                  key={task.id}
-                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700"
-                >
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-sm bg-amber-400" />
-                  {task.dueTime && (
-                    <span className="font-semibold text-amber-500">{task.dueTime}</span>
-                  )}
-                  <span className="max-w-[110px] truncate">{task.title}</span>
-                </div>
-              ))}
+        {openTasksWithPerson.length > 0 && (
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-none px-3 pb-1.5 pt-0.5">
+            {openTasksWithPerson.map(({ task, person }) => (
+              <div
+                key={task.id}
+                className="flex shrink-0 items-center gap-1.5 rounded-pill border px-2.5 py-1 text-caption font-medium"
+                style={person ? {
+                  backgroundColor: person.colorTint,
+                  borderColor: person.colorAccent,
+                  color: '#3f3f46',
+                } : {
+                  backgroundColor: '#fef3c7',
+                  borderColor: '#fcd34d',
+                  color: '#b45309',
+                }}
+              >
+                <span
+                  className="h-1.5 w-1.5 shrink-0 rounded-sm"
+                  style={{ backgroundColor: person?.colorAccent ?? '#fbbf24' }}
+                />
+                {task.dueTime && (
+                  <span
+                    className="font-semibold"
+                    style={{ color: person?.colorAccent ?? '#d97706' }}
+                  >
+                    {task.dueTime}
+                  </span>
+                )}
+                <span className="max-w-[110px] truncate">{task.title}</span>
+              </div>
+            ))}
           </div>
         )}
-        <div className="mt-1 flex min-h-0 flex-1 flex-col overflow-hidden">
+        {!showListView && allDayEvents.length > 0 && (
+          <AllDayRow
+            events={allDayEvents}
+            selectedDate={selectedDate}
+            onSelectEvent={(event) => {
+              const anchorDate = (event.metadata as any)?.__anchorDate as string | undefined ?? selectedDate
+              handleSelectEvent(event, anchorDate)
+            }}
+          />
+        )}
+        <div id="onb-timeline" className="mt-1 flex min-h-0 flex-1 flex-col overflow-hidden">
           {weekEventsLoading ? (
             <ScheduleLoadingSkeleton />
           ) : showNoFamilyEmpty ? (
@@ -267,7 +331,7 @@ export function CalendarHomeTab({
                 weekLayoutData={weekLayoutData}
                 onSelectEvent={handleSelectEvent}
                 onDeleteEvent={(event, date) => onDeleteWeeklyEvent(event, date)}
-                onMoveEvent={(event, fromDate, toDate) => onMoveWeeklyEvent(event, fromDate, toDate)}
+                onAddEventForDay={(date) => openAddEvent(date)}
               />
             ) : isWeekFilteredEmpty ? (
               <EmptyState context="week" variant="filtered" />

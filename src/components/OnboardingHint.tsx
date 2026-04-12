@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { hasSeenHint, markHintSeen } from '../lib/onboarding'
+import { useAuth } from '../context/AuthContext'
 
 interface OnboardingHintProps {
   hintId: string
@@ -14,16 +15,19 @@ interface OnboardingHintProps {
  * Renders at the bottom of the screen above BottomNav.
  */
 export function OnboardingHint({ hintId, children, autoDismissMs = 5000 }: OnboardingHintProps) {
+  const { user } = useAuth()
+  const userId = user?.id ?? ''
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    if (!hasSeenHint(hintId)) {
-      markHintSeen(hintId)
+    if (!userId) return
+    if (!hasSeenHint(hintId, userId)) {
+      markHintSeen(hintId, userId)
       setVisible(true)
       const t = setTimeout(() => setVisible(false), autoDismissMs)
       return () => clearTimeout(t)
     }
-  }, [hintId, autoDismissMs])
+  }, [hintId, autoDismissMs, userId])
 
   return (
     <AnimatePresence>
@@ -33,8 +37,8 @@ export function OnboardingHint({ hintId, children, autoDismissMs = 5000 }: Onboa
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 8, opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-x-4 z-[80] flex items-start gap-3 rounded-xl bg-zinc-900 px-4 py-3 shadow-2xl"
-          style={{ bottom: 84 }}
+          className="fixed inset-x-4 z-[9999] flex items-start gap-3 rounded-xl bg-zinc-900 px-4 py-3 shadow-2xl"
+          style={{ bottom: 128 }}
           onClick={() => setVisible(false)}
           role="status"
           aria-live="polite"

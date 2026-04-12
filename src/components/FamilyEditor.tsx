@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { inputBase, btnPrimary, btnSecondary, btnRowAction, btnPrimaryPill, cardInset } from '../lib/ui'
 import type { ChildSchoolProfile, MemberKind, ParentWorkProfile, Person } from '../types'
 import { useFamily } from '../context/FamilyContext'
 import { usePermissions } from '../hooks/usePermissions'
@@ -144,7 +145,7 @@ function PersonForm({
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-[14px] outline-none focus:border-zinc-400"
+          className={`mt-1 ${inputBase}`}
           placeholder={memberKind === 'child' ? 'f.eks. Emma' : 'f.eks. Anne'}
           autoFocus
         />
@@ -189,14 +190,14 @@ function PersonForm({
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 rounded-lg border border-zinc-200 py-2 text-[14px] font-medium text-zinc-700"
+          className={`flex-1 ${btnSecondary}`}
         >
           Avbryt
         </button>
         <button
           type="submit"
           disabled={saving}
-          className="flex-1 rounded-lg bg-brandTeal py-2 text-[14px] font-semibold text-white shadow-planner transition hover:brightness-95 disabled:opacity-70 focus:outline-none focus:ring-2 focus:ring-brandTeal focus:ring-offset-2"
+          className={`flex-1 ${btnPrimary}`}
         >
           {saving ? 'Lagrer…' : saveLabel}
         </button>
@@ -218,17 +219,27 @@ export function FamilyEditor({ onPersonRemoved }: FamilyEditorProps) {
   const mePersonId = useResolvedMePersonId(people, currentPersonId, user?.id)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
-  const [parentInviteUrl, setParentInviteUrl] = useState<string | null>(null)
+  const [inviteUrlByPersonId, setInviteUrlByPersonId] = useState<Record<string, string>>({})
+  const [expandedInviteForId, setExpandedInviteForId] = useState<string | null>(null)
   const [inviteLoadingForId, setInviteLoadingForId] = useState<string | null>(null)
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
 
   const editingPerson = editingId ? people.find((p) => p.id === editingId) : null
 
   async function showInviteForParent(memberId: string) {
     if (!user || !effectiveUserId) return
+    if (inviteUrlByPersonId[memberId]) {
+      setExpandedInviteForId((prev) => (prev === memberId ? null : memberId))
+      return
+    }
     setInviteLoadingForId(memberId)
     try {
       const inv = await getOrCreateInviteForTarget(effectiveUserId, memberId)
-      if (inv) setParentInviteUrl(buildInviteUrl(inv.token))
+      if (inv) {
+        const url = buildInviteUrl(inv.token)
+        setInviteUrlByPersonId((prev) => ({ ...prev, [memberId]: url }))
+        setExpandedInviteForId(memberId)
+      }
     } finally {
       setInviteLoadingForId(null)
     }
@@ -237,69 +248,32 @@ export function FamilyEditor({ onPersonRemoved }: FamilyEditorProps) {
   return (
     <div className="space-y-4">
       {isInvitedParent && (
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50/90 p-3 text-[13px] leading-relaxed text-zinc-700">
-          <p className="font-medium text-zinc-900">Invitert forelder</p>
-          <p className="mt-1">
-            Du kan legge til og endre aktiviteter i kalenderen. Familiemedlemmer (barn og andre) administreres av{' '}
-            <span className="font-medium">eieren av kalenderen</span>. Du kan redigere navn og farge på{' '}
-            <span className="font-medium">deg selv</span> med «Rediger» på din rad.
+        <div className={`${cardInset} p-3.5 text-[13px] leading-relaxed`}>
+          <p className="font-medium text-zinc-800">Invitert forelder</p>
+          <p className="mt-1 text-zinc-600">
+            Du kan legge til og endre hendelser i kalenderen. Familiemedlemmer administreres av{' '}
+            <span className="font-medium text-zinc-700">eieren av kalenderen</span>. Du kan redigere navn og farge på{' '}
+            <span className="font-medium text-zinc-700">deg selv</span> med «Rediger» på din rad.
           </p>
         </div>
       )}
 
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-zinc-900">Familie</h2>
+        <h2 className="text-[17px] font-semibold text-zinc-900">Familie</h2>
         {canManageFamilyMembers && !adding && !editingId && (
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="rounded-lg bg-brandTeal px-3 py-1.5 text-[13px] font-medium text-white shadow-planner-sm hover:brightness-95"
+            className={btnPrimaryPill}
           >
             Legg til person
           </button>
         )}
       </div>
 
-      {parentInviteUrl && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50/90 p-3 text-[13px] text-emerald-900">
-          <p className="font-medium">Invitasjonslenke til forelder</p>
-          <input
-            readOnly
-            value={parentInviteUrl}
-            className="mt-2 w-full break-all rounded-lg border border-emerald-200 bg-white px-2 py-1.5 text-[12px]"
-            aria-label="Invitasjonslenke"
-          />
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(parentInviteUrl)
-                } catch {
-                  // ignore
-                }
-              }}
-              className="rounded-full bg-emerald-700 px-3 py-1 text-[12px] font-medium text-white"
-            >
-              Kopier lenke
-            </button>
-            <button
-              type="button"
-              onClick={() => setParentInviteUrl(null)}
-              className="text-[12px] font-medium text-emerald-900 underline underline-offset-2"
-            >
-              Skjul
-            </button>
-          </div>
-          <p className="mt-2 text-[11px] leading-relaxed text-emerald-800/90">
-            Du finner lenken igjen med «Vis invitasjonslenke» på forelderraden under, eller under Innstillinger → «Vis aktiv
-            invitasjonslenke» (siste aktive lenke).
-          </p>
-        </div>
-      )}
 
       {adding && (
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4">
+        <div className={`${cardInset} p-4`}>
           <PersonForm
             mode="add"
             title="Nytt familiemedlem"
@@ -311,7 +285,11 @@ export function FamilyEditor({ onPersonRemoved }: FamilyEditorProps) {
                   effectiveUserId,
                   created.id
                 )
-                if (inv) setParentInviteUrl(buildInviteUrl(inv.token))
+                if (inv) {
+                  const url = buildInviteUrl(inv.token)
+                  setInviteUrlByPersonId((prev) => ({ ...prev, [created.id]: url }))
+                  setExpandedInviteForId(created.id)
+                }
               }
             }}
             onCancel={() => setAdding(false)}
@@ -320,7 +298,7 @@ export function FamilyEditor({ onPersonRemoved }: FamilyEditorProps) {
       )}
 
       {editingPerson && (
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4">
+        <div className={`${cardInset} p-4`}>
           <PersonForm
             mode="edit"
             initial={editingPerson}
@@ -345,8 +323,9 @@ export function FamilyEditor({ onPersonRemoved }: FamilyEditorProps) {
         {people.map((p) => (
           <li
             key={p.id}
-            className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3"
+            className="rounded-xl border border-zinc-200 bg-white shadow-soft"
           >
+          <div className="flex items-center justify-between px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <span
                 className="h-8 w-8 shrink-0 rounded-full"
@@ -377,7 +356,7 @@ export function FamilyEditor({ onPersonRemoved }: FamilyEditorProps) {
                     type="button"
                     onClick={() => void showInviteForParent(p.id)}
                     disabled={!!adding || !!editingId || inviteLoadingForId === p.id}
-                    className="rounded-lg border border-emerald-200 bg-emerald-50/90 px-3 py-1.5 text-[12px] font-medium text-emerald-900 disabled:opacity-50"
+                    className="rounded-xl border border-emerald-200 bg-white px-2.5 py-1 text-caption font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 focus:outline-none"
                   >
                     {inviteLoadingForId === p.id ? 'Henter…' : 'Vis invitasjonslenke'}
                   </button>
@@ -387,26 +366,70 @@ export function FamilyEditor({ onPersonRemoved }: FamilyEditorProps) {
                   type="button"
                   onClick={() => setEditingId(p.id)}
                   disabled={!!adding || !!editingId}
-                  className="rounded-lg border border-zinc-200 px-3 py-1.5 text-[12px] font-medium text-zinc-600 disabled:opacity-50"
+                  className={`${btnRowAction} disabled:opacity-50`}
                 >
                   Rediger
                 </button>
               )}
-              {canManageFamilyMembers && (
+              {canManageFamilyMembers && confirmRemoveId === p.id ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-caption text-zinc-500">Fjerne?</span>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmRemoveId(null)}
+                    className={btnRowAction}
+                  >Nei</button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setConfirmRemoveId(null)
+                      await removePerson(p.id)
+                      onPersonRemoved?.(p.id)
+                    }}
+                    className="rounded-xl border border-rose-200 bg-white px-2.5 py-1 text-caption font-medium text-rose-600 hover:bg-rose-50 focus:outline-none"
+                  >Fjern</button>
+                </div>
+              ) : canManageFamilyMembers ? (
                 <button
                   type="button"
-                  onClick={async () => {
-                    if (!window.confirm(`Fjern ${p.name} og alle aktivitetene deres?`)) return
-                    await removePerson(p.id)
-                    onPersonRemoved?.(p.id)
-                  }}
+                  onClick={() => setConfirmRemoveId(p.id)}
                   disabled={!!adding || !!editingId || (mePersonId != null && p.id === mePersonId)}
-                  className="rounded-lg border border-red-200 px-3 py-1.5 text-[12px] font-medium text-red-600 disabled:opacity-50"
+                  className="rounded-xl border border-rose-200 bg-white px-2.5 py-1 text-caption font-medium text-rose-500 hover:bg-rose-50 disabled:opacity-50 focus:outline-none"
                 >
                   Fjern
                 </button>
-              )}
+              ) : null}
             </div>
+          </div>
+          {expandedInviteForId === p.id && inviteUrlByPersonId[p.id] && (
+            <div className="border-t border-emerald-100 bg-emerald-50/60 px-4 py-3 text-[13px]">
+              <p className="font-medium text-emerald-900 mb-1.5">Invitasjonslenke</p>
+              <input
+                readOnly
+                value={inviteUrlByPersonId[p.id]}
+                className="w-full break-all rounded-lg border border-emerald-100 bg-white px-3 py-1.5 text-[12px] text-zinc-700"
+                aria-label="Invitasjonslenke"
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try { await navigator.clipboard.writeText(inviteUrlByPersonId[p.id]!) } catch {}
+                  }}
+                  className="rounded-pill bg-emerald-700 px-3 py-1 text-[12px] font-medium text-white hover:bg-emerald-800 transition"
+                >
+                  Kopier lenke
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExpandedInviteForId(null)}
+                  className="text-[12px] font-medium text-emerald-800 underline underline-offset-2"
+                >
+                  Skjul
+                </button>
+              </div>
+            </div>
+          )}
           </li>
         ))}
       </ul>

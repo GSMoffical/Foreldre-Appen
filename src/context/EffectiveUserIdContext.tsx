@@ -7,6 +7,8 @@ interface EffectiveUserIdContextValue {
   effectiveUserId: string | null
   /** True if current user is viewing someone else's family. */
   isLinked: boolean
+  /** True while the initial link check is still in flight. */
+  linkLoading: boolean
   /** Leave the shared family and use own data again. */
   unlink: () => Promise<void>
   /** Re-fetch link (e.g. after accepting an invite). */
@@ -18,18 +20,18 @@ const EffectiveUserIdContext = createContext<EffectiveUserIdContextValue | undef
 export function EffectiveUserIdProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [linkedToUserId, setLinkedToUserId] = useState<string | null>(null)
-  const [, setLoading] = useState(true)
+  const [linkLoading, setLinkLoading] = useState(true)
 
   const fetchLink = useCallback(async () => {
     if (!user) {
       setLinkedToUserId(null)
-      setLoading(false)
+      setLinkLoading(false)
       return
     }
-    setLoading(true)
+    setLinkLoading(true)
     const link = await getMyLink(user.id)
     setLinkedToUserId(link?.linkedToUserId ?? null)
-    setLoading(false)
+    setLinkLoading(false)
   }, [user?.id])
 
   useEffect(() => {
@@ -48,6 +50,7 @@ export function EffectiveUserIdProvider({ children }: { children: ReactNode }) {
   const value: EffectiveUserIdContextValue = {
     effectiveUserId,
     isLinked,
+    linkLoading,
     unlink,
     refetch: fetchLink,
   }

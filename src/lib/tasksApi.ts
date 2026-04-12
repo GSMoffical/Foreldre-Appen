@@ -2,7 +2,7 @@ import type { Task, PersonId } from '../types'
 import { supabase } from './supabaseClient'
 
 const TASK_COLUMNS =
-  'id, user_id, title, notes, date, due_time, assigned_to_person_id, child_person_id, completed_at, created_at, updated_at'
+  'id, user_id, title, notes, date, due_time, assigned_to_person_id, child_person_id, completed_at, show_in_month_view, created_at, updated_at'
 
 type TaskRow = {
   id: string
@@ -14,6 +14,7 @@ type TaskRow = {
   assigned_to_person_id: string | null
   child_person_id: string | null
   completed_at: string | null
+  show_in_month_view: boolean
   created_at: string
   updated_at: string
 }
@@ -28,11 +29,12 @@ function mapRowToTask(row: TaskRow): Task {
     assignedToPersonId: (row.assigned_to_person_id ?? undefined) as PersonId | undefined,
     childPersonId: (row.child_person_id ?? undefined) as PersonId | undefined,
     completedAt: row.completed_at ?? undefined,
+    showInMonthView: row.show_in_month_view || undefined,
   }
 }
 
 export type TaskUpdates = Partial<
-  Pick<Task, 'title' | 'notes' | 'date' | 'dueTime' | 'assignedToPersonId' | 'childPersonId' | 'completedAt'>
+  Pick<Task, 'title' | 'notes' | 'date' | 'dueTime' | 'assignedToPersonId' | 'childPersonId' | 'completedAt' | 'showInMonthView'>
 >
 
 export async function fetchTasksForDateRange(
@@ -72,6 +74,7 @@ export async function createTask(
       assigned_to_person_id: input.assignedToPersonId ?? null,
       child_person_id: input.childPersonId ?? null,
       completed_at: null,
+      show_in_month_view: input.showInMonthView ?? false,
     })
     .select(TASK_COLUMNS)
     .single()
@@ -94,6 +97,7 @@ export async function updateTask(
   if ('assignedToPersonId' in updates) payload.assigned_to_person_id = updates.assignedToPersonId ?? null
   if ('childPersonId' in updates) payload.child_person_id = updates.childPersonId ?? null
   if ('completedAt' in updates) payload.completed_at = updates.completedAt ?? null
+  if ('showInMonthView' in updates) payload.show_in_month_view = updates.showInMonthView ?? false
   if (Object.keys(payload).length === 0) return null
 
   const { data, error } = await supabase

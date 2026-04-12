@@ -80,6 +80,11 @@ export interface EventMetadata {
   backgroundKind?: 'school' | 'work';
   /** Optional detail for rendering different background subtypes. */
   backgroundSubkind?: 'school_day' | 'school_lesson' | 'school_break' | 'work_day';
+  /** True for all-day events — stored as 00:00–23:59 but rendered in the all-day row, never in the hourly timeline. */
+  isAllDay?: boolean;
+  /** YYYY-MM-DD end date for multi-day events (anchor date = start date stored in DB `date` column).
+   *  Absent for single-day events. Inclusive: the event is visible on every day from anchor → endDate. */
+  endDate?: string;
   /** Free-form metadata reserved for future automation features. */
   [key: string]: unknown;
 }
@@ -175,4 +180,6 @@ export interface Task {
   childPersonId?: PersonId;
   /** ISO timestamp when marked complete; undefined = open */
   completedAt?: string;
+  /** When true, a visible indicator marks this day in month view (open tasks only). */
+  showInMonthView?: boolean;
 }

@@ -9,27 +9,6 @@ interface DayTaskListProps {
   onDelete: (task: Task) => void
 }
 
-function CheckCircleIcon() {
-  return (
-    <svg className="h-5 w-5 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-    </svg>
-  )
-}
-
-function EmptyCircleIcon() {
-  return (
-    <svg className="h-5 w-5 shrink-0 text-zinc-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-      <circle cx="12" cy="12" r="9" />
-    </svg>
-  )
-}
-
-function personName(people: Person[], personId?: string): string | undefined {
-  if (!personId) return undefined
-  return people.find((p) => p.id === personId)?.name
-}
-
 interface TaskRowProps {
   task: Task
   people: Person[]
@@ -41,59 +20,93 @@ interface TaskRowProps {
 
 function TaskRow({ task, people, onComplete, onUndoComplete, onEdit, onDelete }: TaskRowProps) {
   const isDone = !!task.completedAt
-  const assigned = personName(people, task.assignedToPersonId)
-  const child = personName(people, task.childPersonId)
-  const meta = [child, assigned ? `→ ${assigned}` : undefined].filter(Boolean).join(' ')
+  const childPerson = task.childPersonId ? people.find((p) => p.id === task.childPersonId) : undefined
+  const assigneePerson = task.assignedToPersonId ? people.find((p) => p.id === task.assignedToPersonId) : undefined
+  const primaryPerson = childPerson ?? assigneePerson
 
   return (
-    <div className={`flex items-start gap-2.5 py-0.5 ${isDone ? 'opacity-50' : ''}`}>
+    <div
+      className={`flex items-start gap-2.5 rounded-xl border px-2.5 py-2 transition-colors ${
+        isDone ? 'border-zinc-100 bg-zinc-50/60' : 'border bg-white'
+      }`}
+      style={!isDone && primaryPerson ? {
+        backgroundColor: primaryPerson.colorTint,
+        borderLeftWidth: 4,
+        borderLeftColor: primaryPerson.colorAccent,
+        borderTopColor: '#e4e4e7',
+        borderRightColor: '#e4e4e7',
+        borderBottomColor: '#e4e4e7',
+      } : undefined}
+    >
+      {/* Completion toggle */}
       <button
         type="button"
-        className="mt-0.5 shrink-0"
+        className="mt-0.5 shrink-0 active:scale-90 transition-transform"
         onClick={() => (isDone ? onUndoComplete(task) : onComplete(task))}
         aria-label={isDone ? 'Angre ferdig' : 'Merk som ferdig'}
       >
-        {isDone ? <CheckCircleIcon /> : <EmptyCircleIcon />}
+        {isDone ? (
+          <div className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500">
+            <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+            </svg>
+          </div>
+        ) : (
+          <div className="h-4 w-4 rounded-full border-2 border-zinc-300 transition-colors hover:border-brandTeal" />
+        )}
       </button>
 
-      <div className="min-w-0 flex-1">
+      {/* Content */}
+      <div className={`min-w-0 flex-1 ${isDone ? 'opacity-50' : ''}`}>
         <p
           className={`text-[13px] font-medium leading-snug ${
-            isDone ? 'text-zinc-400 line-through' : 'text-zinc-800'
+            isDone ? 'text-zinc-500 line-through decoration-zinc-300' : 'text-zinc-800'
           }`}
         >
           {task.title}
         </p>
-        {task.dueTime && !isDone && (
-          <p className="mt-0.5 text-[11px] font-medium text-amber-600">
-            Frist: {task.dueTime}
-          </p>
-        )}
-        {meta && (
-          <p className="mt-0.5 text-[11px] text-zinc-400">{meta}</p>
-        )}
-        {task.notes && !isDone && (
-          <p className="mt-0.5 text-[11px] text-zinc-500 line-clamp-2">{task.notes}</p>
+
+        {!isDone && (task.dueTime || primaryPerson) && (
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            {task.dueTime && (
+              <span className="text-[11px] font-semibold text-amber-600">{task.dueTime}</span>
+            )}
+            {primaryPerson && (
+              <span className="inline-flex items-center gap-1">
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: primaryPerson.colorAccent }}
+                />
+                <span className="text-[11px] text-zinc-400">{primaryPerson.name}</span>
+              </span>
+            )}
+          </div>
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-1">
+      {/* Icon actions */}
+      <div className="flex shrink-0 items-center gap-0.5">
         {!isDone && (
           <button
             type="button"
             onClick={() => onEdit(task)}
-            className="rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-[11px] font-medium text-zinc-500 hover:bg-zinc-50"
+            className="rounded-lg p-1 text-zinc-300 transition hover:bg-zinc-100 hover:text-zinc-500"
+            aria-label="Rediger"
           >
-            Rediger
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+            </svg>
           </button>
         )}
         <button
           type="button"
           onClick={() => onDelete(task)}
-          className="rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-[11px] font-medium text-zinc-400 hover:bg-zinc-50 hover:text-rose-500"
-          aria-label="Slett oppgave"
+          className="rounded-lg p-1 text-zinc-300 transition hover:bg-rose-50 hover:text-rose-400"
+          aria-label="Slett gjøremål"
         >
-          ✕
+          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+          </svg>
         </button>
       </div>
     </div>
@@ -110,9 +123,9 @@ export function DayTaskList({ tasks, onComplete, onUndoComplete, onEdit, onDelet
   return (
     <div className="mx-4 mb-2 mt-2">
       <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-        Oppgaver
+        Gjøremål
       </p>
-      <div className="divide-y divide-zinc-100 rounded-card border border-zinc-200 bg-white px-2.5 py-1">
+      <div className="space-y-1.5">
         {open.map((task) => (
           <TaskRow
             key={task.id}

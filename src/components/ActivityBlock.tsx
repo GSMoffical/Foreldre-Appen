@@ -263,30 +263,18 @@ export function ActivityBlock({
       {!showBlank && (dropoffPerson || pickupPerson) && (
         <>
           {dropoffPerson && (
-            <>
-              <div
-                className="absolute left-0 right-0 top-0 h-[3px]"
-                style={{ backgroundColor: dropoffPerson.colorAccent }}
-              />
-              <span
-                className="pointer-events-none absolute left-[8px] top-[3px] text-[8px] font-bold leading-none opacity-70"
-                style={{ color: dropoffPerson.colorAccent }}
-                aria-hidden
-              >↑</span>
-            </>
+            <div
+              className="pointer-events-none absolute left-[6px] right-0 top-0 h-[4px]"
+              style={{ backgroundColor: dropoffPerson.colorAccent, opacity: 0.72 }}
+              aria-hidden
+            />
           )}
           {pickupPerson && (
-            <>
-              <div
-                className="absolute left-0 right-0 bottom-0 h-[3px]"
-                style={{ backgroundColor: pickupPerson.colorAccent }}
-              />
-              <span
-                className="pointer-events-none absolute bottom-[3px] left-[8px] text-[8px] font-bold leading-none opacity-70"
-                style={{ color: pickupPerson.colorAccent }}
-                aria-hidden
-              >↓</span>
-            </>
+            <div
+              className="pointer-events-none absolute bottom-0 left-[6px] right-0 h-[4px]"
+              style={{ backgroundColor: pickupPerson.colorAccent, opacity: 0.72 }}
+              aria-hidden
+            />
           )}
         </>
       )}
@@ -315,7 +303,7 @@ export function ActivityBlock({
               style={{ backgroundColor: primaryPerson.colorAccent }}
               aria-hidden
             />
-            <span className="min-w-0 flex-1 truncate text-[11px] font-semibold leading-tight tracking-tight text-zinc-900">
+            <span className="min-w-0 flex-1 truncate text-caption font-semibold leading-tight tracking-tight text-zinc-900">
               {block.title}
             </span>
           </span>
@@ -326,7 +314,7 @@ export function ActivityBlock({
               style={{ backgroundColor: primaryPerson.colorAccent }}
               aria-hidden
             />
-            <span className="min-w-0 flex-1 truncate text-[11px] font-semibold leading-normal tracking-tight text-zinc-900">
+            <span className="min-w-0 flex-1 truncate text-caption font-semibold leading-normal tracking-tight text-zinc-900">
               {block.title}
             </span>
             <span className="shrink-0 text-right text-[10px] font-medium tabular-nums leading-none text-zinc-600">
@@ -336,25 +324,25 @@ export function ActivityBlock({
           </span>
         ) : isMedium ? (
           <>
-            <span className="min-w-0 max-w-full truncate text-[13px] font-semibold leading-tight text-zinc-900">
+            <span className="min-w-0 max-w-full truncate text-body-sm font-semibold leading-tight text-zinc-900">
               {block.title}
             </span>
-            <span className="mt-0.5 min-w-0 max-w-full truncate whitespace-nowrap text-[11px] tabular-nums text-zinc-500">
+            <span className="mt-0.5 min-w-0 max-w-full truncate whitespace-nowrap text-caption tabular-nums text-zinc-500">
               {formatTimeRange(block.start, block.end)}
             </span>
           </>
         ) : (
           <>
             <span
-              className="shrink-0 text-[11px] font-medium uppercase tracking-wider"
+              className="shrink-0 text-caption font-semibold uppercase tracking-wider"
               style={{ color: primaryPerson.colorAccent }}
             >
               {primaryPerson.name}
             </span>
-            <span className="mt-0.5 min-w-0 max-w-full truncate text-[15px] font-semibold leading-snug text-zinc-900">
+            <span className="mt-0.5 min-w-0 max-w-full truncate text-subheading font-semibold leading-snug text-zinc-900">
               {block.title}
             </span>
-            <span className="mt-0.5 min-w-0 max-w-full truncate whitespace-nowrap text-[11px] tabular-nums text-zinc-500">
+            <span className="mt-0.5 min-w-0 max-w-full truncate whitespace-nowrap text-caption tabular-nums text-zinc-500">
               {formatTimeRange(block.start, block.end)}
             </span>
           </>
@@ -363,9 +351,9 @@ export function ActivityBlock({
       {onDragReschedule && !showBlank && (
         <button
           type="button"
-          aria-label="Flytt aktivitet"
-          title="Flytt aktivitet"
-          className={`absolute inline-flex items-center justify-center rounded-full border border-zinc-300/70 bg-white/85 text-zinc-700 shadow-sm backdrop-blur-sm ${
+          aria-label="Flytt hendelse"
+          title="Flytt hendelse"
+          className={`absolute inline-flex items-center justify-center rounded-full border border-white/40 bg-white/45 text-zinc-600 backdrop-blur-sm transition hover:bg-white/75 ${
             useShortRow || showTitleOnly ? 'right-1 top-1/2 h-5 w-5 -translate-y-1/2' : 'bottom-1.5 right-1.5 h-6 w-6'
           }`}
           style={{

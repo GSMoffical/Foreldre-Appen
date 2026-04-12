@@ -1,28 +1,50 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import type { Event } from '../types'
 import { formatTime } from '../lib/time'
 import { useFamily } from '../context/FamilyContext'
 import { formatParticipantNamesLine, getParticipantPeople, participantSearchHaystack } from '../lib/eventParticipants'
 import type { WeekDayLayout } from '../hooks/useScheduleState'
+import { logEvent } from '../lib/appLogger'
 
 interface SearchBarProps {
+  /** Controlled open state — managed by the parent so it can reshape the toolbar layout. */
+  open: boolean
+  onOpenChange: (open: boolean) => void
   weekLayoutData: WeekDayLayout[]
   onJumpToDate: (date: string) => void
   onSelectEvent: (event: Event, date: string) => void
 }
 
-export function SearchBar({ weekLayoutData, onJumpToDate, onSelectEvent }: SearchBarProps) {
+export function SearchBar({ open, onOpenChange, weekLayoutData, onJumpToDate, onSelectEvent }: SearchBarProps) {
   const [query, setQuery] = useState('')
-  const [open, setOpen] = useState(false)
+  /** Fixed-position coords for the dropdown — escapes any overflow-x ancestor. */
+  const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const { people } = useFamily()
+
+  /** Focus input when search opens. */
+  useEffect(() => {
+    if (open) {
+      const t = setTimeout(() => inputRef.current?.focus(), 50)
+      return () => clearTimeout(t)
+    }
+  }, [open])
+
+  /** Clear query whenever search closes. */
+  useEffect(() => {
+    if (!open) setQuery('')
+  }, [open])
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return []
     const matches: { event: Event; date: string; dayLabel: string }[] = []
+    const seenIds = new Set<string>()
     for (const day of weekLayoutData) {
-      for (const ev of day.events) {
+      const allEventsForDay = [...day.events, ...(day.allDayEvents ?? [])]
+      for (const ev of allEventsForDay) {
+        if (seenIds.has(ev.id)) continue
+        seenIds.add(ev.id)
         const haystack = participantSearchHaystack(ev, people)
         if (haystack.includes(q)) {
           matches.push({ event: ev, date: day.date, dayLabel: day.dayAbbr })
@@ -32,31 +54,48 @@ export function SearchBar({ weekLayoutData, onJumpToDate, onSelectEvent }: Searc
     return matches.slice(0, 12)
   }, [query, weekLayoutData, people])
 
+  const updateDropPos = useCallback(() => {
+    if (inputRef.current) {
+      const r = inputRef.current.getBoundingClientRect()
+      setDropPos({ top: r.bottom + 4, left: r.left, width: Math.max(r.width, 240) })
+    }
+  }, [])
+
+  useEffect(() => {
+    if (open && query.trim()) {
+      updateDropPos()
+    } else {
+      setDropPos(null)
+    }
+  }, [open, query, updateDropPos])
+
+  /** Debounced query logging — fires 600 ms after the user stops typing. */
+  useEffect(() => {
+    if (!open || !query.trim()) return
+    const t = setTimeout(() => {
+      logEvent('search_query', { length: query.trim().length, resultCount: results.length })
+    }, 600)
+    return () => clearTimeout(t)
+  }, [open, query, results.length])
+
   return (
-    <div className="relative min-w-0 max-w-full">
-      <div className="flex items-center gap-2">
-        {open ? (
+    <>
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        {open && (
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Søk i aktiviteter…"
-            className="w-full rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-[13px] outline-none focus:border-zinc-400"
-            autoFocus
+            placeholder="Søk i hendelser denne uken…"
+            className="flex-1 min-w-0 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-[13px] outline-none focus:border-zinc-400"
           />
-        ) : null}
+        )}
         <button
           type="button"
-          onClick={() => {
-            setOpen((prev) => {
-              if (!prev) setTimeout(() => inputRef.current?.focus(), 50)
-              else setQuery('')
-              return !prev
-            })
-          }}
+          onClick={() => onOpenChange(!open)}
           className="shrink-0 rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
-          aria-label={open ? 'Lukk søk' : 'Søk i aktiviteter'}
+          aria-label={open ? 'Lukk søk' : 'Søk i hendelser'}
         >
           {open ? (
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -70,10 +109,13 @@ export function SearchBar({ weekLayoutData, onJumpToDate, onSelectEvent }: Searc
         </button>
       </div>
 
-      {open && query.trim() && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 max-w-full overflow-y-auto overflow-x-hidden rounded-xl border border-zinc-200 bg-white shadow-card">
+      {open && query.trim() && dropPos && (
+        <div
+          className="fixed z-50 max-h-56 overflow-y-auto overflow-x-hidden rounded-xl border border-zinc-200 bg-white shadow-card"
+          style={{ top: dropPos.top, left: dropPos.left, width: dropPos.width }}
+        >
           {results.length === 0 ? (
-            <p className="px-4 py-3 text-[13px] text-zinc-500">Ingen treff</p>
+            <p className="px-4 py-3 text-[13px] text-zinc-500">Ingen treff denne uken</p>
           ) : (
             results.map((r) => {
               const plist = getParticipantPeople(r.event, people)
@@ -83,10 +125,10 @@ export function SearchBar({ weekLayoutData, onJumpToDate, onSelectEvent }: Searc
                   type="button"
                   className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-zinc-50"
                   onClick={() => {
+                    logEvent('search_result_clicked', { title: r.event.title, date: r.date })
                     onJumpToDate(r.date)
                     onSelectEvent(r.event, r.date)
-                    setQuery('')
-                    setOpen(false)
+                    onOpenChange(false)
                   }}
                 >
                   <div className="flex shrink-0 gap-0.5">
@@ -115,6 +157,6 @@ export function SearchBar({ weekLayoutData, onJumpToDate, onSelectEvent }: Searc
           )}
         </div>
       )}
-    </div>
+    </>
   )
 }

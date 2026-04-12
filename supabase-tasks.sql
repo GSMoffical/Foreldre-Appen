@@ -16,6 +16,7 @@ CREATE TABLE public.tasks (
   assigned_to_person_id text,                           -- family_members.id (text), nullable
   child_person_id       text,                           -- family_members.id (text), nullable
   completed_at          timestamptz,                    -- null = open, non-null = done
+  show_in_month_view    boolean     NOT NULL DEFAULT false, -- true = show indicator in month calendar
   created_at            timestamptz NOT NULL DEFAULT now(),
   updated_at            timestamptz NOT NULL DEFAULT now()
 );
@@ -107,3 +108,11 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.get_tasks_for_calendar(date, date) TO anon, authenticated;
+
+-- ============================================================================
+-- Migration: add show_in_month_view to an existing tasks table
+-- Run this block if the table already exists (skip on a fresh setup above).
+-- ============================================================================
+
+ALTER TABLE public.tasks
+  ADD COLUMN IF NOT EXISTS show_in_month_view boolean NOT NULL DEFAULT false;

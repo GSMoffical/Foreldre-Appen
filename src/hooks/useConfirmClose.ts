@@ -1,13 +1,21 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**
- * Returns a guarded close callback that prompts the user
- * when the form has unsaved changes (isDirty = true).
- * Also wires up the beforeunload browser event.
+ * Returns guarded-close helpers that surface an inline confirmation panel
+ * instead of a browser-native window.confirm() when the form is dirty.
+ *
+ * Usage:
+ *   const { guardedClose, confirming, confirmClose, cancelConfirm } = useConfirmClose(isDirty, onClose)
+ *
+ *   - Call `guardedClose` wherever you would have called onClose (backdrop, Escape, Avbryt).
+ *   - Render a confirmation panel in the sheet when `confirming` is true, wired to
+ *     `confirmClose` (proceed) and `cancelConfirm` (stay).
  */
 export function useConfirmClose(isDirty: boolean, onClose: () => void) {
   const dirtyRef = useRef(isDirty)
   dirtyRef.current = isDirty
+
+  const [confirming, setConfirming] = useState(false)
 
   useEffect(() => {
     function handleBeforeUnload(e: BeforeUnloadEvent) {
@@ -21,10 +29,20 @@ export function useConfirmClose(isDirty: boolean, onClose: () => void) {
 
   const guardedClose = useCallback(() => {
     if (dirtyRef.current) {
-      if (!window.confirm('You have unsaved changes. Leave anyway?')) return
+      setConfirming(true)
+      return
     }
     onClose()
   }, [onClose])
 
-  return guardedClose
+  const confirmClose = useCallback(() => {
+    setConfirming(false)
+    onClose()
+  }, [onClose])
+
+  const cancelConfirm = useCallback(() => {
+    setConfirming(false)
+  }, [])
+
+  return { guardedClose, confirming, confirmClose, cancelConfirm }
 }

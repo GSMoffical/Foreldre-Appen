@@ -16,6 +16,8 @@ import { useMobileRefreshTriggers, useRealtimeRefresh } from '../features/sync/u
 interface FamilyContextValue {
   people: Person[]
   loading: boolean
+  /** True after the first family fetch has completed (success or seed). */
+  loaded: boolean
   error: string | null
   updatePerson: (
     id: string,
@@ -47,6 +49,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const { effectiveUserId, isLinked } = useEffectiveUserId()
   const [people, setPeople] = useState<Person[]>(DEFAULT_PEOPLE)
   const [loading, setLoading] = useState(false)
+  const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const didInitialLoadRef = useRef(false)
@@ -112,6 +115,17 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       }
 
       if (!data || data.length === 0) {
+        if (isLinked) {
+          // A linked partner must not seed the owner's empty family.
+          // The owner is responsible for setting up their own family members.
+          setPeople([])
+          setError(null)
+          if (shouldShowLoading) setLoading(false)
+          didInitialLoadRef.current = true
+          setLoaded(true)
+          loadInFlightRef.current = false
+          return
+        }
         // Seed default people for this user
         const payload = DEFAULT_PEOPLE.map((p, index) => ({
           user_id: effectiveUserId,
@@ -141,6 +155,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         setPeople(DEFAULT_PEOPLE)
         if (shouldShowLoading) setLoading(false)
         didInitialLoadRef.current = true
+        setLoaded(true)
         loadInFlightRef.current = false
         return
       }
@@ -173,7 +188,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       // If we're a linked user viewing the owner's family, ensure we're in their family list
       // so the owner sees us and we see the full family — unless we already claimed a parent row
       // (linked_auth_user_id) via invite.
-      const isLinked = user && effectiveUserId && effectiveUserId !== user.id
+      // isLinked comes from the outer EffectiveUserIdContext scope (same value, no redeclaration needed).
       const claimedParentRow = user && mapped.some((p) => p.linkedAuthUserId === user.id)
       const selfId = user ? `self-${user.id}` : ''
       const alreadyInFamily = selfId && mapped.some((p) => p.id === selfId)
@@ -209,6 +224,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       setError(null)
       if (shouldShowLoading) setLoading(false)
       didInitialLoadRef.current = true
+      setLoaded(true)
       loadInFlightRef.current = false
     }
 
@@ -327,7 +343,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   )
 
   return (
-    <FamilyContext.Provider value={{ people, loading, error, updatePerson, addPerson, removePerson }}>
+    <FamilyContext.Provider value={{ people, loading, loaded, error, updatePerson, addPerson, removePerson }}>
       {children}
     </FamilyContext.Provider>
   )

@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import type { Task } from '../../../types'
 import type { TaskUpdates } from '../../../lib/tasksApi'
 import { useUndo } from '../../../context/UndoContext'
+import { logEvent } from '../../../lib/appLogger'
 
 // ─── Options ──────────────────────────────────────────────────────────────────
 
@@ -75,18 +76,24 @@ export function useTaskController({
   )
 
   const createTask = useCallback(
-    (input: Omit<Task, 'id'>) => run(() => addTaskData(input)),
+    async (input: Omit<Task, 'id'>) => {
+      await run(() => addTaskData(input))
+      logEvent('task_created', { title: input.title, date: input.date, hasAssignee: !!input.assignedToPersonId })
+    },
     [run, addTaskData]
   )
 
   const editTask = useCallback(
-    (task: Task, updates: Omit<TaskUpdates, 'completedAt'>) =>
-      run(() => patchTaskData(task.id, task.date, updates)),
+    async (task: Task, updates: Omit<TaskUpdates, 'completedAt'>) => {
+      await run(() => patchTaskData(task.id, task.date, updates))
+      logEvent('task_edited', { taskId: task.id, fields: Object.keys(updates) })
+    },
     [run, patchTaskData]
   )
 
   const markTaskDone = useCallback(
     (task: Task) => {
+      logEvent('task_completed', { title: task.title, date: task.date })
       const previousCompleted = task.completedAt
       return runWithUndo(
         () => patchTaskData(task.id, task.date, { completedAt: new Date().toISOString() }),
@@ -98,13 +105,16 @@ export function useTaskController({
   )
 
   const undoTaskComplete = useCallback(
-    (task: Task) =>
-      run(() => patchTaskData(task.id, task.date, { completedAt: undefined })),
+    async (task: Task) => {
+      await run(() => patchTaskData(task.id, task.date, { completedAt: undefined }))
+      logEvent('task_uncompleted', { title: task.title, date: task.date })
+    },
     [run, patchTaskData]
   )
 
   const deleteTask = useCallback(
     (task: Task) => {
+      logEvent('task_deleted', { title: task.title, date: task.date })
       const snapshot = { ...task }
       return runWithUndo(
         () => removeTaskData(snapshot.id, snapshot.date),

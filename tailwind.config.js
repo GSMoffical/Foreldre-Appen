@@ -11,9 +11,9 @@ export default {
         dad: { tint: '#ffedd5', accent: '#ea580c' }, // orange
         family: { tint: '#f5f5f4', accent: '#57534e' }, // warm neutral
         // Brand palette (non‑blue, warm neutrals)
-        brandSky: '#fef3c7',      // light warm
-        brandSkyDeep: '#fde68a',  // deeper warm
-        brandTeal: '#22c55e',     // green accent
+        brandSky: '#f0fdf4',      // light teal-green (green-50)
+        brandSkyDeep: '#dcfce7',  // deeper teal-green (green-100)
+        brandTeal: '#1aab50',     // green accent — toned from green-500 for calmer feel
         brandNavy: '#292524',     // dark warm neutral
         brandSun: '#facc15',
         // RGB triplets in index.css so `bg-surface/95` etc. work with time-of-day tint
@@ -26,20 +26,33 @@ export default {
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       fontSize: {
+        // Existing utility sizes (keep)
         'micro': ['0.75rem', { lineHeight: '1.25', letterSpacing: '0.05em' }],
         'rail': ['0.6875rem', { lineHeight: '1.25' }],
+        // Semantic type scale (new — use these going forward)
+        'display': ['1.375rem', { lineHeight: '1.15', letterSpacing: '-0.01em' }], // 22px
+        'heading': ['1.0625rem', { lineHeight: '1.3' }],                           // 17px
+        'subheading': ['0.9375rem', { lineHeight: '1.4' }],                        // 15px
+        'body': ['0.875rem', { lineHeight: '1.5' }],                               // 14px
+        'body-sm': ['0.8125rem', { lineHeight: '1.45' }],                          // 13px
+        'label': ['0.75rem', { lineHeight: '1.25' }],                              // 12px
+        'caption': ['0.6875rem', { lineHeight: '1.2' }],                           // 11px
       },
       borderRadius: {
-        'card': '20px',
-        'block': '16px',
-        'pill': '9999px',
+        'card': '20px',    // large surface cards
+        'block': '16px',   // activity blocks, medium cards
+        'pill': '9999px',  // FAB-style add buttons, person chips
+        'sheet': '28px',   // bottom sheet top radius (new)
       },
       boxShadow: {
         soft: '0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06)',
         card: '0 2px 8px -2px rgb(0 0 0 / 0.08), 0 4px 12px -4px rgb(0 0 0 / 0.06)',
-        planner: '4px 4px 0 0 rgba(41, 37, 36, 0.14)',
-        'planner-sm': '2px 2px 0 0 rgba(41, 37, 36, 0.12)',
-        'planner-press': '2px 2px 0 0 rgba(41, 37, 36, 0.14)',
+        planner: '0 2px 8px -1px rgb(0 0 0 / 0.10), 0 1px 3px -1px rgb(0 0 0 / 0.07)',
+        'planner-sm': '0 1px 4px -1px rgb(0 0 0 / 0.09)',
+        'planner-press': '0 1px 2px 0 rgb(0 0 0 / 0.08)',
+        // New elevation tokens
+        'sheet': '0 -4px 32px -4px rgb(0 0 0 / 0.10), 0 -1px 4px 0 rgb(0 0 0 / 0.05)',
+        'float': '0 4px 20px -4px rgb(0 0 0 / 0.12), 0 2px 8px -2px rgb(0 0 0 / 0.06)',
       },
     },
   },

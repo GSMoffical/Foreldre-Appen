@@ -150,7 +150,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
     <div className="space-y-3 rounded-xl border border-zinc-200 bg-white/80 px-3 py-3 md:px-4 md:py-4">
       <p className="text-[12px] font-medium text-zinc-800">Skolerute (bakgrunn)</p>
       <p className="text-[11px] leading-relaxed text-zinc-600">
-        Basert på typiske tider i norsk grunnskole (LK20) — tilpass lokalt. Vises svakt; avtaler og aktiviteter
+        Basert på typiske tider i norsk grunnskole (LK20) — tilpass lokalt. Vises svakt; avtaler og hendelser
         legges oppå.
       </p>
 

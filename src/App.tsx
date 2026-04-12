@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useReducedMotion } from 'framer-motion'
 import { AppShell } from './components/AppShell'
 import { MobileFrame } from './components/MobileFrame'
@@ -16,9 +16,13 @@ import { useAuth } from './context/AuthContext'
 import { useEffectiveUserId } from './context/EffectiveUserIdContext'
 import { useUserPreferences } from './context/UserPreferencesContext'
 import { useReminders } from './hooks/useReminders'
+import { usePartnerNotify } from './hooks/usePartnerNotify'
+import { useNotifications } from './hooks/useNotifications'
+import { checkAndRecordNotify } from './lib/notifyPartner'
 import { useResolvedMePersonId } from './hooks/useResolvedMePersonId'
 import { useTimeOfDaySurface } from './hooks/useTimeOfDaySurface'
 import { startUxTimer, endUxTimer, logUxMetric } from './lib/uxMetrics'
+import { logEvent } from './lib/appLogger'
 import { addCalendarDaysOslo, todayKeyOslo } from './lib/osloCalendar'
 import { useSaveFeedback } from './features/app/hooks/useSaveFeedback'
 import { useInviteAcceptance } from './features/invites/hooks/useInviteAcceptance'
@@ -29,14 +33,19 @@ import { useEventController } from './features/calendar/hooks/useEventController
 import { useTasksState } from './hooks/useTasksState'
 import { useTaskController } from './features/tasks/hooks/useTaskController'
 import { OnboardingTour } from './components/OnboardingTour'
+import { DebugOverlay } from './components/DebugOverlay'
 import { loadOnboarding, resetOnboarding } from './lib/onboarding'
+import { FamilySetupScreen, isFamilySetupSkipped } from './components/FamilySetupScreen'
+
+/** Set to true to re-enable the onboarding tour. */
+const ENABLE_ONBOARDING = false
 
 function App() {
   useTimeOfDaySurface()
   const reducedMotion = useReducedMotion() ?? false
   const { user, loading } = useAuth()
-  const { refetch: refetchEffectiveUserId } = useEffectiveUserId()
-  const { error: familyError, people, loading: familyLoading } = useFamily()
+  const { refetch: refetchEffectiveUserId, isLinked, linkLoading, effectiveUserId } = useEffectiveUserId()
+  const { error: familyError, people, loading: familyLoading, loaded: familyLoaded } = useFamily()
   const {
     selectedDate,
     setSelectedDate,
@@ -45,6 +54,7 @@ function App() {
     showListView,
     setShowListView,
     visibleEvents,
+    allDayEventsForDay,
     layoutItems,
     backgroundLayoutItems,
     gaps,
@@ -70,6 +80,21 @@ function App() {
     prefetchEventsForDateRange,
   } = useScheduleState()
   useReminders(reminderEvents, osloTodayDateKey)
+  const hasLinkedPartner = people.some((p) => p.memberKind === 'parent' && !!p.linkedAuthUserId)
+
+  const partnerAuthId = useMemo(() => {
+    if (!hasLinkedPartner) return null
+    if (isLinked) return effectiveUserId
+    return people.find((p) => p.memberKind === 'parent' && !!p.linkedAuthUserId)?.linkedAuthUserId ?? null
+  }, [hasLinkedPartner, isLinked, effectiveUserId, people])
+
+  const { sendTaskNotify } = usePartnerNotify({
+    effectiveUserId: hasLinkedPartner ? effectiveUserId : null,
+    currentUserId: user?.id ?? null,
+    partnerUserId: partnerAuthId,
+  })
+
+  const { notifications: inboxNotifications, unreadCount: inboxUnreadCount, markAllRead: markInboxRead, dismiss: dismissNotification } = useNotifications(user?.id ?? null)
   const [isAdding, setIsAdding] = useState(false)
   const [addFlowSaved, setAddFlowSaved] = useState(false)
   /** When set, AddEventSheet targets this date (e.g. måned → langt trykk) instead of selectedDate */
@@ -79,18 +104,44 @@ function App() {
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [selectedBackgroundEvent, setSelectedBackgroundEvent] = useState<{ event: Event; date: string } | null>(null)
   const [navTab, setNavTab] = useState<NavTab>('today')
+  const [lastCalendarTab, setLastCalendarTab] = useState<'today' | 'week' | 'month'>('today')
   const { currentPersonId, hapticsEnabled } = useUserPreferences()
   const mePersonId = useResolvedMePersonId(people, currentPersonId, user?.id)
+
+  const [hideFamilyBanner, setHideFamilyBanner] = useState(false)
+  const [notifyToast, setNotifyToast] = useState<string | null>(null)
+  const notifyToastTimerRef = useRef<number | null>(null)
+  const { saveFeedback, showSaveFeedback, showSavingFeedback, showSaveError } = useSaveFeedback(hapticsEnabled)
+  const { tasksByDate, addTask, patchTask, removeTask, prefetchTasksForRange } = useTasksState(selectedDate)
 
   const handleMonthRangePrefetch = useCallback(
     (start: string, end: string) => {
       void prefetchEventsForDateRange(start, end)
+      void prefetchTasksForRange(start, end)
     },
-    [prefetchEventsForDateRange]
+    [prefetchEventsForDateRange, prefetchTasksForRange]
   )
-  const [hideFamilyBanner, setHideFamilyBanner] = useState(false)
-  const { saveFeedback, showSaveFeedback, showSavingFeedback, showSaveError } = useSaveFeedback(hapticsEnabled)
-  const { tasksByDate, addTask, patchTask, removeTask } = useTasksState(selectedDate)
+
+  const filteredTasksByDate = useMemo(() => {
+    if (selectedPersonIds.length === 0) return tasksByDate
+    const ids = new Set(selectedPersonIds)
+    return Object.fromEntries(
+      Object.entries(tasksByDate).map(([date, tasks]) => [
+        date,
+        tasks.filter(
+          (t) =>
+            (t.childPersonId != null && ids.has(t.childPersonId)) ||
+            (t.assignedToPersonId != null && ids.has(t.assignedToPersonId))
+        ),
+      ])
+    )
+  }, [tasksByDate, selectedPersonIds])
+
+  const hasHighlightedTaskOnDate = useCallback(
+    (date: string): boolean =>
+      (filteredTasksByDate[date] ?? []).some((t) => t.showInMonthView && !t.completedAt),
+    [filteredTasksByDate]
+  )
   const taskController = useTaskController({
     addTask,
     patchTask,
@@ -112,11 +163,21 @@ function App() {
   })
   const [showTour, setShowTour] = useState(false)
   useEffect(() => {
-    if (user && !loadOnboarding().tourCompleted) {
+    if (!ENABLE_ONBOARDING) return
+    if (user && !loadOnboarding(user.id).tourCompleted) {
       const t = setTimeout(() => setShowTour(true), 600)
       return () => clearTimeout(t)
     }
   }, [user])
+
+  const [familySetupDismissed, setFamilySetupDismissed] = useState(false)
+  useEffect(() => {
+    if (user?.id && isFamilySetupSkipped(user.id)) setFamilySetupDismissed(true)
+  }, [user?.id])
+
+  useEffect(() => {
+    if (user) logEvent('session_start', { userId: user.id.slice(0, 8) })
+  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const { inviteNotice, setInviteNotice, inviteProcessing } = useInviteAcceptance({
     userId: user?.id,
@@ -125,12 +186,12 @@ function App() {
   const taskCountByDate = useMemo(
     () =>
       Object.fromEntries(
-        Object.entries(tasksByDate).map(([date, tasks]) => [
+        Object.entries(filteredTasksByDate).map(([date, tasks]) => [
           date,
           tasks.filter((t) => !t.completedAt).length,
         ])
       ),
-    [tasksByDate]
+    [filteredTasksByDate]
   )
 
   useAutoFillWeek({
@@ -167,8 +228,25 @@ function App() {
     )
   }
 
+  const hasChildren = people.some((p) => p.memberKind === 'child')
+  const needsFamilySetup =
+    !isLinked && !linkLoading && familyLoaded && !hasChildren && !familySetupDismissed
+
+  if (needsFamilySetup) {
+    return (
+      <AppShell>
+        <MobileFrame>
+          <FamilySetupScreen
+            onSkip={() => setFamilySetupDismissed(true)}
+          />
+        </MobileFrame>
+      </AppShell>
+    )
+  }
+
   const handleSelectEvent = (event: Event, date: string) => {
     if (event.metadata?.calendarLayer === 'background') return
+    logEvent('event_opened', { eventId: event.id, title: event.title, date })
     setSelectedEvent({ event, date })
   }
 
@@ -185,9 +263,11 @@ function App() {
     setSelectedDate(today)
     setNavTab('today')
     setShowListView(false)
+    setLastCalendarTab('today')
   }
 
   const openAddEvent = (dateOverride: string | null = null) => {
+    logEvent('sheet_opened', { sheet: 'add_event', date: dateOverride ?? selectedDate })
     startUxTimer('add_event_flow')
     setAddFlowSaved(false)
     setAddEventDateOverride(dateOverride)
@@ -195,6 +275,7 @@ function App() {
   }
 
   const openAddTask = () => {
+    logEvent('sheet_opened', { sheet: 'add_task' })
     setEditingTask(null)
     setIsAddingTask(true)
   }
@@ -232,7 +313,10 @@ function App() {
                 onPersonRemoved={purgePersonEvents}
                 onClearAllEvents={clearAllEvents}
                 onRestartOnboarding={() => {
-                  resetOnboarding()
+                  resetOnboarding(user.id)
+                  setNavTab('today')
+                  setShowListView(false)
+                  setLastCalendarTab('today')
                   setShowTour(true)
                 }}
               />
@@ -246,6 +330,7 @@ function App() {
               }}
               hasEventsOnDate={(date) => getVisibleEventsForDate(date).length > 0}
               getEventsForDate={getVisibleEventsForDate}
+              hasHighlightedTaskOnDate={hasHighlightedTaskOnDate}
               onVisibleMonthRange={handleMonthRangePrefetch}
               onAddEventForDate={(date) => {
                 openAddEvent(date)
@@ -255,18 +340,32 @@ function App() {
                 setSelectedEvent({ event, date })
                 setNavTab('today')
                 setShowListView(false)
+                setLastCalendarTab('today')
               }}
             />
             </div>
           ) : navTab === 'logistics' ? (
             <TasksScreen
               weekLayoutData={weekLayoutData}
-              tasksByDate={tasksByDate}
+              tasksByDate={filteredTasksByDate}
               openAddTask={openAddTask}
               onCompleteTask={(task) => { void taskController.markTaskDone(task).catch(() => {}) }}
               onUndoCompleteTask={(task) => { void taskController.undoTaskComplete(task).catch(() => {}) }}
               onEditTask={(task) => { setIsAddingTask(false); setEditingTask(task) }}
               onDeleteTask={(task) => { void taskController.deleteTask(task).catch(() => {}) }}
+              onNotifyTask={hasLinkedPartner ? (task) => {
+                if (!checkAndRecordNotify(task.id)) return
+                void sendTaskNotify(task.title, task.id, task.notes)
+                if (notifyToastTimerRef.current != null) window.clearTimeout(notifyToastTimerRef.current)
+                setNotifyToast(task.title)
+                notifyToastTimerRef.current = window.setTimeout(() => {
+                  setNotifyToast(null)
+                  notifyToastTimerRef.current = null
+                }, 2500)
+              } : undefined}
+              inboxNotifications={inboxNotifications}
+              onMarkInboxRead={() => { void markInboxRead() }}
+              onDismissNotification={(id) => { void dismissNotification(id) }}
             />
           ) : (
             <CalendarHomeTab
@@ -302,31 +401,46 @@ function App() {
               onDeleteWeeklyEvent={async (event, date) => {
                 await controller.deleteEvent(date, event).catch(() => {})
               }}
-              onMoveWeeklyEvent={async (event, fromDate, toDate) => {
-                await controller.moveEvent(fromDate, event, toDate).catch(() => {})
-              }}
               openAddTask={openAddTask}
               taskCountByDate={taskCountByDate}
-              dayTasks={tasksByDate[selectedDate] ?? []}
+              dayTasks={filteredTasksByDate[selectedDate] ?? []}
+              allDayEvents={allDayEventsForDay}
             />
           )}
           </div>
 
+          {notifyToast && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="pointer-events-none fixed inset-x-0 z-[50] flex justify-center px-3"
+              style={{ bottom: 'calc(72px + env(safe-area-inset-bottom, 0px))' }}
+            >
+              <div className="flex w-full max-w-[390px] items-center gap-3 rounded-2xl border-2 border-brandTeal/30 bg-brandTeal px-3 py-2.5 text-white shadow-planner">
+                <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug">Varslet din partner om «{notifyToast}»</p>
+              </div>
+            </div>
+          )}
+
           <BottomNav
             active={effectiveNav}
+            logisticsNotifyCount={inboxUnreadCount}
+            lastCalendarTab={lastCalendarTab}
             onSelect={(tab) => {
+              logEvent('tab_switched', { tab })
               setNavTab(tab)
-              if (tab === 'week') setShowListView(true)
-              if (tab === 'today') setShowListView(false)
+              if (tab === 'week') { setShowListView(true); setLastCalendarTab('week') }
+              else if (tab === 'today') { setShowListView(false); setLastCalendarTab('today') }
+              else if (tab === 'month') { setLastCalendarTab('month') }
             }}
-
           />
         </div>
       </MobileFrame>
 
-      {showTour && (
+      {ENABLE_ONBOARDING && showTour && (
         <OnboardingTour onComplete={() => setShowTour(false)} />
       )}
+      <DebugOverlay />
       <CalendarOverlays
         selectedEvent={selectedEvent}
         setSelectedEvent={setSelectedEvent}
@@ -343,6 +457,7 @@ function App() {
         editingEvent={editingEvent}
         setEditingEvent={setEditingEvent}
         controller={controller}
+        mePersonId={mePersonId}
         onAddFlowSaved={() => endUxTimer('add_event_flow', 'time_to_add_event_ms')}
         onAddFlowClosedWithoutSave={() => logUxMetric('flow_backtracks', 1)}
         onConflictResolved={() => endUxTimer('resolve_conflict_flow', 'time_to_resolve_conflict_ms')}

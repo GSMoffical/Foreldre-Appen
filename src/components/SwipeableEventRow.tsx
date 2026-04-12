@@ -61,9 +61,7 @@ export function SwipeableEventRow({ children, onDelete }: SwipeableEventRowProps
   }, [revealed])
 
   function handleDeleteClick() {
-    if (window.confirm('Slette denne aktiviteten?')) {
-      onDelete()
-    }
+    onDelete()
     setRevealed(false)
     setOffsetX(0)
   }
@@ -71,15 +69,16 @@ export function SwipeableEventRow({ children, onDelete }: SwipeableEventRowProps
   return (
     <div className="relative overflow-hidden rounded-card">
       <div
-        className="absolute right-0 top-0 bottom-0 flex items-center justify-center bg-red-500 text-white"
+        className="absolute right-0 top-0 bottom-0 flex items-center justify-center bg-rose-600"
         style={{ width: DELETE_WIDTH }}
       >
         <button
           type="button"
           onClick={handleDeleteClick}
-          className="flex h-full w-full items-center justify-center text-[13px] font-semibold"
+          className="flex h-full w-full items-center justify-center text-body-sm font-semibold text-white"
+          aria-label="Slett hendelse"
         >
-          Delete
+          Slett
         </button>
       </div>
 

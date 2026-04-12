@@ -4,6 +4,13 @@ import { springDialog } from '../lib/motion'
 import type { Event, PersonId } from '../types'
 import { useFamily } from '../context/FamilyContext'
 import { useConfirmClose } from '../hooks/useConfirmClose'
+import {
+  inputBase, textareaBase, inputLabel, typLabel,
+  btnPrimary, btnSecondary, btnDanger,
+  sheetPanel, sheetHandle, sheetHandleBar, sheetFormBody,
+  sheetTitle, btnDisclosure, personChipActive, personChipInactive,
+  dropdownTrigger,
+} from '../lib/ui'
 
 function reminderLabel(m: number | undefined): string {
   if (m == null) return 'Ingen'
@@ -56,16 +63,18 @@ function DropdownItem({ label, active, onClick }: { label: string; active: boole
 
 function ReminderDropdownField({ reminderMinutes, setReminderMinutes }: { reminderMinutes: number | undefined; setReminderMinutes: (v: number | undefined) => void }) {
   const [open, setOpen] = useState(false)
+  const [showCustom, setShowCustom] = useState(false)
+  const [customMinutes, setCustomMinutes] = useState(60)
   return (
     <div className="space-y-1">
-      <label className="text-[12px] font-medium text-zinc-600">Påminnelse</label>
+      <label className={inputLabel}>Påminnelse</label>
       <div className="relative">
         <button
           type="button"
-          onClick={() => setOpen(!open)}
+          onClick={() => { setOpen(!open); setShowCustom(false) }}
           aria-haspopup="listbox"
           aria-expanded={open}
-          className="flex w-full items-center justify-between rounded-full border border-zinc-200 px-4 py-2 text-[14px] outline-none hover:border-zinc-300 focus:border-zinc-400"
+          className={dropdownTrigger}
         >
           <span className={reminderMinutes == null ? 'text-zinc-400' : 'text-zinc-900'}>
             {reminderLabel(reminderMinutes)}
@@ -74,7 +83,7 @@ function ReminderDropdownField({ reminderMinutes, setReminderMinutes }: { remind
             <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
           </svg>
         </button>
-        <ReminderDropdown open={open} onClose={() => setOpen(false)}>
+        <ReminderDropdown open={open} onClose={() => { setOpen(false); setShowCustom(false) }}>
           {[
             { value: undefined as number | undefined, label: 'Ingen' },
             { value: 5, label: '5 minutter før' },
@@ -82,14 +91,41 @@ function ReminderDropdownField({ reminderMinutes, setReminderMinutes }: { remind
             { value: 30, label: '30 minutter før' },
             { value: 60, label: '1 time før' },
             { value: 120, label: '2 timer før' },
+            { value: 1440, label: '24 timer før' },
           ].map((opt) => (
             <DropdownItem
               key={String(opt.value)}
               label={opt.label}
               active={reminderMinutes === opt.value}
-              onClick={() => { setReminderMinutes(opt.value); setOpen(false) }}
+              onClick={() => { setReminderMinutes(opt.value); setOpen(false); setShowCustom(false) }}
             />
           ))}
+          <DropdownItem
+            key="custom"
+            label="Tilpasset…"
+            active={false}
+            onClick={() => setShowCustom(true)}
+          />
+          {showCustom && (
+            <div className="flex items-center gap-2 border-t border-zinc-100 px-4 py-3">
+              <input
+                type="number"
+                min={1}
+                max={10080}
+                value={customMinutes}
+                onChange={(e) => setCustomMinutes(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-16 rounded-lg border border-zinc-200 px-2 py-1 text-center text-[13px] outline-none focus:border-zinc-400"
+              />
+              <span className="text-[13px] text-zinc-600">min før</span>
+              <button
+                type="button"
+                onClick={() => { setReminderMinutes(customMinutes); setShowCustom(false); setOpen(false) }}
+                className="ml-auto rounded-full bg-brandTeal px-3 py-1 text-[12px] font-medium text-white shadow-planner-sm"
+              >
+                Ferdig
+              </button>
+            </div>
+          )}
         </ReminderDropdown>
       </div>
     </div>
@@ -129,6 +165,8 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
   const [eventDate, setEventDate] = useState(date)
   const [start, setStart] = useState(event.start)
   const [end, setEnd] = useState(event.end)
+  const [isAllDay, setIsAllDay] = useState(() => !!(event.metadata?.isAllDay))
+  const [allDayEndDate, setAllDayEndDate] = useState(() => (event.metadata?.endDate as string | undefined) ?? date)
   const [notes, setNotes] = useState(event.notes ?? '')
   const [location, setLocation] = useState(event.location ?? '')
   const [reminderMinutes, setReminderMinutes] = useState<number | undefined>(event.reminderMinutes)
@@ -153,14 +191,19 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
       eventDate !== date ||
       start !== event.start ||
       end !== event.end ||
+      isAllDay !== !!(event.metadata?.isAllDay) ||
+      allDayEndDate !== ((event.metadata?.endDate as string | undefined) ?? date) ||
       notes !== (event.notes ?? '') ||
       location !== (event.location ?? '') ||
       reminderMinutes !== event.reminderMinutes ||
       initialTransport?.dropoffBy !== dropoffBy ||
       initialTransport?.pickupBy !== pickupBy,
-    [selectedPersonIds, title, eventDate, date, start, end, notes, location, reminderMinutes, event, initialTransport, dropoffBy, pickupBy, initialParticipants]
+    [selectedPersonIds, title, eventDate, date, start, end, isAllDay, allDayEndDate, notes, location, reminderMinutes, event, initialTransport, dropoffBy, pickupBy, initialParticipants]
   )
-  const guardedClose = useConfirmClose(isDirty, onClose)
+  const { guardedClose, confirming, confirmClose, cancelConfirm } = useConfirmClose(isDirty, onClose)
+
+  const guardedCloseRef = useRef(guardedClose)
+  guardedCloseRef.current = guardedClose
 
   useEffect(() => {
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -173,7 +216,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
     function handleKeydown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         e.preventDefault()
-        guardedClose()
+        guardedCloseRef.current()
       }
       if (e.key === 'Tab' && focusables && focusables.length > 1) {
         const first = focusables[0]
@@ -193,7 +236,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
       document.removeEventListener('keydown', handleKeydown)
       previousFocusRef.current?.focus()
     }
-  }, [guardedClose])
+  }, []) // mount-only: guardedClose accessed via ref to avoid scroll-jump on re-render
 
   useEffect(() => {
     const nextParticipants = (() => {
@@ -208,6 +251,8 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
     setEventDate(date)
     setStart(event.start)
     setEnd(event.end)
+    setIsAllDay(!!(event.metadata?.isAllDay))
+    setAllDayEndDate((event.metadata?.endDate as string | undefined) ?? date)
     setNotes(event.notes ?? '')
     setLocation(event.location ?? '')
     setReminderMinutes(event.reminderMinutes)
@@ -225,7 +270,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
       setError('Legg inn en kort tittel.')
       return
     }
-    if (!start || !end || start === end) {
+    if (!isAllDay && (!start || !end || start === end)) {
       setError('Starttid og sluttid kan ikke være like.')
       return
     }
@@ -241,19 +286,23 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
     try {
       const newDate = eventDate !== date ? eventDate : undefined
       const primaryPersonId = selectedPersonIds[0]
+      const saveStart = isAllDay ? '00:00' : start
+      const saveEnd = isAllDay ? '23:59' : end
       await Promise.resolve(
         onSave(
           {
             personId: primaryPersonId,
             title: title.trim(),
-            start,
-            end,
+            start: saveStart,
+            end: saveEnd,
             notes: notes.trim() || undefined,
             location: location.trim() || undefined,
-            reminderMinutes,
+            reminderMinutes: isAllDay ? undefined : reminderMinutes,
             metadata: {
               ...(event.metadata ?? {}),
               participants: selectedPersonIds,
+              isAllDay: isAllDay || undefined,
+              endDate: (allDayEndDate && allDayEndDate > eventDate) ? allDayEndDate : undefined,
               transport:
                 dropoffBy || pickupBy
                   ? {
@@ -292,32 +341,42 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={springDialog}
-          className="pointer-events-auto flex w-full min-h-[52dvh] max-h-[min(92dvh,920px)] flex-col overflow-y-auto overflow-x-hidden rounded-t-[28px] bg-white shadow-card"
+          className={sheetPanel}
           role="dialog"
           aria-modal="true"
-          aria-label="Rediger aktivitet"
+          aria-label="Rediger hendelse"
         >
-        <div className="sticky top-0 z-10 flex shrink-0 justify-center bg-white py-2">
-          <div className="h-1 w-10 rounded-full bg-zinc-200" aria-hidden />
+        <div className={`${sheetHandle} relative`}>
+          <div className={sheetHandleBar} aria-hidden />
+          <button
+            type="button"
+            onClick={guardedClose}
+            aria-label="Lukk"
+            className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 touch-manipulation"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-        <form className="flex min-h-0 flex-1 flex-col px-6 pb-[calc(2rem+env(safe-area-inset-bottom,0px))] pt-2 space-y-4" onSubmit={handleSubmit}>
-          <h2 className="text-[18px] font-semibold text-zinc-900">Rediger aktivitet</h2>
+        <form className={sheetFormBody} onSubmit={handleSubmit}>
+          <h2 className={sheetTitle}>Rediger hendelse</h2>
 
           <div className="space-y-1">
-            <label className="text-[12px] font-medium text-zinc-600" htmlFor="edit-date">
+            <label className={inputLabel} htmlFor="edit-date">
               Dato
             </label>
             <input
               id="edit-date"
               type="date"
-              className="w-full rounded-full border border-zinc-200 px-3 py-2 text-[14px] outline-none focus:border-zinc-400"
+              className={inputBase}
               value={eventDate}
               onChange={(e) => setEventDate(e.target.value)}
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-[12px] font-medium text-zinc-600">Hvem</label>
+            <label className={inputLabel}>Hvem</label>
             <div className="flex flex-wrap gap-1">
               {people.map((p) => (
                 <button
@@ -332,11 +391,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
                       return [...prev, p.id]
                     })
                   }}
-                  className={`rounded-full px-3 py-1 text-[12px] font-medium ${
-                    selectedPersonIds.includes(p.id)
-                      ? 'bg-brandNavy text-white'
-                      : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
-                  }`}
+                  className={selectedPersonIds.includes(p.id) ? personChipActive : personChipInactive}
                 >
                   {p.name}
                 </button>
@@ -345,50 +400,88 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
           </div>
 
           <div className="space-y-1">
-            <label className="text-[12px] font-medium text-zinc-600" htmlFor="edit-title">
+            <label className={inputLabel} htmlFor="edit-title">
               Tittel
             </label>
             <input
               id="edit-title"
-              className="w-full rounded-full border border-zinc-200 px-3 py-2 text-[14px] outline-none focus:border-zinc-400"
+              className={inputBase}
               placeholder="f.eks. Fotball, Lekser"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
           </div>
 
-          <div className="flex gap-3">
-            <div className="flex-1 space-y-1">
-              <label className="text-[12px] font-medium text-zinc-600" htmlFor="edit-start">
-                Start
-              </label>
-              <input
-                id="edit-start"
-                type="time"
-                className="w-full rounded-full border border-zinc-200 px-3 py-2 text-[14px] outline-none focus:border-zinc-400"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
+          <button
+            type="button"
+            onClick={() => { setIsAllDay((v) => !v); setError(null) }}
+            className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-[13px] font-medium transition-colors ${
+              isAllDay
+                ? 'border-brandTeal/40 bg-brandTeal/8 text-brandNavy'
+                : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-100'
+            }`}
+          >
+            <span>Heldagshendelse</span>
+            <span
+              className={`inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                isAllDay ? 'bg-brandTeal' : 'bg-zinc-300'
+              }`}
+            >
+              <span
+                className={`h-4 w-4 translate-x-0.5 rounded-full bg-white shadow transition-transform ${isAllDay ? 'translate-x-4' : ''}`}
               />
-            </div>
-            <div className="flex-1 space-y-1">
-              <label className="text-[12px] font-medium text-zinc-600" htmlFor="edit-end">
-                Slutt
-              </label>
-              <input
-                id="edit-end"
-                type="time"
-                className="w-full rounded-full border border-zinc-200 px-3 py-2 text-[14px] outline-none focus:border-zinc-400"
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-              />
-            </div>
+            </span>
+          </button>
+
+          <div className="space-y-1">
+            <label className={inputLabel} htmlFor="edit-all-day-end">Sluttdato</label>
+            <input
+              id="edit-all-day-end"
+              type="date"
+              className={inputBase}
+              value={allDayEndDate}
+              min={eventDate}
+              onChange={(e) => setAllDayEndDate(e.target.value)}
+            />
+            <p className="text-[11px] text-zinc-500 mt-1">Velg sluttdato for flerdagers hendelser</p>
           </div>
+
+          {!isAllDay && (
+            <div className="flex gap-3">
+              <div className="flex-1 space-y-1">
+                <label className={inputLabel} htmlFor="edit-start">Starttid</label>
+                <input
+                  id="edit-start"
+                  type="time"
+                  className={inputBase}
+                  value={start}
+                  onChange={(e) => setStart(e.target.value)}
+                />
+              </div>
+              <div className="flex-1 space-y-1">
+                <label className={inputLabel} htmlFor="edit-end">Sluttid</label>
+                <input
+                  id="edit-end"
+                  type="time"
+                  className={inputBase}
+                  value={end}
+                  onChange={(e) => setEnd(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {!isAllDay && end < start && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-[12px] text-amber-700">
+              Slutter neste dag kl. {end}
+            </p>
+          )}
 
           {/* Progressive disclosure toggle */}
           <button
             type="button"
             onClick={() => setShowMore((v) => !v)}
-            className="flex items-center gap-1.5 text-[12px] font-medium text-brandTeal hover:text-brandTeal/80"
+            className={btnDisclosure}
           >
             <svg
               className={`h-3.5 w-3.5 transition-transform duration-150 ${showMore ? 'rotate-180' : ''}`}
@@ -402,12 +495,12 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
           {showMore && (
             <>
               <div className="space-y-1">
-                <label className="text-[12px] font-medium text-zinc-600" htmlFor="edit-location">
+                <label className={inputLabel} htmlFor="edit-location">
                   Sted (valgfritt)
                 </label>
                 <input
                   id="edit-location"
-                  className="w-full rounded-full border border-zinc-200 px-3 py-2 text-[14px] outline-none focus:border-zinc-400"
+                  className={inputBase}
                   placeholder="f.eks. Parken"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
@@ -415,13 +508,13 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
               </div>
 
               <div className="space-y-1">
-                <label className="text-[12px] font-medium text-zinc-600" htmlFor="edit-notes">
+                <label className={inputLabel} htmlFor="edit-notes">
                   Notater (valgfritt)
                 </label>
                 <textarea
                   id="edit-notes"
                   rows={2}
-                  className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-[14px] outline-none focus:border-zinc-400 resize-none"
+                  className={textareaBase}
                   placeholder="Eventuelle ekstra detaljer"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -432,17 +525,15 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
 
               {/* Transport section */}
               <div className="space-y-2 pt-1">
-                <p className="text-[12px] font-medium text-zinc-600">Transport</p>
+                <p className={typLabel}>Transport</p>
                 <div className="flex gap-2">
                   <div className="flex-1 space-y-1">
-                    <p className="text-[11px] font-medium text-zinc-500">Levering</p>
+                    <p className={typLabel}>Levering</p>
                     <div className="flex flex-wrap gap-1">
                       <button
                         type="button"
                         onClick={() => setDropoffBy(undefined)}
-                        className={`rounded-full px-3 py-1 text-[11px] font-medium ${
-                          !dropoffBy ? 'bg-brandNavy text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
-                        }`}
+                        className={!dropoffBy ? personChipActive : personChipInactive}
                       >
                         Ingen
                       </button>
@@ -451,11 +542,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
                           key={p.id}
                           type="button"
                           onClick={() => setDropoffBy(p.id)}
-                          className={`rounded-full px-3 py-1 text-[11px] font-medium ${
-                            dropoffBy === p.id
-                              ? 'bg-brandNavy text-white'
-                              : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
-                          }`}
+                          className={dropoffBy === p.id ? personChipActive : personChipInactive}
                         >
                           {p.name}
                         </button>
@@ -463,14 +550,12 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
                     </div>
                   </div>
                   <div className="flex-1 space-y-1">
-                    <p className="text-[11px] font-medium text-zinc-500">Henting</p>
+                    <p className={typLabel}>Henting</p>
                     <div className="flex flex-wrap gap-1">
                       <button
                         type="button"
                         onClick={() => setPickupBy(undefined)}
-                        className={`rounded-full px-3 py-1 text-[11px] font-medium ${
-                          !pickupBy ? 'bg-brandNavy text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
-                        }`}
+                        className={!pickupBy ? personChipActive : personChipInactive}
                       >
                         Ingen
                       </button>
@@ -479,11 +564,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
                           key={p.id}
                           type="button"
                           onClick={() => setPickupBy(p.id)}
-                          className={`rounded-full px-3 py-1 text-[11px] font-medium ${
-                            pickupBy === p.id
-                              ? 'bg-brandNavy text-white'
-                              : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
-                          }`}
+                          className={pickupBy === p.id ? personChipActive : personChipInactive}
                         >
                           {p.name}
                         </button>
@@ -495,21 +576,23 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
             </>
           )}
 
-          {error && <p className="text-[12px] text-red-500">{error}</p>}
+          {confirming && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5 space-y-3">
+              <p className="text-body-sm font-medium text-amber-900">Du har ulagrede endringer. Forkaste?</p>
+              <div className="flex gap-2">
+                <button type="button" onClick={cancelConfirm} className={`flex-1 ${btnSecondary}`}>Bli her</button>
+                <button type="button" onClick={confirmClose} className={`flex-1 ${btnDanger}`}>Forkast</button>
+              </div>
+            </div>
+          )}
+
+          {error && <p className="text-caption text-rose-600">{error}</p>}
 
           <div className="flex gap-2 pt-2">
-            <button
-              type="button"
-              onClick={guardedClose}
-              className="flex-1 rounded-full border border-zinc-200 py-2.5 text-[14px] font-medium text-zinc-700"
-            >
+            <button type="button" onClick={guardedClose} className={`flex-1 ${btnSecondary}`}>
               Avbryt
             </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 rounded-full bg-brandTeal py-2.5 text-[14px] font-semibold text-white shadow-planner transition hover:brightness-95 disabled:opacity-70 focus:outline-none focus:ring-2 focus:ring-brandTeal focus:ring-offset-2"
-            >
+            <button type="submit" disabled={saving} className={`flex-1 ${btnPrimary}`}>
               {saving ? 'Lagrer…' : 'Lagre'}
             </button>
           </div>

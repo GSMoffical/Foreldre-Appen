@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import type { Event, Person, WeekdayMonFri } from '../types'
 import { springDialog } from '../lib/motion'
+import { sheetPanel, sheetHandle, sheetHandleBar, sheetDetailBody, typSectionCap, btnRowAction } from '../lib/ui'
 import { useFamily } from '../context/FamilyContext'
 import { dateKeyToWeekdayMon0 } from '../lib/weekday'
 import { subjectLabelForKey } from '../data/norwegianSubjects'
@@ -97,18 +98,18 @@ export function BackgroundDetailSheet({ event, date, foregroundEvents, onResolve
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={springDialog}
-          className="pointer-events-auto flex w-full min-h-[44dvh] max-h-[min(86dvh,820px)] flex-col overflow-y-auto overflow-x-hidden rounded-t-[28px] bg-white shadow-card scrollbar-none"
+          className={sheetPanel}
           role="dialog"
           aria-modal="true"
           aria-label="Detaljer skole og jobb"
         >
-          <div className="sticky top-0 z-10 flex shrink-0 justify-center bg-white py-2">
-            <div className="h-1 w-10 rounded-full bg-zinc-200" aria-hidden />
+          <div className={sheetHandle}>
+            <div className={sheetHandleBar} aria-hidden />
           </div>
-          <div className="px-5 pb-[calc(1.75rem+env(safe-area-inset-bottom,0px))] pt-1">
-            <p className="text-[12px] font-medium uppercase tracking-wide text-zinc-500">{title}</p>
-            <h2 className="mt-1 text-[20px] font-bold text-zinc-900">{person.name}</h2>
-            <p className="mt-1 text-[13px] text-zinc-600">{formatTimeRange(event.start, event.end)}</p>
+          <div className={sheetDetailBody}>
+            <p className={typSectionCap}>{title}</p>
+            <h2 className="mt-1 text-[20px] font-bold text-zinc-900 leading-tight">{person.name}</h2>
+            <p className="mt-1 text-body-sm text-zinc-600">{formatTimeRange(event.start, event.end)}</p>
 
             <div className="mt-4 space-y-2">
               {rows.map((r, idx) => {
@@ -116,8 +117,8 @@ export function BackgroundDetailSheet({ event, date, foregroundEvents, onResolve
                 return (
                   <div key={`${r.start}-${r.end}-${idx}`} className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-[13px] font-semibold text-zinc-900">{r.label}</p>
-                      <p className="text-[12px] text-zinc-600">{formatTimeRange(r.start, r.end)}</p>
+                      <p className="text-body-sm font-semibold text-zinc-900">{r.label}</p>
+                      <p className="text-caption text-zinc-500">{formatTimeRange(r.start, r.end)}</p>
                     </div>
                     {conflicts.length > 0 ? (
                       <div className="mt-2 space-y-1.5">
@@ -154,7 +155,7 @@ export function BackgroundDetailSheet({ event, date, foregroundEvents, onResolve
                                         decision: 'prioritize_background',
                                       })
                                     }
-                                    className="rounded-full border border-zinc-300 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-700 transition hover:bg-zinc-100"
+                                    className={btnRowAction}
                                   >
                                     Prioriter {r.label.toLowerCase()}
                                   </button>
@@ -171,7 +172,7 @@ export function BackgroundDetailSheet({ event, date, foregroundEvents, onResolve
                                         decision: 'prioritize_foreground',
                                       })
                                     }
-                                    className="rounded-full border border-zinc-300 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-700 transition hover:bg-zinc-100"
+                                    className={btnRowAction}
                                   >
                                     {COPY.actions.prioritizeActivity}
                                   </button>
@@ -188,7 +189,7 @@ export function BackgroundDetailSheet({ event, date, foregroundEvents, onResolve
                                         decision: 'clarify_later',
                                       })
                                     }
-                                    className="rounded-full border border-zinc-300 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-700 transition hover:bg-zinc-100"
+                                    className={btnRowAction}
                                   >
                                     {COPY.actions.clarifyLater}
                                   </button>
@@ -203,7 +204,7 @@ export function BackgroundDetailSheet({ event, date, foregroundEvents, onResolve
                         })}
                       </div>
                     ) : (
-                      <p className="mt-2 text-[12px] text-zinc-500">{COPY.conflicts.noCollisions}</p>
+                      <p className="mt-2 text-caption text-zinc-400">{COPY.conflicts.noCollisions}</p>
                     )}
                   </div>
                 )

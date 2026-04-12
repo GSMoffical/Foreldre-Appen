@@ -257,7 +257,7 @@ export function LogisticsScreen({
               <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25m-2.25 0h-2.735a2.25 2.25 0 0 0-1.632.696l-3.697 3.859A2.25 2.25 0 0 0 3 14.25m14.25-7.5H5.625c-.621 0-1.125.504-1.125 1.125v4.5" />
             </svg>
             <p className="text-[13px]">Ingen logistikk denne uken</p>
-            <p className="mt-1 text-[11px]">Legg til ansvar og logistikk via en aktivitet</p>
+            <p className="mt-1 text-[11px]">Legg til ansvar og logistikk via en hendelse</p>
           </div>
         ) : (
           <>

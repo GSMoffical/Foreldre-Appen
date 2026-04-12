@@ -29,7 +29,7 @@ export function TimeRail({ pixelsPerHour = PIXELS_PER_HOUR }: TimeRailProps) {
       {hours.map((h) => (
         <div
           key={h}
-          className="flex items-start justify-end font-mono tabular-nums text-rail text-brandNavy/55"
+          className="flex items-start justify-end font-mono tabular-nums text-rail text-zinc-400"
           style={{ height: pixelsPerHour, marginTop: h === TIMELINE_START_HOUR ? 0 : undefined }}
         >
           {formatHour(h)}

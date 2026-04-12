@@ -45,7 +45,7 @@ export function FamilyFilterBar({ selectedPersonIds, onFilterChange, mePersonId 
         type="button"
         layout
         onClick={() => handleTap(ALL_ID)}
-        className="flex shrink-0 items-center rounded-full px-4 py-2.5 text-[13px] font-medium transition-colors touch-manipulation"
+        className="flex shrink-0 items-center rounded-full px-3.5 py-1.5 text-body-sm font-medium transition-colors touch-manipulation"
         style={{
           backgroundColor: isAll ? 'rgb(228 228 231)' : 'rgb(241 245 249)',
           color: isAll ? 'rgb(39 39 42)' : 'rgb(113 113 122)',
@@ -65,7 +65,7 @@ export function FamilyFilterBar({ selectedPersonIds, onFilterChange, mePersonId 
             type="button"
             layout
             onClick={() => handleTap(person.id)}
-            className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2.5 text-[13px] font-medium transition-colors touch-manipulation ${isMe ? 'ring-2 ring-offset-1 ring-brandNavy/30' : ''}`}
+            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-body-sm font-medium transition-colors touch-manipulation ${isMe ? 'ring-2 ring-offset-1 ring-brandNavy/30' : ''}`}
             style={{
               backgroundColor: active ? person.colorTint : 'rgb(241 245 249)',
               color: active ? person.colorAccent : 'rgb(113 113 122)',

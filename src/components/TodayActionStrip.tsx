@@ -77,7 +77,7 @@ export function TodayActionStrip({
           <button
             type="button"
             onClick={onDismiss}
-            aria-label="Skjul neste aktivitet"
+            aria-label="Skjul neste hendelse"
             className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-zinc-300 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700"
           >
             <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -141,7 +141,7 @@ export function TodayActionStrip({
           )}
         </>
       ) : (
-        <p className="mt-1 text-[12px] text-zinc-600">Ingen neste aktivitet akkurat nå.</p>
+        <p className="mt-1 text-[12px] text-zinc-600">Ingen neste hendelse akkurat nå.</p>
       )}
     </div>
   )

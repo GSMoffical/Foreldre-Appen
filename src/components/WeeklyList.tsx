@@ -5,13 +5,14 @@ import { useFamily } from '../context/FamilyContext'
 import { formatParticipantNamesLine, getParticipantPeople } from '../lib/eventParticipants'
 import { ParticipantAvatarStrip } from './ParticipantAvatarStrip'
 import { SwipeableEventRow } from './SwipeableEventRow'
+import { AllDayRow } from './AllDayRow'
 
 interface WeeklyListProps {
   weekLayoutData: WeekDayLayout[]
   onSelectEvent: (event: Event, date: string) => void
   onDeleteEvent?: (event: Event, date: string) => void
-  /** Optional: move an event from one date to another (YYYY-MM-DD). */
-  onMoveEvent?: (event: Event, fromDate: string, toDate: string) => void | Promise<void>
+  /** Optional: open AddEventSheet pre-filled for a specific day. */
+  onAddEventForDay?: (date: string) => void
 }
 
 function dayHeaderLabel(_date: string, dayAbbr: string, dateStr: string): { day: string; num: string } {
@@ -19,7 +20,7 @@ function dayHeaderLabel(_date: string, dayAbbr: string, dateStr: string): { day:
   return { day: dayAbbr, num: String(d.getDate()) }
 }
 
-export function WeeklyList({ weekLayoutData, onSelectEvent, onDeleteEvent, onMoveEvent }: WeeklyListProps) {
+export function WeeklyList({ weekLayoutData, onSelectEvent, onDeleteEvent, onAddEventForDay }: WeeklyListProps) {
   const { people } = useFamily()
   return (
     <div className="relative isolate min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto px-4 scrollbar-none">
@@ -31,7 +32,7 @@ export function WeeklyList({ weekLayoutData, onSelectEvent, onDeleteEvent, onMov
           return (
             <section key={day.date} aria-label={`${day.dayLabel} list`}>
               <div className="sticky top-0 z-10 -mx-4 px-4 pb-2 pt-3 bg-surface/95 backdrop-blur">
-                <div className="flex items-baseline justify-between">
+                <div className="flex items-center justify-between">
                   <div className="flex items-baseline gap-2">
                     <span className="text-[12px] font-semibold uppercase tracking-wider text-zinc-500">
                       {dAbbr}
@@ -40,17 +41,42 @@ export function WeeklyList({ weekLayoutData, onSelectEvent, onDeleteEvent, onMov
                       {num}
                     </span>
                   </div>
-                  <span className="text-[12px] font-medium text-zinc-500">
-                    {events.length} {events.length === 1 ? 'aktivitet' : 'aktiviteter'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] font-medium text-zinc-500">
+                      {events.length + (day.allDayEvents?.length ?? 0)}{' '}
+                      {events.length + (day.allDayEvents?.length ?? 0) === 1 ? 'hendelse' : 'hendelser'}
+                    </span>
+                    {onAddEventForDay && (
+                      <button
+                        type="button"
+                        onClick={() => onAddEventForDay(day.date)}
+                        aria-label={`Legg til hendelse ${day.dayLabel}`}
+                        className="flex h-6 w-6 items-center justify-center rounded-full text-[18px] font-light leading-none text-zinc-400 transition hover:bg-brandTeal/10 hover:text-brandTeal"
+                      >
+                        +
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {events.length === 0 ? (
-                <div className="rounded-card border border-zinc-100 bg-white px-4 py-3 text-[13px] text-zinc-500 shadow-soft">
-                  Ingen aktiviteter.
+              {day.allDayEvents?.length > 0 && (
+                <div className="-mx-4 mb-2">
+                  <AllDayRow
+                    events={day.allDayEvents}
+                    selectedDate={day.date}
+                    onSelectEvent={(ev) => {
+                      const anchorDate = (ev.metadata as any)?.__anchorDate as string | undefined ?? day.date
+                      onSelectEvent(ev, anchorDate)
+                    }}
+                  />
                 </div>
-              ) : (
+              )}
+              {events.length === 0 && !day.allDayEvents?.length ? (
+                <div className="rounded-card border border-zinc-100 bg-white px-4 py-3 text-[13px] text-zinc-500 shadow-soft">
+                  Ingen hendelser.
+                </div>
+              ) : events.length === 0 ? null : (
                 <div className="space-y-2">
                   {events.map((e) => {
                     const plist = getParticipantPeople(e, people)
@@ -92,23 +118,6 @@ export function WeeklyList({ weekLayoutData, onSelectEvent, onDeleteEvent, onMov
                                 <span className="text-[12px] text-zinc-600">
                                   {e.location}
                                 </span>
-                              )}
-                              {onMoveEvent && (
-                                <button
-                                  type="button"
-                                  onClick={async (ev) => {
-                                    ev.stopPropagation()
-                                    const target = window.prompt(
-                                      'Flytt denne aktiviteten til hvilken dato? (ÅÅÅÅ-MM-DD)',
-                                      day.date
-                                    )
-                                    if (!target) return
-                                    await Promise.resolve(onMoveEvent(e, day.date, target))
-                                  }}
-                                  className="rounded-full border border-zinc-300 px-2 py-0.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100"
-                                >
-                                  Flytt…
-                                </button>
                               )}
                             </div>
                           </div>

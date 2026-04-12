@@ -1,8 +1,15 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { springDialog } from '../../../lib/motion'
 import type { Task, PersonId } from '../../../types'
 import { useFamily } from '../../../context/FamilyContext'
+import { useConfirmClose } from '../../../hooks/useConfirmClose'
+import {
+  inputBase, textareaBase, selectBase, inputLabel,
+  btnPrimary, btnSecondary, btnDanger, btnDisclosure,
+  sheetPanel, sheetHandle, sheetHandleBar, sheetFormBody,
+  sheetTitle,
+} from '../../../lib/ui'
 
 interface AddTaskSheetProps {
   date: string
@@ -27,10 +34,22 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
     try { return localStorage.getItem(LAST_ASSIGNED_KEY) ?? PERSON_NONE } catch { return PERSON_NONE }
   })
   const [childPerson, setChildPerson] = useState<string>(initialTask?.childPersonId ?? PERSON_NONE)
+  const [showInMonthView, setShowInMonthView] = useState(initialTask?.showInMonthView ?? false)
   const [saving, setSaving] = useState(false)
+
+  const isDirty = useMemo(
+    () =>
+      title !== (initialTask?.title ?? '')
+      || taskDate !== (initialTask?.date ?? date)
+      || notes !== (initialTask?.notes ?? '')
+      || dueTime !== (initialTask?.dueTime ?? '')
+      || showInMonthView !== (initialTask?.showInMonthView ?? false),
+    [title, taskDate, notes, dueTime, showInMonthView, initialTask, date]
+  )
+  const { guardedClose, confirming, confirmClose, cancelConfirm } = useConfirmClose(isDirty, onClose)
   const [showMore, setShowMore] = useState(() => {
     if (!initialTask) return false
-    return !!(initialTask.dueTime || initialTask.assignedToPersonId || initialTask.childPersonId || initialTask.notes)
+    return !!(initialTask.dueTime || initialTask.assignedToPersonId || initialTask.childPersonId || initialTask.notes || initialTask.showInMonthView)
   })
 
   const titleRef = useRef<HTMLInputElement>(null)
@@ -54,6 +73,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
         dueTime: dueTime || undefined,
         assignedToPersonId: assignedTo !== PERSON_NONE ? (assignedTo as PersonId) : undefined,
         childPersonId: childPerson !== PERSON_NONE ? (childPerson as PersonId) : undefined,
+        showInMonthView: showInMonthView || undefined,
       })
     } finally {
       setSaving(false)
@@ -63,64 +83,70 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
   return (
     <>
       <motion.div
-        className="fixed inset-0 z-40 bg-black/40"
+        className="fixed inset-0 z-30 bg-black/40"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        onPointerDown={onClose}
+        onClick={guardedClose}
+        aria-hidden
       />
+      <div className="pointer-events-none fixed inset-0 z-40 flex items-end justify-center px-3">
       <motion.div
-        className="fixed inset-x-0 bottom-0 z-50 flex max-h-[90dvh] flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl"
+        className={sheetPanel}
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={springDialog}
+        role="dialog"
+        aria-modal="true"
+        aria-label={isEdit ? 'Rediger gjøremål' : 'Nytt gjøremål'}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-zinc-100 px-5 py-4">
-          <h2 className="text-[15px] font-semibold text-zinc-800">
-            {isEdit ? 'Rediger oppgave' : 'Ny oppgave'}
-          </h2>
+        <div className={`${sheetHandle} relative`}>
+          <div className={sheetHandleBar} aria-hidden />
           <button
             type="button"
-            onClick={onClose}
-            className="text-zinc-400 hover:text-zinc-600"
+            onClick={guardedClose}
             aria-label="Lukk"
+            className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 touch-manipulation"
           >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
-          <div>
-            <label className="mb-1 block text-[12px] font-medium text-zinc-500">Tittel *</label>
+        <form onSubmit={handleSubmit} className={sheetFormBody}>
+          <h2 className={sheetTitle}>{isEdit ? 'Rediger gjøremål' : 'Nytt gjøremål'}</h2>
+          <div className="space-y-1.5">
+            <label className={inputLabel} htmlFor="task-title">Tittel *</label>
             <input
+              id="task-title"
               ref={titleRef}
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Hva skal gjøres?"
               required
-              className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-[14px] text-zinc-800 placeholder-zinc-400 outline-none focus:border-brandTeal focus:ring-1 focus:ring-brandTeal"
+              className={inputBase}
             />
           </div>
 
-          <div>
-            <label className="mb-1 block text-[12px] font-medium text-zinc-500">Dato *</label>
+          <div className="space-y-1.5">
+            <label className={inputLabel} htmlFor="task-date">Dato *</label>
             <input
+              id="task-date"
               type="date"
               value={taskDate}
               onChange={(e) => setTaskDate(e.target.value)}
               required
-              className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-[14px] text-zinc-800 outline-none focus:border-brandTeal focus:ring-1 focus:ring-brandTeal"
+              className={inputBase}
             />
           </div>
 
           <button
             type="button"
             onClick={() => setShowMore((v) => !v)}
-            className="flex items-center gap-1.5 text-[12px] font-medium text-brandTeal hover:text-brandTeal/80"
+            className={btnDisclosure}
           >
             <svg
               className={`h-3.5 w-3.5 transition-transform duration-150 ${showMore ? 'rotate-180' : ''}`}
@@ -133,23 +159,25 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
 
           {showMore && (
             <>
-              <div>
-                <label className="mb-1 block text-[12px] font-medium text-zinc-500">Frist (klokkeslett)</label>
+              <div className="space-y-1.5">
+                <label className={inputLabel} htmlFor="task-time">Frist (klokkeslett)</label>
                 <input
+                  id="task-time"
                   type="time"
                   value={dueTime}
                   onChange={(e) => setDueTime(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-[14px] text-zinc-800 outline-none focus:border-brandTeal focus:ring-1 focus:ring-brandTeal"
+                  className={inputBase}
                 />
               </div>
 
               {people.length > 0 && (
-                <div>
-                  <label className="mb-1 block text-[12px] font-medium text-zinc-500">Hvem gjelder det?</label>
+                <div className="space-y-1.5">
+                  <label className={inputLabel} htmlFor="task-child">Hvem gjelder det?</label>
                   <select
+                    id="task-child"
                     value={childPerson}
                     onChange={(e) => setChildPerson(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-[14px] text-zinc-800 outline-none focus:border-brandTeal focus:ring-1 focus:ring-brandTeal"
+                    className={selectBase}
                   >
                     <option value={PERSON_NONE}>Ingen</option>
                     {people.map((p) => (
@@ -160,12 +188,13 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
               )}
 
               {people.length > 0 && (
-                <div>
-                  <label className="mb-1 block text-[12px] font-medium text-zinc-500">Ansvarlig</label>
+                <div className="space-y-1.5">
+                  <label className={inputLabel} htmlFor="task-assigned">Ansvarlig</label>
                   <select
+                    id="task-assigned"
                     value={assignedTo}
                     onChange={(e) => setAssignedTo(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-[14px] text-zinc-800 outline-none focus:border-brandTeal focus:ring-1 focus:ring-brandTeal"
+                    className={selectBase}
                   >
                     <option value={PERSON_NONE}>Ingen</option>
                     {people.map((p) => (
@@ -175,28 +204,66 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
                 </div>
               )}
 
-              <div>
-                <label className="mb-1 block text-[12px] font-medium text-zinc-500">Notater</label>
+              <div className="space-y-1.5">
+                <label className={inputLabel} htmlFor="task-notes">Notater</label>
                 <textarea
+                  id="task-notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Valgfritt…"
                   rows={3}
-                  className="w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-[14px] text-zinc-800 placeholder-zinc-400 outline-none focus:border-brandTeal focus:ring-1 focus:ring-brandTeal"
+                  className={textareaBase}
                 />
+              </div>
+
+              <div className="flex items-center justify-between gap-3 py-0.5">
+                <label
+                  htmlFor="task-month-view"
+                  className={`flex-1 cursor-pointer select-none ${inputLabel}`}
+                >
+                  Vis i månedsoversikt
+                </label>
+                <button
+                  id="task-month-view"
+                  type="button"
+                  role="switch"
+                  aria-checked={showInMonthView}
+                  onClick={() => setShowInMonthView((v) => !v)}
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brandTeal/50 ${
+                    showInMonthView ? 'bg-brandTeal' : 'bg-zinc-300'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                      showInMonthView ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
               </div>
             </>
           )}
 
-          <button
-            type="submit"
-            disabled={!title.trim() || saving}
-            className="mt-auto w-full rounded-xl bg-brandTeal py-3 text-[14px] font-semibold text-white shadow-planner transition hover:brightness-95 active:translate-y-px disabled:opacity-40"
-          >
-            {saving ? 'Lagrer…' : isEdit ? 'Lagre endringer' : 'Legg til oppgave'}
-          </button>
+          {confirming && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5 space-y-3">
+              <p className="text-body-sm font-medium text-amber-900">Du har ulagrede endringer. Forkaste?</p>
+              <div className="flex gap-2">
+                <button type="button" onClick={cancelConfirm} className={`flex-1 ${btnSecondary}`}>Bli her</button>
+                <button type="button" onClick={confirmClose} className={`flex-1 ${btnDanger}`}>Forkast</button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={guardedClose} className={`flex-1 ${btnSecondary}`}>
+              Avbryt
+            </button>
+            <button type="submit" disabled={!title.trim() || saving} className={`flex-1 ${btnPrimary}`}>
+              {saving ? 'Lagrer…' : isEdit ? 'Lagre endringer' : 'Legg til gjøremål'}
+            </button>
+          </div>
         </form>
       </motion.div>
+      </div>
     </>
   )
 }

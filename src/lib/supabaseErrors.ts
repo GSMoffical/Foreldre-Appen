@@ -54,5 +54,5 @@ export function formatInviteAcceptError(code: string | undefined): string {
 }
 
 export function formatScheduleLoadError(err: PostgrestError): string {
-  return `Kunne ikke hente aktiviteter. ${formatSupabaseError(err)}`
+  return `Kunne ikke hente hendelser. ${formatSupabaseError(err)}`
 }

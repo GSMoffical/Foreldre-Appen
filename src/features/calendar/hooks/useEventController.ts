@@ -3,6 +3,7 @@ import type { Event, DragReschedulePayload } from '../../../types'
 import { shiftTime } from '../../../lib/time'
 import { useUndo } from '../../../context/UndoContext'
 import { startUxTimer, endUxTimer } from '../../../lib/uxMetrics'
+import { logEvent } from '../../../lib/appLogger'
 
 // ─── Internal type aliases ─────────────────────────────────────────────────
 
@@ -144,28 +145,36 @@ export function useEventController({
   // ─── Creation ──────────────────────────────────────────────────────────────
 
   const createEvent = useCallback(
-    (date: string, input: Omit<Event, 'id'>) =>
-      run(() => addEventData(date, input)),
+    async (date: string, input: Omit<Event, 'id'>) => {
+      await run(() => addEventData(date, input))
+      logEvent('event_created', { date, title: input.title, personId: input.personId })
+    },
     [run, addEventData]
   )
 
   const createRecurring = useCallback(
-    (startDate: string, endDate: string, intervalDays: number, input: Omit<Event, 'id'>) =>
-      run(() => addRecurringData(startDate, endDate, intervalDays, input)),
+    async (startDate: string, endDate: string, intervalDays: number, input: Omit<Event, 'id'>) => {
+      await run(() => addRecurringData(startDate, endDate, intervalDays, input))
+      logEvent('event_created', { date: startDate, title: input.title, recurring: true, intervalDays })
+    },
     [run, addRecurringData]
   )
 
   // ─── Edit ──────────────────────────────────────────────────────────────────
 
   const editEvent = useCallback(
-    (date: string, event: Event, updates: EventUpdates, newDate?: string) =>
-      run(() => updateEventData(date, event.id, updates, newDate)),
+    (date: string, event: Event, updates: EventUpdates, newDate?: string) => {
+      logEvent('event_edited', { date, title: event.title, scope: 'this' })
+      return run(() => updateEventData(date, event.id, updates, newDate))
+    },
     [run, updateEventData]
   )
 
   const editAllInSeries = useCallback(
-    (groupId: string, updates: SeriesUpdates) =>
-      run(() => updateAllInSeriesData(groupId, updates)),
+    (groupId: string, updates: SeriesUpdates) => {
+      logEvent('event_edited', { groupId, scope: 'all' })
+      return run(() => updateAllInSeriesData(groupId, updates))
+    },
     [run, updateAllInSeriesData]
   )
 
@@ -177,7 +186,7 @@ export function useEventController({
       const nextMetadata = { ...previousMetadata, completedAt: new Date().toISOString() }
       return runWithUndo(
         () => updateEventData(date, event.id, { metadata: nextMetadata }),
-        'Aktivitet markert som ferdig',
+        'Hendelse markert som ferdig',
         () => updateEventData(date, event.id, { metadata: previousMetadata })
       )
     },
@@ -199,7 +208,7 @@ export function useEventController({
       const nextMetadata = { ...previousMetadata, confirmedAt: new Date().toISOString() }
       return runWithUndo(
         () => updateEventData(date, event.id, { metadata: nextMetadata }),
-        'Aktivitet bekreftet',
+        'Hendelse bekreftet',
         () => updateEventData(date, event.id, { metadata: previousMetadata })
       )
     },
@@ -214,29 +223,33 @@ export function useEventController({
             start: shiftTime(event.start, minutes),
             end: shiftTime(event.end, minutes),
           }),
-        `Aktivitet utsatt ${minutes} min`,
+        `Hendelse utsatt ${minutes} min`,
         () => updateEventData(date, event.id, { start: event.start, end: event.end })
       ),
     [runWithUndo, updateEventData]
   )
 
   const moveEvent = useCallback(
-    (fromDate: string, event: Event, toDate: string, undoMessage = 'Aktivitet flyttet') =>
-      runWithUndo(
+    (fromDate: string, event: Event, toDate: string, undoMessage = 'Hendelse flyttet') => {
+      logEvent('event_moved', { from: fromDate, to: toDate, title: event.title })
+      return runWithUndo(
         () => updateEventData(fromDate, event.id, {}, toDate),
         undoMessage,
         () => updateEventData(toDate, event.id, {}, fromDate)
-      ),
+      )
+    },
     [runWithUndo, updateEventData]
   )
 
   const dragReschedule = useCallback(
-    (date: string, eventId: string, times: DragReschedulePayload) =>
-      runWithUndo(
+    (date: string, eventId: string, times: DragReschedulePayload) => {
+      logEvent('event_drag_reschedule', { date, from: times.prevStart, to: times.nextStart })
+      return runWithUndo(
         () => updateEventData(date, eventId, { start: times.nextStart, end: times.nextEnd }),
         'Tid endret',
         () => updateEventData(date, eventId, { start: times.prevStart, end: times.prevEnd })
-      ),
+      )
+    },
     [runWithUndo, updateEventData]
   )
 
@@ -244,6 +257,7 @@ export function useEventController({
 
   const deleteEvent = useCallback(
     (date: string, event: Event) => {
+      logEvent('event_deleted', { date, title: event.title })
       const snapshot = { ...event }
       return runWithUndo(
         () => deleteEventData(date, snapshot.id),
@@ -283,6 +297,7 @@ export function useEventController({
       try {
         await updateEventData(date, event.id, { metadata: nextMetadata })
         endUxTimer('reassign_participant_flow', 'time_to_reassign_participant_ms')
+        logEvent('transport_assigned', { role, personId: personId ?? 'none', eventId: event.id })
         showSaveFeedback()
       } catch (err) {
         showSaveError()

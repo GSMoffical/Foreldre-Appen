@@ -10,6 +10,7 @@ import {
   timeToY,
   durationToHeight,
   TIMELINE_START_HOUR,
+  TIMELINE_END_HOUR,
   PIXELS_PER_HOUR,
 } from './time'
 
@@ -88,10 +89,12 @@ export function layoutOverlappingEvents(
       for (const ev of col) {
         const start = parseTime(ev.start)
         const end = parseTime(ev.end)
+        const rawDur = end > start ? end - start : TIMELINE_END_HOUR * 60 - start + end
+        const clampedDur = Math.min(rawDur, TIMELINE_END_HOUR * 60 - start)
         result.push({
           ...ev,
           topPx: timeToY(ev.start, TIMELINE_START_HOUR, pixelsPerHour),
-          heightPx: durationToHeight(end - start, pixelsPerHour),
+          heightPx: durationToHeight(clampedDur, pixelsPerHour),
           columnIndex,
           totalColumns,
         })

@@ -6,6 +6,9 @@ export type NavTab = 'today' | 'week' | 'month' | 'logistics' | 'settings'
 interface BottomNavProps {
   active: NavTab
   onSelect?: (tab: NavTab) => void
+  logisticsNotifyCount?: number
+  /** The last active calendar tab — used to restore context when returning from tasks/settings. */
+  lastCalendarTab?: 'today' | 'week' | 'month'
 }
 
 const VIEW_CYCLE: NavTab[] = ['today', 'week', 'month']
@@ -17,14 +20,14 @@ function viewLabel(tab: NavTab): string {
   return 'I dag'
 }
 
-export function BottomNav({ active, onSelect }: BottomNavProps) {
+export function BottomNav({ active, onSelect, logisticsNotifyCount = 0, lastCalendarTab = 'today' }: BottomNavProps) {
   const base =
     'relative z-0 flex flex-1 items-center justify-center overflow-visible rounded-lg py-3 text-[14px] font-semibold transition-colors'
   const inactiveText = 'text-zinc-500'
   const activeText = 'text-brandNavy'
 
   const calendarActive = active !== 'settings' && active !== 'logistics'
-  const currentView = calendarActive ? active : 'today'
+  const currentView = calendarActive ? active : lastCalendarTab
 
   function cycleView() {
     const idx = VIEW_CYCLE.indexOf(currentView)
@@ -42,10 +45,11 @@ export function BottomNav({ active, onSelect }: BottomNavProps) {
       <div className="relative z-10 flex min-h-0 min-w-0 flex-1 gap-1">
         <LayoutGroup id="bottom-nav">
           <button
+            id="onb-nav-cycle"
             type="button"
             onClick={() => {
               if (active === 'settings' || active === 'logistics') {
-                onSelect?.('today')
+                onSelect?.(lastCalendarTab)
               } else {
                 cycleView()
               }
@@ -60,7 +64,10 @@ export function BottomNav({ active, onSelect }: BottomNavProps) {
                 transition={springSnappy}
               />
             )}
-            <span className="relative z-[40]">{viewLabel(currentView)}</span>
+            <span className="relative z-[40] inline-flex items-center gap-1">
+              {viewLabel(currentView)}
+              <span className="text-[11px] opacity-40" aria-hidden>↻</span>
+            </span>
           </button>
           <button
             id="onb-tasks-tab"
@@ -76,7 +83,17 @@ export function BottomNav({ active, onSelect }: BottomNavProps) {
                 transition={springSnappy}
               />
             )}
-            <span className="relative z-[40]">Oppgaver</span>
+            <span className="relative z-[40] inline-flex items-center gap-1.5">
+              Gjøremål
+              {logisticsNotifyCount > 0 && (
+                <span
+                  aria-label={`${logisticsNotifyCount} uleste varsler`}
+                  className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white"
+                >
+                  {logisticsNotifyCount > 9 ? '9+' : logisticsNotifyCount}
+                </span>
+              )}
+            </span>
           </button>
           <button
             type="button"

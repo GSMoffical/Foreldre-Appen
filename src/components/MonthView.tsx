@@ -20,6 +20,8 @@ interface MonthViewProps {
   onAddEventForDate?: (date: string) => void
   /** Tap an event in måneds-agenda — typically åpne detalj + hopp til dag */
   onSelectEvent?: (event: Event, date: string) => void
+  /** Returns true if the date has at least one open task flagged for month-view visibility */
+  hasHighlightedTaskOnDate?: (date: string) => boolean
 }
 
 /** Local calendar day as YYYY-MM-DD (avoid UTC off-by-one from toISOString). */
@@ -146,6 +148,7 @@ export function MonthView({
   onVisibleMonthRange,
   onAddEventForDate,
   onSelectEvent,
+  hasHighlightedTaskOnDate,
 }: MonthViewProps) {
   const { people } = useFamily()
   const selectedParts = selectedDate.split('-').map(Number)
@@ -309,6 +312,7 @@ export function MonthView({
                   const eventCount = eventCountByDate.get(key) ?? 0
                   const heat = heatStrengthClass(eventCount)
                   const norwegianDay = norwegianDayHasCalendarHighlight(key)
+                  const hasHighlightedTask = hasHighlightedTaskOnDate?.(key) ?? false
 
                   return (
                     <button
@@ -366,6 +370,14 @@ export function MonthView({
                           }`}
                         />
                       )}
+                      {hasHighlightedTask && (
+                        <span
+                          className={`pointer-events-none absolute bottom-1 right-1 z-[1] h-1.5 w-1.5 rounded-full ${
+                            isSelected ? 'bg-brandNavy' : 'bg-rose-500'
+                          }`}
+                          aria-hidden
+                        />
+                      )}
                     </button>
                   )
                 })}
@@ -385,18 +397,18 @@ export function MonthView({
               <p className="mt-1 text-[12px] font-medium leading-snug text-brandNavy/85">{selectedDayCalendarLine}</p>
             )}
             {total === 0 ? (
-              <p className="mt-2 text-[13px] text-zinc-600">Ingen aktiviteter denne dagen.</p>
+              <p className="mt-2 text-[13px] text-zinc-600">Ingen hendelser denne dagen.</p>
             ) : (
               <>
                 <p className="mt-2 text-[13px] font-medium text-zinc-800">
-                  {total} {total === 1 ? 'aktivitet' : 'aktiviteter'}
+                  {total} {total === 1 ? 'hendelse' : 'hendelser'}
                 </p>
                 <ul className="mt-2 space-y-2">
                   {preview.map((ev) => (
                     <li key={ev.id} className="flex min-w-0 flex-col gap-0.5 border-t border-zinc-100 pt-2 first:border-t-0 first:pt-0">
                       <span className="truncate text-[13px] font-semibold text-zinc-900">{ev.title}</span>
                       <span className="text-[12px] tabular-nums text-zinc-500">
-                        {formatTimeRange(ev.start, ev.end)}
+                        {ev.metadata?.isAllDay ? 'Heldags' : formatTimeRange(ev.start, ev.end)}
                       </span>
                     </li>
                   ))}
@@ -416,7 +428,7 @@ export function MonthView({
           >
             <h3 className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Agenda for måneden</h3>
             {monthAgenda.length === 0 ? (
-              <p className="mt-2 text-[13px] leading-relaxed text-zinc-700">Ingen aktiviteter denne måneden.</p>
+              <p className="mt-2 text-[13px] leading-relaxed text-zinc-700">Ingen hendelser denne måneden.</p>
             ) : (
               <div className="mt-3 space-y-5">
                 {monthAgenda.map((week) => (
@@ -446,7 +458,7 @@ export function MonthView({
                                       className={`relative z-0 flex w-full items-start gap-2 rounded-xl border border-brandNavy/10 bg-white/50 px-2.5 py-2 text-left shadow-sm transition hover:bg-white/80 ${onSelectEvent ? 'cursor-pointer' : 'cursor-default'}`}
                                     >
                                       <span className="shrink-0 pt-0.5 text-[11px] font-semibold tabular-nums text-zinc-600">
-                                        {ev.start}
+                                        {ev.metadata?.isAllDay ? 'Heldags' : ev.start}
                                       </span>
                                       <div className="min-w-0 flex-1">
                                         <div className="flex items-start gap-2">
@@ -455,9 +467,11 @@ export function MonthView({
                                             {ev.title}
                                           </span>
                                         </div>
-                                        <p className="mt-0.5 text-[11px] text-zinc-500">
-                                          {formatTimeRange(ev.start, ev.end)}
-                                        </p>
+                                        {!ev.metadata?.isAllDay && (
+                                          <p className="mt-0.5 text-[11px] text-zinc-500">
+                                            {formatTimeRange(ev.start, ev.end)}
+                                          </p>
+                                        )}
                                       </div>
                                     </button>
                                   </li>

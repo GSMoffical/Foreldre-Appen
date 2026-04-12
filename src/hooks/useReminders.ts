@@ -47,8 +47,10 @@ export function useReminders(events: Event[], osloTodayKey: string) {
 
 function fireNotification(ev: Event) {
   try {
+    const note = ev.notes?.trim().slice(0, 120)
+    const body = note ? `${ev.start} – ${ev.end} · ${note}` : `${ev.start} – ${ev.end}`
     new Notification(`${ev.title} starter om ${ev.reminderMinutes} min`, {
-      body: `${ev.start} – ${ev.end}`,
+      body,
       icon: '/favicon.svg',
       tag: ev.id,
     })

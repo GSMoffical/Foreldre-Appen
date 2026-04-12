@@ -6,7 +6,7 @@ export function CalendarDayNote({ date }: { date: string }) {
   if (!line) return null
   return (
     <div className="px-4 pb-1 pt-0.5" role="status">
-      <p className="text-center text-[11px] font-medium leading-snug text-brandNavy/85">{line}</p>
+      <p className="text-center text-caption font-medium leading-snug text-brandNavy/80">{line}</p>
     </div>
   )
 }

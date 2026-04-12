@@ -290,3 +290,22 @@ export async function deleteAllEventsForUser(userId: string): Promise<boolean> {
   }
   return true
 }
+
+/**
+ * Owner-only bulk delete via a SECURITY DEFINER RPC that rejects linked (partner) users
+ * at the database level. Use this instead of deleteAllEventsForUser in the app.
+ * Run supabase-delete-all-events-owner-only.sql in Supabase SQL Editor first.
+ */
+export async function deleteAllEventsOwnerOnly(): Promise<boolean> {
+  const { data, error } = await supabase.rpc('delete_all_events_owner_only')
+  if (error) {
+    console.error('[eventsApi] deleteAllEventsOwnerOnly error', error)
+    return false
+  }
+  const result = data as { ok?: boolean; error?: string } | null
+  if (!result?.ok) {
+    console.error('[eventsApi] deleteAllEventsOwnerOnly rejected', result?.error)
+    return false
+  }
+  return true
+}
