@@ -1,6 +1,6 @@
 /**
  * Felles import-forslag (v1) — Tankestrøm / fremtidige kilder.
- * MVP i portalen støtter kun kind: "event".
+ * Portalen støtter kind: "event" og "task" (gjøremål).
  */
 
 export type PortalImportSchemaVersion = '1.0.0'
@@ -78,3 +78,19 @@ export interface TankestromEventDraft {
   dropoffBy: string
   pickupBy: string
 }
+
+/** Utkast for gjøremål (Task) før import. Tasks har ikke metadata i DB i MVP. */
+export interface TankestromTaskDraft {
+  title: string
+  date: string
+  notes: string
+  dueTime: string
+  childPersonId: string
+  assignedToPersonId: string
+  showInMonthView: boolean
+}
+
+/** Brukerens valgte importtype per forslag (kan avvike fra API `kind` etter typebytte). */
+export type TankestromImportDraft =
+  | { importKind: 'event'; event: TankestromEventDraft }
+  | { importKind: 'task'; task: TankestromTaskDraft }

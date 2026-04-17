@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Event, Person } from '../../types'
-import type { PortalEventProposal, PortalImportProposalBundle, TankestromEventDraft } from './types'
+import type { Event, Person, Task } from '../../types'
+import type {
+  PortalEventProposal,
+  PortalImportProposalBundle,
+  PortalProposalItem,
+  PortalTaskProposal,
+  TankestromEventDraft,
+  TankestromImportDraft,
+  TankestromTaskDraft,
+} from './types'
 import {
   analyzeDocumentWithTankestrom,
   analyzeTextWithTankestrom,
@@ -35,7 +43,7 @@ function isHm24(s: string): boolean {
 }
 
 /** Normaliser `type="time"`-verdi til HH:mm (f.eks. 09:30:00 → 09:30). */
-function normalizeTimeInput(s: string): string {
+export function normalizeTimeInput(s: string): string {
   const t = s.trim()
   const parts = t.split(':')
   if (parts.length >= 2) {
@@ -44,6 +52,21 @@ function normalizeTimeInput(s: string): string {
     return `${h}:${m}`
   }
   return t
+}
+
+function hmPlusMinutes(hm: string, addMinutes: number): string {
+  const norm = normalizeTimeInput(hm)
+  if (!isHm24(norm)) return '10:00'
+  const total = parseTime(norm) + addMinutes
+  const clamped = Math.min(Math.max(0, total), 23 * 60 + 59)
+  const h = Math.floor(clamped / 60)
+  const m = clamped % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+function defaultChildPersonId(people: Person[], validPersonIds: Set<string>): string {
+  const c = people.find((p) => p.memberKind === 'child' && validPersonIds.has(p.id))
+  return c?.id ?? ''
 }
 
 export function validateTankestromDraft(
@@ -69,7 +92,19 @@ export function validateTankestromDraft(
   return null
 }
 
+export function validateTankestromTaskDraft(d: TankestromTaskDraft): string | null {
+  if (!d.title.trim()) return 'Tittel kan ikke være tom.'
+  const dateStr = d.date.trim()
+  if (!DATE_KEY_RE.test(dateStr)) return 'Dato må være på formen ÅÅÅÅ-MM-DD.'
+  const parsed = new Date(`${dateStr}T12:00:00`)
+  if (Number.isNaN(parsed.getTime())) return 'Ugyldig dato.'
+  const due = d.dueTime.trim()
+  if (due && !isHm24(normalizeTimeInput(due))) return 'Frist (klokkeslett) må være HH:mm.'
+  return null
+}
+
 export type TankestromFieldErrorKey = 'title' | 'date' | 'start' | 'end' | 'personId'
+export type TankestromTaskFieldErrorKey = 'title' | 'date' | 'dueTime'
 
 /** Felt-spesifikke meldinger for inline validering (samme regler som validateTankestromDraft). */
 export function getTankestromDraftFieldErrors(
@@ -97,56 +132,170 @@ export function getTankestromDraftFieldErrors(
   return out
 }
 
-function buildDraftsFromProposals(
-  events: PortalEventProposal[],
+export function getTankestromTaskFieldErrors(
+  d: TankestromTaskDraft
+): Partial<Record<TankestromTaskFieldErrorKey, string>> {
+  const out: Partial<Record<TankestromTaskFieldErrorKey, string>> = {}
+  if (!d.title.trim()) out.title = 'Tittel kan ikke være tom.'
+  const dateStr = d.date.trim()
+  if (!DATE_KEY_RE.test(dateStr)) out.date = 'Bruk formatet ÅÅÅÅ-MM-DD.'
+  else {
+    const parsed = new Date(`${dateStr}T12:00:00`)
+    if (Number.isNaN(parsed.getTime())) out.date = 'Ugyldig dato.'
+  }
+  const due = d.dueTime.trim()
+  if (due && !isHm24(normalizeTimeInput(due))) out.dueTime = 'Ugyldig tid (HH:mm).'
+  return out
+}
+
+function validateUnifiedDraft(d: TankestromImportDraft, validPersonIds: Set<string>): string | null {
+  if (d.importKind === 'event') return validateTankestromDraft(d.event, validPersonIds)
+  return validateTankestromTaskDraft(d.task)
+}
+
+function buildEventDraftFromProposal(
+  p: PortalEventProposal,
   validPersonIds: Set<string>,
   defaultPersonId: string
-): Record<string, TankestromEventDraft> {
-  const drafts: Record<string, TankestromEventDraft> = {}
-  for (const p of events) {
-    const ev = p.event
-    const pid = validPersonIds.has(ev.personId) ? ev.personId : defaultPersonId
-    const transport =
-      ev.metadata && typeof ev.metadata === 'object' && !Array.isArray(ev.metadata)
-        ? ((ev.metadata as { transport?: { dropoffBy?: unknown; pickupBy?: unknown } }).transport ?? null)
-        : null
-    const dropoffBy = typeof transport?.dropoffBy === 'string' ? transport.dropoffBy : ''
-    const pickupBy = typeof transport?.pickupBy === 'string' ? transport.pickupBy : ''
-    drafts[p.proposalId] = {
-      title: ev.title,
-      date: ev.date,
-      start: ev.start,
-      end: ev.end,
-      personId: pid,
-      location: ev.location ?? '',
-      notes: ev.notes ?? '',
-      reminderMinutes: typeof ev.reminderMinutes === 'number' ? ev.reminderMinutes : undefined,
-      includeRecurrence: !!ev.recurrenceGroupId,
-      dropoffBy,
-      pickupBy,
-    }
+): TankestromEventDraft {
+  const ev = p.event
+  const pid = validPersonIds.has(ev.personId) ? ev.personId : defaultPersonId
+  const transport =
+    ev.metadata && typeof ev.metadata === 'object' && !Array.isArray(ev.metadata)
+      ? ((ev.metadata as { transport?: { dropoffBy?: unknown; pickupBy?: unknown } }).transport ?? null)
+      : null
+  const dropoffBy = typeof transport?.dropoffBy === 'string' ? transport.dropoffBy : ''
+  const pickupBy = typeof transport?.pickupBy === 'string' ? transport.pickupBy : ''
+  return {
+    title: ev.title,
+    date: ev.date,
+    start: ev.start,
+    end: ev.end,
+    personId: pid,
+    location: ev.location ?? '',
+    notes: ev.notes ?? '',
+    reminderMinutes: typeof ev.reminderMinutes === 'number' ? ev.reminderMinutes : undefined,
+    includeRecurrence: !!ev.recurrenceGroupId,
+    dropoffBy,
+    pickupBy,
+  }
+}
+
+function buildTaskDraftFromProposal(
+  p: PortalTaskProposal,
+  validPersonIds: Set<string>,
+  people: Person[]
+): TankestromTaskDraft {
+  const t = p.task
+  let childPersonId =
+    t.childPersonId && validPersonIds.has(t.childPersonId) ? t.childPersonId : ''
+  let assignedToPersonId =
+    t.assignedToPersonId && validPersonIds.has(t.assignedToPersonId) ? t.assignedToPersonId : ''
+  if (!childPersonId && !assignedToPersonId) {
+    childPersonId = defaultChildPersonId(people, validPersonIds)
+  }
+  return {
+    title: t.title,
+    date: t.date,
+    notes: t.notes ?? '',
+    dueTime: t.dueTime ?? '',
+    childPersonId,
+    assignedToPersonId,
+    showInMonthView: !!t.showInMonthView,
+  }
+}
+
+function importDraftFromProposal(
+  item: PortalProposalItem,
+  validPersonIds: Set<string>,
+  defaultPersonId: string,
+  people: Person[]
+): TankestromImportDraft {
+  if (item.kind === 'event') {
+    return { importKind: 'event', event: buildEventDraftFromProposal(item, validPersonIds, defaultPersonId) }
+  }
+  return { importKind: 'task', task: buildTaskDraftFromProposal(item, validPersonIds, people) }
+}
+
+function buildDraftsFromItems(
+  items: PortalProposalItem[],
+  validPersonIds: Set<string>,
+  defaultPersonId: string,
+  people: Person[]
+): Record<string, TankestromImportDraft> {
+  const drafts: Record<string, TankestromImportDraft> = {}
+  for (const item of items) {
+    drafts[item.proposalId] = importDraftFromProposal(item, validPersonIds, defaultPersonId, people)
   }
   return drafts
+}
+
+function taskDraftFromEventDraft(e: TankestromEventDraft, people: Person[], validPersonIds: Set<string>): TankestromTaskDraft {
+  const pid = validPersonIds.has(e.personId) ? e.personId : ''
+  const person = people.find((p) => p.id === pid)
+  const isChild = person?.memberKind === 'child'
+  return {
+    title: e.title,
+    date: e.date,
+    notes: e.notes,
+    dueTime: isHm24(normalizeTimeInput(e.start)) ? normalizeTimeInput(e.start) : '',
+    childPersonId: isChild ? pid : '',
+    assignedToPersonId: !isChild && pid ? pid : '',
+    showInMonthView: false,
+  }
+}
+
+function eventDraftFromTaskDraft(
+  t: TankestromTaskDraft,
+  validPersonIds: Set<string>,
+  defaultPersonId: string
+): TankestromEventDraft {
+  const due = t.dueTime.trim()
+  const start = due && isHm24(normalizeTimeInput(due)) ? normalizeTimeInput(due) : '09:00'
+  const end = hmPlusMinutes(start, 60)
+  let personId = ''
+  if (t.childPersonId.trim() && validPersonIds.has(t.childPersonId)) personId = t.childPersonId
+  else if (t.assignedToPersonId.trim() && validPersonIds.has(t.assignedToPersonId)) {
+    personId = t.assignedToPersonId
+  } else personId = defaultPersonId
+  return {
+    title: t.title,
+    date: t.date,
+    start,
+    end,
+    personId,
+    location: '',
+    notes: t.notes,
+    reminderMinutes: undefined,
+    includeRecurrence: false,
+    dropoffBy: '',
+    pickupBy: '',
+  }
 }
 
 export interface UseTankestromImportOptions {
   open: boolean
   people: Person[]
   createEvent: (date: string, input: Omit<Event, 'id'>) => Promise<void>
+  createTask: (input: Omit<Task, 'id'>) => Promise<void>
 }
 
-export function useTankestromImport({ open, people, createEvent }: UseTankestromImportOptions) {
+export function useTankestromImport({ open, people, createEvent, createTask }: UseTankestromImportOptions) {
   const [step, setStep] = useState<Step>('pick')
   const [inputMode, setInputMode] = useState<TankestromInputMode>('file')
   const [pendingFiles, setPendingFiles] = useState<TankestromPendingFile[]>([])
   const [textInput, setTextInput] = useState('')
   const [bundle, setBundle] = useState<PortalImportProposalBundle | null>(null)
+
+  const proposalItems = useMemo((): PortalProposalItem[] => bundle?.items ?? [], [bundle])
+
+  /** @deprecated Bruk proposalItems; beholdt for enkel bakoverkompatibilitet i imports. */
   const eventProposals = useMemo((): PortalEventProposal[] => {
-    if (!bundle) return []
-    return bundle.items.filter((i): i is PortalEventProposal => i.kind === 'event')
-  }, [bundle])
+    return proposalItems.filter((i): i is PortalEventProposal => i.kind === 'event')
+  }, [proposalItems])
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [draftByProposalId, setDraftByProposalId] = useState<Record<string, TankestromEventDraft>>({})
+  const [draftByProposalId, setDraftByProposalId] = useState<Record<string, TankestromImportDraft>>({})
   const [analyzeLoading, setAnalyzeLoading] = useState(false)
   const [saveLoading, setSaveLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -159,7 +308,7 @@ export function useTankestromImport({ open, people, createEvent }: UseTankestrom
     for (const id of selectedIds) {
       const draft = draftByProposalId[id]
       if (!draft) return false
-      if (validateTankestromDraft(draft, validPersonIds) != null) return false
+      if (validateUnifiedDraft(draft, validPersonIds) != null) return false
     }
     return true
   }, [selectedIds, draftByProposalId, validPersonIds])
@@ -226,13 +375,47 @@ export function useTankestromImport({ open, people, createEvent }: UseTankestrom
     })
   }, [])
 
-  const updateDraft = useCallback((proposalId: string, patch: Partial<TankestromEventDraft>) => {
+  const updateEventDraft = useCallback((proposalId: string, patch: Partial<TankestromEventDraft>) => {
     setDraftByProposalId((prev) => {
       const cur = prev[proposalId]
-      if (!cur) return prev
-      return { ...prev, [proposalId]: { ...cur, ...patch } }
+      if (!cur || cur.importKind !== 'event') return prev
+      return { ...prev, [proposalId]: { importKind: 'event', event: { ...cur.event, ...patch } } }
     })
   }, [])
+
+  const updateTaskDraft = useCallback((proposalId: string, patch: Partial<TankestromTaskDraft>) => {
+    setDraftByProposalId((prev) => {
+      const cur = prev[proposalId]
+      if (!cur || cur.importKind !== 'task') return prev
+      return { ...prev, [proposalId]: { importKind: 'task', task: { ...cur.task, ...patch } } }
+    })
+  }, [])
+
+  const setProposalImportKind = useCallback(
+    (proposalId: string, importKind: 'event' | 'task') => {
+      setDraftByProposalId((prev) => {
+        const cur = prev[proposalId]
+        if (!cur) return prev
+        const defaultPersonId = people[0]?.id ?? ''
+        if (importKind === 'task') {
+          if (cur.importKind === 'task') return prev
+          return {
+            ...prev,
+            [proposalId]: { importKind: 'task', task: taskDraftFromEventDraft(cur.event, people, validPersonIds) },
+          }
+        }
+        if (cur.importKind === 'event') return prev
+        return {
+          ...prev,
+          [proposalId]: {
+            importKind: 'event',
+            event: eventDraftFromTaskDraft(cur.task, validPersonIds, defaultPersonId),
+          },
+        }
+      })
+    },
+    [people, validPersonIds]
+  )
 
   const patchPendingFile = useCallback((id: string, patch: Partial<Pick<TankestromPendingFile, 'status' | 'statusDetail'>>) => {
     setPendingFiles((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)))
@@ -254,15 +437,14 @@ export function useTankestromImport({ open, people, createEvent }: UseTankestrom
     try {
       if (inputMode === 'text') {
         const b = await analyzeTextWithTankestrom(textInput)
-        const events = b.items.filter((i): i is PortalEventProposal => i.kind === 'event')
-        if (events.length === 0) {
-          setError('Ingen hendelsesforslag i svaret.')
+        if (b.items.length === 0) {
+          setError('Ingen forslag i svaret.')
           return
         }
         setBundle(b)
         const defaultPersonId = people[0]?.id ?? ''
-        setDraftByProposalId(buildDraftsFromProposals(events, validPersonIds, defaultPersonId))
-        setSelectedIds(new Set(events.map((e) => e.proposalId)))
+        setDraftByProposalId(buildDraftsFromItems(b.items, validPersonIds, defaultPersonId, people))
+        setSelectedIds(new Set(b.items.map((i) => i.proposalId)))
         setStep('review')
         return
       }
@@ -275,13 +457,12 @@ export function useTankestromImport({ open, people, createEvent }: UseTankestrom
         patchPendingFile(pf.id, { status: 'analyzing', statusDetail: undefined })
         try {
           const b = await analyzeDocumentWithTankestrom(pf.file)
-          const events = b.items.filter((i): i is PortalEventProposal => i.kind === 'event')
-          if (events.length === 0) {
+          if (b.items.length === 0) {
             patchPendingFile(pf.id, {
               status: 'error',
-              statusDetail: 'Ingen hendelsesforslag',
+              statusDetail: 'Ingen forslag',
             })
-            failureLines.push(`${pf.file.name}: ingen hendelsesforslag`)
+            failureLines.push(`${pf.file.name}: ingen forslag`)
             continue
           }
           bundles.push(b)
@@ -297,22 +478,21 @@ export function useTankestromImport({ open, people, createEvent }: UseTankestrom
         setError(
           failureLines.length > 0
             ? failureLines.join('\n')
-            : 'Ingen filer ga hendelsesforslag. Prøv andre filer eller tekstmodus.'
+            : 'Ingen filer ga forslag. Prøv andre filer eller tekstmodus.'
         )
         return
       }
 
       const merged = mergePortalImportProposalBundles(bundles)
-      const events = merged.items.filter((i): i is PortalEventProposal => i.kind === 'event')
-      if (events.length === 0) {
-        setError('Ingen hendelsesforslag etter sammenslåing.')
+      if (merged.items.length === 0) {
+        setError('Ingen forslag etter sammenslåing.')
         return
       }
 
       setBundle(merged)
       const defaultPersonId = people[0]?.id ?? ''
-      setDraftByProposalId(buildDraftsFromProposals(events, validPersonIds, defaultPersonId))
-      setSelectedIds(new Set(events.map((e) => e.proposalId)))
+      setDraftByProposalId(buildDraftsFromItems(merged.items, validPersonIds, defaultPersonId, people))
+      setSelectedIds(new Set(merged.items.map((i) => i.proposalId)))
       setStep('review')
 
       if (failureLines.length > 0) {
@@ -328,7 +508,7 @@ export function useTankestromImport({ open, people, createEvent }: UseTankestrom
   }, [inputMode, patchPendingFile, pendingFiles, people, textInput, validPersonIds])
 
   const approveSelected = useCallback(async (): Promise<boolean> => {
-    if (!bundle || eventProposals.length === 0) return false
+    if (!bundle || proposalItems.length === 0) return false
     const ids = [...selectedIds]
     if (ids.length === 0) {
       setError('Velg minst ett forslag som skal importeres.')
@@ -341,14 +521,9 @@ export function useTankestromImport({ open, people, createEvent }: UseTankestrom
         setError('Mangler redigeringsdata for et valgt forslag. Prøv å analysere på nytt.')
         return false
       }
-      const normalized: TankestromEventDraft = {
-        ...draft,
-        start: normalizeTimeInput(draft.start),
-        end: normalizeTimeInput(draft.end),
-      }
-      const v = validateTankestromDraft(normalized, validPersonIds)
-      if (v) {
-        setError(v)
+      const err = validateUnifiedDraft(draft, validPersonIds)
+      if (err) {
+        setError(err)
         return false
       }
     }
@@ -358,9 +533,33 @@ export function useTankestromImport({ open, people, createEvent }: UseTankestrom
     let failed = 0
     try {
       for (const id of ids) {
-        const item = eventProposals.find((p) => p.proposalId === id)
-        if (!item) continue
-        const raw = draftByProposalId[id]!
+        const item = bundle.items.find((p) => p.proposalId === id)
+        const unified = draftByProposalId[id]
+        if (!item || !unified) continue
+
+        if (unified.importKind === 'task') {
+          const t = unified.task
+          const taskInput: Omit<Task, 'id'> = {
+            title: t.title.trim(),
+            date: t.date.trim(),
+            notes: t.notes.trim() ? t.notes.trim() : undefined,
+            dueTime:
+              t.dueTime.trim() && isHm24(normalizeTimeInput(t.dueTime))
+                ? normalizeTimeInput(t.dueTime)
+                : undefined,
+            childPersonId: t.childPersonId.trim() || undefined,
+            assignedToPersonId: t.assignedToPersonId.trim() || undefined,
+            showInMonthView: t.showInMonthView || undefined,
+          }
+          try {
+            await createTask(taskInput)
+          } catch {
+            failed += 1
+          }
+          continue
+        }
+
+        const raw = unified.event
         const draft: TankestromEventDraft = {
           ...raw,
           title: raw.title.trim(),
@@ -372,7 +571,6 @@ export function useTankestromImport({ open, people, createEvent }: UseTankestrom
           notes: raw.notes.trim(),
         }
 
-        const ev = item.event
         const integration = {
           proposalId: item.proposalId,
           importRunId: bundle.provenance.importRunId,
@@ -381,10 +579,18 @@ export function useTankestromImport({ open, people, createEvent }: UseTankestrom
           externalRef: item.externalRef,
           sourceSystem: bundle.provenance.sourceSystem,
         }
-        const baseMeta =
-          ev.metadata && typeof ev.metadata === 'object' && !Array.isArray(ev.metadata)
-            ? { ...ev.metadata }
-            : {}
+
+        let baseMeta: Record<string, unknown> = {}
+        let recurrenceGroupId: string | undefined
+        if (item.kind === 'event') {
+          const ev = item.event
+          recurrenceGroupId = draft.includeRecurrence ? ev.recurrenceGroupId : undefined
+          baseMeta =
+            ev.metadata && typeof ev.metadata === 'object' && !Array.isArray(ev.metadata)
+              ? { ...ev.metadata }
+              : {}
+        }
+
         const metadata: Record<string, unknown> = {
           ...baseMeta,
           sourceId: item.sourceId,
@@ -415,7 +621,7 @@ export function useTankestromImport({ open, people, createEvent }: UseTankestrom
           notes: draft.notes.length > 0 ? draft.notes : undefined,
           location: draft.location.length > 0 ? draft.location : undefined,
           reminderMinutes: draft.reminderMinutes,
-          recurrenceGroupId: draft.includeRecurrence ? ev.recurrenceGroupId : undefined,
+          recurrenceGroupId,
           metadata,
         }
         try {
@@ -425,14 +631,14 @@ export function useTankestromImport({ open, people, createEvent }: UseTankestrom
         }
       }
       if (failed > 0) {
-        setError(`${failed} av ${ids.length} hendelser kunne ikke lagres. Sjekk nettverk og prøv igjen.`)
+        setError(`${failed} av ${ids.length} forslag kunne ikke lagres. Sjekk nettverk og prøv igjen.`)
         return false
       }
       return true
     } finally {
       setSaveLoading(false)
     }
-  }, [bundle, eventProposals, selectedIds, draftByProposalId, validPersonIds, createEvent])
+  }, [bundle, proposalItems, selectedIds, draftByProposalId, validPersonIds, createEvent, createTask])
 
   return {
     step,
@@ -445,11 +651,14 @@ export function useTankestromImport({ open, people, createEvent }: UseTankestrom
     textInput,
     setTextInput: setTextInputSafe,
     bundle,
+    proposalItems,
     eventProposals,
     selectedIds,
     toggleProposal,
     draftByProposalId,
-    updateDraft,
+    updateEventDraft,
+    updateTaskDraft,
+    setProposalImportKind,
     analyzeLoading,
     saveLoading,
     error,

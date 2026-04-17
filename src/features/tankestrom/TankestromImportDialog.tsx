@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
-import type { PortalEventProposal } from './types'
+import type { PortalEventProposal, PortalProposalItem } from './types'
+import type { Task } from '../../types'
 import type { UseEventControllerReturn } from '../calendar/hooks/useEventController'
 import {
   useTankestromImport,
   getTankestromDraftFieldErrors,
+  getTankestromTaskFieldErrors,
   type TankestromPendingFile,
 } from './useTankestromImport'
 import { cardSection, typSectionCap } from '../../lib/ui'
@@ -65,6 +67,15 @@ function getSourceContextText(item: PortalEventProposal): string | null {
   return null
 }
 
+function getSourceContextTextForItem(item: PortalProposalItem): string | null {
+  if (item.kind === 'event') return getSourceContextText(item)
+  const ref = item.externalRef?.trim()
+  if (ref) return ref.length > 120 ? `Referanse: ${ref.slice(0, 117)}…` : `Referanse: ${ref}`
+  const n = item.task.notes?.trim()
+  if (n) return n.length > 200 ? `${n.slice(0, 197)}…` : n
+  return null
+}
+
 const META_SOURCE_KEYS = ['sourceExcerpt', 'aiRationale', 'rationale', 'sourceText'] as const
 
 function metaFieldHeading(key: (typeof META_SOURCE_KEYS)[number]): string {
@@ -92,6 +103,17 @@ function buildFullSourceContextDocument(item: PortalEventProposal): string | nul
   const ref = item.externalRef?.trim()
   if (ref) blocks.push(`Referanse\n${ref}`)
 
+  if (blocks.length === 0) return null
+  return blocks.join('\n\n────────\n\n')
+}
+
+function buildFullSourceContextDocumentForItem(item: PortalProposalItem): string | null {
+  if (item.kind === 'event') return buildFullSourceContextDocument(item)
+  const blocks: string[] = []
+  const ref = item.externalRef?.trim()
+  if (ref) blocks.push(`Referanse\n${ref}`)
+  const n = item.task.notes?.trim()
+  if (n) blocks.push(`Tekst fra forslag\n${n}`)
   if (blocks.length === 0) return null
   return blocks.join('\n\n────────\n\n')
 }
@@ -209,9 +231,10 @@ export interface TankestromImportDialogProps {
   onClose: () => void
   people: import('../../types').Person[]
   createEvent: UseEventControllerReturn['createEvent']
+  createTask: (input: Omit<Task, 'id'>) => Promise<void>
 }
 
-export function TankestromImportDialog({ open, onClose, people, createEvent }: TankestromImportDialogProps) {
+export function TankestromImportDialog({ open, onClose, people, createEvent, createTask }: TankestromImportDialogProps) {
   const {
     step,
     inputMode,
@@ -222,18 +245,20 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
     textInput,
     setTextInput,
     analyzeWarning,
-    eventProposals,
+    proposalItems,
     selectedIds,
     toggleProposal,
     draftByProposalId,
-    updateDraft,
+    updateEventDraft,
+    updateTaskDraft,
+    setProposalImportKind,
     analyzeLoading,
     saveLoading,
     error,
     runAnalyze,
     approveSelected,
     canApproveSelection,
-  } = useTankestromImport({ open, people, createEvent })
+  } = useTankestromImport({ open, people, createEvent, createTask })
 
   const validPersonIds = useMemo(() => new Set(people.map((p) => p.id)), [people])
 
@@ -268,7 +293,7 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
   }, [])
 
   const reviewSelectionStats = useMemo(() => {
-    const total = eventProposals.length
+    const total = proposalItems.length
     const selected = selectedIds.size
     let withErrors = 0
     let ready = 0
@@ -278,12 +303,15 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
         withErrors += 1
         continue
       }
-      const fe = getTankestromDraftFieldErrors(d, validPersonIds)
+      const fe =
+        d.importKind === 'event'
+          ? getTankestromDraftFieldErrors(d.event, validPersonIds)
+          : getTankestromTaskFieldErrors(d.task)
       if (Object.keys(fe).length > 0) withErrors += 1
       else ready += 1
     }
     return { total, selected, withErrors, ready }
-  }, [eventProposals.length, selectedIds, draftByProposalId, validPersonIds])
+  }, [proposalItems.length, selectedIds, draftByProposalId, validPersonIds])
 
   useEffect(() => {
     if (!open) {
@@ -366,8 +394,9 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
           ) : step === 'pick' ? (
             <div className="space-y-4">
               <p className="text-[13px] leading-relaxed text-zinc-600">
-                Velg inputmodus og analyser innholdet. Kun{' '}
-                <span className="font-medium text-zinc-800">hendelsesforslag</span> vises i denne versjonen.
+                Velg inputmodus og analyser innholdet. Du får forslag som{' '}
+                <span className="font-medium text-zinc-800">hendelser</span> og/eller{' '}
+                <span className="font-medium text-zinc-800">gjøremål</span> — bytt type før import om nødvendig.
               </p>
 
               <div className="grid grid-cols-2 gap-2">
@@ -531,7 +560,7 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
               <div className="rounded-xl border border-brandNavy/15 bg-brandSky/20 px-3 py-2.5">
                 <p className="text-[12px] font-medium leading-snug text-brandNavy">
                   Gå gjennom forslagene nedenfor. Kun <span className="font-semibold">avkryssede</span> kort importeres
-                  til kalenderen.
+                  som hendelser eller gjøremål.
                 </p>
                 <dl className="mt-2 grid grid-cols-3 gap-2 text-center">
                   <div className="rounded-lg bg-white/70 px-2 py-1.5">
@@ -553,26 +582,26 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
               </div>
 
               <ul className="space-y-4">
-                {eventProposals.map((item) => {
-                  const draft = draftByProposalId[item.proposalId]
-                  if (!draft) return null
+                {proposalItems.map((item) => {
+                  const u = draftByProposalId[item.proposalId]
+                  if (!u) return null
                   const checked = selectedIds.has(item.proposalId)
                   const pid = item.proposalId
                   const disabled = !checked
                   const badge = confidenceBadgeStyle(item.confidence)
-                  const personName = people.find((p) => p.id === draft.personId)?.name ?? '—'
-                  const fieldErrors = checked ? getTankestromDraftFieldErrors(draft, validPersonIds) : {}
-                  const sourceCtx = getSourceContextText(item)
-                  const fullSourceDoc = buildFullSourceContextDocument(item)
+                  const sourceCtx = getSourceContextTextForItem(item)
+                  const fullSourceDoc = buildFullSourceContextDocumentForItem(item)
                   const showSourceExpandToggle = sourceCtx && shouldOfferSourceExpand(fullSourceDoc, sourceCtx)
                   const sourceExpanded = expandedSourceIds.has(pid)
                   const detailsExpanded = expandedDetailIds.has(pid)
-                  const ts = draft.start.length > 5 ? draft.start.slice(0, 5) : draft.start
-                  const te = draft.end.length > 5 ? draft.end.slice(0, 5) : draft.end
-                  const hm = /^([01]\d|2[0-3]):[0-5]\d$/
-                  const timeLabel =
-                    hm.test(ts) && hm.test(te) ? formatTimeRange(ts, te) : ts && te ? `${ts} – ${te}` : '—'
-                  const noteSections = parseNoteSections(draft.notes)
+                  const cardTitle =
+                    (u.importKind === 'event' ? u.event.title : u.task.title).trim() || 'Uten tittel'
+                  const eventFieldErrors =
+                    u.importKind === 'event' && checked
+                      ? getTankestromDraftFieldErrors(u.event, validPersonIds)
+                      : {}
+                  const taskFieldErrors =
+                    u.importKind === 'task' && checked ? getTankestromTaskFieldErrors(u.task) : {}
 
                   return (
                     <li
@@ -589,7 +618,7 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
                           className="mt-1.5 h-[18px] w-[18px] shrink-0 rounded border-zinc-300 text-brandTeal focus:ring-brandTeal/30"
                           checked={checked}
                           onChange={() => toggleProposal(pid)}
-                          aria-label={`Velg forslag: ${draft.title || 'Uten tittel'}`}
+                          aria-label={`Velg forslag: ${cardTitle}`}
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
@@ -607,269 +636,541 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
                           >
                             {checked ? 'Valgt for import' : 'Ikke valgt — huk av for å importere'}
                           </p>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            <button
+                              type="button"
+                              disabled={disabled}
+                              onClick={() => setProposalImportKind(pid, 'event')}
+                              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                                u.importKind === 'event'
+                                  ? 'bg-brandNavy text-white'
+                                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                              }`}
+                            >
+                              Hendelse
+                            </button>
+                            <button
+                              type="button"
+                              disabled={disabled}
+                              onClick={() => setProposalImportKind(pid, 'task')}
+                              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                                u.importKind === 'task'
+                                  ? 'bg-brandNavy text-white'
+                                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                              }`}
+                            >
+                              Gjøremål
+                            </button>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Skannlinje: hva som telles (speiler utkast) */}
-                      <div className="border-b border-dashed border-zinc-200 bg-zinc-50/60 px-3 py-3 sm:px-4">
-                        <p className="text-[17px] font-bold leading-snug tracking-tight text-zinc-900">
-                          {draft.title.trim() || 'Uten tittel'}
-                        </p>
-                        <p className="mt-1.5 text-[13px] font-medium text-zinc-700">
-                          {formatNorwegianDateLabel(draft.date)}
-                          <span className="mx-1.5 text-zinc-300">·</span>
-                          <span className="tabular-nums">{timeLabel}</span>
-                          <span className="mx-1.5 text-zinc-300">·</span>
-                          <span className="text-zinc-800">{personName}</span>
-                        </p>
-                        {(draft.location.trim() || draft.notes.trim()) && (
-                          <div className="mt-2 space-y-0.5 text-[12px] leading-snug text-zinc-500">
-                            {draft.location.trim() ? (
-                              <p>
-                                <span className="font-medium text-zinc-400">Sted:</span> {draft.location.trim()}
-                              </p>
-                            ) : null}
-                            {(noteSections.todo.length > 0 || noteSections.notes.length > 0) && (
-                              <div className="space-y-1 pt-0.5">
-                                {noteSections.todo.length > 0 ? (
-                                  <p className="line-clamp-2">
-                                    <span className="font-medium text-zinc-500">Gjøremål / husk:</span>{' '}
-                                    {noteSections.todo.join(' · ')}
+                      {u.importKind === 'event' ? (
+                        <>
+                          <div className="border-b border-dashed border-zinc-200 bg-zinc-50/60 px-3 py-3 sm:px-4">
+                            <p className="text-[17px] font-bold leading-snug tracking-tight text-zinc-900">
+                              {u.event.title.trim() || 'Uten tittel'}
+                            </p>
+                            <p className="mt-1.5 text-[13px] font-medium text-zinc-700">
+                              {formatNorwegianDateLabel(u.event.date)}
+                              <span className="mx-1.5 text-zinc-300">·</span>
+                              <span className="tabular-nums">
+                                {(() => {
+                                  const ts =
+                                    u.event.start.length > 5 ? u.event.start.slice(0, 5) : u.event.start
+                                  const te = u.event.end.length > 5 ? u.event.end.slice(0, 5) : u.event.end
+                                  const hm = /^([01]\d|2[0-3]):[0-5]\d$/
+                                  return hm.test(ts) && hm.test(te)
+                                    ? formatTimeRange(ts, te)
+                                    : ts && te
+                                      ? `${ts} – ${te}`
+                                      : '—'
+                                })()}
+                              </span>
+                              <span className="mx-1.5 text-zinc-300">·</span>
+                              <span className="text-zinc-800">
+                                {people.find((p) => p.id === u.event.personId)?.name ?? '—'}
+                              </span>
+                            </p>
+                            {(u.event.location.trim() || u.event.notes.trim()) && (
+                              <div className="mt-2 space-y-0.5 text-[12px] leading-snug text-zinc-500">
+                                {u.event.location.trim() ? (
+                                  <p>
+                                    <span className="font-medium text-zinc-400">Sted:</span>{' '}
+                                    {u.event.location.trim()}
                                   </p>
                                 ) : null}
-                                {noteSections.notes.length > 0 ? (
-                                  <p className="line-clamp-2">
-                                    <span className="font-medium text-zinc-500">Notater:</span>{' '}
-                                    {noteSections.notes.join(' · ')}
-                                  </p>
-                                ) : null}
+                                {(() => {
+                                  const noteSections = parseNoteSections(u.event.notes)
+                                  return (noteSections.todo.length > 0 || noteSections.notes.length > 0) && (
+                                    <div className="space-y-1 pt-0.5">
+                                      {noteSections.todo.length > 0 ? (
+                                        <p className="line-clamp-2">
+                                          <span className="font-medium text-zinc-500">Gjøremål / husk:</span>{' '}
+                                          {noteSections.todo.join(' · ')}
+                                        </p>
+                                      ) : null}
+                                      {noteSections.notes.length > 0 ? (
+                                        <p className="line-clamp-2">
+                                          <span className="font-medium text-zinc-500">Notater:</span>{' '}
+                                          {noteSections.notes.join(' · ')}
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                  )
+                                })()}
                               </div>
                             )}
                           </div>
-                        )}
-                      </div>
 
-                      <div className="space-y-3 px-3 py-3 sm:px-4">
-                        <Input
-                          id={`ts-${pid}-title`}
-                          label="Tittel"
-                          value={draft.title}
-                          onChange={(e) => updateDraft(pid, { title: e.target.value })}
-                          disabled={disabled}
-                          error={fieldErrors.title}
-                          className="text-[15px] font-semibold"
-                        />
-                        <Input
-                          id={`ts-${pid}-date`}
-                          label="Dato"
-                          type="date"
-                          value={draft.date}
-                          onChange={(e) => updateDraft(pid, { date: e.target.value })}
-                          disabled={disabled}
-                          error={fieldErrors.date}
-                          className="text-[13px]"
-                        />
-                        <div className="grid grid-cols-2 gap-2">
-                          <Input
-                            id={`ts-${pid}-start`}
-                            label="Start"
-                            type="time"
-                            step={60}
-                            value={draft.start.length > 5 ? draft.start.slice(0, 5) : draft.start}
-                            onChange={(e) => updateDraft(pid, { start: e.target.value })}
-                            disabled={disabled}
-                            error={fieldErrors.start}
-                            className="text-[13px]"
-                          />
-                          <Input
-                            id={`ts-${pid}-end`}
-                            label="Slutt"
-                            type="time"
-                            step={60}
-                            value={draft.end.length > 5 ? draft.end.slice(0, 5) : draft.end}
-                            onChange={(e) => updateDraft(pid, { end: e.target.value })}
-                            disabled={disabled}
-                            error={fieldErrors.end}
-                            className="text-[13px]"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor={`ts-${pid}-person`} className="mb-1 block text-caption font-medium text-zinc-600">
-                            Person
-                          </label>
-                          <select
-                            id={`ts-${pid}-person`}
-                            className={`w-full rounded-2xl border bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:ring-1 disabled:opacity-50 ${
-                              fieldErrors.personId
-                                ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-400/20'
-                                : 'border-zinc-200 focus:border-brandTeal focus:ring-brandTeal/20'
-                            }`}
-                            value={draft.personId}
-                            onChange={(e) => updateDraft(pid, { personId: e.target.value })}
-                            disabled={disabled}
-                            aria-invalid={fieldErrors.personId ? true : undefined}
-                          >
-                            <option value="">— Velg —</option>
-                            {people.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name}
-                              </option>
-                            ))}
-                          </select>
-                          {fieldErrors.personId && (
-                            <p className="mt-1 text-[12px] text-rose-600" role="alert">
-                              {fieldErrors.personId}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="rounded-xl border border-rose-100 bg-rose-50/50 px-3 py-3">
-                          <p className="inline-flex items-center rounded-full border border-rose-200 bg-rose-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-700">
-                            Notater
-                          </p>
-                          <div className="mt-2">
-                            <Textarea
-                              id={`ts-${pid}-notes`}
-                              label="Notater"
-                              rows={3}
-                              autoResize
-                              minRows={3}
-                              maxRows={12}
-                              value={draft.notes}
-                              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => updateDraft(pid, { notes: e.target.value })}
-                              disabled={disabled}
-                              className="text-[13px] text-zinc-700"
-                              placeholder="Detaljer som skal med inn i kalenderen"
-                            />
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => toggleDetailsExpanded(pid)}
-                          className="flex w-full items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-left text-[12px] font-medium text-zinc-700 transition hover:bg-zinc-100"
-                          aria-expanded={detailsExpanded}
-                          aria-controls={`ts-extra-details-${pid}`}
-                        >
-                          <span>{detailsExpanded ? 'Skjul ekstradetaljer' : 'Vis ekstradetaljer'}</span>
-                          <svg
-                            className={`h-4 w-4 text-zinc-500 transition-transform ${detailsExpanded ? 'rotate-180' : ''}`}
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            strokeWidth={2.5}
-                            stroke="currentColor"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                          </svg>
-                        </button>
-
-                        {detailsExpanded ? (
-                          <div id={`ts-extra-details-${pid}`} className="space-y-3 rounded-xl border border-zinc-100 bg-zinc-50/60 px-3 py-3">
+                          <div className="space-y-3 px-3 py-3 sm:px-4">
                             <Input
-                              id={`ts-${pid}-location`}
-                              label="Sted"
-                              value={draft.location}
-                              onChange={(e) => updateDraft(pid, { location: e.target.value })}
+                              id={`ts-${pid}-title`}
+                              label="Tittel"
+                              value={u.event.title}
+                              onChange={(e) => updateEventDraft(pid, { title: e.target.value })}
                               disabled={disabled}
-                              className="text-[13px] text-zinc-800"
-                              placeholder="F.eks. skole, adresse"
+                              error={eventFieldErrors.title}
+                              className="text-[15px] font-semibold"
                             />
-                            <div className="space-y-1">
-                              <label htmlFor={`ts-${pid}-reminder`} className="block text-caption font-medium text-zinc-600">
-                                Påminnelse
+                            <Input
+                              id={`ts-${pid}-date`}
+                              label="Dato"
+                              type="date"
+                              value={u.event.date}
+                              onChange={(e) => updateEventDraft(pid, { date: e.target.value })}
+                              disabled={disabled}
+                              error={eventFieldErrors.date}
+                              className="text-[13px]"
+                            />
+                            <div className="grid grid-cols-2 gap-2">
+                              <Input
+                                id={`ts-${pid}-start`}
+                                label="Start"
+                                type="time"
+                                step={60}
+                                value={u.event.start.length > 5 ? u.event.start.slice(0, 5) : u.event.start}
+                                onChange={(e) => updateEventDraft(pid, { start: e.target.value })}
+                                disabled={disabled}
+                                error={eventFieldErrors.start}
+                                className="text-[13px]"
+                              />
+                              <Input
+                                id={`ts-${pid}-end`}
+                                label="Slutt"
+                                type="time"
+                                step={60}
+                                value={u.event.end.length > 5 ? u.event.end.slice(0, 5) : u.event.end}
+                                onChange={(e) => updateEventDraft(pid, { end: e.target.value })}
+                                disabled={disabled}
+                                error={eventFieldErrors.end}
+                                className="text-[13px]"
+                              />
+                            </div>
+                            <div>
+                              <label
+                                htmlFor={`ts-${pid}-person`}
+                                className="mb-1 block text-caption font-medium text-zinc-600"
+                              >
+                                Person
                               </label>
                               <select
-                                id={`ts-${pid}-reminder`}
-                                className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
-                                value={draft.reminderMinutes == null ? '' : String(draft.reminderMinutes)}
-                                onChange={(e) =>
-                                  updateDraft(pid, {
-                                    reminderMinutes: e.target.value === '' ? undefined : Number(e.target.value),
-                                  })
-                                }
+                                id={`ts-${pid}-person`}
+                                className={`w-full rounded-2xl border bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:ring-1 disabled:opacity-50 ${
+                                  eventFieldErrors.personId
+                                    ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-400/20'
+                                    : 'border-zinc-200 focus:border-brandTeal focus:ring-brandTeal/20'
+                                }`}
+                                value={u.event.personId}
+                                onChange={(e) => updateEventDraft(pid, { personId: e.target.value })}
                                 disabled={disabled}
+                                aria-invalid={eventFieldErrors.personId ? true : undefined}
                               >
-                                <option value="">Ingen</option>
-                                <option value="5">5 min før</option>
-                                <option value="15">15 min før</option>
-                                <option value="30">30 min før</option>
-                                <option value="60">1 time før</option>
-                                <option value="120">2 timer før</option>
-                                <option value="1440">24 timer før</option>
+                                <option value="">— Velg —</option>
+                                {people.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name}
+                                  </option>
+                                ))}
                               </select>
-                              <p className="text-[11px] text-zinc-500">
-                                Valgt: <span className="font-medium text-zinc-700">{reminderLabel(draft.reminderMinutes)}</span>
-                              </p>
-                            </div>
-
-                            <div className="space-y-1 rounded-lg border border-zinc-200/90 bg-white/70 px-2.5 py-2">
-                              <p className="text-caption font-medium text-zinc-600">Gjentakelse</p>
-                              {item.event.recurrenceGroupId ? (
-                                <label className="flex items-center gap-2 text-[12px] text-zinc-700">
-                                  <input
-                                    type="checkbox"
-                                    className="h-4 w-4 rounded border-zinc-300 text-brandTeal focus:ring-brandTeal/30"
-                                    checked={draft.includeRecurrence}
-                                    onChange={(e) => updateDraft(pid, { includeRecurrence: e.target.checked })}
-                                    disabled={disabled}
-                                  />
-                                  Behold gjentakelse fra forslag
-                                </label>
-                              ) : (
-                                <p className="text-[12px] text-zinc-500">Ingen gjentakelse i dette forslaget.</p>
+                              {eventFieldErrors.personId && (
+                                <p className="mt-1 text-[12px] text-rose-600" role="alert">
+                                  {eventFieldErrors.personId}
+                                </p>
                               )}
                             </div>
 
-                            <div className="space-y-2 rounded-lg border border-zinc-200/90 bg-white/70 px-2.5 py-2">
-                              <p className="text-caption font-medium text-zinc-600">Levering og henting</p>
-                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                <div>
-                                  <label htmlFor={`ts-${pid}-dropoff`} className="mb-1 block text-[11px] font-medium text-zinc-500">
-                                    Levert av
-                                  </label>
-                                  <select
-                                    id={`ts-${pid}-dropoff`}
-                                    className="w-full rounded-xl border border-zinc-200 bg-white px-2.5 py-2 text-[13px] text-zinc-900 outline-none transition focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
-                                    value={draft.dropoffBy}
-                                    onChange={(e) => updateDraft(pid, { dropoffBy: e.target.value })}
-                                    disabled={disabled}
-                                  >
-                                    <option value="">Ingen</option>
-                                    {people.map((p) => (
-                                      <option key={p.id} value={p.id}>
-                                        {p.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <label htmlFor={`ts-${pid}-pickup`} className="mb-1 block text-[11px] font-medium text-zinc-500">
-                                    Hentes av
-                                  </label>
-                                  <select
-                                    id={`ts-${pid}-pickup`}
-                                    className="w-full rounded-xl border border-zinc-200 bg-white px-2.5 py-2 text-[13px] text-zinc-900 outline-none transition focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
-                                    value={draft.pickupBy}
-                                    onChange={(e) => updateDraft(pid, { pickupBy: e.target.value })}
-                                    disabled={disabled}
-                                  >
-                                    <option value="">Ingen</option>
-                                    {people.map((p) => (
-                                      <option key={p.id} value={p.id}>
-                                        {p.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
+                            <div className="rounded-xl border border-rose-100 bg-rose-50/50 px-3 py-3">
+                              <p className="inline-flex items-center rounded-full border border-rose-200 bg-rose-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-700">
+                                Notater
+                              </p>
+                              <div className="mt-2">
+                                <Textarea
+                                  id={`ts-${pid}-notes`}
+                                  label="Notater"
+                                  rows={3}
+                                  autoResize
+                                  minRows={3}
+                                  maxRows={12}
+                                  value={u.event.notes}
+                                  onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                                    updateEventDraft(pid, { notes: e.target.value })
+                                  }
+                                  disabled={disabled}
+                                  className="text-[13px] text-zinc-700"
+                                  placeholder="Detaljer som skal med inn i kalenderen"
+                                />
                               </div>
                             </div>
 
-                            {sourceCtx && (
-                              <div className="rounded-lg border border-zinc-200/80 bg-zinc-50/90 px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => toggleDetailsExpanded(pid)}
+                              className="flex w-full items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-left text-[12px] font-medium text-zinc-700 transition hover:bg-zinc-100"
+                              aria-expanded={detailsExpanded}
+                              aria-controls={`ts-extra-details-${pid}`}
+                            >
+                              <span>{detailsExpanded ? 'Skjul ekstradetaljer' : 'Vis ekstradetaljer'}</span>
+                              <svg
+                                className={`h-4 w-4 text-zinc-500 transition-transform ${detailsExpanded ? 'rotate-180' : ''}`}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                strokeWidth={2.5}
+                                stroke="currentColor"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                              </svg>
+                            </button>
+
+                            {detailsExpanded ? (
+                              <div
+                                id={`ts-extra-details-${pid}`}
+                                className="space-y-3 rounded-xl border border-zinc-100 bg-zinc-50/60 px-3 py-3"
+                              >
+                                <Input
+                                  id={`ts-${pid}-location`}
+                                  label="Sted"
+                                  value={u.event.location}
+                                  onChange={(e) => updateEventDraft(pid, { location: e.target.value })}
+                                  disabled={disabled}
+                                  className="text-[13px] text-zinc-800"
+                                  placeholder="F.eks. skole, adresse"
+                                />
+                                <div className="space-y-1">
+                                  <label
+                                    htmlFor={`ts-${pid}-reminder`}
+                                    className="block text-caption font-medium text-zinc-600"
+                                  >
+                                    Påminnelse
+                                  </label>
+                                  <select
+                                    id={`ts-${pid}-reminder`}
+                                    className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
+                                    value={u.event.reminderMinutes == null ? '' : String(u.event.reminderMinutes)}
+                                    onChange={(e) =>
+                                      updateEventDraft(pid, {
+                                        reminderMinutes: e.target.value === '' ? undefined : Number(e.target.value),
+                                      })
+                                    }
+                                    disabled={disabled}
+                                  >
+                                    <option value="">Ingen</option>
+                                    <option value="5">5 min før</option>
+                                    <option value="15">15 min før</option>
+                                    <option value="30">30 min før</option>
+                                    <option value="60">1 time før</option>
+                                    <option value="120">2 timer før</option>
+                                    <option value="1440">24 timer før</option>
+                                  </select>
+                                  <p className="text-[11px] text-zinc-500">
+                                    Valgt:{' '}
+                                    <span className="font-medium text-zinc-700">
+                                      {reminderLabel(u.event.reminderMinutes)}
+                                    </span>
+                                  </p>
+                                </div>
+
+                                <div className="space-y-1 rounded-lg border border-zinc-200/90 bg-white/70 px-2.5 py-2">
+                                  <p className="text-caption font-medium text-zinc-600">Gjentakelse</p>
+                                  {item.kind === 'event' && item.event.recurrenceGroupId ? (
+                                    <label className="flex items-center gap-2 text-[12px] text-zinc-700">
+                                      <input
+                                        type="checkbox"
+                                        className="h-4 w-4 rounded border-zinc-300 text-brandTeal focus:ring-brandTeal/30"
+                                        checked={u.event.includeRecurrence}
+                                        onChange={(e) =>
+                                          updateEventDraft(pid, { includeRecurrence: e.target.checked })
+                                        }
+                                        disabled={disabled}
+                                      />
+                                      Behold gjentakelse fra forslag
+                                    </label>
+                                  ) : (
+                                    <p className="text-[12px] text-zinc-500">Ingen gjentakelse i dette forslaget.</p>
+                                  )}
+                                </div>
+
+                                <div className="space-y-2 rounded-lg border border-zinc-200/90 bg-white/70 px-2.5 py-2">
+                                  <p className="text-caption font-medium text-zinc-600">Levering og henting</p>
+                                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    <div>
+                                      <label
+                                        htmlFor={`ts-${pid}-dropoff`}
+                                        className="mb-1 block text-[11px] font-medium text-zinc-500"
+                                      >
+                                        Levert av
+                                      </label>
+                                      <select
+                                        id={`ts-${pid}-dropoff`}
+                                        className="w-full rounded-xl border border-zinc-200 bg-white px-2.5 py-2 text-[13px] text-zinc-900 outline-none transition focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
+                                        value={u.event.dropoffBy}
+                                        onChange={(e) => updateEventDraft(pid, { dropoffBy: e.target.value })}
+                                        disabled={disabled}
+                                      >
+                                        <option value="">Ingen</option>
+                                        {people.map((p) => (
+                                          <option key={p.id} value={p.id}>
+                                            {p.name}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <div>
+                                      <label
+                                        htmlFor={`ts-${pid}-pickup`}
+                                        className="mb-1 block text-[11px] font-medium text-zinc-500"
+                                      >
+                                        Hentes av
+                                      </label>
+                                      <select
+                                        id={`ts-${pid}-pickup`}
+                                        className="w-full rounded-xl border border-zinc-200 bg-white px-2.5 py-2 text-[13px] text-zinc-900 outline-none transition focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
+                                        value={u.event.pickupBy}
+                                        onChange={(e) => updateEventDraft(pid, { pickupBy: e.target.value })}
+                                        disabled={disabled}
+                                      >
+                                        <option value="">Ingen</option>
+                                        {people.map((p) => (
+                                          <option key={p.id} value={p.id}>
+                                            {p.name}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {sourceCtx && (
+                                  <div className="rounded-lg border border-zinc-200/80 bg-zinc-50/90 px-3 py-2">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                                      Kildegrunnlag (fra AI)
+                                    </p>
+                                    <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-zinc-600">
+                                      {sourceCtx}
+                                    </p>
+                                    {showSourceExpandToggle && fullSourceDoc ? (
+                                      <>
+                                        <button
+                                          type="button"
+                                          className="mt-2 text-left text-[12px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:decoration-brandNavy"
+                                          onClick={() => toggleSourceExpanded(pid)}
+                                          aria-expanded={sourceExpanded}
+                                          aria-controls={`ts-source-expanded-${pid}`}
+                                        >
+                                          {sourceExpanded ? 'Vis mindre' : 'Vis mer av kildegrunnlag'}
+                                        </button>
+                                        {sourceExpanded ? (
+                                          <div
+                                            id={`ts-source-expanded-${pid}`}
+                                            className="mt-3 border-t border-zinc-200/90 pt-3"
+                                          >
+                                            <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                                              Utvidet kildegrunnlag
+                                            </p>
+                                            <div
+                                              className="mt-1.5 max-h-56 overflow-y-auto overscroll-y-contain rounded-md border border-zinc-100 bg-white px-2.5 py-2 text-[12px] leading-relaxed text-zinc-700 whitespace-pre-wrap break-words"
+                                              role="region"
+                                              aria-label="Fullt kildegrunnlag fra AI"
+                                            >
+                                              {fullSourceDoc.length > 12000
+                                                ? `${fullSourceDoc.slice(0, 11997)}…`
+                                                : fullSourceDoc}
+                                            </div>
+                                          </div>
+                                        ) : null}
+                                      </>
+                                    ) : null}
+                                  </div>
+                                )}
+                              </div>
+                            ) : null}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="border-b border-dashed border-zinc-200 bg-zinc-50/60 px-3 py-3 sm:px-4">
+                            <p className="text-[17px] font-bold leading-snug tracking-tight text-zinc-900">
+                              {u.task.title.trim() || 'Uten tittel'}
+                            </p>
+                            <p className="mt-1.5 text-[13px] font-medium text-zinc-700">
+                              {formatNorwegianDateLabel(u.task.date)}
+                              <span className="mx-1.5 text-zinc-300">·</span>
+                              <span className="tabular-nums text-amber-700">
+                                Frist: {u.task.dueTime.trim() || '—'}
+                              </span>
+                            </p>
+                            <p className="mt-1 text-[12px] text-zinc-500">
+                              Barn:{' '}
+                              <span className="font-medium text-zinc-700">
+                                {u.task.childPersonId
+                                  ? people.find((p) => p.id === u.task.childPersonId)?.name ?? '—'
+                                  : '—'}
+                              </span>
+                              <span className="mx-1.5 text-zinc-300">·</span>
+                              Ansvarlig:{' '}
+                              <span className="font-medium text-zinc-700">
+                                {u.task.assignedToPersonId
+                                  ? people.find((p) => p.id === u.task.assignedToPersonId)?.name ?? '—'
+                                  : '—'}
+                              </span>
+                            </p>
+                          </div>
+                          <div className="space-y-3 px-3 py-3 sm:px-4">
+                            <Input
+                              id={`ts-${pid}-task-title`}
+                              label="Tittel"
+                              value={u.task.title}
+                              onChange={(e) => updateTaskDraft(pid, { title: e.target.value })}
+                              disabled={disabled}
+                              error={taskFieldErrors.title}
+                              className="text-[15px] font-semibold"
+                            />
+                            <Input
+                              id={`ts-${pid}-task-date`}
+                              label="Dato"
+                              type="date"
+                              value={u.task.date}
+                              onChange={(e) => updateTaskDraft(pid, { date: e.target.value })}
+                              disabled={disabled}
+                              error={taskFieldErrors.date}
+                              className="text-[13px]"
+                            />
+                            <Input
+                              id={`ts-${pid}-task-due`}
+                              label="Frist (klokkeslett, valgfritt)"
+                              type="time"
+                              step={60}
+                              value={
+                                u.task.dueTime.length > 5 ? u.task.dueTime.slice(0, 5) : u.task.dueTime
+                              }
+                              onChange={(e) => updateTaskDraft(pid, { dueTime: e.target.value })}
+                              disabled={disabled}
+                              error={taskFieldErrors.dueTime}
+                              className="text-[13px]"
+                            />
+                            <div>
+                              <label
+                                htmlFor={`ts-${pid}-task-child`}
+                                className="mb-1 block text-caption font-medium text-zinc-600"
+                              >
+                                Gjelder barn
+                              </label>
+                              <select
+                                id={`ts-${pid}-task-child`}
+                                className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
+                                value={u.task.childPersonId}
+                                onChange={(e) => updateTaskDraft(pid, { childPersonId: e.target.value })}
+                                disabled={disabled}
+                              >
+                                <option value="">— Ingen —</option>
+                                {people.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label
+                                htmlFor={`ts-${pid}-task-assign`}
+                                className="mb-1 block text-caption font-medium text-zinc-600"
+                              >
+                                Ansvarlig
+                              </label>
+                              <select
+                                id={`ts-${pid}-task-assign`}
+                                className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
+                                value={u.task.assignedToPersonId}
+                                onChange={(e) => updateTaskDraft(pid, { assignedToPersonId: e.target.value })}
+                                disabled={disabled}
+                              >
+                                <option value="">— Ingen —</option>
+                                {people.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <label className="flex items-center gap-2 text-[12px] text-zinc-700">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-zinc-300 text-brandTeal focus:ring-brandTeal/30"
+                                checked={u.task.showInMonthView}
+                                onChange={(e) => updateTaskDraft(pid, { showInMonthView: e.target.checked })}
+                                disabled={disabled}
+                              />
+                              Vis markør i månedskalender
+                            </label>
+                            <div className="rounded-xl border border-rose-100 bg-rose-50/50 px-3 py-3">
+                              <p className="inline-flex items-center rounded-full border border-rose-200 bg-rose-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-700">
+                                Notater
+                              </p>
+                              <div className="mt-2">
+                                <Textarea
+                                  id={`ts-${pid}-task-notes`}
+                                  label="Notater"
+                                  rows={3}
+                                  autoResize
+                                  minRows={3}
+                                  maxRows={12}
+                                  value={u.task.notes}
+                                  onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                                    updateTaskDraft(pid, { notes: e.target.value })
+                                  }
+                                  disabled={disabled}
+                                  className="text-[13px] text-zinc-700"
+                                  placeholder="Detaljer til oppgaven"
+                                />
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleDetailsExpanded(pid)}
+                              className="flex w-full items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-left text-[12px] font-medium text-zinc-700 transition hover:bg-zinc-100"
+                              aria-expanded={detailsExpanded}
+                              aria-controls={`ts-task-extra-${pid}`}
+                            >
+                              <span>{detailsExpanded ? 'Skjul kildegrunnlag' : 'Vis kildegrunnlag'}</span>
+                              <svg
+                                className={`h-4 w-4 text-zinc-500 transition-transform ${detailsExpanded ? 'rotate-180' : ''}`}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                strokeWidth={2.5}
+                                stroke="currentColor"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                              </svg>
+                            </button>
+                            {detailsExpanded && sourceCtx ? (
+                              <div
+                                id={`ts-task-extra-${pid}`}
+                                className="rounded-lg border border-zinc-200/80 bg-zinc-50/90 px-3 py-2"
+                              >
                                 <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
                                   Kildegrunnlag (fra AI)
                                 </p>
-                                <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-zinc-600">{sourceCtx}</p>
+                                <p className="mt-1 text-[12px] leading-relaxed text-zinc-600">{sourceCtx}</p>
                                 {showSourceExpandToggle && fullSourceDoc ? (
                                   <>
                                     <button
@@ -877,36 +1178,23 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
                                       className="mt-2 text-left text-[12px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:decoration-brandNavy"
                                       onClick={() => toggleSourceExpanded(pid)}
                                       aria-expanded={sourceExpanded}
-                                      aria-controls={`ts-source-expanded-${pid}`}
                                     >
-                                      {sourceExpanded ? 'Vis mindre' : 'Vis mer av kildegrunnlag'}
+                                      {sourceExpanded ? 'Vis mindre' : 'Vis mer'}
                                     </button>
-                                    {sourceExpanded ? (
-                                      <div
-                                        id={`ts-source-expanded-${pid}`}
-                                        className="mt-3 border-t border-zinc-200/90 pt-3"
-                                      >
-                                        <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                                          Utvidet kildegrunnlag
-                                        </p>
-                                        <div
-                                          className="mt-1.5 max-h-56 overflow-y-auto overscroll-y-contain rounded-md border border-zinc-100 bg-white px-2.5 py-2 text-[12px] leading-relaxed text-zinc-700 whitespace-pre-wrap break-words"
-                                          role="region"
-                                          aria-label="Fullt kildegrunnlag fra AI"
-                                        >
-                                          {fullSourceDoc.length > 12000
-                                            ? `${fullSourceDoc.slice(0, 11997)}…`
-                                            : fullSourceDoc}
-                                        </div>
+                                    {sourceExpanded && fullSourceDoc ? (
+                                      <div className="mt-2 max-h-40 overflow-y-auto text-[12px] whitespace-pre-wrap text-zinc-700">
+                                        {fullSourceDoc.length > 8000
+                                          ? `${fullSourceDoc.slice(0, 7997)}…`
+                                          : fullSourceDoc}
                                       </div>
                                     ) : null}
                                   </>
                                 ) : null}
                               </div>
-                            )}
+                            ) : null}
                           </div>
-                        ) : null}
-                      </div>
+                        </>
+                      )}
                     </li>
                   )
                 })}

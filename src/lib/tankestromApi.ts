@@ -1,10 +1,10 @@
 import { supabase } from './supabaseClient'
 import type {
   PortalEventPayload,
-  PortalEventProposal,
   PortalImportProposalBundle,
   PortalProposalItem,
   PortalSourceSystem,
+  PortalTaskProposal,
 } from '../features/tankestrom/types'
 
 function isRecord(x: unknown): x is Record<string, unknown> {
@@ -91,27 +91,66 @@ function parseEventPayload(raw: unknown): PortalEventPayload {
   return out
 }
 
-/** Parser ett forslag. `task` hoppes over i portal-MVP (returnerer null). */
-function tryParseProposalItem(raw: unknown, index: number): PortalEventProposal | null {
+function parseTaskPayload(raw: unknown): PortalTaskProposal['task'] {
+  if (!isRecord(raw)) throw new Error('Ugyldig svar: task-payload mangler')
+  const date = asString(raw.date, 'task.date')
+  if (!isDateKey(date)) throw new Error('Ugyldig svar: task.date må være YYYY-MM-DD')
+  const title = asString(raw.title, 'task.title')
+  const out: PortalTaskProposal['task'] = { date, title }
+  const notes = asOptionalString(raw.notes)
+  if (notes !== undefined) out.notes = notes
+  const due = asOptionalString(raw.dueTime)
+  if (due !== undefined) {
+    if (!isHm(due)) throw new Error('Ugyldig svar: task.dueTime må være HH:mm')
+    out.dueTime = due
+  }
+  const assign = asOptionalString(raw.assignedToPersonId)
+  if (assign !== undefined) out.assignedToPersonId = assign
+  const child = asOptionalString(raw.childPersonId)
+  if (child !== undefined) out.childPersonId = child
+  if (raw.showInMonthView !== undefined && raw.showInMonthView !== null) {
+    if (typeof raw.showInMonthView !== 'boolean') throw new Error('Ugyldig svar: task.showInMonthView')
+    out.showInMonthView = raw.showInMonthView
+  }
+  return out
+}
+
+/** Parser ett forslag til event eller task. */
+function tryParseProposalItem(raw: unknown, index: number): PortalProposalItem {
   if (!isRecord(raw)) throw new Error(`Forslag #${index + 1}: mangler felter`)
   const proposalId = asString(raw.proposalId, 'proposalId')
   if (!isUuidLike(proposalId)) throw new Error(`Forslag #${index + 1}: proposalId må være en UUID`)
-  const kind = asString(raw.kind, 'kind')
-  if (kind === 'task') return null
-  if (kind !== 'event') throw new Error(`Forslag #${index + 1}: ukjent kind "${kind}"`)
+  const kindRaw = asString(raw.kind, 'kind')
+  if (kindRaw !== 'event' && kindRaw !== 'task') {
+    throw new Error(`Forslag #${index + 1}: ukjent kind "${kindRaw}"`)
+  }
   const sourceId = asString(raw.sourceId, 'sourceId')
   const originalSourceType = asString(raw.originalSourceType, 'originalSourceType')
   const confidence = asNumber01(raw.confidence, 'confidence')
-  const base = {
+  const externalRef = asOptionalString(raw.externalRef)
+  const calendarOwnerUserId = asOptionalString(raw.calendarOwnerUserId)
+  if (kindRaw === 'task') {
+    return {
+      proposalId,
+      kind: 'task',
+      sourceId,
+      originalSourceType,
+      confidence,
+      externalRef,
+      calendarOwnerUserId,
+      task: parseTaskPayload(raw.task),
+    }
+  }
+  return {
     proposalId,
-    kind: 'event' as const,
+    kind: 'event',
     sourceId,
     originalSourceType,
     confidence,
-    externalRef: asOptionalString(raw.externalRef),
-    calendarOwnerUserId: asOptionalString(raw.calendarOwnerUserId),
+    externalRef,
+    calendarOwnerUserId,
+    event: parseEventPayload(raw.event),
   }
-  return { ...base, event: parseEventPayload(raw.event) }
 }
 
 /**
@@ -129,15 +168,14 @@ export function parsePortalImportProposalBundle(data: unknown): PortalImportProp
   const items: PortalProposalItem[] = []
   for (let i = 0; i < data.items.length; i++) {
     try {
-      const parsed = tryParseProposalItem(data.items[i], i)
-      if (parsed) items.push(parsed)
+      items.push(tryParseProposalItem(data.items[i], i))
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Ukjent feil'
       throw new Error(msg.startsWith('Forslag #') ? msg : `Forslag #${i + 1}: ${msg}`)
     }
   }
   if (items.length === 0) {
-    throw new Error('Ingen hendelsesforslag i svaret (kun oppgaver eller tom liste).')
+    throw new Error('Ingen forslag i svaret.')
   }
   return { schemaVersion: '1.0.0', provenance, items }
 }

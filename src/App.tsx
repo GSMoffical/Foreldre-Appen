@@ -449,6 +449,7 @@ function App() {
         onClose={() => setTankestromImportOpen(false)}
         people={people}
         createEvent={controller.createEvent}
+        createTask={taskController.createTask}
       />
       <CalendarOverlays
         selectedEvent={selectedEvent}
