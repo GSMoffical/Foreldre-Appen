@@ -71,8 +71,6 @@ function getSourceContextTextForItem(item: PortalProposalItem): string | null {
   if (item.kind === 'event') return getSourceContextText(item)
   const ref = item.externalRef?.trim()
   if (ref) return ref.length > 120 ? `Referanse: ${ref.slice(0, 117)}…` : `Referanse: ${ref}`
-  const n = item.task.notes?.trim()
-  if (n) return n.length > 200 ? `${n.slice(0, 197)}…` : n
   return null
 }
 
@@ -109,13 +107,9 @@ function buildFullSourceContextDocument(item: PortalEventProposal): string | nul
 
 function buildFullSourceContextDocumentForItem(item: PortalProposalItem): string | null {
   if (item.kind === 'event') return buildFullSourceContextDocument(item)
-  const blocks: string[] = []
   const ref = item.externalRef?.trim()
-  if (ref) blocks.push(`Referanse\n${ref}`)
-  const n = item.task.notes?.trim()
-  if (n) blocks.push(`Tekst fra forslag\n${n}`)
-  if (blocks.length === 0) return null
-  return blocks.join('\n\n────────\n\n')
+  if (ref) return `Referanse\n${ref}`
+  return null
 }
 
 function shouldOfferSourceExpand(full: string | null, preview: string | null): boolean {
@@ -162,68 +156,6 @@ function reminderLabel(reminderMinutes: number | undefined): string {
   if (reminderMinutes < 60) return `${reminderMinutes} min før`
   if (reminderMinutes % 60 === 0) return `${reminderMinutes / 60} t før`
   return `${reminderMinutes} min før`
-}
-
-interface ParsedNoteSections {
-  todo: string[]
-  notes: string[]
-}
-
-function canonicalNoteLine(line: string): string {
-  return line
-    .trim()
-    .replace(/^[\-*•\u2022]+\s*/, '')
-    .replace(/^\[(?: |x|X)\]\s*/, '')
-    .replace(/^notater?\s*:\s*/i, '')
-    .replace(/^gj[øo]rem[åa]l(?:\s*\/\s*husk)?\s*:\s*/i, '')
-    .replace(/^husk\s*:\s*/i, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase()
-}
-
-function parseNoteSections(rawNotes: string): ParsedNoteSections {
-  const lines = rawNotes
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-
-  const todo: string[] = []
-  const notes: string[] = []
-  const seen = new Set<string>()
-  let section: 'todo' | 'notes' = 'notes'
-
-  const pushUnique = (target: string[], value: string) => {
-    const cleaned = value.trim()
-    if (!cleaned) return
-    const key = canonicalNoteLine(cleaned)
-    if (!key || seen.has(key)) return
-    seen.add(key)
-    target.push(cleaned)
-  }
-
-  for (const line of lines) {
-    if (/^gj[øo]rem[åa]l(?:\s*\/\s*husk)?\s*:?\s*$/i.test(line) || /^husk\s*:?\s*$/i.test(line)) {
-      section = 'todo'
-      continue
-    }
-    if (/^notater?\s*:?\s*$/i.test(line)) {
-      section = 'notes'
-      continue
-    }
-
-    const cleaned = line
-      .replace(/^notater?\s*:\s*/i, '')
-      .replace(/^gj[øo]rem[åa]l(?:\s*\/\s*husk)?\s*:\s*/i, '')
-      .replace(/^husk\s*:\s*/i, '')
-      .trim()
-
-    const looksLikeTodo = /^(\[[ xX]\]|[-*•\u2022])\s+/.test(line)
-    if (section === 'todo' || looksLikeTodo) pushUnique(todo, cleaned)
-    else pushUnique(notes, cleaned)
-  }
-
-  return { todo, notes }
 }
 
 export interface TankestromImportDialogProps {
@@ -667,12 +599,9 @@ export function TankestromImportDialog({ open, onClose, people, createEvent, cre
 
                       {u.importKind === 'event' ? (
                         <>
-                          <div className="border-b border-dashed border-zinc-200 bg-zinc-50/60 px-3 py-3 sm:px-4">
-                            <p className="text-[17px] font-bold leading-snug tracking-tight text-zinc-900">
-                              {u.event.title.trim() || 'Uten tittel'}
-                            </p>
-                            <p className="mt-1.5 text-[13px] font-medium text-zinc-700">
-                              {formatNorwegianDateLabel(u.event.date)}
+                          <div className="border-b border-dashed border-zinc-200 bg-zinc-50/60 px-3 py-2 sm:px-4">
+                            <p className="text-[12px] font-medium leading-snug text-zinc-600">
+                              <span>{formatNorwegianDateLabel(u.event.date)}</span>
                               <span className="mx-1.5 text-zinc-300">·</span>
                               <span className="tabular-nums">
                                 {(() => {
@@ -687,40 +616,15 @@ export function TankestromImportDialog({ open, onClose, people, createEvent, cre
                                       : '—'
                                 })()}
                               </span>
-                              <span className="mx-1.5 text-zinc-300">·</span>
-                              <span className="text-zinc-800">
-                                {people.find((p) => p.id === u.event.personId)?.name ?? '—'}
-                              </span>
+                              {people.find((p) => p.id === u.event.personId)?.name ? (
+                                <>
+                                  <span className="mx-1.5 text-zinc-300">·</span>
+                                  <span className="text-zinc-700">
+                                    {people.find((p) => p.id === u.event.personId)?.name}
+                                  </span>
+                                </>
+                              ) : null}
                             </p>
-                            {(u.event.location.trim() || u.event.notes.trim()) && (
-                              <div className="mt-2 space-y-0.5 text-[12px] leading-snug text-zinc-500">
-                                {u.event.location.trim() ? (
-                                  <p>
-                                    <span className="font-medium text-zinc-400">Sted:</span>{' '}
-                                    {u.event.location.trim()}
-                                  </p>
-                                ) : null}
-                                {(() => {
-                                  const noteSections = parseNoteSections(u.event.notes)
-                                  return (noteSections.todo.length > 0 || noteSections.notes.length > 0) && (
-                                    <div className="space-y-1 pt-0.5">
-                                      {noteSections.todo.length > 0 ? (
-                                        <p className="line-clamp-2">
-                                          <span className="font-medium text-zinc-500">Gjøremål / husk:</span>{' '}
-                                          {noteSections.todo.join(' · ')}
-                                        </p>
-                                      ) : null}
-                                      {noteSections.notes.length > 0 ? (
-                                        <p className="line-clamp-2">
-                                          <span className="font-medium text-zinc-500">Notater:</span>{' '}
-                                          {noteSections.notes.join(' · ')}
-                                        </p>
-                                      ) : null}
-                                    </div>
-                                  )
-                                })()}
-                              </div>
-                            )}
                           </div>
 
                           <div className="space-y-3 px-3 py-3 sm:px-4">
@@ -1008,31 +912,25 @@ export function TankestromImportDialog({ open, onClose, people, createEvent, cre
                         </>
                       ) : (
                         <>
-                          <div className="border-b border-dashed border-zinc-200 bg-zinc-50/60 px-3 py-3 sm:px-4">
-                            <p className="text-[17px] font-bold leading-snug tracking-tight text-zinc-900">
-                              {u.task.title.trim() || 'Uten tittel'}
-                            </p>
-                            <p className="mt-1.5 text-[13px] font-medium text-zinc-700">
-                              {formatNorwegianDateLabel(u.task.date)}
-                              <span className="mx-1.5 text-zinc-300">·</span>
-                              <span className="tabular-nums text-amber-700">
-                                Frist: {u.task.dueTime.trim() || '—'}
-                              </span>
-                            </p>
-                            <p className="mt-1 text-[12px] text-zinc-500">
-                              Barn:{' '}
-                              <span className="font-medium text-zinc-700">
-                                {u.task.childPersonId
-                                  ? people.find((p) => p.id === u.task.childPersonId)?.name ?? '—'
-                                  : '—'}
-                              </span>
-                              <span className="mx-1.5 text-zinc-300">·</span>
-                              Ansvarlig:{' '}
-                              <span className="font-medium text-zinc-700">
-                                {u.task.assignedToPersonId
-                                  ? people.find((p) => p.id === u.task.assignedToPersonId)?.name ?? '—'
-                                  : '—'}
-                              </span>
+                          <div className="border-b border-dashed border-zinc-200 bg-zinc-50/60 px-3 py-2 sm:px-4">
+                            <p className="text-[12px] font-medium leading-snug text-zinc-600">
+                              <span>{formatNorwegianDateLabel(u.task.date)}</span>
+                              {u.task.dueTime.trim() ? (
+                                <>
+                                  <span className="mx-1.5 text-zinc-300">·</span>
+                                  <span className="tabular-nums text-amber-700">
+                                    Frist: {u.task.dueTime.trim()}
+                                  </span>
+                                </>
+                              ) : null}
+                              {u.task.childPersonId && people.find((p) => p.id === u.task.childPersonId)?.name ? (
+                                <>
+                                  <span className="mx-1.5 text-zinc-300">·</span>
+                                  <span className="text-zinc-700">
+                                    {people.find((p) => p.id === u.task.childPersonId)?.name}
+                                  </span>
+                                </>
+                              ) : null}
                             </p>
                           </div>
                           <div className="space-y-3 px-3 py-3 sm:px-4">
