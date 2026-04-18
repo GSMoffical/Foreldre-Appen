@@ -15,6 +15,7 @@ interface CalendarOverlaysProps {
   selectedBackgroundEvent: { event: Event; date: string } | null
   setSelectedBackgroundEvent: (value: { event: Event; date: string } | null) => void
   dayEvents: Event[]
+  dayTasks?: Task[]
   isAdding: boolean
   selectedDate: string
   addEventDateOverride: string | null
@@ -42,6 +43,7 @@ export function CalendarOverlays({
   selectedBackgroundEvent,
   setSelectedBackgroundEvent,
   dayEvents,
+  dayTasks,
   isAdding,
   selectedDate,
   addEventDateOverride,
@@ -115,6 +117,8 @@ export function CalendarOverlays({
           event={selectedBackgroundEvent.event}
           date={selectedBackgroundEvent.date}
           foregroundEvents={dayEvents}
+          dayEvents={dayEvents}
+          dayTasks={dayTasks}
           onResolveConflict={async (decision) => {
             try {
               await controller.resolveConflict(

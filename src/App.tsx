@@ -457,6 +457,7 @@ function App() {
         selectedBackgroundEvent={selectedBackgroundEvent}
         setSelectedBackgroundEvent={setSelectedBackgroundEvent}
         dayEvents={dayEvents}
+        dayTasks={filteredTasksByDate[selectedDate] ?? []}
         isAdding={isAdding}
         selectedDate={selectedDate}
         addEventDateOverride={addEventDateOverride}

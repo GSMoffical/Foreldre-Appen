@@ -514,7 +514,7 @@ export function useScheduleState() {
       const foreground = filterForegroundEvents(visible)
       const timed = filterTimedEvents(foreground)
       const allDay = filterAllDayEvents(foreground)
-      const background = buildBackgroundEventsForDate(day.date, people, selectedPersonIds)
+      const background = buildBackgroundEventsForDate(day.date, people, selectedPersonIds, dayEvents)
       const busyForGaps = [...timed, ...background]
       const layoutItems = layoutTimelineWithOverlapGroups(timed, WEEK_TIMELINE_PIXELS_PER_HOUR)
       const backgroundLayoutItems = normalizeBackgroundColumns(
@@ -573,8 +573,8 @@ export function useScheduleState() {
   )
 
   const backgroundEvents = useMemo(
-    () => buildBackgroundEventsForDate(selectedDate, people, selectedPersonIds),
-    [selectedDate, people, selectedPersonIds]
+    () => buildBackgroundEventsForDate(selectedDate, people, selectedPersonIds, dayEvents),
+    [selectedDate, people, selectedPersonIds, dayEvents]
   )
   const busyEventsForGaps = useMemo(
     () => [...foregroundTimedEvents, ...backgroundEvents],

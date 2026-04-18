@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import type { PortalEventProposal, PortalProposalItem } from './types'
-import type { Task } from '../../types'
+import type { SchoolContext, Task } from '../../types'
 import type { UseEventControllerReturn } from '../calendar/hooks/useEventController'
 import {
   useTankestromImport,
@@ -13,6 +13,22 @@ import { Button } from '../../components/ui/Button'
 import { Input, Textarea } from '../../components/ui/Input'
 import { logEvent } from '../../lib/appLogger'
 import { formatTimeRange } from '../../lib/time'
+import {
+  schoolContextSubjectLabel,
+  schoolItemTypeChipClass,
+  schoolItemTypeLabel,
+} from '../../lib/schoolContext'
+
+/** Les `metadata.schoolContext` fra et event-forslag hvis det finnes. */
+function schoolContextFromEventProposal(p: PortalEventProposal): SchoolContext | null {
+  const meta = p.event.metadata
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return null
+  const ctx = (meta as { schoolContext?: unknown }).schoolContext
+  if (!ctx || typeof ctx !== 'object' || Array.isArray(ctx)) return null
+  const candidate = ctx as Partial<SchoolContext>
+  if (typeof candidate.itemType !== 'string') return null
+  return candidate as SchoolContext
+}
 
 function confidenceBadgeStyle(confidence: number): { label: string; className: string } {
   const pct = Math.round(confidence * 100)
@@ -534,6 +550,17 @@ export function TankestromImportDialog({ open, onClose, people, createEvent, cre
                       : {}
                   const taskFieldErrors =
                     u.importKind === 'task' && checked ? getTankestromTaskFieldErrors(u.task) : {}
+                  const schoolCtx =
+                    item.kind === 'event' && u.importKind === 'event'
+                      ? schoolContextFromEventProposal(item)
+                      : null
+                  const schoolCtxPerson =
+                    schoolCtx && u.importKind === 'event'
+                      ? people.find((p) => p.id === u.event.personId)
+                      : null
+                  const schoolCtxSubjectLabel = schoolCtx
+                    ? schoolContextSubjectLabel(schoolCtxPerson?.school?.gradeBand, schoolCtx)
+                    : null
 
                   return (
                     <li
@@ -562,6 +589,20 @@ export function TankestromImportDialog({ open, onClose, people, createEvent, cre
                             <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">
                               {item.originalSourceType}
                             </span>
+                            {schoolCtx ? (
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${schoolItemTypeChipClass(schoolCtx.itemType)}`}
+                                title="Kobles til skoleblokk ved import"
+                              >
+                                {schoolCtxSubjectLabel ? (
+                                  <span className="normal-case tracking-normal">
+                                    {schoolCtxSubjectLabel}
+                                  </span>
+                                ) : null}
+                                <span aria-hidden className="opacity-50">·</span>
+                                <span>{schoolItemTypeLabel(schoolCtx.itemType)}</span>
+                              </span>
+                            ) : null}
                           </div>
                           <p
                             className={`mt-1.5 text-[11px] font-semibold uppercase tracking-wide ${checked ? 'text-brandNavy' : 'text-zinc-500'}`}

@@ -67,6 +67,86 @@ export interface TransportInfo {
   needsCarSeat?: boolean;
 }
 
+/** Kategorier for fag-koblet innhold fra A-plan / Tankestrøm. */
+export type SchoolItemType =
+  | 'homework'   // lekse
+  | 'note'       // generelt fagnotat
+  | 'test'       // prøve / tentamen
+  | 'equipment'  // "husk gymtøy"
+  | 'trip'       // tur
+  | 'other'
+
+/**
+ * Valgfri kobling fra et event til en spesifikk skoletime/fag for ett barn på én dato.
+ * Matching skjer read-time mot `Person.school.weekdays[wd].lessons` — ingen stable lesson IDs i MVP.
+ * Alt er valgfritt slik at eksisterende events forblir bakoverkompatible.
+ */
+/**
+ * Én kandidat når A-planen kan referere flere mulige fag (språk/valgfag/programfag).
+ * Matching velger kandidaten som best matcher barnets faktiske timeplan.
+ */
+export interface SchoolContextCandidate {
+  subjectKey?: string;
+  customLabel?: string;
+}
+
+export interface SchoolContext {
+  /** Match mot `SchoolLessonSlot.subjectKey` (eller `CUSTOM_SUBJECT_KEY`). */
+  subjectKey?: string;
+  /** Fritekst-navn på faget når `subjectKey` mangler / er 'custom'. */
+  customLabel?: string;
+  /**
+   * Flere mulige fag når A-planen er tvetydig (f.eks. "Spansk/Tysk/Fransk", "Valgfag").
+   * Matcheren prøver hver kandidat, pluss hoved-`subjectKey`/`customLabel`, og velger beste treff.
+   */
+  subjectCandidates?: SchoolContextCandidate[];
+  /** Sekundær match-nøkkel: `SchoolLessonSlot.start` (HH:mm). */
+  lessonStart?: string;
+  lessonEnd?: string;
+  itemType: SchoolItemType;
+  /** 0–1. Brukes for "forslag" vs "sikker". */
+  confidence?: number;
+  /** Peker tilbake til kilden. */
+  sourceKind?: 'tankestrom_a_plan' | 'tankestrom_manual' | 'other';
+}
+
+/**
+ * Beslutningsmodell for hvordan et importert event kan "trumfe" normal skoleblokk for én dato.
+ *
+ *  - `replace_day`: vis spesialdag i stedet for vanlig skole (f.eks. prøve, tur).
+ *  - `hide_day`:    skjul skoleblokken helt (fri, planleggingsdag, studiedag).
+ *  - `adjust_day`:  behold "Skole"-tittel men juster start/slutt (senere oppmøte, tidlig slutt).
+ */
+export type SchoolDayOverrideMode = 'replace_day' | 'hide_day' | 'adjust_day'
+
+/** Semantisk kategori for override-en — styrer label/UI men ikke selve logikken. */
+export type SchoolDayOverrideKind =
+  | 'exam_day'
+  | 'trip_day'
+  | 'activity_day'
+  | 'free_day'
+  | 'delayed_start'
+  | 'early_end'
+  | 'other'
+
+/**
+ * Valgfri markør på et importert event som gjør at skoleblokken for barnet den dagen
+ * skjules/erstattes/justeres. Leses read-time av `buildBackgroundEventsForDate`.
+ * Migreringsfri: ligger i `event.metadata.schoolDayOverride`.
+ */
+export interface SchoolDayOverride {
+  mode: SchoolDayOverrideMode;
+  kind: SchoolDayOverrideKind;
+  /** Synlig label i kalenderen ved `replace_day` (f.eks. "Matteprøve", "Skidag"). Faller tilbake til event.title. */
+  label?: string;
+  /** Ved `replace_day`/`adjust_day`: ny start HH:mm. Mangler = bruk normal skoledags-start. */
+  schoolStart?: string;
+  /** Ved `replace_day`/`adjust_day`: ny slutt HH:mm. Mangler = bruk normal skoledags-slutt. */
+  schoolEnd?: string;
+  /** 0–1, for QA/logging. Påvirker ikke beslutningen. */
+  confidence?: number;
+}
+
 export interface EventMetadata {
   transport?: TransportInfo;
   /** Participant person ids for multi-person activities.
@@ -78,13 +158,22 @@ export interface EventMetadata {
   /** Generated school/work blocks sit behind normal activities */
   calendarLayer?: 'foreground' | 'background';
   backgroundKind?: 'school' | 'work';
-  /** Optional detail for rendering different background subtypes. */
-  backgroundSubkind?: 'school_day' | 'school_lesson' | 'school_break' | 'work_day';
+  /** Optional detail for rendering different background subtypes.
+   *  `school_day_override` markerer en syntetisk bakgrunnsblokk som er bygget fra en
+   *  `SchoolDayOverride` (replace_day) — brukes av UI til å vise spesialdag-label i stedet for "Skole". */
+  backgroundSubkind?: 'school_day' | 'school_day_override' | 'school_lesson' | 'school_break' | 'work_day';
   /** True for all-day events — stored as 00:00–23:59 but rendered in the all-day row, never in the hourly timeline. */
   isAllDay?: boolean;
   /** YYYY-MM-DD end date for multi-day events (anchor date = start date stored in DB `date` column).
    *  Absent for single-day events. Inclusive: the event is visible on every day from anchor → endDate. */
   endDate?: string;
+  /** Migreringsfri kobling til et spesifikt fag/time i barnets timeplan. */
+  schoolContext?: SchoolContext;
+  /**
+   * Migreringsfri markør som får dagen til å avvike fra normal skoleblokk (prøve, fri, tur, senere oppmøte).
+   * Leses av `buildBackgroundEventsForDate` sammen med dagens events.
+   */
+  schoolDayOverride?: SchoolDayOverride;
   /** Free-form metadata reserved for future automation features. */
   [key: string]: unknown;
 }
