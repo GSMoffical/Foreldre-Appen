@@ -113,6 +113,43 @@ describe('parsePortalImportProposalBundle — school_profile', () => {
     expect(bundle.items[0]!.kind).toBe('school_profile')
   })
 
+  it('støtter toppnivå schoolProfileProposal (Tankestrøm) når items er tom', () => {
+    const bundle = parsePortalImportProposalBundle({
+      schemaVersion: '1.0.0',
+      provenance,
+      items: [],
+      schoolProfileProposal: {
+        profile: {
+          gradeBand: '1-4',
+          weekdays: {
+            2: { useSimpleDay: true, schoolStart: '08:30', schoolEnd: '13:30' },
+          },
+        },
+        suggestedPersonId: 'child-x',
+      },
+    })
+    expect(bundle.items).toHaveLength(1)
+    expect(bundle.items[0]!.kind).toBe('school_profile')
+    if (bundle.items[0]!.kind === 'school_profile') {
+      expect(bundle.items[0].schoolProfile.gradeBand).toBe('1-4')
+      expect(bundle.items[0].suggestedPersonId).toBe('child-x')
+    }
+  })
+
+  it('prioriterer schoolProfile over schoolProfileProposal hvis begge er satt', () => {
+    const bundle = parsePortalImportProposalBundle({
+      schemaVersion: '1.0.0',
+      provenance,
+      items: [],
+      schoolProfile: { gradeBand: '8-10', weekdays: {} },
+      schoolProfileProposal: { gradeBand: 'vg1', weekdays: {} },
+    })
+    expect(bundle.items[0]!.kind).toBe('school_profile')
+    if (bundle.items[0]!.kind === 'school_profile') {
+      expect(bundle.items[0].schoolProfile.gradeBand).toBe('8-10')
+    }
+  })
+
   it('avviser blanding av school_profile og event', () => {
     expect(() =>
       parsePortalImportProposalBundle({

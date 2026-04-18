@@ -15,6 +15,12 @@ import { SchoolProfileFields } from '../../components/SchoolProfileFields'
 import { logEvent } from '../../lib/appLogger'
 import { formatTimeRange } from '../../lib/time'
 import {
+  applyLessonConflictChoice,
+  detectLessonConflicts,
+  lessonConflictGroupId,
+  lessonDisplayLabel,
+} from '../../lib/schoolProfileConflicts'
+import {
   schoolContextSubjectLabel,
   schoolItemTypeChipClass,
   schoolItemTypeLabel,
@@ -308,6 +314,19 @@ export function TankestromImportDialog({
 
   const childrenList = useMemo(() => people.filter((p) => p.memberKind === 'child'), [people])
 
+  const schoolLessonConflicts = useMemo(
+    () => (schoolReview ? detectLessonConflicts(schoolReview.draft) : []),
+    [schoolReview?.draft]
+  )
+
+  const WD_LABEL_NB: Record<number, string> = {
+    0: 'Mandag',
+    1: 'Tirsdag',
+    2: 'Onsdag',
+    3: 'Torsdag',
+    4: 'Fredag',
+  }
+
   if (!open) return null
 
   const hasPeople = people.length > 0
@@ -579,6 +598,61 @@ export function TankestromImportDialog({
                     )
                   })()}
                 </p>
+                {schoolLessonConflicts.length > 0 ? (
+                  <div className="mb-3 rounded-xl border border-amber-300/80 bg-amber-50 px-3 py-3">
+                    <p className="text-[12px] font-semibold text-amber-950">Velg spor (parallelle timer)</p>
+                    <p className="mt-1 text-[11px] leading-snug text-amber-900/95">
+                      Timeplanen viser flere mulige fag i samme tidsrom (for eksempel D1/D2 eller ulike språk). Dette er
+                      vanligvis ulike grupper — barnet har bare ett av dem. Velg det som gjelder for dette barnet. Vi
+                      lagrer ikke flere overlappende timer for samme spor.
+                    </p>
+                    <ul className="mt-3 space-y-3">
+                      {schoolLessonConflicts.map((group) => (
+                        <li
+                          key={lessonConflictGroupId(group)}
+                          className="rounded-lg border border-amber-200/90 bg-white/90 px-3 py-2.5 shadow-sm"
+                        >
+                          <p className="text-[12px] font-medium text-zinc-900">
+                            {WD_LABEL_NB[group.weekday]}{' '}
+                            <span className="tabular-nums text-zinc-600">
+                              {formatTimeRange(group.displayStart, group.displayEnd)}
+                            </span>
+                          </p>
+                          <fieldset className="mt-2 space-y-2 border-0 p-0">
+                            <legend className="sr-only">Velg fag for dette tidsrommet</legend>
+                            {group.candidates.map((slot, idx) => {
+                              const label = lessonDisplayLabel(schoolReview.draft.gradeBand, slot)
+                              const fieldId = `${lessonConflictGroupId(group)}-${idx}`
+                              return (
+                                <label
+                                  key={fieldId}
+                                  htmlFor={fieldId}
+                                  className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-zinc-200/80 bg-zinc-50/80 px-2.5 py-2 transition hover:border-amber-300/60"
+                                >
+                                  <input
+                                    id={fieldId}
+                                    type="radio"
+                                    name={lessonConflictGroupId(group)}
+                                    className="mt-0.5 h-4 w-4 shrink-0 border-zinc-300 text-brandTeal focus:ring-brandTeal/30"
+                                    onChange={() =>
+                                      setSchoolProfileDraft(
+                                        applyLessonConflictChoice(schoolReview.draft, group, idx)
+                                      )
+                                    }
+                                  />
+                                  <span className="text-[13px] leading-snug text-zinc-800">{label}</span>
+                                  <span className="ml-auto shrink-0 text-[11px] tabular-nums text-zinc-500">
+                                    {slot.start}–{slot.end}
+                                  </span>
+                                </label>
+                              )
+                            })}
+                          </fieldset>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 <div className="max-h-[min(50vh,420px)] overflow-y-auto overscroll-y-contain pr-1">
                   <SchoolProfileFields value={schoolReview.draft} onChange={setSchoolProfileDraft} />
                 </div>
@@ -1278,6 +1352,11 @@ export function TankestromImportDialog({
               className="flex-1"
               loading={saveLoading}
               disabled={!hasPeople || !canSaveSchoolProfile}
+              title={
+                schoolLessonConflicts.length > 0
+                  ? 'Velg ett fag for hvert spor som kolliderer før du lagrer'
+                  : undefined
+              }
               onClick={() => void handleSaveSchoolProfile()}
             >
               Lagre skoleprofil

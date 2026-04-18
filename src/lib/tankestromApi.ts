@@ -324,6 +324,20 @@ function tryParseProposalItem(raw: unknown, index: number): PortalProposalItem {
 }
 
 /**
+ * Toppnivå timeplan når `items` er tom.
+ * Prioritet: `schoolProfile` (bakoverkompat) → `schoolProfileProposal` (Tankestrøm).
+ */
+function readTopLevelSchoolProfilePayload(data: Record<string, unknown>): unknown | undefined {
+  if (data.schoolProfile != null && data.schoolProfile !== undefined) {
+    return data.schoolProfile
+  }
+  if (data.schoolProfileProposal != null && data.schoolProfileProposal !== undefined) {
+    return data.schoolProfileProposal
+  }
+  return undefined
+}
+
+/**
  * Validerer og parser JSON fra analyse-backend til typet bundle.
  */
 export function parsePortalImportProposalBundle(data: unknown): PortalImportProposalBundle {
@@ -344,13 +358,15 @@ export function parsePortalImportProposalBundle(data: unknown): PortalImportProp
     }
   }
 
-  if (items.length === 0 && data.schoolProfile != null && data.schoolProfile !== undefined) {
-    items.push(parseTopLevelSchoolProfileToItem(data.schoolProfile, provenance))
+  /** Tankestrøm bruker `schoolProfileProposal`; eldre klienter brukte `schoolProfile`. Begge støttes. */
+  const topLevelSchoolPayload = readTopLevelSchoolProfilePayload(data)
+  if (items.length === 0 && topLevelSchoolPayload !== undefined) {
+    items.push(parseTopLevelSchoolProfileToItem(topLevelSchoolPayload, provenance))
   }
 
   if (items.length === 0) {
     throw new Error(
-      'Ugyldig svar: items må inneholde minst ett forslag, eller feltet schoolProfile (toppnivå) må være satt'
+      'Ugyldig svar: items må inneholde minst ett forslag, eller toppnivåfeltet schoolProfile / schoolProfileProposal må være satt'
     )
   }
   assertBundleItemKindsCoherent(items)

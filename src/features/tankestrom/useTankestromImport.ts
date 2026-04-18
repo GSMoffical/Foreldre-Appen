@@ -15,6 +15,7 @@ import {
   analyzeTextWithTankestrom,
   mergePortalImportProposalBundles,
 } from '../../lib/tankestromApi'
+import { detectLessonConflicts } from '../../lib/schoolProfileConflicts'
 import { parseTime } from '../../lib/time'
 
 type Step = 'pick' | 'review'
@@ -351,6 +352,7 @@ export function useTankestromImport({
 
   const canSaveSchoolProfile = useMemo(() => {
     if (!schoolReview || !updatePerson) return false
+    if (detectLessonConflicts(schoolReview.draft).length > 0) return false
     const cid = schoolProfileChildId.trim()
     if (!cid) return false
     const child = people.find((p) => p.id === cid && p.memberKind === 'child')
