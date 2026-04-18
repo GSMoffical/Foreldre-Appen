@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Event, Person, Task } from '../../types'
+import type { ChildSchoolProfile, Event, Person, Task } from '../../types'
 import type {
   PortalEventProposal,
   PortalImportProposalBundle,
   PortalProposalItem,
+  PortalSchoolProfileProposal,
   PortalTaskProposal,
   TankestromEventDraft,
   TankestromImportDraft,
@@ -206,7 +207,7 @@ function buildTaskDraftFromProposal(
 }
 
 function importDraftFromProposal(
-  item: PortalProposalItem,
+  item: PortalEventProposal | PortalTaskProposal,
   validPersonIds: Set<string>,
   defaultPersonId: string,
   people: Person[]
@@ -225,9 +226,20 @@ function buildDraftsFromItems(
 ): Record<string, TankestromImportDraft> {
   const drafts: Record<string, TankestromImportDraft> = {}
   for (const item of items) {
-    drafts[item.proposalId] = importDraftFromProposal(item, validPersonIds, defaultPersonId, people)
+    if (item.kind === 'school_profile') continue
+    if (item.kind === 'event' || item.kind === 'task') {
+      drafts[item.proposalId] = importDraftFromProposal(item, validPersonIds, defaultPersonId, people)
+    }
   }
   return drafts
+}
+
+function isSchoolProfileBundle(bundle: PortalImportProposalBundle): boolean {
+  return bundle.items.length > 0 && bundle.items.every((i) => i.kind === 'school_profile')
+}
+
+function cloneSchoolProfile(profile: ChildSchoolProfile): ChildSchoolProfile {
+  return JSON.parse(JSON.stringify(profile)) as ChildSchoolProfile
 }
 
 function taskDraftFromEventDraft(e: TankestromEventDraft, people: Person[], validPersonIds: Set<string>): TankestromTaskDraft {
@@ -273,21 +285,44 @@ function eventDraftFromTaskDraft(
   }
 }
 
+export interface SchoolProfileReviewState {
+  draft: ChildSchoolProfile
+  meta: { confidence: number; originalSourceType: string }
+}
+
 export interface UseTankestromImportOptions {
   open: boolean
   people: Person[]
   createEvent: (date: string, input: Omit<Event, 'id'>) => Promise<void>
   createTask: (input: Omit<Task, 'id'>) => Promise<void>
+  /** Kreves for lagring av timeplan-import (skoleprofil). */
+  updatePerson?: (
+    id: string,
+    updates: Partial<Pick<Person, 'name' | 'colorTint' | 'colorAccent' | 'memberKind' | 'school' | 'work'>>
+  ) => Promise<void>
 }
 
-export function useTankestromImport({ open, people, createEvent, createTask }: UseTankestromImportOptions) {
+export function useTankestromImport({
+  open,
+  people,
+  createEvent,
+  createTask,
+  updatePerson,
+}: UseTankestromImportOptions) {
   const [step, setStep] = useState<Step>('pick')
   const [inputMode, setInputMode] = useState<TankestromInputMode>('file')
   const [pendingFiles, setPendingFiles] = useState<TankestromPendingFile[]>([])
   const [textInput, setTextInput] = useState('')
   const [bundle, setBundle] = useState<PortalImportProposalBundle | null>(null)
+  const [schoolReview, setSchoolReview] = useState<SchoolProfileReviewState | null>(null)
+  const [schoolProfileChildId, setSchoolProfileChildId] = useState('')
 
   const proposalItems = useMemo((): PortalProposalItem[] => bundle?.items ?? [], [bundle])
+
+  const calendarProposalItems = useMemo(
+    (): PortalProposalItem[] => proposalItems.filter((i) => i.kind !== 'school_profile'),
+    [proposalItems]
+  )
 
   /** @deprecated Bruk proposalItems; beholdt for enkel bakoverkompatibilitet i imports. */
   const eventProposals = useMemo((): PortalEventProposal[] => {
@@ -304,6 +339,7 @@ export function useTankestromImport({ open, people, createEvent, createTask }: U
   const validPersonIds = useMemo(() => new Set(people.map((p) => p.id)), [people])
 
   const canApproveSelection = useMemo(() => {
+    if (schoolReview) return false
     if (selectedIds.size === 0) return false
     for (const id of selectedIds) {
       const draft = draftByProposalId[id]
@@ -311,7 +347,15 @@ export function useTankestromImport({ open, people, createEvent, createTask }: U
       if (validateUnifiedDraft(draft, validPersonIds) != null) return false
     }
     return true
-  }, [selectedIds, draftByProposalId, validPersonIds])
+  }, [schoolReview, selectedIds, draftByProposalId, validPersonIds])
+
+  const canSaveSchoolProfile = useMemo(() => {
+    if (!schoolReview || !updatePerson) return false
+    const cid = schoolProfileChildId.trim()
+    if (!cid) return false
+    const child = people.find((p) => p.id === cid && p.memberKind === 'child')
+    return !!child
+  }, [schoolReview, schoolProfileChildId, people, updatePerson])
 
   const reset = useCallback(() => {
     setStep('pick')
@@ -319,6 +363,8 @@ export function useTankestromImport({ open, people, createEvent, createTask }: U
     setPendingFiles([])
     setTextInput('')
     setBundle(null)
+    setSchoolReview(null)
+    setSchoolProfileChildId('')
     setSelectedIds(new Set())
     setDraftByProposalId({})
     setAnalyzeLoading(false)
@@ -391,6 +437,10 @@ export function useTankestromImport({ open, people, createEvent, createTask }: U
     })
   }, [])
 
+  const setSchoolProfileDraft = useCallback((next: ChildSchoolProfile) => {
+    setSchoolReview((prev) => (prev ? { ...prev, draft: next } : null))
+  }, [])
+
   const setProposalImportKind = useCallback(
     (proposalId: string, importKind: 'event' | 'task') => {
       setDraftByProposalId((prev) => {
@@ -437,11 +487,30 @@ export function useTankestromImport({ open, people, createEvent, createTask }: U
     try {
       if (inputMode === 'text') {
         const b = await analyzeTextWithTankestrom(textInput)
-        if (b.items.length === 0) {
-          setError('Ingen forslag i svaret.')
+        setBundle(b)
+        if (isSchoolProfileBundle(b)) {
+          const schoolItems = b.items.filter((i): i is PortalSchoolProfileProposal => i.kind === 'school_profile')
+          const primary = schoolItems[0]!
+          const childIds = people.filter((p) => p.memberKind === 'child').map((p) => p.id)
+          const initialChild =
+            primary.suggestedPersonId && childIds.includes(primary.suggestedPersonId)
+              ? primary.suggestedPersonId
+              : (childIds[0] ?? '')
+          setSchoolProfileChildId(initialChild)
+          setSchoolReview({
+            draft: cloneSchoolProfile(primary.schoolProfile),
+            meta: { confidence: primary.confidence, originalSourceType: primary.originalSourceType },
+          })
+          setDraftByProposalId({})
+          setSelectedIds(new Set())
+          if (schoolItems.length > 1) {
+            setAnalyzeWarning('Flere timeplaner i svaret — kun den første brukes.')
+          }
+          setStep('review')
           return
         }
-        setBundle(b)
+        setSchoolReview(null)
+        setSchoolProfileChildId('')
         const defaultPersonId = people[0]?.id ?? ''
         setDraftByProposalId(buildDraftsFromItems(b.items, validPersonIds, defaultPersonId, people))
         setSelectedIds(new Set(b.items.map((i) => i.proposalId)))
@@ -490,6 +559,36 @@ export function useTankestromImport({ open, people, createEvent, createTask }: U
       }
 
       setBundle(merged)
+      if (isSchoolProfileBundle(merged)) {
+        const schoolItems = merged.items.filter((i): i is PortalSchoolProfileProposal => i.kind === 'school_profile')
+        const primary = schoolItems[0]!
+        const childIds = people.filter((p) => p.memberKind === 'child').map((p) => p.id)
+        const initialChild =
+          primary.suggestedPersonId && childIds.includes(primary.suggestedPersonId)
+            ? primary.suggestedPersonId
+            : (childIds[0] ?? '')
+        setSchoolProfileChildId(initialChild)
+        setSchoolReview({
+          draft: cloneSchoolProfile(primary.schoolProfile),
+          meta: { confidence: primary.confidence, originalSourceType: primary.originalSourceType },
+        })
+        setDraftByProposalId({})
+        setSelectedIds(new Set())
+        const extra =
+          schoolItems.length > 1 ? '\nFlere timeplaner i sammenslått svar — kun den første brukes.' : ''
+        if (failureLines.length > 0) {
+          setAnalyzeWarning(
+            `${failureLines.length} fil(er) ble hoppet over:\n${failureLines.join('\n')}${extra}`
+          )
+        } else if (extra) {
+          setAnalyzeWarning(extra.trim())
+        }
+        setStep('review')
+        return
+      }
+
+      setSchoolReview(null)
+      setSchoolProfileChildId('')
       const defaultPersonId = people[0]?.id ?? ''
       setDraftByProposalId(buildDraftsFromItems(merged.items, validPersonIds, defaultPersonId, people))
       setSelectedIds(new Set(merged.items.map((i) => i.proposalId)))
@@ -507,7 +606,32 @@ export function useTankestromImport({ open, people, createEvent, createTask }: U
     }
   }, [inputMode, patchPendingFile, pendingFiles, people, textInput, validPersonIds])
 
+  const saveSchoolProfile = useCallback(async (): Promise<boolean> => {
+    if (!schoolReview || !updatePerson) {
+      setError('Lagring av skoleprofil er ikke tilgjengelig.')
+      return false
+    }
+    const cid = schoolProfileChildId.trim()
+    const child = people.find((p) => p.id === cid && p.memberKind === 'child')
+    if (!child) {
+      setError('Velg hvilket barn den faste timeplanen skal lagres til.')
+      return false
+    }
+    setError(null)
+    setSaveLoading(true)
+    try {
+      await updatePerson(cid, { school: schoolReview.draft })
+      return true
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Kunne ikke lagre skoleprofil.')
+      return false
+    } finally {
+      setSaveLoading(false)
+    }
+  }, [schoolReview, schoolProfileChildId, people, updatePerson])
+
   const approveSelected = useCallback(async (): Promise<boolean> => {
+    if (schoolReview) return false
     if (!bundle || proposalItems.length === 0) return false
     const ids = [...selectedIds]
     if (ids.length === 0) {
@@ -638,7 +762,7 @@ export function useTankestromImport({ open, people, createEvent, createTask }: U
     } finally {
       setSaveLoading(false)
     }
-  }, [bundle, proposalItems, selectedIds, draftByProposalId, validPersonIds, createEvent, createTask])
+  }, [bundle, proposalItems, selectedIds, draftByProposalId, validPersonIds, createEvent, createTask, schoolReview])
 
   return {
     step,
@@ -652,6 +776,7 @@ export function useTankestromImport({ open, people, createEvent, createTask }: U
     setTextInput: setTextInputSafe,
     bundle,
     proposalItems,
+    calendarProposalItems,
     eventProposals,
     selectedIds,
     toggleProposal,
@@ -665,7 +790,13 @@ export function useTankestromImport({ open, people, createEvent, createTask }: U
     analyzeWarning,
     runAnalyze,
     approveSelected,
+    saveSchoolProfile,
     people,
     canApproveSelection,
+    canSaveSchoolProfile,
+    schoolReview,
+    schoolProfileChildId,
+    setSchoolProfileChildId,
+    setSchoolProfileDraft,
   }
 }

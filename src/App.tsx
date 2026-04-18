@@ -46,7 +46,13 @@ function App() {
   const reducedMotion = useReducedMotion() ?? false
   const { user, loading } = useAuth()
   const { refetch: refetchEffectiveUserId, isLinked, linkLoading, effectiveUserId } = useEffectiveUserId()
-  const { error: familyError, people, loading: familyLoading, loaded: familyLoaded } = useFamily()
+  const {
+    error: familyError,
+    people,
+    loading: familyLoading,
+    loaded: familyLoaded,
+    updatePerson,
+  } = useFamily()
   const {
     selectedDate,
     setSelectedDate,
@@ -450,6 +456,7 @@ function App() {
         people={people}
         createEvent={controller.createEvent}
         createTask={taskController.createTask}
+        updatePerson={updatePerson}
       />
       <CalendarOverlays
         selectedEvent={selectedEvent}

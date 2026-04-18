@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import type { PortalEventProposal, PortalProposalItem } from './types'
-import type { SchoolContext, Task } from '../../types'
+import type { Person, SchoolContext, Task } from '../../types'
 import type { UseEventControllerReturn } from '../calendar/hooks/useEventController'
 import {
   useTankestromImport,
@@ -11,6 +11,7 @@ import {
 import { cardSection, typSectionCap } from '../../lib/ui'
 import { Button } from '../../components/ui/Button'
 import { Input, Textarea } from '../../components/ui/Input'
+import { SchoolProfileFields } from '../../components/SchoolProfileFields'
 import { logEvent } from '../../lib/appLogger'
 import { formatTimeRange } from '../../lib/time'
 import {
@@ -177,12 +178,23 @@ function reminderLabel(reminderMinutes: number | undefined): string {
 export interface TankestromImportDialogProps {
   open: boolean
   onClose: () => void
-  people: import('../../types').Person[]
+  people: Person[]
   createEvent: UseEventControllerReturn['createEvent']
   createTask: (input: Omit<Task, 'id'>) => Promise<void>
+  updatePerson?: (
+    id: string,
+    updates: Partial<Pick<Person, 'name' | 'colorTint' | 'colorAccent' | 'memberKind' | 'school' | 'work'>>
+  ) => Promise<void>
 }
 
-export function TankestromImportDialog({ open, onClose, people, createEvent, createTask }: TankestromImportDialogProps) {
+export function TankestromImportDialog({
+  open,
+  onClose,
+  people,
+  createEvent,
+  createTask,
+  updatePerson,
+}: TankestromImportDialogProps) {
   const {
     step,
     inputMode,
@@ -193,7 +205,7 @@ export function TankestromImportDialog({ open, onClose, people, createEvent, cre
     textInput,
     setTextInput,
     analyzeWarning,
-    proposalItems,
+    calendarProposalItems,
     selectedIds,
     toggleProposal,
     draftByProposalId,
@@ -205,8 +217,14 @@ export function TankestromImportDialog({ open, onClose, people, createEvent, cre
     error,
     runAnalyze,
     approveSelected,
+    saveSchoolProfile,
     canApproveSelection,
-  } = useTankestromImport({ open, people, createEvent, createTask })
+    canSaveSchoolProfile,
+    schoolReview,
+    schoolProfileChildId,
+    setSchoolProfileChildId,
+    setSchoolProfileDraft,
+  } = useTankestromImport({ open, people, createEvent, createTask, updatePerson })
 
   const validPersonIds = useMemo(() => new Set(people.map((p) => p.id)), [people])
 
@@ -241,7 +259,7 @@ export function TankestromImportDialog({ open, onClose, people, createEvent, cre
   }, [])
 
   const reviewSelectionStats = useMemo(() => {
-    const total = proposalItems.length
+    const total = calendarProposalItems.length
     const selected = selectedIds.size
     let withErrors = 0
     let ready = 0
@@ -259,7 +277,7 @@ export function TankestromImportDialog({ open, onClose, people, createEvent, cre
       else ready += 1
     }
     return { total, selected, withErrors, ready }
-  }, [proposalItems.length, selectedIds, draftByProposalId, validPersonIds])
+  }, [calendarProposalItems.length, selectedIds, draftByProposalId, validPersonIds])
 
   useEffect(() => {
     if (!open) {
@@ -279,6 +297,16 @@ export function TankestromImportDialog({ open, onClose, people, createEvent, cre
       onClose()
     }
   }, [approveSelected, onClose, selectedIds.size])
+
+  const handleSaveSchoolProfile = useCallback(async () => {
+    const ok = await saveSchoolProfile()
+    if (ok) {
+      logEvent('tankestrom_school_profile_saved', { childId: schoolProfileChildId })
+      onClose()
+    }
+  }, [saveSchoolProfile, onClose, schoolProfileChildId])
+
+  const childrenList = useMemo(() => people.filter((p) => p.memberKind === 'child'), [people])
 
   if (!open) return null
 
@@ -301,7 +329,7 @@ export function TankestromImportDialog({ open, onClose, people, createEvent, cre
         <div className="flex shrink-0 flex-col border-b border-zinc-100">
           <div className="flex items-center justify-between gap-2 px-4 py-3">
             <h2 id="tankestrom-import-title" className="text-[17px] font-semibold text-zinc-900">
-              Importer fra Tankestrøm
+              {step === 'review' && schoolReview ? 'Timeplan fra Tankestrøm' : 'Importer fra Tankestrøm'}
             </h2>
             <button
               type="button"
@@ -342,8 +370,9 @@ export function TankestromImportDialog({ open, onClose, people, createEvent, cre
           ) : step === 'pick' ? (
             <div className="space-y-4">
               <p className="text-[13px] leading-relaxed text-zinc-600">
-                Velg inputmodus og analyser innholdet. Du får forslag som{' '}
-                <span className="font-medium text-zinc-800">hendelser</span> og/eller{' '}
+                Velg inputmodus og analyser innholdet. Du kan få{' '}
+                <span className="font-medium text-zinc-800">fast timeplan</span> (lagres som skoleprofil), eller forslag
+                som <span className="font-medium text-zinc-800">hendelser</span> og/eller{' '}
                 <span className="font-medium text-zinc-800">gjøremål</span> — bytt type før import om nødvendig.
               </p>
 
@@ -498,6 +527,71 @@ export function TankestromImportDialog({ open, onClose, people, createEvent, cre
               )}
               {error && <p className="text-[13px] text-rose-600">{error}</p>}
             </div>
+          ) : schoolReview ? (
+            <div className="space-y-4">
+              {analyzeWarning ? (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] leading-snug text-amber-950 whitespace-pre-wrap">
+                  {analyzeWarning}
+                </p>
+              ) : null}
+              <div className="rounded-xl border border-rose-200 bg-rose-50/80 px-3 py-3">
+                <p className="text-[12px] font-semibold text-rose-900">Erstatter hele skoleprofilen</p>
+                <p className="mt-1 text-[11px] leading-snug text-rose-800/95">
+                  Lagring overskriver barnets eksisterende faste timeplan (mandag–fredag) med det du ser under. Importerte
+                  A-planer og hendelser påvirkes ikke.
+                </p>
+              </div>
+              <div>
+                <label htmlFor="ts-school-child" className="text-[12px] font-medium text-zinc-700">
+                  Velg barn
+                </label>
+                {childrenList.length === 0 ? (
+                  <p className="mt-1 text-[12px] text-amber-800">
+                    Legg til minst ett barn under Innstillinger for å lagre timeplanen.
+                  </p>
+                ) : (
+                  <select
+                    id="ts-school-child"
+                    className="mt-1.5 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-[14px] text-zinc-900"
+                    value={schoolProfileChildId}
+                    onChange={(e) => setSchoolProfileChildId(e.target.value)}
+                  >
+                    {childrenList.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 px-2 py-2">
+                <p className={typSectionCap}>Timeplan</p>
+                <p className="mb-2 flex flex-wrap items-center gap-2 px-1 text-[11px] text-zinc-500">
+                  <span className="font-medium text-zinc-600">{schoolReview.meta.originalSourceType}</span>
+                  {(() => {
+                    const badge = confidenceBadgeStyle(schoolReview.meta.confidence)
+                    return (
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}
+                      >
+                        {badge.label}
+                      </span>
+                    )
+                  })()}
+                </p>
+                <div className="max-h-[min(50vh,420px)] overflow-y-auto overscroll-y-contain pr-1">
+                  <SchoolProfileFields value={schoolReview.draft} onChange={setSchoolProfileDraft} />
+                </div>
+              </div>
+              {error ? (
+                <p className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-[13px] text-rose-800">
+                  {error}
+                </p>
+              ) : null}
+              {!updatePerson ? (
+                <p className="text-[12px] text-amber-800">Lagring er ikke tilgjengelig. Prøv å oppdatere appen.</p>
+              ) : null}
+            </div>
           ) : (
             <div className="space-y-4">
               {analyzeWarning ? (
@@ -530,7 +624,7 @@ export function TankestromImportDialog({ open, onClose, people, createEvent, cre
               </div>
 
               <ul className="space-y-4">
-                {proposalItems.map((item) => {
+                {calendarProposalItems.map((item) => {
                   const u = draftByProposalId[item.proposalId]
                   if (!u) return null
                   const checked = selectedIds.has(item.proposalId)
@@ -1176,6 +1270,17 @@ export function TankestromImportDialog({ open, onClose, people, createEvent, cre
               }}
             >
               Analyser
+            </Button>
+          ) : schoolReview ? (
+            <Button
+              type="button"
+              variant="primary"
+              className="flex-1"
+              loading={saveLoading}
+              disabled={!hasPeople || !canSaveSchoolProfile}
+              onClick={() => void handleSaveSchoolProfile()}
+            >
+              Lagre skoleprofil
             </Button>
           ) : (
             <Button

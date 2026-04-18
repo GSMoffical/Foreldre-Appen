@@ -2,10 +2,19 @@ import { supabase } from './supabaseClient'
 import type {
   PortalEventPayload,
   PortalImportProposalBundle,
+  PortalImportProvenance,
   PortalProposalItem,
+  PortalSchoolProfileProposal,
   PortalSourceSystem,
   PortalTaskProposal,
 } from '../features/tankestrom/types'
+import type {
+  ChildSchoolDayPlan,
+  ChildSchoolProfile,
+  NorwegianGradeBand,
+  SchoolLessonSlot,
+  WeekdayMonFri,
+} from '../types'
 
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null && !Array.isArray(x)
@@ -21,6 +30,148 @@ function isDateKey(s: string): boolean {
 
 function isHm(s: string): boolean {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(s)
+}
+
+function newBatchImportRunId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+}
+
+const NORWEGIAN_GRADE_BANDS = new Set<NorwegianGradeBand>(['1-4', '5-7', '8-10', 'vg1', 'vg2', 'vg3'])
+
+function parseHmRequired(x: unknown, fieldPath: string): string {
+  const s = asString(x, fieldPath)
+  if (!isHm(s)) throw new Error(`Ugyldig svar: ${fieldPath} må være HH:mm`)
+  return s
+}
+
+function parseHmOptional(x: unknown, fieldPath: string): string | undefined {
+  if (x === undefined || x === null) return undefined
+  return parseHmRequired(x, fieldPath)
+}
+
+function parseLessonSlot(raw: unknown, idx: number, wdLabel: string): SchoolLessonSlot {
+  if (!isRecord(raw)) throw new Error(`Ugyldig svar: weekdays[${wdLabel}].lessons[${idx}]`)
+  const subjectKey = asString(raw.subjectKey, `weekdays[${wdLabel}].lessons[${idx}].subjectKey`)
+  const start = parseHmRequired(raw.start, `weekdays[${wdLabel}].lessons[${idx}].start`)
+  const end = parseHmRequired(raw.end, `weekdays[${wdLabel}].lessons[${idx}].end`)
+  const customLabel = asOptionalString(raw.customLabel)
+  const out: SchoolLessonSlot = { subjectKey, start, end }
+  if (customLabel !== undefined) out.customLabel = customLabel
+  return out
+}
+
+function parseDayPlan(raw: unknown, wdLabel: string): ChildSchoolDayPlan {
+  if (!isRecord(raw)) throw new Error(`Ugyldig svar: weekdays[${wdLabel}]`)
+  const useSimple = raw.useSimpleDay
+  if (useSimple !== true && useSimple !== false) {
+    throw new Error(`Ugyldig svar: weekdays[${wdLabel}].useSimpleDay må være true eller false`)
+  }
+  if (useSimple === true) {
+    const plan: ChildSchoolDayPlan = { useSimpleDay: true }
+    const ss = parseHmOptional(raw.schoolStart, `weekdays[${wdLabel}].schoolStart`)
+    const se = parseHmOptional(raw.schoolEnd, `weekdays[${wdLabel}].schoolEnd`)
+    if (ss !== undefined) plan.schoolStart = ss
+    if (se !== undefined) plan.schoolEnd = se
+    return plan
+  }
+  if (!Array.isArray(raw.lessons) || raw.lessons.length === 0) {
+    throw new Error(
+      `Ugyldig svar: weekdays[${wdLabel}].lessons må være en ikke-tom liste når useSimpleDay er false`
+    )
+  }
+  const lessons = raw.lessons.map((L: unknown, i: number) => parseLessonSlot(L, i, wdLabel))
+  return { useSimpleDay: false, lessons }
+}
+
+/**
+ * Validerer og parser `ChildSchoolProfile` fra Tankestrøm-JSON.
+ * Eksportert for enhetstester.
+ */
+export function parseChildSchoolProfile(raw: unknown, ctx: string): ChildSchoolProfile {
+  if (!isRecord(raw)) throw new Error(`Ugyldig svar: ${ctx} må være et objekt`)
+  const gradeBand = asString(raw.gradeBand, `${ctx}.gradeBand`) as NorwegianGradeBand
+  if (!NORWEGIAN_GRADE_BANDS.has(gradeBand)) {
+    throw new Error(`Ugyldig svar: ${ctx}.gradeBand må være 1-4, 5-7, 8-10, vg1, vg2 eller vg3`)
+  }
+  const weekdays: Partial<Record<WeekdayMonFri, ChildSchoolDayPlan>> = {}
+  if (raw.weekdays !== undefined && raw.weekdays !== null) {
+    if (!isRecord(raw.weekdays)) throw new Error(`Ugyldig svar: ${ctx}.weekdays må være et objekt`)
+    for (const key of Object.keys(raw.weekdays)) {
+      const n = Number(key)
+      if (!Number.isInteger(n) || n < 0 || n > 4) {
+        throw new Error(`Ugyldig svar: ${ctx}.weekdays — ukedag "${key}" er ugyldig (bruk 0–4, man–fre)`)
+      }
+      weekdays[n as WeekdayMonFri] = parseDayPlan((raw.weekdays as Record<string, unknown>)[key], key)
+    }
+  }
+  return { gradeBand, weekdays }
+}
+
+function assertBundleItemKindsCoherent(items: PortalProposalItem[]): void {
+  const hasSchool = items.some((i) => i.kind === 'school_profile')
+  const hasCalendar = items.some((i) => i.kind === 'event' || i.kind === 'task')
+  if (hasSchool && hasCalendar) {
+    throw new Error(
+      'Ugyldig svar: timeplan (school_profile) kan ikke kombineres med hendelser eller gjøremål i samme svar.'
+    )
+  }
+}
+
+function parseTopLevelSchoolProfileToItem(
+  raw: unknown,
+  _provenance: PortalImportProvenance
+): PortalSchoolProfileProposal {
+  if (!isRecord(raw)) throw new Error('Ugyldig svar: schoolProfile må være et objekt')
+  const hasNestedProfile = isRecord(raw.profile) && typeof raw.profile.gradeBand === 'string'
+  let profilePayload: unknown
+  let suggestedPersonId: string | undefined
+  let proposalId: string
+  let sourceId: string
+  let originalSourceType: string
+  let confidence: number
+  let externalRef: string | undefined
+  let calendarOwnerUserId: string | undefined
+
+  if (hasNestedProfile) {
+    profilePayload = raw.profile
+    suggestedPersonId = asOptionalString(raw.suggestedPersonId)
+    const pid = asOptionalString(raw.proposalId)
+    proposalId = pid && isUuidLike(pid) ? pid : newBatchImportRunId()
+    sourceId = asOptionalString(raw.sourceId) ?? 'tankestrom-school-profile'
+    originalSourceType = asOptionalString(raw.originalSourceType) ?? 'school_timetable'
+    if (raw.confidence !== undefined && raw.confidence !== null) {
+      confidence = asNumber01(raw.confidence, 'schoolProfile.confidence')
+    } else {
+      confidence = 1
+    }
+    externalRef = asOptionalString(raw.externalRef)
+    calendarOwnerUserId = asOptionalString(raw.calendarOwnerUserId)
+  } else {
+    profilePayload = raw
+    proposalId = newBatchImportRunId()
+    sourceId = 'tankestrom-school-profile'
+    originalSourceType = 'school_timetable'
+    confidence = 1
+    suggestedPersonId = asOptionalString(raw.suggestedPersonId)
+    externalRef = asOptionalString(raw.externalRef)
+    calendarOwnerUserId = asOptionalString(raw.calendarOwnerUserId)
+  }
+
+  const schoolProfile = parseChildSchoolProfile(profilePayload, 'schoolProfile')
+  return {
+    proposalId,
+    kind: 'school_profile',
+    sourceId,
+    originalSourceType,
+    confidence,
+    externalRef,
+    calendarOwnerUserId,
+    schoolProfile,
+    suggestedPersonId,
+  }
 }
 
 function asString(x: unknown, field: string): string {
@@ -115,13 +266,13 @@ function parseTaskPayload(raw: unknown): PortalTaskProposal['task'] {
   return out
 }
 
-/** Parser ett forslag til event eller task. */
+/** Parser ett forslag til event, task eller school_profile. */
 function tryParseProposalItem(raw: unknown, index: number): PortalProposalItem {
   if (!isRecord(raw)) throw new Error(`Forslag #${index + 1}: mangler felter`)
   const proposalId = asString(raw.proposalId, 'proposalId')
   if (!isUuidLike(proposalId)) throw new Error(`Forslag #${index + 1}: proposalId må være en UUID`)
   const kindRaw = asString(raw.kind, 'kind')
-  if (kindRaw !== 'event' && kindRaw !== 'task') {
+  if (kindRaw !== 'event' && kindRaw !== 'task' && kindRaw !== 'school_profile') {
     throw new Error(`Forslag #${index + 1}: ukjent kind "${kindRaw}"`)
   }
   const sourceId = asString(raw.sourceId, 'sourceId')
@@ -129,6 +280,25 @@ function tryParseProposalItem(raw: unknown, index: number): PortalProposalItem {
   const confidence = asNumber01(raw.confidence, 'confidence')
   const externalRef = asOptionalString(raw.externalRef)
   const calendarOwnerUserId = asOptionalString(raw.calendarOwnerUserId)
+  if (kindRaw === 'school_profile') {
+    const spRaw = raw.schoolProfile ?? raw.profile
+    if (spRaw === undefined || spRaw === null) {
+      throw new Error(`Forslag #${index + 1}: school_profile mangler schoolProfile (eller profile)`)
+    }
+    const schoolProfile = parseChildSchoolProfile(spRaw, `forslag #${index + 1}.schoolProfile`)
+    const suggestedPersonId = asOptionalString(raw.suggestedPersonId)
+    return {
+      proposalId,
+      kind: 'school_profile',
+      sourceId,
+      originalSourceType,
+      confidence,
+      externalRef,
+      calendarOwnerUserId,
+      schoolProfile,
+      suggestedPersonId,
+    }
+  }
   if (kindRaw === 'task') {
     return {
       proposalId,
@@ -162,21 +332,28 @@ export function parsePortalImportProposalBundle(data: unknown): PortalImportProp
     throw new Error(`Ustøttet schemaVersion: ${String(data.schemaVersion)}`)
   }
   const provenance = parseProvenance(data.provenance)
-  if (!Array.isArray(data.items) || data.items.length === 0) {
-    throw new Error('Ugyldig svar: items må være en ikke-tom liste')
-  }
   const items: PortalProposalItem[] = []
-  for (let i = 0; i < data.items.length; i++) {
-    try {
-      items.push(tryParseProposalItem(data.items[i], i))
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Ukjent feil'
-      throw new Error(msg.startsWith('Forslag #') ? msg : `Forslag #${i + 1}: ${msg}`)
+  if (Array.isArray(data.items)) {
+    for (let i = 0; i < data.items.length; i++) {
+      try {
+        items.push(tryParseProposalItem(data.items[i], i))
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Ukjent feil'
+        throw new Error(msg.startsWith('Forslag #') ? msg : `Forslag #${i + 1}: ${msg}`)
+      }
     }
   }
-  if (items.length === 0) {
-    throw new Error('Ingen forslag i svaret.')
+
+  if (items.length === 0 && data.schoolProfile != null && data.schoolProfile !== undefined) {
+    items.push(parseTopLevelSchoolProfileToItem(data.schoolProfile, provenance))
   }
+
+  if (items.length === 0) {
+    throw new Error(
+      'Ugyldig svar: items må inneholde minst ett forslag, eller feltet schoolProfile (toppnivå) må være satt'
+    )
+  }
+  assertBundleItemKindsCoherent(items)
   return { schemaVersion: '1.0.0', provenance, items }
 }
 
@@ -237,13 +414,6 @@ async function analyzeWithTankestrom(payload: AnalyzePayload): Promise<PortalImp
   return parsePortalImportProposalBundle(json)
 }
 
-function newBatchImportRunId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
-}
-
 /**
  * Slår sammen flere analyse-svar (én POST per fil) til én bundle for import-steget.
  * Ny `importRunId` knytter hele batchen til én import-økt.
@@ -256,6 +426,7 @@ export function mergePortalImportProposalBundles(bundles: PortalImportProposalBu
     return bundles[0]!
   }
   const items = bundles.flatMap((b) => b.items)
+  assertBundleItemKindsCoherent(items)
   const base = bundles[0]!.provenance
   return {
     schemaVersion: '1.0.0',

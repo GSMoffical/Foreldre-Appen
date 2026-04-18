@@ -1,7 +1,9 @@
 /**
  * Felles import-forslag (v1) — Tankestrøm / fremtidige kilder.
- * Portalen støtter kind: "event" og "task" (gjøremål).
+ * Portalen støtter kind: "event", "task" (gjøremål) og "school_profile" (fast timeplan → skoleprofil).
  */
+
+import type { ChildSchoolProfile } from '../../types'
 
 export type PortalImportSchemaVersion = '1.0.0'
 
@@ -17,7 +19,7 @@ export interface PortalImportProvenance {
 
 export interface PortalProposalItemBase {
   proposalId: string
-  kind: 'event' | 'task'
+  kind: 'event' | 'task' | 'school_profile'
   sourceId: string
   originalSourceType: string
   confidence: number
@@ -56,7 +58,15 @@ export interface PortalTaskProposal extends PortalProposalItemBase {
   }
 }
 
-export type PortalProposalItem = PortalEventProposal | PortalTaskProposal
+/** Fast ukes timeplan — skrives til `family_members.profile.school` etter brukergodkjenning. */
+export interface PortalSchoolProfileProposal extends PortalProposalItemBase {
+  kind: 'school_profile'
+  schoolProfile: ChildSchoolProfile
+  /** Forslag fra Tankestrøm; må være et barn i familien for å forhåndsvelges. */
+  suggestedPersonId?: string
+}
+
+export type PortalProposalItem = PortalEventProposal | PortalTaskProposal | PortalSchoolProfileProposal
 
 export interface PortalImportProposalBundle {
   schemaVersion: PortalImportSchemaVersion

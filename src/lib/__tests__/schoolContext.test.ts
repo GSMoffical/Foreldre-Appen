@@ -266,6 +266,60 @@ describe('extractSchoolDayOverride', () => {
     expect(extractSchoolDayOverride(bad2)).toBeNull()
   })
 
+  it('legacy fallback: leser schoolContext.schoolOverride når primær mangler', () => {
+    const ev = makeEvent({
+      id: 'legacy-1',
+      personId: 'p1',
+      metadata: {
+        schoolContext: {
+          itemType: 'test',
+          schoolOverride: {
+            mode: 'replace_day',
+            kind: 'exam_day',
+            label: 'Heldagsprøve',
+          },
+        },
+      } as unknown as Event['metadata'],
+    })
+    const o = extractSchoolDayOverride(ev)
+    expect(o).toEqual({
+      mode: 'replace_day',
+      kind: 'exam_day',
+      label: 'Heldagsprøve',
+    })
+  })
+
+  it('primær schoolDayOverride vinner over legacy schoolContext.schoolOverride', () => {
+    const ev = makeEvent({
+      id: 'mix',
+      personId: 'p1',
+      metadata: {
+        schoolDayOverride: { mode: 'replace_day', kind: 'trip_day', label: 'Skitur' },
+        schoolContext: {
+          itemType: 'trip',
+          schoolOverride: { mode: 'hide_day', kind: 'free_day', label: 'Gammel' },
+        },
+      } as unknown as Event['metadata'],
+    })
+    const o = extractSchoolDayOverride(ev)
+    expect(o?.mode).toBe('replace_day')
+    expect(o?.label).toBe('Skitur')
+  })
+
+  it('legacy path avviser ugyldig mode/kind akkurat som primær', () => {
+    const ev = makeEvent({
+      id: 'legacy-bad',
+      personId: 'p1',
+      metadata: {
+        schoolContext: {
+          itemType: 'note',
+          schoolOverride: { mode: 'nuke_day', kind: 'exam_day' },
+        },
+      } as unknown as Event['metadata'],
+    })
+    expect(extractSchoolDayOverride(ev)).toBeNull()
+  })
+
   it('ignorerer ugyldig HH:mm', () => {
     const ev = makeEvent({
       id: 'd',

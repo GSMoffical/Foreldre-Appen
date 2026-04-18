@@ -8,6 +8,7 @@
 import type {
   ChildSchoolDayPlan,
   Event,
+  EventMetadata,
   NorwegianGradeBand,
   PersonId,
   SchoolContext,
@@ -407,13 +408,10 @@ function isValidHHmm(v: unknown): v is string {
 }
 
 /**
- * Pakk ut `schoolDayOverride` fra et event hvis det er gyldig. Ukjente `mode`/`kind` → null.
- * Returnerer ferdig validert `SchoolDayOverride` (kun kjente strings slipper gjennom).
+ * Validér et råttt override-objekt mot allowlist for mode/kind og HH:mm-format.
+ * Ren funksjon — ingen event-oppslag; gjør parsing gjenbrukbar for primær og legacy path.
  */
-export function extractSchoolDayOverride(event: Event): SchoolDayOverride | null {
-  const meta = event.metadata
-  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return null
-  const raw = (meta as { schoolDayOverride?: unknown }).schoolDayOverride
+function parseRawSchoolDayOverride(raw: unknown): SchoolDayOverride | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   const c = raw as Partial<SchoolDayOverride>
   if (typeof c.mode !== 'string' || !OVERRIDE_MODES.has(c.mode as SchoolDayOverrideMode)) return null
@@ -427,6 +425,37 @@ export function extractSchoolDayOverride(event: Event): SchoolDayOverride | null
   if (isValidHHmm(c.schoolEnd)) out.schoolEnd = c.schoolEnd
   if (typeof c.confidence === 'number' && Number.isFinite(c.confidence)) out.confidence = c.confidence
   return out
+}
+
+/**
+ * TODO(legacy): fjern når Tankestrømmen garantert skriver `metadata.schoolDayOverride` overalt.
+ *
+ * Midlertidig fallback: eldre Tankestrøm-versjoner la override-data inne i
+ * `metadata.schoolContext.schoolOverride`. Vi parser aldri legacy-path hvis primær-path finnes.
+ *
+ * Slett denne funksjonen + kallet fra `extractSchoolDayOverride` for å rydde.
+ */
+function readLegacySchoolDayOverride(meta: EventMetadata): SchoolDayOverride | null {
+  const ctx = (meta as { schoolContext?: unknown }).schoolContext
+  if (!ctx || typeof ctx !== 'object' || Array.isArray(ctx)) return null
+  const legacy = (ctx as { schoolOverride?: unknown }).schoolOverride
+  return parseRawSchoolDayOverride(legacy)
+}
+
+/**
+ * Pakk ut `schoolDayOverride` fra et event hvis det er gyldig. Ukjente `mode`/`kind` → null.
+ * Primær: `metadata.schoolDayOverride` (offisiell modell).
+ * Fallback: `metadata.schoolContext.schoolOverride` — kun for events fra eldre Tankestrøm-versjoner.
+ */
+export function extractSchoolDayOverride(event: Event): SchoolDayOverride | null {
+  const meta = event.metadata
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return null
+  const primary = parseRawSchoolDayOverride(
+    (meta as { schoolDayOverride?: unknown }).schoolDayOverride
+  )
+  if (primary) return primary
+  // TODO(legacy): fjern denne fallbacken når Tankestrømmen kun skriver schoolDayOverride.
+  return readLegacySchoolDayOverride(meta as EventMetadata)
 }
 
 /**
