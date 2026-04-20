@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inferSubjectKeyFromText, subjectLabelForKey } from '../../data/norwegianSubjects'
+import { inferSubjectKeyFromText, matchSubjectFromText, subjectLabelForKey } from '../../data/norwegianSubjects'
 
 describe('subjectLabelForKey', () => {
   it('viser katalognavn når customLabel mangler', () => {
@@ -24,6 +24,15 @@ describe('subjectLabelForKey', () => {
 })
 
 describe('inferSubjectKeyFromText', () => {
+  it('gjenkjenner vanlige fag fra ren tekst', () => {
+    expect(inferSubjectKeyFromText('5-7', 'Samfunnsfag')).toBe('samfunnsfag')
+    expect(inferSubjectKeyFromText('5-7', 'Naturfag')).toBe('naturfag')
+    expect(inferSubjectKeyFromText('5-7', 'Engelsk')).toBe('engelsk')
+    expect(inferSubjectKeyFromText('5-7', 'KRLE')).toBe('krle')
+    expect(inferSubjectKeyFromText('5-7', 'Valgfag')).toBe('valgfag')
+    expect(inferSubjectKeyFromText('5-7', 'Kroppsøving')).toBe('kroppsøving')
+  })
+
   it('finner key fra label', () => {
     expect(inferSubjectKeyFromText('5-7', 'Valgfag')).toBe('valgfag')
   })
@@ -32,7 +41,20 @@ describe('inferSubjectKeyFromText', () => {
     expect(inferSubjectKeyFromText('5-7', 'kunst og håndverk')).toBe('kunst_håndverk')
   })
 
-  it('returnerer null når teksten ikke er et katalogfag', () => {
-    expect(inferSubjectKeyFromText('5-7', 'Norsk utenom')).toBeNull()
+  it('gjenkjenner prefiks med fag + tillegg', () => {
+    expect(inferSubjectKeyFromText('5-7', 'Norsk utenom')).toBe('norsk')
+  })
+
+  it('returnerer null når teksten ikke starter med et katalogfag', () => {
+    expect(inferSubjectKeyFromText('5-7', 'Ekstra samfunnsfag')).toBeNull()
+  })
+})
+
+describe('matchSubjectFromText', () => {
+  it('klassifiserer prefiks som fagnavn + tillegg', () => {
+    expect(matchSubjectFromText('5-7', 'Samfunnsfag D2')).toEqual({
+      subjectKey: 'samfunnsfag',
+      matchType: 'prefix',
+    })
   })
 })

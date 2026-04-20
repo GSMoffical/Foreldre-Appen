@@ -5,7 +5,7 @@ import {
   DEFAULT_SCHOOL_GATE_BY_BAND,
   GRADE_BAND_LABELS,
   SUBJECTS_BY_BAND,
-  inferSubjectKeyFromText,
+  matchSubjectFromText,
   isKnownSubjectKeyForBand,
   subjectLabelForKey,
 } from '../data/norwegianSubjects'
@@ -55,13 +55,25 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
         const lesson = nextLessons[i]!
         const custom = lesson.customLabel?.trim()
         if (!custom || lesson.subjectKey === CUSTOM_SUBJECT_KEY) continue
-        const inferred = inferSubjectKeyFromText(band, custom)
-        if (!inferred || inferred === lesson.subjectKey) continue
+        const inferred = matchSubjectFromText(band, custom)
+        if (!inferred || inferred.subjectKey === lesson.subjectKey) continue
 
         // Import kan sette faktisk fag i customLabel (f.eks. "Valgfag") mens subjectKey er feil.
         // Da løfter vi customLabel til riktig subjectKey for å unngå motstrid i dropdown/felt.
-        lesson.subjectKey = inferred
-        lesson.customLabel = undefined
+        const before = { subjectKey: lesson.subjectKey, customLabel: lesson.customLabel }
+        lesson.subjectKey = inferred.subjectKey
+        if (inferred.matchType === 'exact') {
+          lesson.customLabel = undefined
+        }
+        if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+          console.debug('[school import harmonize lesson]', {
+            weekday: wd,
+            lessonIndex: i,
+            matchType: inferred.matchType,
+            before,
+            after: { subjectKey: lesson.subjectKey, customLabel: lesson.customLabel },
+          })
+        }
         dayChanged = true
       }
 

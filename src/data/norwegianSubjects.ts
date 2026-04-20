@@ -136,6 +136,22 @@ function normalizeSubjectText(s: string): string {
     .trim()
 }
 
+type SubjectTextMatch = {
+  subjectKey: string
+  matchType: 'exact' | 'prefix'
+}
+
+function buildSubjectTextCandidates(band: NorwegianGradeBand): Array<{ key: string; textNorm: string }> {
+  const out: Array<{ key: string; textNorm: string }> = []
+  for (const s of SUBJECTS_BY_BAND[band]) {
+    out.push({ key: s.key, textNorm: normalizeSubjectText(s.label) })
+    out.push({ key: s.key, textNorm: normalizeSubjectText(s.key.replace(/_/g, ' ')) })
+  }
+  // Lengst først for å unngå at korte treff "spiser" mer spesifikke.
+  out.sort((a, b) => b.textNorm.length - a.textNorm.length)
+  return out
+}
+
 /** True når customLabel allerede inneholder katalognavnet (f.eks. «Norsk utenom»). */
 function customAlreadyEmbedsCatalogLabel(custom: string, catalogLabel: string): boolean {
   const c = normNb(custom)
@@ -162,16 +178,31 @@ export function inferSubjectKeyFromText(
   band: NorwegianGradeBand,
   text: string | undefined | null
 ): string | null {
+  const m = matchSubjectFromText(band, text)
+  return m?.subjectKey ?? null
+}
+
+/**
+ * Finn katalog-fag i fri tekst. Returnerer også om treffet var eksakt eller tydelig prefiks.
+ * Prefiks brukes når teksten starter med fagnavn + tillegg (f.eks. "Samfunnsfag D2").
+ */
+export function matchSubjectFromText(
+  band: NorwegianGradeBand,
+  text: string | undefined | null
+): SubjectTextMatch | null {
   const raw = text?.trim()
   if (!raw) return null
   const normalized = normalizeSubjectText(raw)
   if (!normalized) return null
 
-  for (const s of SUBJECTS_BY_BAND[band]) {
-    const keyNormalized = normalizeSubjectText(s.key.replace(/_/g, ' '))
-    const labelNormalized = normalizeSubjectText(s.label)
-    if (normalized === keyNormalized || normalized === labelNormalized) {
-      return s.key
+  const candidates = buildSubjectTextCandidates(band)
+  for (const c of candidates) {
+    if (!c.textNorm) continue
+    if (normalized === c.textNorm) {
+      return { subjectKey: c.key, matchType: 'exact' }
+    }
+    if (normalized.startsWith(`${c.textNorm} `)) {
+      return { subjectKey: c.key, matchType: 'prefix' }
     }
   }
 
