@@ -108,15 +108,73 @@ export const SUBJECTS_BY_BAND: Record<NorwegianGradeBand, SubjectOption[]> = {
 /** Lesson uses `customLabel` when subjectKey is this */
 export const CUSTOM_SUBJECT_KEY = 'custom'
 
+/**
+ * Fag der `customLabel` alene er ønsket visning (språk, valg/program — katalognavnet er generisk).
+ * Unngår «Fremmedspråk · Spansk» når import bare har «Spansk».
+ */
+const GENERIC_SUBJECT_KEYS = new Set<string>([
+  'fremmedspråk',
+  'valgfag',
+  'programfag',
+  'felles',
+  'eksamen',
+])
+
+function normNb(s: string): string {
+  return s
+    .trim()
+    .toLocaleLowerCase('nb-NO')
+    .normalize('NFKC')
+}
+
+/** True når customLabel allerede inneholder katalognavnet (f.eks. «Norsk utenom»). */
+function customAlreadyEmbedsCatalogLabel(custom: string, catalogLabel: string): boolean {
+  const c = normNb(custom)
+  const cat = normNb(catalogLabel)
+  if (!cat.length) return false
+  if (c === cat) return true
+  if (c.startsWith(`${cat} `)) return true
+  if (c.endsWith(` ${cat}`)) return true
+  if (c.includes(` ${cat} `)) return true
+  return false
+}
+
 /** Om `subjectKey` finnes i faglisten for valgt trinn (eller er «Annet fag»-nøkkelen). */
 export function isKnownSubjectKeyForBand(band: NorwegianGradeBand, key: string): boolean {
   if (key === CUSTOM_SUBJECT_KEY) return true
   return SUBJECTS_BY_BAND[band].some((s) => s.key === key)
 }
 
+/**
+ * Pen visningslabel for timeplan / skolekontekst.
+ * Bevarer importert tilleggstekst: «norsk» + «Utenom» → «Norsk · Utenom», mens «Norsk utenom» i customLabel vises hele.
+ */
 export function subjectLabelForKey(band: NorwegianGradeBand, key: string, customLabel?: string): string {
   if (key === CUSTOM_SUBJECT_KEY) return (customLabel?.trim() || 'Annet fag')
-  if (customLabel?.trim()) return customLabel.trim()
+
   const list = SUBJECTS_BY_BAND[band]
-  return list.find((s) => s.key === key)?.label ?? key
+  const catalogLabel = list.find((s) => s.key === key)?.label
+  const custom = customLabel?.trim()
+
+  if (!custom) {
+    return catalogLabel ?? key
+  }
+
+  if (GENERIC_SUBJECT_KEYS.has(key)) {
+    return custom
+  }
+
+  if (!catalogLabel) {
+    return custom
+  }
+
+  if (normNb(custom) === normNb(catalogLabel)) {
+    return catalogLabel
+  }
+
+  if (customAlreadyEmbedsCatalogLabel(custom, catalogLabel)) {
+    return custom
+  }
+
+  return `${catalogLabel} · ${custom}`
 }

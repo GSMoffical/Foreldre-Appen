@@ -44,7 +44,33 @@ describe('detectLessonConflicts', () => {
       { subjectKey: 'norsk', start: '10:00', end: '11:00' },
       { subjectKey: 'engelsk', start: '10:30', end: '11:30' },
     ])
-    expect(detectLessonConflicts(p)).toHaveLength(1)
+    const g = detectLessonConflicts(p)
+    expect(g).toHaveLength(1)
+    expect(g[0]!.displayStart).toBe('10:30')
+    expect(g[0]!.displayEnd).toBe('11:00')
+  })
+
+  it('samler tre parallelle timer i én gruppe når alle overlapper samme vindu', () => {
+    const p = profileWithLessons(1, [
+      { subjectKey: 'matematikk', start: '12:25', end: '13:25', customLabel: 'Matte D1' },
+      { subjectKey: 'norsk', start: '12:25', end: '13:25', customLabel: 'Norsk D2' },
+      { subjectKey: 'engelsk', start: '12:25', end: '13:25', customLabel: 'Engelsk D3' },
+    ])
+    const g = detectLessonConflicts(p)
+    expect(g).toHaveLength(1)
+    expect(g[0]!.candidates).toHaveLength(3)
+  })
+
+  it('klynger ikke transitive «broer» der ytterpunktene ikke overlapper', () => {
+    const p = profileWithLessons(4, [
+      { subjectKey: 'norsk', start: '08:00', end: '09:00', customLabel: 'K&H' },
+      { subjectKey: 'krle', start: '08:30', end: '10:00' },
+      { subjectKey: 'engelsk', start: '09:30', end: '10:30', customLabel: 'Engelsk D2' },
+      { subjectKey: 'naturfag', start: '10:00', end: '11:00', customLabel: 'Naturfag D2' },
+    ])
+    const g = detectLessonConflicts(p)
+    expect(g.length).toBeGreaterThanOrEqual(2)
+    expect(g.every((x) => x.candidates.length <= 2)).toBe(true)
   })
 
   it('skiller to separate konflikter samme dag', () => {

@@ -53,6 +53,14 @@ function parseHmOptional(x: unknown, fieldPath: string): string | undefined {
   return parseHmRequired(x, fieldPath)
 }
 
+function firstLessonDisplayString(raw: Record<string, unknown>): string | undefined {
+  for (const k of ['customLabel', 'label', 'displayLabel', 'subjectLabel'] as const) {
+    const v = asOptionalString(raw[k])
+    if (v !== undefined) return v
+  }
+  return undefined
+}
+
 function parseLessonSlot(raw: unknown, idx: number, wdLabel: string): SchoolLessonSlot {
   if (!isRecord(raw)) throw new Error(`Ugyldig svar: weekdays[${wdLabel}].lessons[${idx}]`)
   const rawSubjectKey = asString(raw.subjectKey, `weekdays[${wdLabel}].lessons[${idx}].subjectKey`)
@@ -60,7 +68,7 @@ function parseLessonSlot(raw: unknown, idx: number, wdLabel: string): SchoolLess
   const subjectKey = resolved.subjectKey ?? rawSubjectKey.trim()
   const start = parseHmRequired(raw.start, `weekdays[${wdLabel}].lessons[${idx}].start`)
   const end = parseHmRequired(raw.end, `weekdays[${wdLabel}].lessons[${idx}].end`)
-  const customLabel = asOptionalString(raw.customLabel)
+  const customLabel = firstLessonDisplayString(raw)
   const out: SchoolLessonSlot = { subjectKey, start, end }
   if (customLabel !== undefined) out.customLabel = customLabel
   return out

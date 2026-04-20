@@ -7,8 +7,9 @@ import { subjectLabelForKey } from '../data/norwegianSubjects'
 
 export interface LessonConflictGroup {
   weekday: WeekdayMonFri
-  /** Min start og max slutt i gruppen (for overskrift) */
+  /** Start av felles overlapp-vindu (max av starttidene) — det brukeren velger spor innenfor */
   displayStart: string
+  /** Slutt av felles overlapp-vindu (min av sluttidene) */
   displayEnd: string
   /** Alternative timer brukeren må velge én av */
   candidates: SchoolLessonSlot[]
@@ -32,30 +33,58 @@ function maxTime(a: string, b: string): string {
 }
 
 /**
- * Finn klynger av overlappende timer på én ukedag (transitiv overlapp).
- * Forutsetter at `lessons` er sortert på start.
+ * Ekte overlapp (ikke bare inngrening i endepunkt): [start,end) slik at påfølgende
+ * 09:00–10:00 og 10:00–11:00 ikke regnes som konflikt.
  */
-function clusterOverlappingLessons(lessons: SchoolLessonSlot[]): SchoolLessonSlot[][] {
-  if (lessons.length < 2) return []
-  const sorted = [...lessons].sort((a, b) => a.start.localeCompare(b.start))
-  const clusters: SchoolLessonSlot[][] = []
-  let cluster: SchoolLessonSlot[] = [sorted[0]!]
-  let clusterMaxEnd = sorted[0]!.end
+function lessonsOverlap(a: SchoolLessonSlot, b: SchoolLessonSlot): boolean {
+  return a.start < b.end && b.start < a.end
+}
 
-  for (let i = 1; i < sorted.length; i++) {
-    const L = sorted[i]!
-    // Sortert på start: ny time tilhører klynga hvis den starter før forrige klynges slutt (ekte overlapp eller «inne i»).
-    if (L.start < clusterMaxEnd) {
-      cluster.push(L)
-      clusterMaxEnd = maxTime(clusterMaxEnd, L.end)
-    } else {
-      if (cluster.length > 1) clusters.push(cluster)
-      cluster = [L]
-      clusterMaxEnd = L.end
+/**
+ * Maksimale klikker (størrelse ≥ 2) i overlappgrafen: hver gruppe er timer som
+ * **parvis** overlapper i tid. Da unngår vi transitiv «bro» (A med B, B med C → alt i én bunke)
+ * når A og C ikke overlapper — typisk feil for review-UI.
+ *
+ * n er liten per dag; enkel bitmask-utprøving er nok.
+ */
+function maximalLessonOverlapCliques(lessons: SchoolLessonSlot[]): SchoolLessonSlot[][] {
+  const n = lessons.length
+  if (n < 2) return []
+
+  function isClique(mask: number): boolean {
+    const idx: number[] = []
+    for (let i = 0; i < n; i++) {
+      if (mask & (1 << i)) idx.push(i)
     }
+    if (idx.length < 2) return false
+    for (let a = 0; a < idx.length; a++) {
+      for (let b = a + 1; b < idx.length; b++) {
+        if (!lessonsOverlap(lessons[idx[a]!]!, lessons[idx[b]!]!)) return false
+      }
+    }
+    return true
   }
-  if (cluster.length > 1) clusters.push(cluster)
-  return clusters
+
+  const out: SchoolLessonSlot[][] = []
+  for (let mask = 0; mask < 1 << n; mask++) {
+    if (!isClique(mask)) continue
+    let maximal = true
+    for (let k = 0; k < n; k++) {
+      if (mask & (1 << k)) continue
+      if (isClique(mask | (1 << k))) {
+        maximal = false
+        break
+      }
+    }
+    if (!maximal) continue
+    const subset: SchoolLessonSlot[] = []
+    for (let i = 0; i < n; i++) {
+      if (mask & (1 << i)) subset.push(lessons[i]!)
+    }
+    out.push(subset)
+  }
+
+  return out
 }
 
 /**
@@ -66,22 +95,28 @@ export function detectLessonConflicts(profile: ChildSchoolProfile): LessonConfli
   for (let wd = 0; wd <= 4; wd++) {
     const plan = profile.weekdays[wd as WeekdayMonFri]
     if (!plan || plan.useSimpleDay || !plan.lessons?.length) continue
-    const groups = clusterOverlappingLessons(plan.lessons)
+    const groups = maximalLessonOverlapCliques(plan.lessons)
     for (const candidates of groups) {
+      // Felles overlapp-vindu (alle kandidater treffer samme tidsrom)
       let displayStart = candidates[0]!.start
       let displayEnd = candidates[0]!.end
       for (const c of candidates) {
-        displayStart = minTime(displayStart, c.start)
-        displayEnd = maxTime(displayEnd, c.end)
+        displayStart = maxTime(displayStart, c.start)
+        displayEnd = minTime(displayEnd, c.end)
       }
+      const sortedCandidates = [...candidates].sort((a, b) => a.start.localeCompare(b.start))
       out.push({
         weekday: wd as WeekdayMonFri,
         displayStart,
         displayEnd,
-        candidates,
+        candidates: sortedCandidates,
       })
     }
   }
+  out.sort((a, b) => {
+    if (a.weekday !== b.weekday) return a.weekday - b.weekday
+    return a.displayStart.localeCompare(b.displayStart)
+  })
   return out
 }
 

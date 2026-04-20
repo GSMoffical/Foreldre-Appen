@@ -54,6 +54,22 @@ describe('parseChildSchoolProfile', () => {
     expect(p.weekdays[0]?.lessons?.[0]?.customLabel).toBe('Kroppsøving')
   })
 
+  it('mapper label/displayLabel/subjectLabel til customLabel når customLabel mangler', () => {
+    const p = parseChildSchoolProfile(
+      {
+        gradeBand: '5-7',
+        weekdays: {
+          0: {
+            useSimpleDay: false,
+            lessons: [{ subjectKey: 'norsk', start: '09:00', end: '10:00', label: 'Norsk utenom' }],
+          },
+        },
+      },
+      'test'
+    )
+    expect(p.weekdays[0]?.lessons?.[0]?.customLabel).toBe('Norsk utenom')
+  })
+
   it('bevarer ukjente subjectKey som ikke har alias (f.eks. k_og_h)', () => {
     const p = parseChildSchoolProfile(
       {

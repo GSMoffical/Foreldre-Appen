@@ -261,6 +261,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                         value={L.subjectKey === CUSTOM_SUBJECT_KEY ? CUSTOM_SUBJECT_KEY : L.subjectKey}
                         onChange={(e) => {
                           const v = e.target.value
+                          if (v === L.subjectKey) return
                           if (v === CUSTOM_SUBJECT_KEY) {
                             updateLesson(wd, i, {
                               subjectKey: CUSTOM_SUBJECT_KEY,
@@ -287,6 +288,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                       </select>
                       <input
                         type="time"
+                        step={60}
                         value={L.start}
                         onChange={(e) => updateLesson(wd, i, { start: e.target.value })}
                         ref={(el) => {
@@ -296,6 +298,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                       />
                       <input
                         type="time"
+                        step={60}
                         value={L.end}
                         onChange={(e) => {
                           updateLesson(wd, i, { end: e.target.value })
@@ -333,12 +336,16 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                           </button>
                         </div>
                       )}
-                      {L.subjectKey === CUSTOM_SUBJECT_KEY && (
+                      {(L.subjectKey === CUSTOM_SUBJECT_KEY || (L.customLabel ?? '').trim().length > 0) && (
                         <input
                           type="text"
                           value={L.customLabel ?? ''}
                           onChange={(e) => updateLesson(wd, i, { customLabel: e.target.value })}
-                          placeholder="Skriv inn fagnavn"
+                          placeholder={
+                            L.subjectKey === CUSTOM_SUBJECT_KEY
+                              ? 'Skriv inn fagnavn'
+                              : 'Tillegg til fagnavn (f.eks. utenom, D2 — fra import)'
+                          }
                           className="w-full rounded border border-zinc-200 px-2 py-1.5 text-[12px]"
                         />
                       )}
