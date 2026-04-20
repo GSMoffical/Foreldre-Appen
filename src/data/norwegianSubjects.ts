@@ -127,6 +127,15 @@ function normNb(s: string): string {
     .normalize('NFKC')
 }
 
+/** Normaliser fagtekst for trygg sammenligning mot keys/labels. */
+function normalizeSubjectText(s: string): string {
+  return normNb(s)
+    .replace(/[./]/g, ' ')
+    .replace(/[^a-z0-9æøå ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 /** True når customLabel allerede inneholder katalognavnet (f.eks. «Norsk utenom»). */
 function customAlreadyEmbedsCatalogLabel(custom: string, catalogLabel: string): boolean {
   const c = normNb(custom)
@@ -143,6 +152,30 @@ function customAlreadyEmbedsCatalogLabel(custom: string, catalogLabel: string): 
 export function isKnownSubjectKeyForBand(band: NorwegianGradeBand, key: string): boolean {
   if (key === CUSTOM_SUBJECT_KEY) return true
   return SUBJECTS_BY_BAND[band].some((s) => s.key === key)
+}
+
+/**
+ * Finn katalog-`subjectKey` fra fri tekst (label eller key), ellers `null`.
+ * Brukes for å rydde opp i import der `customLabel` egentlig er selve faget.
+ */
+export function inferSubjectKeyFromText(
+  band: NorwegianGradeBand,
+  text: string | undefined | null
+): string | null {
+  const raw = text?.trim()
+  if (!raw) return null
+  const normalized = normalizeSubjectText(raw)
+  if (!normalized) return null
+
+  for (const s of SUBJECTS_BY_BAND[band]) {
+    const keyNormalized = normalizeSubjectText(s.key.replace(/_/g, ' '))
+    const labelNormalized = normalizeSubjectText(s.label)
+    if (normalized === keyNormalized || normalized === labelNormalized) {
+      return s.key
+    }
+  }
+
+  return null
 }
 
 /**

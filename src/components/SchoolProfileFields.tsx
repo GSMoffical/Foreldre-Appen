@@ -1,10 +1,11 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { ChildSchoolProfile, NorwegianGradeBand, SchoolLessonSlot, WeekdayMonFri } from '../types'
 import {
   CUSTOM_SUBJECT_KEY,
   DEFAULT_SCHOOL_GATE_BY_BAND,
   GRADE_BAND_LABELS,
   SUBJECTS_BY_BAND,
+  inferSubjectKeyFromText,
   isKnownSubjectKeyForBand,
   subjectLabelForKey,
 } from '../data/norwegianSubjects'
@@ -39,6 +40,41 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
   const subjects = useMemo(() => SUBJECTS_BY_BAND[band], [band])
   const defaultLessonMinutes = band.startsWith('vg') ? 45 : 60
   const lessonStartRefs = useRef<Record<string, HTMLInputElement | null>>({})
+
+  useEffect(() => {
+    let changed = false
+    const nextWeekdays = { ...value.weekdays }
+
+    for (const wd of [0, 1, 2, 3, 4] as WeekdayMonFri[]) {
+      const plan = value.weekdays[wd]
+      if (!plan || plan.useSimpleDay || !plan.lessons?.length) continue
+      const nextLessons = plan.lessons.map((lesson) => ({ ...lesson }))
+      let dayChanged = false
+
+      for (let i = 0; i < nextLessons.length; i++) {
+        const lesson = nextLessons[i]!
+        const custom = lesson.customLabel?.trim()
+        if (!custom || lesson.subjectKey === CUSTOM_SUBJECT_KEY) continue
+        const inferred = inferSubjectKeyFromText(band, custom)
+        if (!inferred || inferred === lesson.subjectKey) continue
+
+        // Import kan sette faktisk fag i customLabel (f.eks. "Valgfag") mens subjectKey er feil.
+        // Da løfter vi customLabel til riktig subjectKey for å unngå motstrid i dropdown/felt.
+        lesson.subjectKey = inferred
+        lesson.customLabel = undefined
+        dayChanged = true
+      }
+
+      if (dayChanged) {
+        nextWeekdays[wd] = { ...plan, useSimpleDay: false, lessons: nextLessons }
+        changed = true
+      }
+    }
+
+    if (changed) {
+      onChange({ ...value, weekdays: nextWeekdays })
+    }
+  }, [band, onChange, value])
 
   function setBand(next: NorwegianGradeBand) {
     onChange({ ...value, gradeBand: next })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { subjectLabelForKey } from '../../data/norwegianSubjects'
+import { inferSubjectKeyFromText, subjectLabelForKey } from '../../data/norwegianSubjects'
 
 describe('subjectLabelForKey', () => {
   it('viser katalognavn når customLabel mangler', () => {
@@ -20,5 +20,19 @@ describe('subjectLabelForKey', () => {
 
   it('viser bare fritekst for valgfag', () => {
     expect(subjectLabelForKey('5-7', 'valgfag', 'Programmering')).toBe('Programmering')
+  })
+})
+
+describe('inferSubjectKeyFromText', () => {
+  it('finner key fra label', () => {
+    expect(inferSubjectKeyFromText('5-7', 'Valgfag')).toBe('valgfag')
+  })
+
+  it('finner key fra variant av label', () => {
+    expect(inferSubjectKeyFromText('5-7', 'kunst og håndverk')).toBe('kunst_håndverk')
+  })
+
+  it('returnerer null når teksten ikke er et katalogfag', () => {
+    expect(inferSubjectKeyFromText('5-7', 'Norsk utenom')).toBeNull()
   })
 })
