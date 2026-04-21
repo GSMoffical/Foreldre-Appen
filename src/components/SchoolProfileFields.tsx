@@ -396,7 +396,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                             updateLesson(wd, i, { subjectKey: v, customLabel: undefined })
                           }
                         }}
-                        className="min-h-10 min-w-0 flex-1 rounded border border-zinc-200 px-2 py-1 text-[12px]"
+                        className="min-h-10 min-w-0 basis-full rounded border border-zinc-200 px-2 py-1 text-[12px] md:basis-auto md:flex-1"
                       >
                         {!isKnownSubjectKeyForBand(band, L.subjectKey) ? (
                           <option value={L.subjectKey}>
@@ -419,7 +419,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                         ref={(el) => {
                           lessonStartRefs.current[`${wd}-${i}-start`] = el
                         }}
-                        className="h-10 w-[104px] rounded border border-zinc-200 px-2 py-1 text-[12px] md:w-[116px]"
+                        className="h-10 w-[90px] rounded border border-zinc-200 px-2 py-1 text-[12px] md:w-[116px]"
                       />
                       <input
                         type="time"
@@ -432,12 +432,12 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                             lessonStartRefs.current[nextKey]?.focus()
                           })
                         }}
-                        className="h-10 w-[104px] rounded border border-zinc-200 px-2 py-1 text-[12px] md:w-[116px]"
+                        className="h-10 w-[90px] rounded border border-zinc-200 px-2 py-1 text-[12px] md:w-[116px]"
                       />
                       <button
                         type="button"
                         onClick={() => removeLesson(wd, i)}
-                        className="inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-red-200 px-2 text-[13px] font-semibold text-red-600"
+                        className="ml-auto inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-red-200 px-2 text-[13px] font-semibold text-red-600 md:ml-0"
                       >
                         ×
                       </button>
