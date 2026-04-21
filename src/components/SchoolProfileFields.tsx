@@ -275,6 +275,11 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
 
   return (
     <div className="space-y-3 rounded-xl border border-zinc-200 bg-white/80 px-3 py-3 md:px-4 md:py-4">
+      {(import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') && (
+        <p className="rounded border border-violet-200 bg-violet-50 px-2 py-1 text-[10px] text-violet-950">
+          Debug: SchoolProfileFields aktiv · mobil-layout styres av base-klasser (uten md:)
+        </p>
+      )}
       <p className="text-[12px] font-medium text-zinc-800">Skolerute (bakgrunn)</p>
       <p className="text-[11px] leading-relaxed text-zinc-600">
         Basert på typiske tider i norsk grunnskole (LK20) — tilpass lokalt. Vises svakt; avtaler og hendelser
