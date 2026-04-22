@@ -773,6 +773,15 @@ export function TankestromImportDialog({
                 )}
               </div>
               <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 px-2 py-2">
+                {import.meta.env.DEV || import.meta.env.VITE_SPF_BUILD_PROBE === '1' ? (
+                  <p
+                    role="status"
+                    className="mb-2 rounded-lg border-2 border-black bg-yellow-300 px-2 py-2 text-center text-[13px] font-black uppercase tracking-widest text-black"
+                    data-build-probe="SPF-LOCAL-V2"
+                  >
+                    SPF-LOCAL-V2 — build-probe (fjern etter verifisering)
+                  </p>
+                ) : null}
                 <p className={typSectionCap}>Timeplan</p>
                 <p className="mb-2 flex flex-wrap items-center gap-2 px-1 text-[11px] text-zinc-500">
                   <span className="font-medium text-zinc-600">{schoolReview.meta.originalSourceType}</span>
@@ -918,7 +927,10 @@ export function TankestromImportDialog({
                     </div>
                   </details>
                 ) : null}
-                <div className="max-h-[min(50vh,420px)] overflow-y-auto overscroll-y-contain pr-1">
+                <div
+                  className="max-h-[min(50vh,420px)] overflow-y-auto overscroll-y-contain pr-1"
+                  data-render-parent="TankestromImportDialog-schoolReview-scroll"
+                >
                   <SchoolProfileFields value={schoolReview.draft} onChange={setSchoolProfileDraft} />
                 </div>
               </div>

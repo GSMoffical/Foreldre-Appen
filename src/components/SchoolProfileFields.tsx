@@ -82,6 +82,14 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
           fetch('http://127.0.0.1:7535/ingest/049b3e24-eef8-4d09-b78d-4e257b02a969',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d90a0'},body:JSON.stringify({sessionId:'4d90a0',runId:'school-review-trace-v1',hypothesisId:'H2',location:'SchoolProfileFields.tsx:70',message:'lesson check',data:{runId,weekday:wd,lessonIndex:i,before:{subjectKey:lesson.subjectKey,customLabel:lesson.customLabel,start:lesson.start,end:lesson.end},inferred},timestamp:Date.now()})}).catch(()=>{})
           // #endregion
         }
+        if (inferred && inferred.subjectKey === lesson.subjectKey && inferred.matchType === 'exact' && custom) {
+          // Samme fag to ganger: Tankestrøm kan sende både subjectKey og label/displayLabel som samme fagnavn.
+          // Da gjør customLabel ingen nytte og kan forvirre import-feilsøking / snapshot-diff.
+          lesson.customLabel = undefined
+          dayChanged = true
+          continue
+        }
+
         if (!inferred || inferred.subjectKey === lesson.subjectKey) continue
 
         // Import kan sette faktisk fag i customLabel (f.eks. "Valgfag") mens subjectKey er feil.
@@ -274,7 +282,18 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
   const gates = DEFAULT_SCHOOL_GATE_BY_BAND[band]
 
   return (
-    <div className="space-y-3 rounded-xl border border-zinc-200 bg-white/80 px-3 py-3 md:px-4 md:py-4">
+    <div
+      className="space-y-3 rounded-xl border border-zinc-200 bg-white/80 px-3 py-3 md:px-4 md:py-4"
+      data-render-component="SchoolProfileFields"
+    >
+      {import.meta.env.DEV ? (
+        <p
+          className="rounded-md border-2 border-fuchsia-500 bg-fuchsia-100 px-2 py-1 text-center text-[11px] font-bold uppercase tracking-wide text-fuchsia-950"
+          data-verify="school-profile-fields-root"
+        >
+          VERIFY: SchoolProfileFields (lesson-rader under er fra denne komponenten)
+        </p>
+      ) : null}
       <p className="text-[12px] font-medium text-zinc-800">Skolerute (bakgrunn)</p>
       <p className="text-[11px] leading-relaxed text-zinc-600">
         Basert på typiske tider i norsk grunnskole (LK20) — tilpass lokalt. Vises svakt; avtaler og hendelser
@@ -411,7 +430,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                           ))}
                           <option value={CUSTOM_SUBJECT_KEY}>Annet fag…</option>
                         </select>
-                        <div className="flex min-w-0 flex-nowrap items-center gap-1.5">
+                        <div className="flex min-w-0 flex-nowrap items-center gap-1 max-md:gap-1 md:gap-1.5">
                           <input
                             type="time"
                             step={60}
@@ -420,7 +439,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                             ref={(el) => {
                               lessonStartRefs.current[`${wd}-${i}-start`] = el
                             }}
-                            className="h-9 w-[4.75rem] shrink-0 rounded border border-zinc-200 px-1 py-1 text-[11px] tabular-nums md:h-10 md:w-[108px] md:px-2 md:text-[12px]"
+                            className="h-9 w-[4.35rem] max-md:px-0.5 shrink-0 rounded border border-zinc-200 px-1 py-1 text-[11px] tabular-nums md:h-10 md:w-[108px] md:px-2 md:text-[12px]"
                           />
                           <input
                             type="time"
@@ -433,17 +452,27 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                                 lessonStartRefs.current[nextKey]?.focus()
                               })
                             }}
-                            className="h-9 w-[4.75rem] shrink-0 rounded border border-zinc-200 px-1 py-1 text-[11px] tabular-nums md:h-10 md:w-[108px] md:px-2 md:text-[12px]"
+                            className="h-9 w-[4.35rem] max-md:px-0.5 shrink-0 rounded border border-zinc-200 px-1 py-1 text-[11px] tabular-nums md:h-10 md:w-[108px] md:px-2 md:text-[12px]"
                           />
                           <button
                             type="button"
                             onClick={() => removeLesson(wd, i)}
-                            className="ml-auto inline-flex h-9 min-w-9 shrink-0 items-center justify-center rounded-full border border-red-200 px-2 text-[13px] font-semibold text-red-600 md:ml-0"
+                            className="ml-auto inline-flex h-9 min-w-8 max-md:min-w-8 shrink-0 items-center justify-center rounded-full border border-red-200 px-1.5 text-[13px] font-semibold text-red-600 md:ml-0 md:min-w-9 md:px-2"
                           >
                             ×
                           </button>
                         </div>
                       </div>
+                      {L.subjectKey === CUSTOM_SUBJECT_KEY ? (
+                        <input
+                          type="text"
+                          value={L.customLabel ?? ''}
+                          onChange={(e) => updateLesson(wd, i, { customLabel: e.target.value })}
+                          placeholder="Skriv inn fagnavn"
+                          aria-label="Fagnavn for annet fag"
+                          className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-[13px] outline-none focus:border-zinc-400"
+                        />
+                      ) : null}
                       {i < (plan?.lessons?.length ?? 0) - 1 && (
                         <div className="flex items-center gap-1.5">
                           <span className="text-[11px] text-zinc-500">Pause:</span>
