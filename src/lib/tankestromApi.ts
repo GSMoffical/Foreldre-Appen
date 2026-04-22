@@ -550,11 +550,26 @@ async function analyzeWithTankestrom(payload: AnalyzePayload): Promise<PortalImp
     body = JSON.stringify({ text: payload.text })
   }
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers,
-    body,
-  })
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body,
+    })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : ''
+    if (
+      msg.toLowerCase().includes('failed to fetch') ||
+      msg.toLowerCase().includes('networkerror') ||
+      msg.toLowerCase().includes('network request failed')
+    ) {
+      throw new Error(
+        `Kunne ikke kontakte Tankestrøm-analyse (${url}). Sjekk at URL er riktig, at tjenesten er oppe, og at CORS/HTTPS tillater kall fra denne appen.`
+      )
+    }
+    throw err instanceof Error ? err : new Error('Kunne ikke kontakte Tankestrøm-analyse.')
+  }
 
   const text = await res.text()
   let json: unknown
