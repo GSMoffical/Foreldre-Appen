@@ -8,15 +8,15 @@ import type {
   PortalSchoolWeekOverlayProposal,
   PortalSourceSystem,
   PortalTaskProposal,
-  SchoolWeekOverlayAction,
   SchoolWeekOverlayDailyAction,
-  SchoolWeekOverlaySubjectUpdate,
 } from '../features/tankestrom/types'
 import type {
   ChildSchoolDayPlan,
   ChildSchoolProfile,
   NorwegianGradeBand,
   SchoolLessonSlot,
+  SchoolWeekOverlayAction,
+  SchoolWeekOverlaySubjectUpdate,
   WeekdayMonFri,
 } from '../types'
 import { resolveSubjectKey } from './schoolContext'

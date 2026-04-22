@@ -5,9 +5,7 @@
 
 import type {
   ChildSchoolProfile,
-  SchoolWeekOverlayAction,
   SchoolWeekOverlayDayAction,
-  SchoolWeekOverlaySubjectUpdate,
 } from '../../types'
 
 export type PortalImportSchemaVersion = '1.0.0'
