@@ -241,6 +241,10 @@ function isSchoolProfileBundle(bundle: PortalImportProposalBundle): boolean {
   return bundle.items.length > 0 && bundle.items.every((i) => i.kind === 'school_profile')
 }
 
+function hasAnalyzeContent(bundle: PortalImportProposalBundle): boolean {
+  return bundle.items.length > 0 || !!bundle.schoolWeekOverlayProposal
+}
+
 function filterSubjectUpdatesByLanguageTrack(
   updates: SchoolWeekOverlaySubjectUpdate[],
   resolvedTrack: string | undefined
@@ -621,13 +625,21 @@ export function useTankestromImport({
         patchPendingFile(pf.id, { status: 'analyzing', statusDetail: undefined })
         try {
           const b = await analyzeDocumentWithTankestrom(pf.file)
-          if (b.items.length === 0) {
+          if (!hasAnalyzeContent(b)) {
             patchPendingFile(pf.id, {
               status: 'error',
               statusDetail: 'Ingen forslag',
             })
             failureLines.push(`${pf.file.name}: ingen forslag`)
             continue
+          }
+          if (import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+            console.debug('[tankestrom analyze result:file]', {
+              fileName: pf.file.name,
+              itemsLength: b.items.length,
+              hasSchoolProfileProposal: b.items.some((i) => i.kind === 'school_profile'),
+              hasSchoolWeekOverlayProposal: !!b.schoolWeekOverlayProposal,
+            })
           }
           bundles.push(b)
           patchPendingFile(pf.id, { status: 'done', statusDetail: undefined })
@@ -648,9 +660,17 @@ export function useTankestromImport({
       }
 
       const merged = mergePortalImportProposalBundles(bundles)
-      if (merged.items.length === 0) {
+      if (!hasAnalyzeContent(merged)) {
         setError('Ingen forslag etter sammenslåing.')
         return
+      }
+      if (import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+        console.debug('[tankestrom analyze result:merged]', {
+          itemsLength: merged.items.length,
+          hasSchoolProfileProposal: merged.items.some((i) => i.kind === 'school_profile'),
+          hasSchoolWeekOverlayProposal: !!merged.schoolWeekOverlayProposal,
+          branch: isSchoolProfileBundle(merged) ? 'school_profile_review' : 'general_review',
+        })
       }
 
       setBundle(merged)
