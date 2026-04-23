@@ -612,7 +612,9 @@ export function useTankestromImport({
         }
         const defaultPersonId = people[0]?.id ?? ''
         setDraftByProposalId(buildDraftsFromItems(b.items, validPersonIds, defaultPersonId, people))
-        setSelectedIds(new Set(b.items.map((i) => i.proposalId)))
+        setSelectedIds(
+          new Set(b.items.filter((i) => i.kind !== 'school_profile').map((i) => i.proposalId))
+        )
         setStep('review')
         return
       }
@@ -665,10 +667,13 @@ export function useTankestromImport({
         return
       }
       if (import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+        const taskItemsCount = merged.items.filter((i) => i.kind === 'task').length
         console.debug('[tankestrom analyze result:merged]', {
           itemsLength: merged.items.length,
           hasSchoolProfileProposal: merged.items.some((i) => i.kind === 'school_profile'),
           hasSchoolWeekOverlayProposal: !!merged.schoolWeekOverlayProposal,
+          overlayPresent: !!merged.schoolWeekOverlayProposal,
+          taskItemsCount,
           branch: isSchoolProfileBundle(merged) ? 'school_profile_review' : 'general_review',
         })
       }
@@ -723,7 +728,9 @@ export function useTankestromImport({
       }
       const defaultPersonId = people[0]?.id ?? ''
       setDraftByProposalId(buildDraftsFromItems(merged.items, validPersonIds, defaultPersonId, people))
-      setSelectedIds(new Set(merged.items.map((i) => i.proposalId)))
+      setSelectedIds(
+        new Set(merged.items.filter((i) => i.kind !== 'school_profile').map((i) => i.proposalId))
+      )
       setStep('review')
 
       if (failureLines.length > 0) {
@@ -937,6 +944,21 @@ export function useTankestromImport({
     }
   }, [bundle, proposalItems, selectedIds, draftByProposalId, validPersonIds, createEvent, createTask, schoolReview])
 
+  /**
+   * Lagrer uke-overlay (hvis den finnes), deretter importerer avkryssede hendelser/gjøremål.
+   * Brukes i «general review» når overlay og items kan komme samtidig fra A-plan.
+   */
+  const saveSchoolWeekOverlayThenCalendarSelection = useCallback(async (): Promise<boolean> => {
+    if (schoolReview) return false
+    const overlay = bundle?.schoolWeekOverlayProposal
+    if (overlay) {
+      const okOverlay = await saveSchoolWeekOverlay()
+      if (!okOverlay) return false
+    }
+    if (selectedIds.size === 0) return true
+    return approveSelected()
+  }, [schoolReview, bundle?.schoolWeekOverlayProposal, saveSchoolWeekOverlay, selectedIds, approveSelected])
+
   return {
     step,
     inputMode,
@@ -973,5 +995,6 @@ export function useTankestromImport({
     setSchoolProfileChildId,
     setSchoolProfileDraft,
     saveSchoolWeekOverlay,
+    saveSchoolWeekOverlayThenCalendarSelection,
   }
 }

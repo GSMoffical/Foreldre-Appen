@@ -792,7 +792,7 @@ export function TankestromImportDialog({
     runAnalyze,
     approveSelected,
     saveSchoolProfile,
-    saveSchoolWeekOverlay,
+    saveSchoolWeekOverlayThenCalendarSelection,
     canApproveSelection,
     canSaveSchoolProfile,
     canSaveSchoolWeekOverlay,
@@ -882,13 +882,24 @@ export function TankestromImportDialog({
     }
   }, [saveSchoolProfile, onClose, schoolProfileChildId])
 
-  const handleSaveSchoolWeekOverlay = useCallback(async () => {
-    const ok = await saveSchoolWeekOverlay()
+  const handleSaveOverlayAndCalendar = useCallback(async () => {
+    const ok = await saveSchoolWeekOverlayThenCalendarSelection()
     if (ok) {
-      logEvent('tankestrom_school_week_overlay_saved', { childId: schoolProfileChildId })
+      if (bundle?.schoolWeekOverlayProposal) {
+        logEvent('tankestrom_school_week_overlay_saved', { childId: schoolProfileChildId })
+      }
+      if (selectedIds.size > 0) {
+        logEvent('tankestrom_import_completed', { count: selectedIds.size })
+      }
       onClose()
     }
-  }, [saveSchoolWeekOverlay, onClose, schoolProfileChildId])
+  }, [
+    saveSchoolWeekOverlayThenCalendarSelection,
+    bundle?.schoolWeekOverlayProposal,
+    schoolProfileChildId,
+    selectedIds.size,
+    onClose,
+  ])
 
   const childrenList = useMemo(() => people.filter((p) => p.memberKind === 'child'), [people])
 
@@ -897,6 +908,19 @@ export function TankestromImportDialog({
     [schoolReview?.draft]
   )
   const schoolWeekOverlayProposal = bundle?.schoolWeekOverlayProposal ?? null
+
+  const homeworkTaskItemsCount = useMemo(
+    () => calendarProposalItems.filter((i) => i.kind === 'task').length,
+    [calendarProposalItems]
+  )
+  const selectedHomeworkTaskCount = useMemo(() => {
+    let n = 0
+    for (const id of selectedIds) {
+      const d = draftByProposalId[id]
+      if (d?.importKind === 'task') n += 1
+    }
+    return n
+  }, [selectedIds, draftByProposalId])
 
   const overlayReviewLanguageTrack = useMemo(() => {
     const child = people.find((p) => p.id === schoolProfileChildId)
@@ -930,6 +954,23 @@ export function TankestromImportDialog({
       snapshotDraftDiff,
     }
   }, [schoolReview])
+
+  useEffect(() => {
+    if (!DEBUG_SCHOOL_IMPORT_PANEL || !open || step !== 'review' || schoolReview) return
+    console.debug('[tankestrom import general review]', {
+      overlayPresent: !!schoolWeekOverlayProposal,
+      taskItemsCount: homeworkTaskItemsCount,
+      selectedTaskItemsCount: selectedHomeworkTaskCount,
+      branch: schoolWeekOverlayProposal ? 'overlay_plus_calendar' : 'calendar_only',
+    })
+  }, [
+    open,
+    step,
+    schoolReview,
+    schoolWeekOverlayProposal,
+    homeworkTaskItemsCount,
+    selectedHomeworkTaskCount,
+  ])
 
   if (!open) return null
 
@@ -1416,6 +1457,16 @@ export function TankestromImportDialog({
                   resolvedLanguageTrack={overlayReviewLanguageTrack}
                 />
               ) : null}
+              {schoolWeekOverlayProposal && calendarProposalItems.length > 0 ? (
+                <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/70 px-3 py-2.5">
+                  <p className="text-[12px] font-semibold text-emerald-950">To typer innhold</p>
+                  <p className="mt-1 text-[11px] leading-snug text-emerald-900/95">
+                    <span className="font-medium">Uke-overlay</span> oppdaterer skoleblokken i kalenderen for valgt barn
+                    denne uka. <span className="font-medium">Kortene under</span> blir egne hendelser eller gjøremål —
+                    rediger feltene og bruk avkrysning for å styre hva som importeres sammen med overlayen.
+                  </p>
+                </div>
+              ) : null}
               {analyzeWarning ? (
                 <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] leading-snug text-amber-950 whitespace-pre-wrap">
                   {analyzeWarning}
@@ -1424,7 +1475,10 @@ export function TankestromImportDialog({
               <div className="rounded-xl border border-brandNavy/15 bg-brandSky/20 px-3 py-2.5">
                 <p className="text-[12px] font-medium leading-snug text-brandNavy">
                   Gå gjennom forslagene nedenfor. Kun <span className="font-semibold">avkryssede</span> kort importeres
-                  som hendelser eller gjøremål.
+                  som hendelser eller gjøremål
+                  {schoolWeekOverlayProposal
+                    ? ' — samme knapp lagrer også uke-overlay (huk av alt du ikke vil ha med).'
+                    : '.'}
                 </p>
                 <dl className="mt-2 grid grid-cols-3 gap-2 text-center">
                   <div className="rounded-lg bg-white/70 px-2 py-1.5">
@@ -1505,6 +1559,14 @@ export function TankestromImportDialog({
                             <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">
                               {item.originalSourceType}
                             </span>
+                            {schoolWeekOverlayProposal && item.kind === 'task' ? (
+                              <span
+                                className="text-[10px] font-medium tracking-wide text-zinc-500 normal-case"
+                                title="Gjøremål hentet fra samme A-plan som uke-overlay over"
+                              >
+                                · Fra samme plan
+                              </span>
+                            ) : null}
                             {schoolCtx ? (
                               <span
                                 className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${schoolItemTypeChipClass(schoolCtx.itemType)}`}
@@ -2116,15 +2178,20 @@ export function TankestromImportDialog({
               className="flex-1"
               loading={saveLoading}
               disabled={
-                schoolWeekOverlayProposal
-                  ? !hasPeople || !canSaveSchoolWeekOverlay
-                  : !hasPeople || !canApproveSelection
+                !hasPeople ||
+                (schoolWeekOverlayProposal
+                  ? !canSaveSchoolWeekOverlay || (selectedIds.size > 0 && !canApproveSelection)
+                  : !canApproveSelection)
               }
               onClick={() =>
-                schoolWeekOverlayProposal ? void handleSaveSchoolWeekOverlay() : void handleApprove()
+                schoolWeekOverlayProposal ? void handleSaveOverlayAndCalendar() : void handleApprove()
               }
             >
-              {schoolWeekOverlayProposal ? 'Lagre uke-overlay' : `Importer valgte (${selectedIds.size})`}
+              {schoolWeekOverlayProposal
+                ? selectedIds.size > 0
+                  ? `Lagre overlay og importer (${selectedIds.size})`
+                  : 'Lagre uke-overlay'
+                : `Importer valgte (${selectedIds.size})`}
             </Button>
           )}
         </div>
