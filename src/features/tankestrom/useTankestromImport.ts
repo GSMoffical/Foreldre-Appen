@@ -190,6 +190,29 @@ function buildTaskDraftFromProposal(
   validPersonIds: Set<string>,
   people: Person[]
 ): TankestromTaskDraft {
+  function normalizeTaskNotesText(s: string): string {
+    return s.replace(/\r\n/g, '\n').trim()
+  }
+
+  function buildTaskNotesPrefill(proposal: PortalTaskProposal): string {
+    const rawDetail = normalizeTaskNotesText(proposal.task.notes ?? '')
+    const sourceLabel = proposal.originalSourceType?.trim() || 'Ukjent kilde'
+    const sourceLine = `Fra: ${sourceLabel}`
+
+    const lower = rawDetail.toLocaleLowerCase('nb-NO')
+    const startsWithSource = lower.startsWith('fra:')
+    const detailWithoutSource = startsWithSource
+      ? rawDetail
+          .split('\n')
+          .slice(1)
+          .join('\n')
+          .trim()
+      : rawDetail
+
+    if (!detailWithoutSource) return sourceLine
+    return `${sourceLine}\n\n${detailWithoutSource}`
+  }
+
   const t = p.task
   let childPersonId =
     t.childPersonId && validPersonIds.has(t.childPersonId) ? t.childPersonId : ''
@@ -201,7 +224,7 @@ function buildTaskDraftFromProposal(
   return {
     title: t.title,
     date: t.date,
-    notes: t.notes ?? '',
+    notes: buildTaskNotesPrefill(p),
     dueTime: t.dueTime ?? '',
     childPersonId,
     assignedToPersonId,

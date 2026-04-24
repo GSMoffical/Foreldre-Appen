@@ -263,8 +263,22 @@ function parseTaskPayload(raw: unknown): PortalTaskProposal['task'] {
   if (!isDateKey(date)) throw new Error('Ugyldig svar: task.date må være YYYY-MM-DD')
   const title = asString(raw.title, 'task.title')
   const out: PortalTaskProposal['task'] = { date, title }
-  const notes = asOptionalString(raw.notes)
-  if (notes !== undefined) out.notes = notes
+  // Tillat flere vanlige tekstfeltnavn fra upstream; notes er canonical i appen.
+  const notesCandidates = [
+    asOptionalString(raw.notes),
+    asOptionalString(raw.description),
+    asOptionalString(raw.details),
+    asOptionalString(raw.detailText),
+    asOptionalString(raw.body),
+    asOptionalString(raw.content),
+  ].filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+  if (notesCandidates.length > 0) {
+    const deduped = notesCandidates.filter((line, idx, arr) => {
+      const n = line.trim().toLocaleLowerCase('nb-NO')
+      return arr.findIndex((x) => x.trim().toLocaleLowerCase('nb-NO') === n) === idx
+    })
+    out.notes = deduped.join('\n\n')
+  }
   const due = asOptionalString(raw.dueTime)
   if (due !== undefined) {
     if (!isHm(due)) throw new Error('Ugyldig svar: task.dueTime må være HH:mm')
