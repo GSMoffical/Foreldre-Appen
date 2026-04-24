@@ -348,13 +348,63 @@ function filterWeeklySummaryLine(
   return { ok: true }
 }
 
+function cloneOverlayDraft(overlay: PortalSchoolWeekOverlayProposal): PortalSchoolWeekOverlayProposal {
+  return JSON.parse(JSON.stringify(overlay)) as PortalSchoolWeekOverlayProposal
+}
+
+function overlayDayLines(details: NonNullable<PortalSchoolWeekOverlayProposal['dailyActions'][number]>): string[] {
+  const out: string[] = []
+  for (const u of details.subjectUpdates) {
+    if (!u.sections) continue
+    for (const lines of Object.values(u.sections)) {
+      for (const line of lines ?? []) {
+        const t = line.trim()
+        if (t) out.push(t)
+      }
+    }
+  }
+  return out
+}
+
+function applyOverlayDayLines(
+  details: NonNullable<PortalSchoolWeekOverlayProposal['dailyActions'][number]>,
+  nextLines: string[]
+): NonNullable<PortalSchoolWeekOverlayProposal['dailyActions'][number]> {
+  const cleaned = nextLines.map((x) => x.trim()).filter(Boolean)
+  if (details.subjectUpdates.length === 0) {
+    if (cleaned.length === 0) return details
+    return {
+      ...details,
+      subjectUpdates: [
+        {
+          subjectKey: 'other',
+          sections: { notater: cleaned },
+        },
+      ],
+    }
+  }
+  const firstWithSectionsIdx = details.subjectUpdates.findIndex((u) => !!u.sections)
+  const targetIdx = firstWithSectionsIdx >= 0 ? firstWithSectionsIdx : 0
+  const nextSubjectUpdates = details.subjectUpdates.map((u, idx) => {
+    if (idx !== targetIdx) return u
+    const prevSections = u.sections ?? {}
+    const sectionKeys = Object.keys(prevSections)
+    const targetSectionKey = sectionKeys[0] ?? 'notater'
+    const nextSections = { ...prevSections, [targetSectionKey]: cleaned }
+    return { ...u, sections: nextSections }
+  })
+  return { ...details, subjectUpdates: nextSubjectUpdates }
+}
+
 function SchoolWeekOverlayReviewCard({
   overlay,
   resolvedLanguageTrack,
+  onChange,
 }: {
   overlay: PortalSchoolWeekOverlayProposal
   /** F.eks. barnets fremmedspråk fra profil — prioriteres under API `languageTrack` når satt. */
   resolvedLanguageTrack?: string
+  onChange?: (next: PortalSchoolWeekOverlayProposal) => void
 }) {
   const track =
     resolvedLanguageTrack?.trim() ||
@@ -466,6 +516,46 @@ function SchoolWeekOverlayReviewCard({
                 <p className="text-[12px] font-medium text-zinc-900">
                   {WD_LABEL_NB[day] ?? `Dag ${day}`} · {overlayActionLabel(details.action)}
                 </p>
+                {onChange ? (
+                  <div className="mt-1.5 space-y-2 rounded-md border border-zinc-200 bg-zinc-50/70 p-2">
+                    <Input
+                      id={`ts-overlay-day-summary-${day}`}
+                      label="Dagsoppsummering"
+                      value={details.summary ?? ''}
+                      onChange={(e) => {
+                        const next = cloneOverlayDraft(overlay)
+                        const d = next.dailyActions[day]
+                        if (!d) return
+                        d.summary = e.target.value
+                        onChange(next)
+                      }}
+                      className="text-[12px]"
+                    />
+                    <div>
+                      <label className="mb-1 block text-[11px] font-medium text-zinc-700">
+                        Detaljlinjer (én per linje)
+                      </label>
+                      <Textarea
+                        id={`ts-overlay-day-lines-${day}`}
+                        rows={3}
+                        autoResize
+                        minRows={3}
+                        maxRows={10}
+                        value={overlayDayLines(details).join('\n')}
+                        onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
+                          const next = cloneOverlayDraft(overlay)
+                          const d = next.dailyActions[day]
+                          if (!d) return
+                          const lines = e.target.value.split('\n')
+                          next.dailyActions[day] = applyOverlayDayLines(d, lines)
+                          onChange(next)
+                        }}
+                        className="text-[12px]"
+                        placeholder="Skriv én punktlinje per linje"
+                      />
+                    </div>
+                  </div>
+                ) : null}
                 {headlineShown ? <p className="mt-0.5 text-[11px] text-zinc-700">{headline}</p> : null}
                 {hasSections ? (
                   <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-[11px] text-zinc-700">
@@ -800,6 +890,7 @@ export function TankestromImportDialog({
     schoolProfileChildId,
     setSchoolProfileChildId,
     setSchoolProfileDraft,
+    setSchoolWeekOverlayProposalDraft,
   } = useTankestromImport({ open, people, createEvent, createTask, updatePerson })
 
   const validPersonIds = useMemo(() => new Set(people.map((p) => p.id)), [people])
@@ -908,6 +999,10 @@ export function TankestromImportDialog({
     [schoolReview?.draft]
   )
   const schoolWeekOverlayProposal = bundle?.schoolWeekOverlayProposal ?? null
+  const editableOverlayDaysCount = useMemo(() => {
+    if (!schoolWeekOverlayProposal) return 0
+    return Object.values(schoolWeekOverlayProposal.dailyActions).filter(Boolean).length
+  }, [schoolWeekOverlayProposal])
 
   const homeworkTaskItemsCount = useMemo(
     () => calendarProposalItems.filter((i) => i.kind === 'task').length,
@@ -944,6 +1039,24 @@ export function TankestromImportDialog({
     }
     return n
   }, [calendarProposalItems, draftByProposalId, schoolProfileChildId])
+
+  const overlayDraftBaselineRef = useRef<string>('')
+  useEffect(() => {
+    if (!schoolWeekOverlayProposal) {
+      overlayDraftBaselineRef.current = ''
+      return
+    }
+    const marker = `${schoolWeekOverlayProposal.proposalId}::${JSON.stringify(schoolWeekOverlayProposal)}`
+    if (!overlayDraftBaselineRef.current) overlayDraftBaselineRef.current = marker
+    const currentProposalId = overlayDraftBaselineRef.current.split('::')[0] ?? ''
+    if (currentProposalId !== schoolWeekOverlayProposal.proposalId) {
+      overlayDraftBaselineRef.current = marker
+    }
+  }, [schoolWeekOverlayProposal])
+  const overlayEditedDraftChanged = useMemo(() => {
+    if (!schoolWeekOverlayProposal || !overlayDraftBaselineRef.current) return false
+    return overlayDraftBaselineRef.current !== `${schoolWeekOverlayProposal.proposalId}::${JSON.stringify(schoolWeekOverlayProposal)}`
+  }, [schoolWeekOverlayProposal])
 
   const schoolImportDebugPanel = useMemo(() => {
     if (!schoolReview || !DEBUG_SCHOOL_IMPORT_PANEL) return null
@@ -1030,6 +1143,8 @@ export function TankestromImportDialog({
       selectedTaskItemsCount: selectedHomeworkTaskCount,
       tasksDefaultedToGlobalChild,
       reviewLanguageTrack: overlayReviewLanguageTrack,
+      editableOverlayDaysCount,
+      overlayEditedDraftChanged,
       branch: schoolWeekOverlayProposal ? 'overlay_plus_calendar' : 'calendar_only',
     })
   }, [
@@ -1043,6 +1158,8 @@ export function TankestromImportDialog({
     selectedHomeworkTaskCount,
     tasksDefaultedToGlobalChild,
     overlayReviewLanguageTrack,
+    editableOverlayDaysCount,
+    overlayEditedDraftChanged,
   ])
 
   if (!open) return null
@@ -1525,12 +1642,6 @@ export function TankestromImportDialog({
           ) : (
             <div className="space-y-4">
               {schoolWeekOverlayProposal ? (
-                <SchoolWeekOverlayReviewCard
-                  overlay={schoolWeekOverlayProposal}
-                  resolvedLanguageTrack={overlayReviewLanguageTrack}
-                />
-              ) : null}
-              {schoolWeekOverlayProposal ? (
                 <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/60 px-3 py-2.5">
                   <label htmlFor="ts-global-overlay-child" className="text-[12px] font-medium text-indigo-950">
                     Gjelder barn
@@ -1564,6 +1675,13 @@ export function TankestromImportDialog({
                     ) : null}
                   </p>
                 </div>
+              ) : null}
+              {schoolWeekOverlayProposal ? (
+                <SchoolWeekOverlayReviewCard
+                  overlay={schoolWeekOverlayProposal}
+                  resolvedLanguageTrack={overlayReviewLanguageTrack}
+                  onChange={setSchoolWeekOverlayProposalDraft}
+                />
               ) : null}
               {schoolWeekOverlayProposal && calendarProposalItems.length > 0 ? (
                 <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/70 px-3 py-2.5">

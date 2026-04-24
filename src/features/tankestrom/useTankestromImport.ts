@@ -833,6 +833,13 @@ export function useTankestromImport({
     }
   }, [bundle?.schoolWeekOverlayProposal, schoolProfileChildId, people, updatePerson])
 
+  const setSchoolWeekOverlayProposalDraft = useCallback((next: PortalSchoolWeekOverlayProposal) => {
+    setBundle((prev) => {
+      if (!prev || !prev.schoolWeekOverlayProposal) return prev
+      return { ...prev, schoolWeekOverlayProposal: next }
+    })
+  }, [])
+
   const approveSelected = useCallback(async (): Promise<boolean> => {
     if (schoolReview) return false
     if (!bundle || proposalItems.length === 0) return false
@@ -1019,5 +1026,6 @@ export function useTankestromImport({
     setSchoolProfileDraft,
     saveSchoolWeekOverlay,
     saveSchoolWeekOverlayThenCalendarSelection,
+    setSchoolWeekOverlayProposalDraft,
   }
 }
