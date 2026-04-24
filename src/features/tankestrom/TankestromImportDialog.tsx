@@ -406,6 +406,7 @@ function SchoolWeekOverlayReviewCard({
   resolvedLanguageTrack?: string
   onChange?: (next: PortalSchoolWeekOverlayProposal) => void
 }) {
+  const [editingDay, setEditingDay] = useState<number | null>(null)
   const track =
     resolvedLanguageTrack?.trim() ||
     overlay.languageTrack?.resolvedTrack?.trim() ||
@@ -457,6 +458,10 @@ function SchoolWeekOverlayReviewCard({
         const chosenRenderMode = sectionLines.length > 0 ? 'sections-first' : headline ? 'headline-only' : 'minimal'
         return {
           day,
+          overlayDayEditMode: editingDay === day ? 'edit' : 'compact',
+          overlayDayHasSummary: !!details.summary?.trim(),
+          overlayDayDetailCount: sectionLines.length,
+          overlayCompactModeEnabled: true,
           hasDaySummary: !!details.summary,
           hasDayReason: !!details.reason,
           hasSubjectSections: sectionLines.length > 0,
@@ -510,19 +515,38 @@ function SchoolWeekOverlayReviewCard({
               track
             )
             const filteredSubjectUpdates = filterSubjectUpdatesByLanguageTrack(details.subjectUpdates, track)
+            const isEditing = onChange ? editingDay === day : false
+            const compactLines =
+              hasSections
+                ? sectionLines
+                : filteredSubjectUpdates.map((u) => (u.customLabel ? `${u.customLabel} (${u.subjectKey})` : u.subjectKey))
+            const compactVisible = compactLines.slice(0, 3)
+            const compactHiddenCount = Math.max(0, compactLines.length - compactVisible.length)
 
             return (
               <li key={day} className="rounded-lg border border-indigo-200 bg-white/85 px-2.5 py-2">
-                <p className="text-[12px] font-medium text-zinc-900">
-                  {WD_LABEL_NB[day] ?? `Dag ${day}`} · {overlayActionLabel(details.action)}
-                </p>
-                {onChange ? (
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[12px] font-medium text-zinc-900">
+                    {WD_LABEL_NB[day] ?? `Dag ${day}`} · {overlayActionLabel(details.action)}
+                  </p>
+                  {onChange ? (
+                    <button
+                      type="button"
+                      onClick={() => setEditingDay((prev) => (prev === day ? null : day))}
+                      className="shrink-0 rounded-md border border-zinc-300 bg-white px-2 py-1 text-[10px] font-semibold text-zinc-700 transition hover:bg-zinc-50"
+                    >
+                      {isEditing ? 'Ferdig' : 'Rediger'}
+                    </button>
+                  ) : null}
+                </div>
+                {isEditing ? (
                   <div className="mt-1.5 space-y-2 rounded-md border border-zinc-200 bg-zinc-50/70 p-2">
                     <Input
                       id={`ts-overlay-day-summary-${day}`}
-                      label="Dagsoppsummering"
+                      label={details.summary?.trim() ? 'Dagsoppsummering' : 'Legg til oppsummering (valgfritt)'}
                       value={details.summary ?? ''}
                       onChange={(e) => {
+                        if (!onChange) return
                         const next = cloneOverlayDraft(overlay)
                         const d = next.dailyActions[day]
                         if (!d) return
@@ -543,6 +567,7 @@ function SchoolWeekOverlayReviewCard({
                         maxRows={10}
                         value={overlayDayLines(details).join('\n')}
                         onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
+                          if (!onChange) return
                           const next = cloneOverlayDraft(overlay)
                           const d = next.dailyActions[day]
                           if (!d) return
@@ -556,20 +581,15 @@ function SchoolWeekOverlayReviewCard({
                     </div>
                   </div>
                 ) : null}
-                {headlineShown ? <p className="mt-0.5 text-[11px] text-zinc-700">{headline}</p> : null}
-                {hasSections ? (
+                {!isEditing && headlineShown ? <p className="mt-0.5 text-[11px] text-zinc-700">{headline}</p> : null}
+                {!isEditing && compactVisible.length > 0 ? (
                   <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-[11px] text-zinc-700">
-                    {sectionLines.map((line, idx) => (
+                    {compactVisible.map((line, idx) => (
                       <li key={`${line}-${idx}`}>{line}</li>
                     ))}
-                  </ul>
-                ) : filteredSubjectUpdates.length > 0 ? (
-                  <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-[11px] text-zinc-700">
-                    {filteredSubjectUpdates.map((u, idx) => (
-                      <li key={`${u.subjectKey}-${idx}`}>
-                        {u.customLabel ? `${u.customLabel} (${u.subjectKey})` : u.subjectKey}
-                      </li>
-                    ))}
+                    {compactHiddenCount > 0 ? (
+                      <li className="list-none pl-0 text-[10px] text-zinc-500">+ {compactHiddenCount} flere linjer</li>
+                    ) : null}
                   </ul>
                 ) : null}
               </li>
