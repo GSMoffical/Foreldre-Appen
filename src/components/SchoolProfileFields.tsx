@@ -12,6 +12,7 @@ import {
   lessonUsesStructuredSubcategory,
   matchSubjectFromText,
   isKnownSubjectKeyForBand,
+  subjectDisplayPartsForKey,
   subjectLabelForKey,
 } from '../data/norwegianSubjects'
 
@@ -254,16 +255,67 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
     })
   }
 
+  function firstSubcategoryForSubject(subjectKey: string): string | undefined {
+    for (const wd of [0, 1, 2, 3, 4] as WeekdayMonFri[]) {
+      const lessons = value.weekdays[wd]?.lessons ?? []
+      for (const L of lessons) {
+        if (L.subjectKey !== subjectKey) continue
+        const s = L.lessonSubcategory?.trim()
+        if (s) return s
+      }
+    }
+    return undefined
+  }
+
+  function applySubcategoryToSubject(subjectKey: string, subcategory: string) {
+    if (!subcategory.trim()) return
+    const nextWeekdays = { ...value.weekdays }
+    let changed = 0
+    for (const wd of [0, 1, 2, 3, 4] as WeekdayMonFri[]) {
+      const plan = value.weekdays[wd]
+      if (!plan?.lessons?.length || plan.useSimpleDay) continue
+      const lessons = plan.lessons.map((L) => ({ ...L }))
+      let dayChanged = false
+      for (const lesson of lessons) {
+        if (lesson.subjectKey !== subjectKey) continue
+        if ((lesson.lessonSubcategory ?? '') === subcategory) continue
+        lesson.lessonSubcategory = subcategory
+        dayChanged = true
+        changed += 1
+      }
+      if (dayChanged) nextWeekdays[wd] = { ...plan, lessons, useSimpleDay: false }
+    }
+    if (changed > 0) {
+      if (debugSchoolImport) {
+        console.debug('[school profile lesson subcategory apply-all]', {
+          subjectKey,
+          selectedSubcategory: subcategory,
+          subcategoryAutofillApplied: changed,
+        })
+      }
+      onChange({ ...value, weekdays: nextWeekdays })
+    }
+  }
+
   function updateLesson(wd: WeekdayMonFri, index: number, patch: Partial<SchoolLessonSlot>) {
     const cur = value.weekdays[wd]
     const lessons = (cur?.lessons ?? []).map((L) => ({ ...L }))
     if (!lessons[index]) return
     if (debugSchoolImport && 'lessonSubcategory' in patch) {
       const L = lessons[index]!
+      const display = subjectDisplayPartsForKey(
+        band,
+        L.subjectKey,
+        L.customLabel,
+        patch.lessonSubcategory ?? L.lessonSubcategory
+      )
       console.debug('[school profile lesson subcategory]', {
         subjectKey: L.subjectKey,
+        lessonSubcategory: patch.lessonSubcategory ?? L.lessonSubcategory,
         supportsSubcategorySelection: lessonUsesStructuredSubcategory(L.subjectKey),
         selectedSubcategory: patch.lessonSubcategory,
+        displayPrimaryLabel: display.primary,
+        displaySecondaryLabel: display.secondary,
       })
     }
     lessons[index] = { ...lessons[index], ...patch }
@@ -450,10 +502,13 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                                 lessonSubcategory: undefined,
                               })
                             } else {
+                              const inferredSubcategory = lessonUsesStructuredSubcategory(v)
+                                ? firstSubcategoryForSubject(v)
+                                : undefined
                               updateLesson(wd, i, {
                                 subjectKey: v,
                                 customLabel: undefined,
-                                lessonSubcategory: undefined,
+                                lessonSubcategory: inferredSubcategory,
                               })
                             }
                           }}
@@ -531,6 +586,15 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                                       )
                                       ? ''
                                       : (L.lessonSubcategory ?? '')
+                                const hasMultiSameSubject = (() => {
+                                  let total = 0
+                                  for (const wd2 of [0, 1, 2, 3, 4] as WeekdayMonFri[]) {
+                                    const lessons = value.weekdays[wd2]?.lessons ?? []
+                                    total += lessons.filter((x) => x.subjectKey === L.subjectKey).length
+                                  }
+                                  return total > 1
+                                })()
+                                const applyAllValue = (L.lessonSubcategory ?? '').trim()
                                 return (
                                   <>
                                     <select
@@ -577,6 +641,15 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                                         aria-label="Underkategori (annet)"
                                         className="mt-1 w-full rounded border border-zinc-200 bg-white px-2 py-1.5 text-[12px] outline-none focus:border-zinc-400"
                                       />
+                                    ) : null}
+                                    {hasMultiSameSubject && applyAllValue ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => applySubcategoryToSubject(L.subjectKey, applyAllValue)}
+                                        className="mt-1 text-[10px] font-medium text-brandTeal underline underline-offset-2"
+                                      >
+                                        Bruk samme for alle {L.subjectKey === 'fremmedspråk' ? 'språk' : 'valgfag'}-timer
+                                      </button>
                                     ) : null}
                                   </>
                                 )

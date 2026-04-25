@@ -14,16 +14,16 @@ describe('subjectLabelForKey', () => {
     expect(subjectLabelForKey('5-7', 'norsk', 'Norsk utenom')).toBe('Norsk utenom')
   })
 
-  it('viser bare fritekst for generiske fag (fremmedspråk)', () => {
-    expect(subjectLabelForKey('8-10', 'fremmedspråk', 'Spansk')).toBe('Spansk')
+  it('viser hovedkategori + underkategori for generiske fag (fremmedspråk)', () => {
+    expect(subjectLabelForKey('8-10', 'fremmedspråk', 'Spansk')).toBe('Språk · Spansk')
   })
 
-  it('viser bare fritekst for valgfag', () => {
-    expect(subjectLabelForKey('5-7', 'valgfag', 'Programmering')).toBe('Programmering')
+  it('viser hovedkategori + underkategori for valgfag', () => {
+    expect(subjectLabelForKey('5-7', 'valgfag', 'Programmering')).toBe('Valgfag · Programmering')
   })
 
   it('prioriterer lessonSubcategory over customLabel for generiske fag', () => {
-    expect(subjectLabelForKey('8-10', 'fremmedspråk', 'Spansk', 'Tysk')).toBe('Tysk')
+    expect(subjectLabelForKey('8-10', 'fremmedspråk', 'Spansk', 'Tysk')).toBe('Språk · Tysk')
   })
 })
 

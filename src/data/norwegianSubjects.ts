@@ -256,6 +256,51 @@ export function matchSubjectFromText(
   return null
 }
 
+function genericPrimaryLabel(catalogLabel: string | undefined, key: string): string {
+  if (key === 'fremmedspråk') return 'Språk'
+  return catalogLabel ?? key
+}
+
+export function subjectDisplayPartsForKey(
+  band: NorwegianGradeBand,
+  key: string,
+  customLabel?: string,
+  lessonSubcategory?: string
+): { primary: string; secondary?: string } {
+  if (key === CUSTOM_SUBJECT_KEY) {
+    return { primary: customLabel?.trim() || 'Annet fag' }
+  }
+
+  const list = SUBJECTS_BY_BAND[band]
+  const catalogLabel = list.find((s) => s.key === key)?.label
+  const custom = customLabel?.trim()
+  const sub = lessonSubcategory?.trim()
+
+  if (GENERIC_SUBJECT_KEYS.has(key)) {
+    const primary = genericPrimaryLabel(catalogLabel, key)
+    const secondary = sub || custom || undefined
+    return { primary, secondary }
+  }
+
+  if (!custom) {
+    return { primary: catalogLabel ?? key }
+  }
+
+  if (!catalogLabel) {
+    return { primary: custom }
+  }
+
+  if (normNb(custom) === normNb(catalogLabel)) {
+    return { primary: catalogLabel }
+  }
+
+  if (customAlreadyEmbedsCatalogLabel(custom, catalogLabel)) {
+    return { primary: custom }
+  }
+
+  return { primary: catalogLabel, secondary: custom }
+}
+
 /**
  * Pen visningslabel for timeplan / skolekontekst.
  * Bevarer importert tilleggstekst: «norsk» + «Utenom» → «Norsk · Utenom», mens «Norsk utenom» i customLabel vises hele.
@@ -266,34 +311,7 @@ export function subjectLabelForKey(
   customLabel?: string,
   lessonSubcategory?: string
 ): string {
-  if (key === CUSTOM_SUBJECT_KEY) return (customLabel?.trim() || 'Annet fag')
-
-  const list = SUBJECTS_BY_BAND[band]
-  const catalogLabel = list.find((s) => s.key === key)?.label
-  const custom = customLabel?.trim()
-  const sub = lessonSubcategory?.trim()
-
-  if (GENERIC_SUBJECT_KEYS.has(key)) {
-    if (sub) return sub
-    if (custom) return custom
-    return catalogLabel ?? key
-  }
-
-  if (!custom) {
-    return catalogLabel ?? key
-  }
-
-  if (!catalogLabel) {
-    return custom
-  }
-
-  if (normNb(custom) === normNb(catalogLabel)) {
-    return catalogLabel
-  }
-
-  if (customAlreadyEmbedsCatalogLabel(custom, catalogLabel)) {
-    return custom
-  }
-
-  return `${catalogLabel} · ${custom}`
+  const parts = subjectDisplayPartsForKey(band, key, customLabel, lessonSubcategory)
+  if (!parts.secondary) return parts.primary
+  return `${parts.primary} · ${parts.secondary}`
 }
