@@ -575,71 +575,111 @@ function previewSectionsForOverlayPreview(
 
 type SpecialDayTitleKind = 'heldagsprove' | 'forberedelsesdag' | null
 
-function specialDayTitleKindFromText(base: string): SpecialDayTitleKind {
-  const n = normOverlayText(base.replace(/\./g, ''))
+const SPECIAL_DAY_SIDE_THEME = /\b(valgfag|innsats\s+for\s+andre)\b/i
+
+function specialDayTitleKindFromText(text: string): SpecialDayTitleKind {
+  const n = normOverlayText(text.replace(/\./g, ''))
   if (/\bheldagsprøve\b/.test(n) || /\bheldags\s*prøve\b/.test(n)) return 'heldagsprove'
   if (/\bforberedelsesdag\b/.test(n) || /\bforberedelses\s*dag\b/.test(n)) return 'forberedelsesdag'
   return null
 }
 
-function isGenericSpecialDaySummary(base: string, kind: SpecialDayTitleKind): boolean {
-  if (!kind) return false
-  const n = normOverlayText(base.replace(/\./g, ''))
-  if (n.length > 48) return false
-  if (
-    /\b(matematikk|matte|engelsk|norsk|tysk|fransk|spansk|naturfag|krle|rle|samfunnsfag|samfunnskunnskap|historie|geografi|fysikk|kjemi|biologi|kunst|musikk|gym|kroppsøving)\b/i.test(
-      base
-    )
-  ) {
-    return false
+/**
+ * Hovedaktivitet i korpus vinner: forberedelsesdag i kildetekst skal ikke overskrives av generisk «Heldagsprøve» i summary alene.
+ */
+function inferSpecialDayKindFromCorpus(corpus: string[], base: string): SpecialDayTitleKind {
+  const significant = corpus.filter((l) => l.trim() && !SPECIAL_DAY_SIDE_THEME.test(l))
+  let sawForbered = false
+  let sawHeldags = false
+  for (const l of significant) {
+    const n = normOverlayText(l.replace(/\./g, ''))
+    if (/\bforberedelsesdag\b/.test(n) || /\bforberedelses\s*dag\b/.test(n)) sawForbered = true
+    if (/\bheldagsprøve\b/.test(n) || /\bheldags\s*prøve\b/.test(n)) sawHeldags = true
   }
-  return true
+  if (sawForbered) return 'forberedelsesdag'
+  if (sawHeldags) return 'heldagsprove'
+  return specialDayTitleKindFromText(base)
 }
 
-function inferSubjectLabelForHeldagsPreview(
+function subjectLabelFromKey(band: NorwegianGradeBand, key: string): string {
+  const cat = SUBJECTS_BY_BAND[band].find((s) => s.key === key)
+  return cat?.label ?? key
+}
+
+/** «… i matematikk», «heldagsprøve i engelsk», fag før kolon, osv. */
+function tryInferSubjectLabelFromLine(
   band: NorwegianGradeBand,
-  scanLines: string[],
-  kind: SpecialDayTitleKind
+  raw: string
 ): string | undefined {
-  const priorityRegex =
-    kind === 'forberedelsesdag'
-      ? /\bforberedelsesdag\b/i
-      : kind === 'heldagsprove'
-        ? /\bheldagsprøve\b|\bheldags\s*prøve\b/i
-        : null
-  const sideSubjectPenalty = /\b(valgfag|innsats\s+for\s+andre)\b/i
-  const priorityLines = priorityRegex
-    ? scanLines.filter((raw) => priorityRegex.test(raw) && !sideSubjectPenalty.test(raw))
-    : []
-  const normalLines = scanLines.filter((raw) => !priorityLines.includes(raw) && !sideSubjectPenalty.test(raw))
-  const ordered = [...priorityLines, ...normalLines]
-  for (const raw of ordered) {
-    const t = raw.trim()
-    if (t.length < 4) continue
-    const head = t.split(/[:–—]/)[0]?.trim() ?? ''
-    const parts = head.length >= 3 ? [head] : []
-    if (t.length < 90) parts.push(t)
-    for (const part of parts) {
-      if (part.length < 3) continue
-      const m = matchSubjectFromText(band, part)
-      if (m) {
-        const cat = SUBJECTS_BY_BAND[band].find((s) => s.key === m.subjectKey)
-        return cat?.label ?? m.subjectKey
-      }
-      const inf = inferSubjectKeyFromText(band, part)
-      if (inf) {
-        const cat = SUBJECTS_BY_BAND[band].find((s) => s.key === inf)
-        if (cat) return cat.label
-      }
+  const t = raw.trim()
+  if (t.length < 4) return undefined
+  const afterI = t.match(/\bi\s+([^.:\n;]+?)(?:[.:;]|$)/i)
+  if (afterI?.[1]) {
+    const chunk = afterI[1].trim()
+    if (chunk.length >= 2 && chunk.length < 48) {
+      const m = matchSubjectFromText(band, chunk)
+      if (m) return subjectLabelFromKey(band, m.subjectKey)
+      const inf = inferSubjectKeyFromText(band, chunk)
+      if (inf) return subjectLabelFromKey(band, inf)
     }
   }
-  for (const raw of ordered) {
-    if (raw.length > 140) continue
+  const head = t.split(/[:–—]/)[0]?.trim() ?? ''
+  const parts = head.length >= 3 ? [head] : []
+  if (t.length < 120) parts.push(t)
+  for (const part of parts) {
+    if (part.length < 3) continue
+    const m = matchSubjectFromText(band, part)
+    if (m) return subjectLabelFromKey(band, m.subjectKey)
+    const inf = inferSubjectKeyFromText(band, part)
+    if (inf) return subjectLabelFromKey(band, inf)
+  }
+  if (t.length < 140) {
     for (const { canon, pattern } of REVIEW_FOREIGN_LANG_LEXEMES) {
-      if (pattern.test(raw)) return titleCaseNbWord(canon)
+      if (pattern.test(t)) return titleCaseNbWord(canon)
     }
   }
   return undefined
+}
+
+function inferSubjectLabelForSpecialDayTitle(
+  band: NorwegianGradeBand,
+  corpus: string[],
+  kind: SpecialDayTitleKind
+): string | undefined {
+  if (!kind) return undefined
+  const significant = corpus.filter((l) => l.trim() && !SPECIAL_DAY_SIDE_THEME.test(l))
+  const kindRe =
+    kind === 'forberedelsesdag'
+      ? /\bforberedelsesdag\b|\bforberedelses\s*dag\b/i
+      : /\bheldagsprøve\b|\bheldags\s*prøve\b/i
+  const scored = [...significant].sort((a, b) => {
+    const ka = kindRe.test(a) ? 1 : 0
+    const kb = kindRe.test(b) ? 1 : 0
+    if (ka !== kb) return kb - ka
+    const sa = /\b(matematikk|matte|engelsk|norsk|tysk|fransk|spansk|naturfag|krle|samfunnsfag|historie|geografi)\b/i.test(
+      a
+    )
+      ? 1
+      : 0
+    const sb = /\b(matematikk|matte|engelsk|norsk|tysk|fransk|spansk|naturfag|krle|samfunnsfag|historie|geografi)\b/i.test(
+      b
+    )
+      ? 1
+      : 0
+    return sb - sa
+  })
+  for (const line of scored) {
+    const hit = tryInferSubjectLabelFromLine(band, line)
+    if (hit) return hit
+  }
+  return undefined
+}
+
+/** Summary/reason inneholder allerede dagstype + fag — ikke gjør den mer generisk. */
+function specialDaySummaryAlreadyActionSpecific(base: string, band: NorwegianGradeBand): boolean {
+  const kind = specialDayTitleKindFromText(base)
+  if (!kind) return false
+  return tryInferSubjectLabelFromLine(band, base) !== undefined
 }
 
 function replaceSchoolBlockDisplaySummary(
@@ -649,12 +689,48 @@ function replaceSchoolBlockDisplaySummary(
 ): string {
   const base = details.summary?.trim() || details.reason?.trim() || ''
   if (!base) return ''
-  const kind = specialDayTitleKindFromText(base)
-  if (!isGenericSpecialDaySummary(base, kind)) return base
   const extra = overlayDayLines(details)
-  const scan = [...mergedFlatLines, ...extra, base]
-  const subj = inferSubjectLabelForHeldagsPreview(band, scan, kind)
-  if (!subj) return base
+  const corpus = [base, ...mergedFlatLines, ...extra].filter((s) => s.trim())
+
+  const rejectedSide = corpus.filter((l) => SPECIAL_DAY_SIDE_THEME.test(l))
+  const kind = inferSpecialDayKindFromCorpus(corpus, base)
+
+  if (specialDaySummaryAlreadyActionSpecific(base, band)) {
+    if (DEBUG_SCHOOL_IMPORT_PANEL) {
+      console.debug('[overlay preview]', {
+        overlayPreviewSpecialDayTitle: base,
+        overlayPreviewMainThemeSource: 'summary_already_specific',
+        overlayPreviewRejectedSideTheme: rejectedSide.length,
+      })
+    }
+    return base
+  }
+
+  if (!kind) {
+    if (DEBUG_SCHOOL_IMPORT_PANEL) {
+      console.debug('[overlay preview]', {
+        overlayPreviewSpecialDayTitle: base,
+        overlayPreviewMainThemeSource: 'none',
+        overlayPreviewRejectedSideTheme: rejectedSide.length,
+      })
+    }
+    return base
+  }
+
+  const subj = inferSubjectLabelForSpecialDayTitle(band, corpus, kind)
+  if (!subj) {
+    const fallback =
+      kind === 'forberedelsesdag' ? 'Forberedelsesdag' : kind === 'heldagsprove' ? 'Heldagsprøve' : base
+    if (DEBUG_SCHOOL_IMPORT_PANEL) {
+      console.debug('[overlay preview]', {
+        overlayPreviewSpecialDayTitle: fallback,
+        overlayPreviewMainThemeSource: 'kind_only_no_subject',
+        overlayPreviewRejectedSideTheme: rejectedSide.length,
+      })
+    }
+    return fallback
+  }
+
   const show =
     kind === 'forberedelsesdag'
       ? `Forberedelsesdag i ${subj.toLocaleLowerCase('nb-NO')}`
@@ -662,8 +738,9 @@ function replaceSchoolBlockDisplaySummary(
   if (DEBUG_SCHOOL_IMPORT_PANEL) {
     console.debug('[overlay preview]', {
       overlayPreviewSpecialDayTitle: show,
-      overlayPreviewTitleSubjectSource: kind ?? 'unknown',
-      overlayPreviewMainThemeWonOverSideSubject: true,
+      overlayPreviewMainThemeSource: kind,
+      overlayPreviewRejectedSideTheme: rejectedSide.length,
+      inferredSubject: subj,
       replacedGenericSummary: base,
     })
   }
