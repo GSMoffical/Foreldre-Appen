@@ -146,6 +146,28 @@ type SpecialDayTitleKind = 'heldagsprove' | 'forberedelsesdag' | null
 
 const SPECIAL_DAY_SIDE_THEME = /\b(valgfag|innsats\s+for\s+andre)\b/i
 
+/** Norsk hoved-/sidemål (ikke en vanlig fag-nøkkel i `norwegianSubjects`). */
+const HELDAGS_I_HOVED_ELLER_SIDEMAL_RE =
+  /\bheldags\s*prøve\s+i\s+(hovedmål|sidemål)\b/i
+
+/**
+ * Eksplisitte heldagsprøve-varianter fra dokument («Heldagsprøve i hovedmål» osv.).
+ * Brukes når fag-tolkning ikke treffer.
+ */
+export function tryExtractHeldagsproveHovedmalSidemalTitle(corpus: string[]): string | undefined {
+  for (const raw of corpus) {
+    const line = raw.trim()
+    if (!line) continue
+    const n = normOverlayText(line.replace(/\./g, ''))
+    const m = n.match(HELDAGS_I_HOVED_ELLER_SIDEMAL_RE)
+    if (!m?.[1]) continue
+    const which = m[1].toLowerCase() as 'hovedmål' | 'sidemål'
+    if (which !== 'hovedmål' && which !== 'sidemål') continue
+    return `Heldagsprøve i ${which}`
+  }
+  return undefined
+}
+
 function specialDayTitleKindFromText(text: string): SpecialDayTitleKind {
   const n = normOverlayText(text.replace(/\./g, ''))
   if (/\bheldagsprøve\b/.test(n) || /\bheldags\s*prøve\b/.test(n)) return 'heldagsprove'
@@ -267,6 +289,20 @@ function replaceSchoolBlockTitleFromParts(
 
   if (!kind) {
     return base
+  }
+
+  if (kind === 'heldagsprove') {
+    const hovedSidemal = tryExtractHeldagsproveHovedmalSidemalTitle(corpus)
+    if (hovedSidemal) {
+      if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+        console.debug('[overlay title]', {
+          overlayPreviewSpecialDayTitle: hovedSidemal,
+          overlayPreviewTitleSubjectSource: 'hovedmal_sidemal',
+          overlayPreviewDetectedAssessmentVariant: hovedSidemal.endsWith('sidemål') ? 'sidemål' : 'hovedmål',
+        })
+      }
+      return hovedSidemal
+    }
   }
 
   const subj = inferSubjectLabelForSpecialDayTitle(band, corpus, kind)

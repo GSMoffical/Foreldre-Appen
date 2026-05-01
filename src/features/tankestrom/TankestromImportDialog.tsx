@@ -46,6 +46,7 @@ import {
   SUBJECTS_BY_BAND,
 } from '../../data/norwegianSubjects'
 import { resolveEnrichPreviewLineToBlockIdx, stripSubjectPrefixForBlockLine } from '../../lib/schoolWeekOverlayEnrichRouting'
+import { tryExtractHeldagsproveHovedmalSidemalTitle } from '../../lib/schoolWeekOverlayReplaceTitle'
 
 /** Les `metadata.schoolContext` fra et event-forslag hvis det finnes. */
 function schoolContextFromEventProposal(p: PortalEventProposal): SchoolContext | null {
@@ -712,6 +713,21 @@ function replaceSchoolBlockDisplaySummary(
       })
     }
     return base
+  }
+
+  if (kind === 'heldagsprove') {
+    const hovedSidemal = tryExtractHeldagsproveHovedmalSidemalTitle(corpus)
+    if (hovedSidemal) {
+      if (DEBUG_SCHOOL_IMPORT_PANEL) {
+        console.debug('[overlay preview]', {
+          overlayPreviewSpecialDayTitle: hovedSidemal,
+          overlayPreviewTitleSubjectSource: 'hovedmal_sidemal',
+          overlayPreviewDetectedAssessmentVariant: hovedSidemal.endsWith('sidemål') ? 'sidemål' : 'hovedmål',
+          overlayPreviewRejectedSideTheme: rejectedSide.length,
+        })
+      }
+      return hovedSidemal
+    }
   }
 
   const subj = inferSubjectLabelForSpecialDayTitle(band, corpus, kind)
