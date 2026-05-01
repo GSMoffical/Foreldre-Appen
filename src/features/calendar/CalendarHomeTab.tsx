@@ -12,7 +12,7 @@ import { AllDayRow } from '../../components/AllDayRow'
 import { springSnappy } from '../../lib/motion'
 import { logEvent } from '../../lib/appLogger'
 import { COPY } from '../../lib/norwegianCopy'
-import { todayKeyOslo } from '../../lib/osloCalendar'
+import { formatCalendarPeriodContextLabel, todayKeyOslo } from '../../lib/osloCalendar'
 import { useFamily } from '../../context/FamilyContext'
 import type { Event, Task, PersonId, TimelineLayoutItem, GapInfo } from '../../types'
 import type { SaveFeedbackState } from '../app/hooks/useSaveFeedback'
@@ -97,6 +97,12 @@ export function CalendarHomeTab({
   useEffect(() => {
     if (searchOpen) logEvent('search_opened', {})
   }, [searchOpen])
+
+  const periodContextLabel = useMemo(
+    () => (weekLayoutData.length > 0 ? formatCalendarPeriodContextLabel(selectedDate) : null),
+    [selectedDate, weekLayoutData.length]
+  )
+
   const todayKey = todayKeyOslo()
   const todayDayData = weekLayoutData.find((d) => d.date === todayKey)
   const todayEvents = todayDayData?.events ?? []
@@ -206,6 +212,14 @@ export function CalendarHomeTab({
           </div>
         )}
         <div id="onb-week-strip">
+          {periodContextLabel ? (
+            <p
+              className="px-3 pb-1 pt-0.5 text-center text-[12px] font-semibold leading-tight text-zinc-700 tabular-nums"
+              aria-live="polite"
+            >
+              {periodContextLabel}
+            </p>
+          ) : null}
           <WeekStrip
             days={weekLayoutData}
             selectedDate={selectedDate}

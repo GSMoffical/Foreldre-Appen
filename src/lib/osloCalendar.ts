@@ -1,4 +1,21 @@
+import { getISOWeek } from './isoWeek'
+
 const OSLO_TIME_ZONE = 'Europe/Oslo'
+
+const NB_MONTH_NAMES = [
+  'Januar',
+  'Februar',
+  'Mars',
+  'April',
+  'Mai',
+  'Juni',
+  'Juli',
+  'August',
+  'September',
+  'Oktober',
+  'November',
+  'Desember',
+] as const
 
 function formatPartsDateKey(date: Date, timeZone: string): string {
   const formatter = new Intl.DateTimeFormat('en-CA', {
@@ -95,4 +112,23 @@ export function getRecurrenceOccurrenceDatesOslo(
     current = addCalendarDaysOslo(current, intervalDays)
   }
   return out
+}
+
+/**
+ * Én linje for kalenderkontekst (måned + år fra dato-nøkkel, ISO ukenummer).
+ * Brukes f.eks. over ukesstrip på smal skjerm.
+ */
+export function formatCalendarPeriodContextLabel(dateKey: string): string | null {
+  const parts = dateKey.split('-')
+  if (parts.length !== 3) return null
+  const y = Number(parts[0])
+  const m = Number(parts[1])
+  const d = Number(parts[2])
+  if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d) || m < 1 || m > 12 || d < 1 || d > 31) {
+    return null
+  }
+  const noon = new Date(y, m - 1, d, 12, 0, 0)
+  if (Number.isNaN(noon.getTime())) return null
+  const week = getISOWeek(noon)
+  return `${NB_MONTH_NAMES[m - 1]} ${y} · Uke ${week}`
 }

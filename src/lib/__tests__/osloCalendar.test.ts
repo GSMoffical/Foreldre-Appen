@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   addCalendarDaysOslo,
+  formatCalendarPeriodContextLabel,
   formatDateKeyInTimeZone,
   getRecurrenceOccurrenceDatesOslo,
   todayKeyOslo,
@@ -41,5 +42,9 @@ describe('osloCalendar', () => {
       '2026-03-30',
       '2026-04-06',
     ])
+  })
+
+  it('formats period context label (month, year, ISO week)', () => {
+    expect(formatCalendarPeriodContextLabel('2026-05-01')).toBe('Mai 2026 · Uke 18')
   })
 })
