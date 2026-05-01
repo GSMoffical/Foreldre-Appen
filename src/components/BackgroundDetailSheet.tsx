@@ -324,8 +324,11 @@ export function BackgroundDetailSheet({
   const person = people.find((p) => p.id === event.personId)
   if (!person) return null
   const isSchool = event.metadata?.backgroundKind === 'school'
+  const weekOverlayDayAction = isSchool ? normalizeOverlayDayAction(event) : null
+  const weekOverlayMeta = isSchool ? normalizeOverlayMeta(event) : null
   const schoolDayOverride = isSchool ? extractSchoolDayOverride(event) : null
-  const isReplaceDay = schoolDayOverride?.mode === 'replace_day'
+  const isOverlayReplaceDay = weekOverlayDayAction?.action === 'replace_school_block'
+  const isReplaceDay = schoolDayOverride?.mode === 'replace_day' || isOverlayReplaceDay
   const isAdjustDay = schoolDayOverride?.mode === 'adjust_day'
   const title = !isSchool
     ? 'Arbeidsblokk'
@@ -357,8 +360,6 @@ export function BackgroundDetailSheet({
   const relevantForeground = foregroundEvents.sort((a, b) => a.start.localeCompare(b.start))
 
   const schoolPlan = isSchool ? getSchoolDayPlan(person, date) : undefined
-  const weekOverlayDayAction = isSchool ? normalizeOverlayDayAction(event) : null
-  const weekOverlayMeta = isSchool ? normalizeOverlayMeta(event) : null
   const weekOverlaySummaryLines = useMemo(() => {
     if (!person.school?.weekOverlays?.length || !weekOverlayMeta) return []
     const overlay = person.school.weekOverlays.find(
@@ -400,9 +401,21 @@ export function BackgroundDetailSheet({
       ? rows.map((r) => r.lesson).filter((L): L is SchoolLessonSlot => !!L)
       : []
   const weekOverlayUnplacedUpdates =
+    isReplaceDay
+      ? []
+      : (
     weekOverlayDayAction?.subjectUpdates?.length && overlayLessonSlots.length > 0
       ? overlaySubjectUpdatesUnmatchedByLessons(weekOverlayDayAction.subjectUpdates, overlayLessonSlots)
       : weekOverlayDayAction?.subjectUpdates ?? []
+        )
+  if ((import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') && isSchool && isReplaceDay) {
+    console.debug('[detail sheet replace]', {
+      detailSheetReplaceModeEnabled: true,
+      detailSheetLessonRowsSuppressed: true,
+      detailSheetReplaceTitle: event.title,
+      detailSheetReplaceSectionsCount: weekOverlayDayAction?.subjectUpdates?.length ?? 0,
+    })
+  }
 
   return (
     <>
@@ -486,10 +499,18 @@ export function BackgroundDetailSheet({
                     ) : null}
                     {isSchool && weekOverlayDayAction?.subjectUpdates?.length ? (
                       <div className="mt-2 rounded-lg border border-indigo-200 bg-indigo-50/70 p-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-900">Uke-overlay</p>
-                        {overlayUpdatesForLesson(r.lesson, weekOverlayDayAction.subjectUpdates).length > 0 ? (
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-900">
+                          {isReplaceDay ? 'Uke-overlay for erstatningsdag' : 'Uke-overlay'}
+                        </p>
+                        {(isReplaceDay
+                          ? weekOverlayDayAction.subjectUpdates.map((update, updateIndex) => ({ update, updateIndex }))
+                          : overlayUpdatesForLesson(r.lesson, weekOverlayDayAction.subjectUpdates)
+                        ).length > 0 ? (
                           <ul className="mt-1 space-y-1">
-                            {overlayUpdatesForLesson(r.lesson, weekOverlayDayAction.subjectUpdates).map(
+                            {(isReplaceDay
+                              ? weekOverlayDayAction.subjectUpdates.map((update, updateIndex) => ({ update, updateIndex }))
+                              : overlayUpdatesForLesson(r.lesson, weekOverlayDayAction.subjectUpdates)
+                            ).map(
                               ({ update, updateIndex }) => {
                                 const itemKey = `${idx}-${updateIndex}-${update.subjectKey}`
                                 const inEdit = editingOverlayKey === itemKey
@@ -624,7 +645,11 @@ export function BackgroundDetailSheet({
                             )}
                           </ul>
                         ) : (
-                          <p className="mt-1 text-[11px] text-indigo-900/80">Ingen fagspesifikke tillegg for denne raden.</p>
+                          <p className="mt-1 text-[11px] text-indigo-900/80">
+                            {isReplaceDay
+                              ? 'Ingen seksjoner registrert for erstatningsdagen.'
+                              : 'Ingen fagspesifikke tillegg for denne raden.'}
+                          </p>
                         )}
                       </div>
                     ) : null}
