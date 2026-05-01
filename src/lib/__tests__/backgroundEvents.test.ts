@@ -5,6 +5,10 @@ import { buildBackgroundEventsForDate } from '../backgroundEvents'
 // 2026-04-20 = mandag (Mon = weekday 0 i WeekdayMonFri).
 const MONDAY = '2026-04-20'
 const SATURDAY = '2026-04-25'
+/** Mandag i Oslo-standard sommerferie 2026 */
+const SUMMER_MONDAY = '2026-07-06'
+/** 1. mai (offentlig helligdag, fredag i 2026) */
+const MAY_DAY = '2026-05-01'
 
 function makeChild(overrides: Partial<Person> = {}): Person {
   return {
@@ -241,5 +245,44 @@ describe('buildBackgroundEventsForDate — override-logikk', () => {
     expect(out[0].title).toBe('Skole')
     const day = out[0].metadata?.schoolWeekOverlayDay as { action?: string } | undefined
     expect(day?.action).toBe('enrich_existing_school_block')
+  })
+
+  it('ingen skolebakgrunn på sommerferie-hverdag', () => {
+    const out = buildBackgroundEventsForDate(SUMMER_MONDAY, [makeChild()], [])
+    expect(out).toHaveLength(0)
+  })
+
+  it('ingen skolebakgrunn på 1. mai (helligdag)', () => {
+    const out = buildBackgroundEventsForDate(MAY_DAY, [makeChild()], [])
+    expect(out).toHaveLength(0)
+  })
+
+  it('helligdag undertrykker også replace_day og uke-overlay replace', () => {
+    const child = makeChild({
+      school: {
+        ...makeChild().school!,
+        weekOverlays: [
+          {
+            id: 'ov-holiday',
+            weekYear: 2026,
+            weekNumber: 18,
+            dailyActions: {
+              4: {
+                action: 'replace_school_block',
+                summary: 'Prøve',
+                subjectUpdates: [{ subjectKey: 'matematikk' }],
+              },
+            },
+          },
+        ],
+      },
+    })
+    const ev = makeOverrideEvent('e', child.id, {
+      mode: 'replace_day',
+      kind: 'exam_day',
+      label: 'Skulle vises',
+    })
+    const out = buildBackgroundEventsForDate(MAY_DAY, [child], [], [ev])
+    expect(out).toHaveLength(0)
   })
 })
