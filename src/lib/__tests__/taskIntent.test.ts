@@ -21,4 +21,8 @@ describe('suggestTaskIntentFromTitleAndNotes', () => {
     expect(suggestTaskIntentFromTitleAndNotes('Gi beskjed om allergier', '')).toBe('must_do')
     expect(suggestTaskIntentFromTitleAndNotes('Gi beskjed hvis du kan stille', '')).toBe('can_help')
   })
+
+  it('klassifiserer betinget «gi beskjed dersom …» som valgfritt', () => {
+    expect(suggestTaskIntentFromTitleAndNotes('Gi beskjed dersom barnet ikke kommer på trening', '')).toBe('can_help')
+  })
 })

@@ -61,3 +61,9 @@ export function groupEmbeddedScheduleByDate(
     .sort(([da], [db]) => da.localeCompare(db))
     .map(([date, items]) => ({ date, items: [...items].sort(compareSegments) }))
 }
+
+/** Flat rekkefølge som i import-review (per dag, sortert klokkeslett). */
+export function flattenEmbeddedScheduleOrdered(metadata: EventMetadata | undefined | null): EmbeddedScheduleSegment[] {
+  const parsed = parseEmbeddedScheduleFromMetadata(metadata)
+  return groupEmbeddedScheduleByDate(parsed).flatMap((g) => g.items)
+}

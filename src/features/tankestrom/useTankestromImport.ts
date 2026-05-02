@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ChildSchoolProfile, Event, Person, SchoolWeekOverlay, Task, WeekdayMonFri } from '../../types'
+import type { ChildSchoolProfile, EmbeddedScheduleSegment, Event, Person, SchoolWeekOverlay, Task, WeekdayMonFri } from '../../types'
+import { flattenEmbeddedScheduleOrdered } from '../../lib/embeddedSchedule'
 import { filterSubjectUpdatesByLanguageTrack } from '../../lib/schoolWeekOverlayFilters'
 import { applyCupWeekendEmbeddedScheduleMerge } from '../../lib/tankestromCupEmbeddedScheduleMerge'
 import { dedupeNearDuplicateCalendarProposals } from '../../lib/tankestromImportDedupe'
@@ -76,6 +77,105 @@ function hmPlusMinutes(hm: string, addMinutes: number): string {
 function defaultChildPersonId(people: Person[], validPersonIds: Set<string>): string {
   const c = people.find((p) => p.memberKind === 'child' && validPersonIds.has(p.id))
   return c?.id ?? ''
+}
+
+const EMBEDDED_CHILD_ID_PREFIX = 'ts-emb:'
+
+export type EmbeddedScheduleReviewRow = { origIndex: number; segment: EmbeddedScheduleSegment }
+
+export function makeEmbeddedChildProposalId(parentProposalId: string, origIndex: number): string {
+  return `${EMBEDDED_CHILD_ID_PREFIX}${parentProposalId}:${origIndex}`
+}
+
+export function parseEmbeddedChildProposalId(proposalId: string): {
+  parentProposalId: string
+  origIndex: number
+} | null {
+  if (!proposalId.startsWith(EMBEDDED_CHILD_ID_PREFIX)) return null
+  const rest = proposalId.slice(EMBEDDED_CHILD_ID_PREFIX.length)
+  const lastColon = rest.lastIndexOf(':')
+  if (lastColon <= 0) return null
+  const parentProposalId = rest.slice(0, lastColon)
+  const origIndex = Number(rest.slice(lastColon + 1))
+  if (!Number.isInteger(origIndex) || origIndex < 0) return null
+  return { parentProposalId, origIndex }
+}
+
+function isEmbeddedScheduleParentCalendarItem(item: PortalProposalItem): item is PortalEventProposal {
+  if (item.kind !== 'event') return false
+  const m = item.event.metadata
+  if (!m || typeof m !== 'object') return false
+  const sched = (m as { embeddedSchedule?: unknown }).embeddedSchedule
+  return Array.isArray(sched) && sched.length > 0 && (m as { isAllDay?: boolean }).isAllDay === true
+}
+
+function isEmbeddedScheduleParentForReview(
+  item: PortalProposalItem,
+  draft: TankestromImportDraft | undefined
+): boolean {
+  return item.kind === 'event' && draft?.importKind === 'event' && isEmbeddedScheduleParentCalendarItem(item)
+}
+
+function buildEmbeddedChildEventDraft(
+  parentDraft: TankestromEventDraft,
+  segment: EmbeddedScheduleSegment
+): TankestromEventDraft {
+  const start =
+    segment.start && isHm24(normalizeTimeInput(segment.start))
+      ? normalizeTimeInput(segment.start)
+      : '09:00'
+  const end =
+    segment.end && isHm24(normalizeTimeInput(segment.end))
+      ? normalizeTimeInput(segment.end)
+      : hmPlusMinutes(start, 60)
+  return {
+    ...parentDraft,
+    title: segment.title,
+    date: segment.date,
+    start,
+    end,
+    notes: segment.notes?.trim() ? segment.notes.trim() : parentDraft.notes,
+  }
+}
+
+function buildDetachedEmbeddedChildProposal(
+  parent: PortalEventProposal,
+  segment: EmbeddedScheduleSegment,
+  origIndex: number
+): PortalEventProposal {
+  const proposalId = makeEmbeddedChildProposalId(parent.proposalId, origIndex)
+  const start =
+    segment.start && isHm24(normalizeTimeInput(segment.start))
+      ? normalizeTimeInput(segment.start)
+      : '09:00'
+  const end =
+    segment.end && isHm24(normalizeTimeInput(segment.end))
+      ? normalizeTimeInput(segment.end)
+      : hmPlusMinutes(start, 60)
+  const baseMeta =
+    parent.event.metadata && typeof parent.event.metadata === 'object' && !Array.isArray(parent.event.metadata)
+      ? { ...(parent.event.metadata as Record<string, unknown>) }
+      : {}
+  delete baseMeta.embeddedSchedule
+  delete baseMeta.endDate
+  baseMeta.isAllDay = false
+  baseMeta.detachedFromEmbeddedParentId = parent.proposalId
+  baseMeta.detachedEmbeddedOrigIndex = origIndex
+
+  return {
+    ...parent,
+    proposalId,
+    kind: 'event',
+    event: {
+      ...parent.event,
+      date: segment.date,
+      start,
+      end,
+      title: segment.title,
+      notes: segment.notes?.trim() ? segment.notes.trim() : parent.event.notes,
+      metadata: baseMeta,
+    },
+  }
 }
 
 /** Samme fremmedspråk-lexemes som overlay-review (unngå engelsk/norsk som «språkfag»). */
@@ -390,6 +490,16 @@ function initialSelectedIdsForGeneralImport(
       })
     }
   }
+  for (const item of items) {
+    if (item.kind !== 'event') continue
+    const d = drafts[item.proposalId]
+    if (!isEmbeddedScheduleParentForReview(item, d)) continue
+    if (!out.has(item.proposalId)) continue
+    const flat = flattenEmbeddedScheduleOrdered(item.event.metadata)
+    for (let i = 0; i < flat.length; i++) {
+      out.add(makeEmbeddedChildProposalId(item.proposalId, i))
+    }
+  }
   return out
 }
 
@@ -616,6 +726,26 @@ function buildDraftsFromItems(
       )
     }
   }
+  for (const item of items) {
+    if (item.kind !== 'event' || !isEmbeddedScheduleParentCalendarItem(item)) continue
+    const base = drafts[item.proposalId]
+    if (!base || base.importKind !== 'event') continue
+    const flat = flattenEmbeddedScheduleOrdered(item.event.metadata)
+    if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+      console.debug('[tankestrom embedded schedule review]', {
+        embeddedScheduleChildReviewItemsBuilt: flat.length,
+        embeddedScheduleParentRetained: true,
+        parentProposalId: item.proposalId,
+      })
+    }
+    for (let i = 0; i < flat.length; i++) {
+      const id = makeEmbeddedChildProposalId(item.proposalId, i)
+      drafts[id] = {
+        importKind: 'event',
+        event: buildEmbeddedChildEventDraft(base.event, flat[i]!),
+      }
+    }
+  }
   return drafts
 }
 
@@ -812,6 +942,28 @@ export function useTankestromImport({
   const [error, setError] = useState<string | null>(null)
   const [analyzeWarning, setAnalyzeWarning] = useState<string | null>(null)
 
+  /** Gjenstående program-rader per forelder (løsnede er fjernet fra listen). */
+  const [embeddedScheduleReviewRowsByParentId, setEmbeddedScheduleReviewRowsByParentId] = useState<
+    Record<string, EmbeddedScheduleReviewRow[]>
+  >({})
+  const [detachedEmbeddedChildren, setDetachedEmbeddedChildren] = useState<
+    Array<{ proposal: PortalEventProposal; parentProposalId: string }>
+  >([])
+  const [detachedEmbeddedChildIds, setDetachedEmbeddedChildIds] = useState<Set<string>>(() => new Set())
+
+  const embeddedRowsRef = useRef(embeddedScheduleReviewRowsByParentId)
+  const detachedIdsRef = useRef(detachedEmbeddedChildIds)
+  const detachedListRef = useRef(detachedEmbeddedChildren)
+  useEffect(() => {
+    embeddedRowsRef.current = embeddedScheduleReviewRowsByParentId
+  }, [embeddedScheduleReviewRowsByParentId])
+  useEffect(() => {
+    detachedIdsRef.current = detachedEmbeddedChildIds
+  }, [detachedEmbeddedChildIds])
+  useEffect(() => {
+    detachedListRef.current = detachedEmbeddedChildren
+  }, [detachedEmbeddedChildren])
+
   const validPersonIds = useMemo(() => new Set(people.map((p) => p.id)), [people])
 
   const canApproveSelection = useMemo(() => {
@@ -855,6 +1007,9 @@ export function useTankestromImport({
     setSchoolProfileChildId('')
     setSelectedIds(new Set())
     setDraftByProposalId({})
+    setEmbeddedScheduleReviewRowsByParentId({})
+    setDetachedEmbeddedChildren([])
+    setDetachedEmbeddedChildIds(new Set())
     setAnalyzeLoading(false)
     setSaveLoading(false)
     setError(null)
@@ -928,6 +1083,26 @@ export function useTankestromImport({
     }
   }, [schoolProfileChildId, bundle, step, schoolReview, draftByProposalId, people])
 
+  useEffect(() => {
+    if (!bundle || step !== 'review' || schoolReview != null) {
+      if (!bundle) {
+        setEmbeddedScheduleReviewRowsByParentId({})
+        setDetachedEmbeddedChildren([])
+        setDetachedEmbeddedChildIds(new Set())
+      }
+      return
+    }
+    const map: Record<string, EmbeddedScheduleReviewRow[]> = {}
+    for (const item of bundle.items) {
+      if (item.kind !== 'event' || !isEmbeddedScheduleParentCalendarItem(item)) continue
+      const flat = flattenEmbeddedScheduleOrdered(item.event.metadata)
+      map[item.proposalId] = flat.map((segment, i) => ({ origIndex: i, segment }))
+    }
+    setEmbeddedScheduleReviewRowsByParentId(map)
+    setDetachedEmbeddedChildren([])
+    setDetachedEmbeddedChildIds(new Set())
+  }, [bundle, step, schoolReview])
+
   const addFilesFromList = useCallback((list: FileList | File[]) => {
     const arr = Array.from(list)
     if (arr.length === 0) return
@@ -966,11 +1141,71 @@ export function useTankestromImport({
   const toggleProposal = useCallback((proposalId: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
-      if (next.has(proposalId)) next.delete(proposalId)
-      else next.add(proposalId)
+      const parsed = parseEmbeddedChildProposalId(proposalId)
+      if (parsed) {
+        if (next.has(proposalId)) next.delete(proposalId)
+        else next.add(proposalId)
+        return next
+      }
+      const rowsState = embeddedRowsRef.current
+      const detachedSet = detachedIdsRef.current
+      const detachedList = detachedListRef.current
+      if (next.has(proposalId)) {
+        next.delete(proposalId)
+        for (const row of rowsState[proposalId] ?? []) {
+          const cid = makeEmbeddedChildProposalId(proposalId, row.origIndex)
+          next.delete(cid)
+        }
+        for (const d of detachedList) {
+          if (d.parentProposalId === proposalId) next.delete(d.proposal.proposalId)
+        }
+      } else {
+        next.add(proposalId)
+        for (const row of rowsState[proposalId] ?? []) {
+          const cid = makeEmbeddedChildProposalId(proposalId, row.origIndex)
+          if (!detachedSet.has(cid)) next.add(cid)
+        }
+        for (const d of detachedList) {
+          if (d.parentProposalId === proposalId) next.add(d.proposal.proposalId)
+        }
+      }
       return next
     })
   }, [])
+
+  const detachEmbeddedScheduleChild = useCallback((parentProposalId: string, origIndex: number) => {
+    const childId = makeEmbeddedChildProposalId(parentProposalId, origIndex)
+    let removedRow: EmbeddedScheduleReviewRow | undefined
+    setEmbeddedScheduleReviewRowsByParentId((prev) => {
+      const rows = prev[parentProposalId]
+      if (!rows) return prev
+      removedRow = rows.find((r) => r.origIndex === origIndex)
+      if (!removedRow) return prev
+      return {
+        ...prev,
+        [parentProposalId]: rows.filter((r) => r.origIndex !== origIndex),
+      }
+    })
+    if (!removedRow) return
+
+    const parentItem = proposalItems.find(
+      (i): i is PortalEventProposal => i.kind === 'event' && i.proposalId === parentProposalId
+    )
+    if (!parentItem) return
+
+    const synthetic = buildDetachedEmbeddedChildProposal(parentItem, removedRow.segment, origIndex)
+    setDetachedEmbeddedChildren((prev) => [...prev.filter((d) => d.proposal.proposalId !== childId), { proposal: synthetic, parentProposalId }])
+    setDetachedEmbeddedChildIds((prev) => new Set(prev).add(childId))
+
+    if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+      console.debug('[tankestrom embedded schedule review]', {
+        embeddedScheduleChildDetached: true,
+        embeddedScheduleParentRetained: true,
+        parentProposalId,
+        childProposalId: childId,
+      })
+    }
+  }, [proposalItems])
 
   const updateEventDraft = useCallback((proposalId: string, patch: Partial<TankestromEventDraft>) => {
     setDraftByProposalId((prev) => {
@@ -1017,20 +1252,56 @@ export function useTankestromImport({
 
   const setProposalImportKind = useCallback(
     (proposalId: string, importKind: 'event' | 'task') => {
+      if (importKind === 'task') {
+        setSelectedIds((prev) => {
+          const next = new Set(prev)
+          for (const sid of next) {
+            const p = parseEmbeddedChildProposalId(sid)
+            if (p?.parentProposalId === proposalId) next.delete(sid)
+          }
+          return next
+        })
+        setEmbeddedScheduleReviewRowsByParentId((prev) => {
+          if (!(proposalId in prev)) return prev
+          const n = { ...prev }
+          delete n[proposalId]
+          return n
+        })
+        setDetachedEmbeddedChildren((prev) => prev.filter((d) => d.parentProposalId !== proposalId))
+        setDetachedEmbeddedChildIds((prev) => {
+          const next = new Set(prev)
+          let changed = false
+          for (const sid of prev) {
+            const p = parseEmbeddedChildProposalId(sid)
+            if (p?.parentProposalId === proposalId) {
+              next.delete(sid)
+              changed = true
+            }
+          }
+          return changed ? next : prev
+        })
+      }
       setDraftByProposalId((prev) => {
-        const cur = prev[proposalId]
+        let base: Record<string, TankestromImportDraft> = { ...prev }
+        if (importKind === 'task') {
+          for (const key of Object.keys(base)) {
+            const p = parseEmbeddedChildProposalId(key)
+            if (p?.parentProposalId === proposalId) delete base[key]
+          }
+        }
+        const cur = base[proposalId]
         if (!cur) return prev
         const defaultPersonId = people[0]?.id ?? ''
         if (importKind === 'task') {
-          if (cur.importKind === 'task') return prev
+          if (cur.importKind === 'task') return base
           return {
-            ...prev,
+            ...base,
             [proposalId]: { importKind: 'task', task: taskDraftFromEventDraft(cur.event, people, validPersonIds) },
           }
         }
         if (cur.importKind === 'event') return prev
         return {
-          ...prev,
+          ...base,
           [proposalId]: {
             importKind: 'event',
             event: eventDraftFromTaskDraft(cur.task, validPersonIds, defaultPersonId),
@@ -1340,6 +1611,86 @@ export function useTankestromImport({
     let failed = 0
     try {
       for (const id of ids) {
+        const parsedEmb = parseEmbeddedChildProposalId(id)
+        if (parsedEmb) {
+          if (!detachedEmbeddedChildIds.has(id)) {
+            continue
+          }
+          const unified = draftByProposalId[id]
+          const entry = detachedEmbeddedChildren.find((d) => d.proposal.proposalId === id)
+          const parentItem = bundle.items.find(
+            (p) => p.proposalId === entry?.parentProposalId && p.kind === 'event'
+          )
+          if (!unified || unified.importKind !== 'event' || !entry || !parentItem || parentItem.kind !== 'event') {
+            continue
+          }
+          const item = entry.proposal
+          const raw = unified.event
+          const draftEv: TankestromEventDraft = {
+            ...raw,
+            title: raw.title.trim(),
+            date: raw.date.trim(),
+            start: normalizeTimeInput(raw.start),
+            end: normalizeTimeInput(raw.end),
+            personId: raw.personId,
+            location: raw.location.trim(),
+            notes: raw.notes.trim(),
+          }
+          const integration = {
+            proposalId: item.proposalId,
+            importRunId: bundle.provenance.importRunId,
+            confidence: parentItem.confidence,
+            originalSourceType: parentItem.originalSourceType,
+            externalRef: parentItem.externalRef,
+            sourceSystem: bundle.provenance.sourceSystem,
+          }
+          let baseMeta: Record<string, unknown> = {}
+          if (item.kind === 'event') {
+            const ev = item.event
+            baseMeta =
+              ev.metadata && typeof ev.metadata === 'object' && !Array.isArray(ev.metadata) ? { ...ev.metadata } : {}
+          }
+          const metadata: Record<string, unknown> = {
+            ...baseMeta,
+            sourceId: item.sourceId,
+            integration,
+          }
+          const transportMeta: Record<string, unknown> = {}
+          if (draftEv.dropoffBy.trim()) transportMeta.dropoffBy = draftEv.dropoffBy.trim()
+          if (draftEv.pickupBy.trim()) transportMeta.pickupBy = draftEv.pickupBy.trim()
+          if (Object.keys(transportMeta).length > 0) {
+            metadata.transport = {
+              ...(baseMeta.transport && typeof baseMeta.transport === 'object' && !Array.isArray(baseMeta.transport)
+                ? (baseMeta.transport as Record<string, unknown>)
+                : {}),
+              ...transportMeta,
+            }
+          } else if (baseMeta.transport && typeof baseMeta.transport === 'object') {
+            const prevT = { ...(baseMeta.transport as Record<string, unknown>) }
+            delete prevT.dropoffBy
+            delete prevT.pickupBy
+            if (Object.keys(prevT).length > 0) metadata.transport = prevT
+            else delete metadata.transport
+          }
+          const input: Omit<Event, 'id'> = {
+            personId: draftEv.personId,
+            title: draftEv.title,
+            start: draftEv.start,
+            end: draftEv.end,
+            notes: draftEv.notes.length > 0 ? draftEv.notes : undefined,
+            location: draftEv.location.length > 0 ? draftEv.location : undefined,
+            reminderMinutes: draftEv.reminderMinutes,
+            recurrenceGroupId: undefined,
+            metadata,
+          }
+          try {
+            await createEvent(draftEv.date, input)
+          } catch {
+            failed += 1
+          }
+          continue
+        }
+
         const item = bundle.items.find((p) => p.proposalId === id)
         const unified = draftByProposalId[id]
         if (!item || !unified) continue
@@ -1403,6 +1754,13 @@ export function useTankestromImport({
             ev.metadata && typeof ev.metadata === 'object' && !Array.isArray(ev.metadata)
               ? { ...ev.metadata }
               : {}
+          if (isEmbeddedScheduleParentCalendarItem(item)) {
+            const rows = embeddedScheduleReviewRowsByParentId[item.proposalId] ?? []
+            const included = rows.filter((r) =>
+              selectedIds.has(makeEmbeddedChildProposalId(item.proposalId, r.origIndex))
+            )
+            baseMeta.embeddedSchedule = included.map((r) => r.segment)
+          }
         }
 
         const metadata: Record<string, unknown> = {
@@ -1452,7 +1810,19 @@ export function useTankestromImport({
     } finally {
       setSaveLoading(false)
     }
-  }, [bundle, proposalItems, selectedIds, draftByProposalId, validPersonIds, createEvent, createTask, schoolReview])
+  }, [
+    bundle,
+    proposalItems,
+    selectedIds,
+    draftByProposalId,
+    validPersonIds,
+    createEvent,
+    createTask,
+    schoolReview,
+    embeddedScheduleReviewRowsByParentId,
+    detachedEmbeddedChildIds,
+    detachedEmbeddedChildren,
+  ])
 
   /**
    * Lagrer uke-overlay (hvis den finnes), deretter importerer avkryssede hendelser/gjøremål.
@@ -1507,5 +1877,8 @@ export function useTankestromImport({
     saveSchoolWeekOverlay,
     saveSchoolWeekOverlayThenCalendarSelection,
     setSchoolWeekOverlayProposalDraft,
+    embeddedScheduleReviewRowsByParentId,
+    detachedEmbeddedChildren,
+    detachEmbeddedScheduleChild,
   }
 }

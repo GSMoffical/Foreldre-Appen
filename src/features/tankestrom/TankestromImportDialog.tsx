@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type ReactNode,
+} from 'react'
 import type { PortalEventProposal, PortalProposalItem, PortalSchoolWeekOverlayProposal } from './types'
 import type { EmbeddedScheduleSegment } from '../../types'
 import { groupEmbeddedScheduleByDate, parseEmbeddedScheduleFromMetadata } from '../../lib/embeddedSchedule'
@@ -16,6 +25,7 @@ import type {
 import type { UseEventControllerReturn } from '../calendar/hooks/useEventController'
 import {
   useTankestromImport,
+  makeEmbeddedChildProposalId,
   filterSubjectUpdatesByLanguageTrack,
   getTankestromDraftFieldErrors,
   getTankestromTaskFieldErrors,
@@ -1684,15 +1694,19 @@ function TankestromReviewTaskIntentChip({ proposalId, intent }: { proposalId: st
 function TankestromEmbeddedSchedulePreview({
   proposalId,
   item,
+  segmentsOverride,
   expanded,
   onToggleExpanded,
 }: {
   proposalId: string
   item: PortalEventProposal
+  /** Når satt (f.eks. gjenværende rader etter løsning), brukes den i stedet for metadata på item. */
+  segmentsOverride?: EmbeddedScheduleSegment[]
   expanded: boolean
   onToggleExpanded: () => void
 }) {
-  const flat = flattenEmbeddedScheduleForPreview(item)
+  const flat =
+    segmentsOverride && segmentsOverride.length > 0 ? segmentsOverride : flattenEmbeddedScheduleForPreview(item)
   if (flat.length === 0) return null
 
   const visible = expanded ? flat : flat.slice(0, EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX)
@@ -1890,6 +1904,9 @@ export function TankestromImportDialog({
     bundle,
     analyzeWarning,
     calendarProposalItems,
+    embeddedScheduleReviewRowsByParentId,
+    detachedEmbeddedChildren,
+    detachEmbeddedScheduleChild,
     selectedIds,
     toggleProposal,
     draftByProposalId,
@@ -1966,8 +1983,21 @@ export function TankestromImportDialog({
     })
   }, [])
 
+  const calendarReviewFlatEntries = useMemo(() => {
+    const out: Array<{ item: PortalProposalItem; detachedFromParentLabel?: string }> = []
+    for (const it of calendarProposalItems) {
+      out.push({ item: it })
+      for (const d of detachedEmbeddedChildren) {
+        if (d.parentProposalId === it.proposalId) {
+          out.push({ item: d.proposal, detachedFromParentLabel: 'Løst fra hovedblokk' })
+        }
+      }
+    }
+    return out
+  }, [calendarProposalItems, detachedEmbeddedChildren])
+
   const reviewSelectionStats = useMemo(() => {
-    const total = calendarProposalItems.length
+    const total = calendarReviewFlatEntries.length
     const selected = selectedIds.size
     let withErrors = 0
     let ready = 0
@@ -1985,7 +2015,7 @@ export function TankestromImportDialog({
       else ready += 1
     }
     return { total, selected, withErrors, ready }
-  }, [calendarProposalItems.length, selectedIds, draftByProposalId, validPersonIds])
+  }, [calendarReviewFlatEntries.length, selectedIds, draftByProposalId, validPersonIds])
 
   useEffect(() => {
     if (!open) {
@@ -2788,7 +2818,9 @@ export function TankestromImportDialog({
               </div>
 
               <ul className="space-y-2 sm:space-y-4">
-                {calendarProposalItems.map((item) => {
+                {calendarReviewFlatEntries.map((entry) => {
+                  const item = entry.item
+                  const detachedFromParentLabel = entry.detachedFromParentLabel
                   const u = draftByProposalId[item.proposalId]
                   if (!u) return null
                   const checked = selectedIds.has(item.proposalId)
@@ -2848,11 +2880,16 @@ export function TankestromImportDialog({
                     return hm.test(ts) && hm.test(te) ? formatTimeRange(ts, te) : ts && te ? `${ts}–${te}` : '—'
                   })()
 
-                  const embeddedScheduleParentCard = isEmbeddedScheduleParentReviewCard(item, u.importKind)
+                  const embeddedScheduleParentCard =
+                    !detachedFromParentLabel && isEmbeddedScheduleParentReviewCard(item, u.importKind)
                   const embeddedScheduleLen =
                     item.kind === 'event' && Array.isArray(item.event.metadata?.embeddedSchedule)
                       ? item.event.metadata.embeddedSchedule.length
                       : 0
+                  const programPointsCount =
+                    embeddedScheduleParentCard && embeddedScheduleReviewRowsByParentId[pid]
+                      ? embeddedScheduleReviewRowsByParentId[pid]!.length
+                      : embeddedScheduleLen
                   const embeddedEndDate =
                     item.kind === 'event' && typeof item.event.metadata?.endDate === 'string'
                       ? item.event.metadata.endDate
@@ -2863,7 +2900,7 @@ export function TankestromImportDialog({
                   const summaryMetaLine =
                     u.importKind === 'event'
                       ? embeddedScheduleParentCard
-                        ? `${formatNorwegianDateRangeLabel(u.event.date, embeddedEndDate || u.event.date)} · Hele dagen · Program: ${embeddedScheduleLen} punkter${
+                        ? `${formatNorwegianDateRangeLabel(u.event.date, embeddedEndDate || u.event.date)} · Hele dagen · Program: ${programPointsCount} punkter${
                             people.find((p) => p.id === u.event.personId)?.name
                               ? ` · ${people.find((p) => p.id === u.event.personId)?.name}`
                               : ''
@@ -2904,6 +2941,11 @@ export function TankestromImportDialog({
                               <span className="line-clamp-2">{cardTitle}</span>
                             </p>
                             <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                              {detachedFromParentLabel ? (
+                                <span className="inline-flex max-w-[9rem] truncate rounded border border-teal-200/90 bg-teal-50/90 px-1 py-px text-[8px] font-semibold text-teal-900 sm:max-w-none sm:rounded-full sm:px-1.5 sm:text-[9px]">
+                                  {detachedFromParentLabel}
+                                </span>
+                              ) : null}
                               {u.importKind === 'task' ? (
                                 <TankestromReviewTaskIntentChip
                                   proposalId={pid}
@@ -2933,9 +2975,56 @@ export function TankestromImportDialog({
                             <TankestromEmbeddedSchedulePreview
                               proposalId={pid}
                               item={item}
+                              segmentsOverride={embeddedScheduleReviewRowsByParentId[pid]?.map((r) => r.segment)}
                               expanded={expandedProgramPreviewIds.has(pid)}
                               onToggleExpanded={() => toggleProgramPreviewExpanded(pid)}
                             />
+                          ) : null}
+                          {embeddedScheduleParentCard && item.kind === 'event' ? (
+                            <div className="mt-2 space-y-1 border-l-2 border-brandTeal/35 pl-2.5">
+                              <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400 sm:text-[10px]">
+                                Delprogram
+                              </p>
+                              {((): ReactNode => {
+                                const rows = embeddedScheduleReviewRowsByParentId[pid] ?? []
+                                if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+                                  console.debug('[tankestrom embedded schedule review]', {
+                                    embeddedScheduleChildReviewItemsVisible: rows.length,
+                                    parentProposalId: pid,
+                                  })
+                                }
+                                return rows.map((row) => {
+                                  const childId = makeEmbeddedChildProposalId(pid, row.origIndex)
+                                  const childChecked = selectedIds.has(childId)
+                                  return (
+                                    <div
+                                      key={childId}
+                                      className="flex items-start gap-1.5 rounded-lg border border-zinc-100 bg-white/70 px-2 py-1.5 sm:gap-2 sm:py-2"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-zinc-300 text-brandTeal focus:ring-brandTeal/30 sm:h-4 sm:w-4"
+                                        checked={childChecked}
+                                        disabled={!checked}
+                                        onChange={() => toggleProposal(childId)}
+                                        aria-label={`Velg programpunkt: ${row.segment.title}`}
+                                      />
+                                      <p className="min-w-0 flex-1 text-[10px] leading-snug text-zinc-800 sm:text-[11px]">
+                                        {formatEmbeddedSchedulePreviewLine(row.segment)}
+                                      </p>
+                                      <button
+                                        type="button"
+                                        disabled={!checked}
+                                        onClick={() => detachEmbeddedScheduleChild(pid, row.origIndex)}
+                                        className="shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:decoration-brandNavy disabled:cursor-not-allowed disabled:opacity-40 sm:text-[10px]"
+                                      >
+                                        Løsne
+                                      </button>
+                                    </div>
+                                  )
+                                })
+                              })()}
+                            </div>
                           ) : null}
                           {u.importKind === 'task' ? (
                             <div className="mt-1.5 flex flex-wrap items-center gap-2">
