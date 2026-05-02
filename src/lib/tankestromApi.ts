@@ -588,23 +588,46 @@ function looksLikeImportBundlePayload(r: Record<string, unknown>): boolean {
   return false
 }
 
-const TANKESTROM_ANALYZE_WRAP_KEYS = ['bundle', 'result', 'data', 'payload', 'output'] as const
+const TANKESTROM_ANALYZE_WRAP_KEYS = [
+  'bundle',
+  'result',
+  'data',
+  'payload',
+  'output',
+  'importProposal',
+  'proposalBundle',
+  'response',
+  'body',
+  'content',
+] as const
 
+/**
+ * Pakker ut vanlige API-konvolutter. Støtter også kjeder av enkelt-nøkkel-objekter
+ * (f.eks. { importProposal: { … } }) som ellers ikke matcher `looksLikeImportBundlePayload` på rot.
+ */
 function unwrapTankestromAnalyzeJson(json: unknown): unknown {
   let cur: unknown = json
-  for (let depth = 0; depth < 5; depth++) {
+  for (let depth = 0; depth < 10; depth++) {
     if (!isRecord(cur)) return cur
     if (looksLikeImportBundlePayload(cur)) return cur
-    let inner: Record<string, unknown> | undefined
+
+    let next: Record<string, unknown> | undefined
     for (const k of TANKESTROM_ANALYZE_WRAP_KEYS) {
       const v = cur[k]
       if (isRecord(v) && looksLikeImportBundlePayload(v)) {
-        inner = v
+        next = v
         break
       }
     }
-    if (!inner) return cur
-    cur = inner
+    if (!next) {
+      const keys = Object.keys(cur)
+      if (keys.length === 1) {
+        const only = cur[keys[0]!]
+        if (isRecord(only)) next = only
+      }
+    }
+    if (!next) return cur
+    cur = next
   }
   return cur
 }
@@ -631,11 +654,16 @@ function summarizeTankestromJsonShape(x: unknown, maxKeys = 14): unknown {
 export function normalizeTankestromAnalyzeHttpJson(json: unknown): unknown {
   const unwrapped = unwrapTankestromAnalyzeJson(json)
   if (!isRecord(unwrapped)) return unwrapped
-  const sv = unwrapped.schemaVersion
-  if (sv === '1.0.0') return unwrapped
-  if (sv !== undefined && sv !== null && String(sv).trim() !== '') return unwrapped
-  if (!looksLikeImportBundlePayload(unwrapped)) return unwrapped
-  return { ...unwrapped, schemaVersion: '1.0.0' }
+  let r: Record<string, unknown> = { ...unwrapped }
+  if (!Array.isArray(r.items) && Array.isArray(r.proposals)) {
+    const { proposals, ...rest } = r
+    r = { ...rest, items: proposals as unknown[] }
+  }
+  const sv = r.schemaVersion
+  if (sv === '1.0.0') return r
+  if (sv !== undefined && sv !== null && String(sv).trim() !== '') return r
+  if (!looksLikeImportBundlePayload(r)) return r
+  return { ...r, schemaVersion: '1.0.0' }
 }
 
 /**
@@ -756,17 +784,32 @@ async function analyzeWithTankestrom(payload: AnalyzePayload): Promise<PortalImp
     console.debug('[tankestrom text analyze]', {
       tankestrom_text_request_shape: { method: 'POST', contentType: 'application/json', bodyFields: ['text'] },
       tankestrom_text_response_shape: summarizeTankestromJsonShape(json),
+      tankestrom_text_response_raw_snippet: text.trim().slice(0, 800).replace(/\s+/g, ' '),
       tankestrom_text_schema_version_received: isRecord(json) ? json.schemaVersion : undefined,
       tankestrom_text_normalized_schema_version: isRecord(normalized) ? normalized.schemaVersion : undefined,
+      tankestrom_text_normalized_shape: summarizeTankestromJsonShape(normalized),
     })
   }
 
   try {
     return parsePortalImportProposalBundle(normalized)
   } catch (e) {
+    const failMsg = e instanceof Error ? e.message : String(e)
+    if (payload.kind === 'text') {
+      console.warn('[tankestrom text analyze] bundle parse failed', {
+        tankestrom_text_bundle_parse_failed_reason: failMsg,
+        tankestrom_text_response_top_keys: isRecord(json) ? Object.keys(json).sort() : null,
+        tankestrom_text_normalized_top_keys: isRecord(normalized) ? Object.keys(normalized).sort() : null,
+        tankestrom_text_normalized_looks_like_bundle:
+          isRecord(normalized) && looksLikeImportBundlePayload(normalized),
+        tankestrom_text_response_shape: summarizeTankestromJsonShape(json),
+        tankestrom_text_normalized_shape: summarizeTankestromJsonShape(normalized),
+        tankestrom_text_response_raw_snippet: text.trim().slice(0, 800).replace(/\s+/g, ' '),
+      })
+    }
     if (dbgText) {
       console.debug('[tankestrom text analyze]', {
-        tankestrom_text_bundle_parse_failed_reason: e instanceof Error ? e.message : String(e),
+        tankestrom_text_bundle_parse_failed_reason: failMsg,
       })
     }
     throw e

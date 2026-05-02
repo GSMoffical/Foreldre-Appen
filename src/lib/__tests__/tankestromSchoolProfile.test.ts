@@ -452,4 +452,44 @@ describe('normalizeTankestromAnalyzeHttpJson (tekstmodus / JSON-svar)', () => {
     const bundle = parsePortalImportProposalBundle(normalized)
     expect(bundle.schemaVersion).toBe('1.0.0')
   })
+
+  it('pakker ut enkelt-nøkkel-kjede til bundle', () => {
+    const raw = {
+      importProposal: {
+        provenance,
+        items: [
+          {
+            proposalId: 'c3d4e5f6-a7b8-4901-8234-567890abcdef',
+            kind: 'school_profile',
+            sourceId: 'src-1',
+            originalSourceType: 'weekly_timetable',
+            confidence: 0.9,
+            schoolProfile: { gradeBand: '8-10', weekdays: {} },
+          },
+        ],
+      },
+    }
+    const normalized = normalizeTankestromAnalyzeHttpJson(raw)
+    const bundle = parsePortalImportProposalBundle(normalized)
+    expect(bundle.schemaVersion).toBe('1.0.0')
+  })
+
+  it('mapper proposals → items når items mangler', () => {
+    const raw = {
+      provenance,
+      proposals: [
+        {
+          proposalId: 'c3d4e5f6-a7b8-4901-8234-567890abcdef',
+          kind: 'school_profile',
+          sourceId: 'src-1',
+          originalSourceType: 'weekly_timetable',
+          confidence: 0.9,
+          schoolProfile: { gradeBand: '8-10', weekdays: {} },
+        },
+      ],
+    }
+    const normalized = normalizeTankestromAnalyzeHttpJson(raw)
+    const bundle = parsePortalImportProposalBundle(normalized)
+    expect(bundle.items).toHaveLength(1)
+  })
 })
