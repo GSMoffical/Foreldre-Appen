@@ -6,6 +6,7 @@
 import type {
   ChildSchoolProfile,
   SchoolWeekOverlayDayAction,
+  TaskIntent,
 } from '../../types'
 
 export type PortalImportSchemaVersion = '1.0.0'
@@ -58,6 +59,8 @@ export interface PortalTaskProposal extends PortalProposalItemBase {
     assignedToPersonId?: string
     childPersonId?: string
     showInMonthView?: boolean
+    /** Fra analyse; klient kan overstyre i review. */
+    taskIntent?: TaskIntent
   }
 }
 
@@ -121,7 +124,7 @@ export interface TankestromEventDraft {
   pickupBy: string
 }
 
-/** Utkast for gjøremål (Task) før import. Tasks har ikke metadata i DB i MVP. */
+/** Utkast for gjøremål (Task) før import. */
 export interface TankestromTaskDraft {
   title: string
   date: string
@@ -130,6 +133,7 @@ export interface TankestromTaskDraft {
   childPersonId: string
   assignedToPersonId: string
   showInMonthView: boolean
+  taskIntent: TaskIntent
 }
 
 /** Brukerens valgte importtype per forslag (kan avvike fra API `kind` etter typebytte). */

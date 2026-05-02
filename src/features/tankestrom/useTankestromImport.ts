@@ -21,6 +21,7 @@ import {
   mergePortalImportProposalBundles,
 } from '../../lib/tankestromApi'
 import { detectLessonConflicts } from '../../lib/schoolProfileConflicts'
+import { normalizeTaskIntent, suggestTaskIntentFromTitleAndNotes } from '../../lib/taskIntent'
 import { parseTime } from '../../lib/time'
 import { getISOWeek, getISOWeekYear } from '../../lib/isoWeek'
 
@@ -557,6 +558,16 @@ function buildTaskDraftFromProposal(
   if (!childPersonId && !assignedToPersonId) {
     childPersonId = defaultChildPersonId(people, validPersonIds)
   }
+  const fromApi = normalizeTaskIntent(t.taskIntent)
+  const suggested = suggestTaskIntentFromTitleAndNotes(t.title, t.notes)
+  const taskIntent = fromApi ?? suggested
+  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+    console.debug('[tankestrom task intent]', {
+      taskIntentSuggested: taskIntent,
+      taskIntentDefaultedToMustDo: taskIntent === 'must_do' && !fromApi && suggested === 'must_do',
+      proposalId: p.proposalId,
+    })
+  }
   return {
     title: t.title,
     date: t.date,
@@ -565,6 +576,7 @@ function buildTaskDraftFromProposal(
     childPersonId,
     assignedToPersonId,
     showInMonthView: !!t.showInMonthView,
+    taskIntent,
   }
 }
 
@@ -711,6 +723,7 @@ function taskDraftFromEventDraft(e: TankestromEventDraft, people: Person[], vali
     childPersonId: isChild ? pid : '',
     assignedToPersonId: !isChild && pid ? pid : '',
     showInMonthView: false,
+    taskIntent: 'must_do',
   }
 }
 
@@ -971,7 +984,18 @@ export function useTankestromImport({
     setDraftByProposalId((prev) => {
       const cur = prev[proposalId]
       if (!cur || cur.importKind !== 'task') return prev
-      return { ...prev, [proposalId]: { importKind: 'task', task: { ...cur.task, ...patch } } }
+      const nextTask = { ...cur.task, ...patch }
+      if (
+        (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') &&
+        patch.taskIntent != null &&
+        patch.taskIntent !== cur.task.taskIntent
+      ) {
+        console.debug('[tankestrom task intent]', {
+          taskIntentChangedInReview: patch.taskIntent,
+          proposalId,
+        })
+      }
+      return { ...prev, [proposalId]: { importKind: 'task', task: nextTask } }
     })
   }, [])
 
@@ -1333,8 +1357,15 @@ export function useTankestromImport({
             childPersonId: t.childPersonId.trim() || undefined,
             assignedToPersonId: t.assignedToPersonId.trim() || undefined,
             showInMonthView: t.showInMonthView || undefined,
+            taskIntent: t.taskIntent,
           }
           try {
+            if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+              console.debug('[tankestrom task intent]', {
+                taskIntentPersisted: t.taskIntent,
+                proposalId: id,
+              })
+            }
             await createTask(taskInput)
           } catch {
             failed += 1

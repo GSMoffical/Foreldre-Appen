@@ -20,6 +20,7 @@ import type {
   WeekdayMonFri,
 } from '../types'
 import { resolveSubjectKey } from './schoolContext'
+import { normalizeTaskIntent } from './taskIntent'
 
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null && !Array.isArray(x)
@@ -366,6 +367,10 @@ function parseTaskPayload(raw: unknown): PortalTaskProposal['task'] {
     if (typeof raw.showInMonthView !== 'boolean') throw new Error('Ugyldig svar: task.showInMonthView')
     out.showInMonthView = raw.showInMonthView
   }
+  const meta = isRecord(raw.metadata) ? raw.metadata : null
+  const tiRaw = raw.taskIntent ?? meta?.taskIntent
+  const ti = normalizeTaskIntent(tiRaw)
+  if (ti) out.taskIntent = ti
   return out
 }
 

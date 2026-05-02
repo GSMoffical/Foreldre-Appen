@@ -1,8 +1,9 @@
-import type { Task, PersonId } from '../types'
+import type { Task, PersonId, TaskIntent } from '../types'
+import { isTaskIntent } from './taskIntent'
 import { supabase } from './supabaseClient'
 
 const TASK_COLUMNS =
-  'id, user_id, title, notes, date, due_time, assigned_to_person_id, child_person_id, completed_at, show_in_month_view, created_at, updated_at'
+  'id, user_id, title, notes, date, due_time, assigned_to_person_id, child_person_id, completed_at, show_in_month_view, task_intent, created_at, updated_at'
 
 type TaskRow = {
   id: string
@@ -15,11 +16,15 @@ type TaskRow = {
   child_person_id: string | null
   completed_at: string | null
   show_in_month_view: boolean
+  task_intent: string | null
   created_at: string
   updated_at: string
 }
 
 function mapRowToTask(row: TaskRow): Task {
+  const intentRaw = row.task_intent
+  const taskIntent: TaskIntent | undefined =
+    intentRaw && isTaskIntent(intentRaw) ? intentRaw : 'must_do'
   return {
     id: row.id,
     title: row.title,
@@ -30,11 +35,23 @@ function mapRowToTask(row: TaskRow): Task {
     childPersonId: (row.child_person_id ?? undefined) as PersonId | undefined,
     completedAt: row.completed_at ?? undefined,
     showInMonthView: row.show_in_month_view || undefined,
+    taskIntent,
   }
 }
 
 export type TaskUpdates = Partial<
-  Pick<Task, 'title' | 'notes' | 'date' | 'dueTime' | 'assignedToPersonId' | 'childPersonId' | 'completedAt' | 'showInMonthView'>
+  Pick<
+    Task,
+    | 'title'
+    | 'notes'
+    | 'date'
+    | 'dueTime'
+    | 'assignedToPersonId'
+    | 'childPersonId'
+    | 'completedAt'
+    | 'showInMonthView'
+    | 'taskIntent'
+  >
 >
 
 export async function fetchTasksForDateRange(
@@ -75,6 +92,7 @@ export async function createTask(
       child_person_id: input.childPersonId ?? null,
       completed_at: null,
       show_in_month_view: input.showInMonthView ?? false,
+      task_intent: input.taskIntent ?? 'must_do',
     })
     .select(TASK_COLUMNS)
     .single()
@@ -98,6 +116,7 @@ export async function updateTask(
   if ('childPersonId' in updates) payload.child_person_id = updates.childPersonId ?? null
   if ('completedAt' in updates) payload.completed_at = updates.completedAt ?? null
   if ('showInMonthView' in updates) payload.show_in_month_view = updates.showInMonthView ?? false
+  if ('taskIntent' in updates && updates.taskIntent != null) payload.task_intent = updates.taskIntent
   if (Object.keys(payload).length === 0) return null
 
   const { data, error } = await supabase

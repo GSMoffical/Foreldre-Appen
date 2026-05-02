@@ -1,4 +1,5 @@
 import type { Task, Person } from '../../../types'
+import { taskIntentBadgeClassName, taskIntentLabelNb } from '../../../lib/taskIntent'
 import { useFamily } from '../../../context/FamilyContext'
 
 interface DayTaskListProps {
@@ -58,13 +59,24 @@ function TaskRow({ task, people, onComplete, onUndoComplete, onEdit, onDelete }:
 
       {/* Content */}
       <div className={`min-w-0 flex-1 ${isDone ? 'opacity-50' : ''}`}>
-        <p
-          className={`text-[13px] font-medium leading-snug ${
-            isDone ? 'text-zinc-500 line-through decoration-zinc-300' : 'text-zinc-800'
-          }`}
-        >
-          {task.title}
-        </p>
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <p
+            className={`min-w-0 flex-1 text-[13px] font-medium leading-snug ${
+              isDone ? 'text-zinc-500 line-through decoration-zinc-300' : 'text-zinc-800'
+            }`}
+          >
+            {task.title}
+          </p>
+          {!isDone && (task.taskIntent ?? 'must_do') === 'can_help' ? (
+            <span
+              className={`shrink-0 rounded-full border px-1.5 py-px text-[9px] font-semibold ${taskIntentBadgeClassName(
+                'can_help'
+              )}`}
+            >
+              {taskIntentLabelNb('can_help')}
+            </span>
+          ) : null}
+        </div>
 
         {!isDone && (task.dueTime || primaryPerson) && (
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">

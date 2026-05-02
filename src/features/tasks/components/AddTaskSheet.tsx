@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { springDialog } from '../../../lib/motion'
-import type { Task, PersonId } from '../../../types'
+import type { Task, PersonId, TaskIntent } from '../../../types'
+import { taskIntentLabelNb } from '../../../lib/taskIntent'
 import { useFamily } from '../../../context/FamilyContext'
 import { useConfirmClose } from '../../../hooks/useConfirmClose'
 import {
@@ -35,6 +36,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
   })
   const [childPerson, setChildPerson] = useState<string>(initialTask?.childPersonId ?? PERSON_NONE)
   const [showInMonthView, setShowInMonthView] = useState(initialTask?.showInMonthView ?? false)
+  const [taskIntent, setTaskIntent] = useState<TaskIntent>(initialTask?.taskIntent ?? 'must_do')
   const [saving, setSaving] = useState(false)
 
   const isDirty = useMemo(
@@ -43,8 +45,9 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
       || taskDate !== (initialTask?.date ?? date)
       || notes !== (initialTask?.notes ?? '')
       || dueTime !== (initialTask?.dueTime ?? '')
-      || showInMonthView !== (initialTask?.showInMonthView ?? false),
-    [title, taskDate, notes, dueTime, showInMonthView, initialTask, date]
+      || showInMonthView !== (initialTask?.showInMonthView ?? false)
+      || taskIntent !== (initialTask?.taskIntent ?? 'must_do'),
+    [title, taskDate, notes, dueTime, showInMonthView, taskIntent, initialTask, date]
   )
   const { guardedClose, confirming, confirmClose, cancelConfirm } = useConfirmClose(isDirty, onClose)
   const [showMore, setShowMore] = useState(() => {
@@ -74,6 +77,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
         assignedToPersonId: assignedTo !== PERSON_NONE ? (assignedTo as PersonId) : undefined,
         childPersonId: childPerson !== PERSON_NONE ? (childPerson as PersonId) : undefined,
         showInMonthView: showInMonthView || undefined,
+        taskIntent,
       })
     } finally {
       setSaving(false)
@@ -141,6 +145,28 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
               required
               className={inputBase}
             />
+          </div>
+
+          <div className="space-y-1">
+            <span className={inputLabel}>Type</span>
+            <div className="flex rounded-xl border border-zinc-200 bg-zinc-50/90 p-0.5">
+              {(['must_do', 'can_help'] as const).map((intent) => (
+                <button
+                  key={intent}
+                  type="button"
+                  onClick={() => setTaskIntent(intent)}
+                  className={`flex-1 rounded-lg px-2 py-2 text-[12px] font-semibold transition touch-manipulation ${
+                    taskIntent === intent
+                      ? intent === 'must_do'
+                        ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200/80'
+                        : 'bg-white text-teal-900 shadow-sm ring-1 ring-teal-200/90'
+                      : 'text-zinc-500'
+                  }`}
+                >
+                  {taskIntentLabelNb(intent)}
+                </button>
+              ))}
+            </div>
           </div>
 
           <button

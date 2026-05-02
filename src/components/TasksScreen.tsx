@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { OnboardingHint } from './OnboardingHint'
 import { typHeading, typSectionCap, btnPrimaryPill, screenHeaderRow } from '../lib/ui'
 import type { Task, Person } from '../types'
+import { taskIntentBadgeClassName, taskIntentLabelNb } from '../lib/taskIntent'
 import type { WeekDayLayout } from '../hooks/useScheduleState'
 import { useFamily } from '../context/FamilyContext'
 import { todayKeyOslo } from '../lib/osloCalendar'
@@ -135,13 +136,24 @@ function TaskItem({ task, child, assignee, onComplete, onUndoComplete, onEdit, o
 
       {/* Task body */}
       <div className={`min-w-0 flex-1 ${isDone ? 'opacity-50' : ''}`}>
-        <p
-          className={`text-[14px] font-medium leading-snug ${
-            isDone ? 'text-zinc-500 line-through decoration-zinc-300' : 'text-zinc-900'
-          }`}
-        >
-          {task.title}
-        </p>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <p
+            className={`min-w-0 flex-1 text-[14px] font-medium leading-snug ${
+              isDone ? 'text-zinc-500 line-through decoration-zinc-300' : 'text-zinc-900'
+            }`}
+          >
+            {task.title}
+          </p>
+          {!isDone && (task.taskIntent ?? 'must_do') === 'can_help' ? (
+            <span
+              className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${taskIntentBadgeClassName(
+                'can_help'
+              )}`}
+            >
+              {taskIntentLabelNb('can_help')}
+            </span>
+          ) : null}
+        </div>
 
         {/* Metadata row — only on open tasks */}
         {!isDone && (task.dueTime || primaryPerson) && (

@@ -28,6 +28,7 @@ import { Input, Textarea } from '../../components/ui/Input'
 import { SchoolProfileFields } from '../../components/SchoolProfileFields'
 import { logEvent } from '../../lib/appLogger'
 import { formatTimeRange } from '../../lib/time'
+import { taskIntentBadgeClassName, taskIntentLabelNb } from '../../lib/taskIntent'
 import {
   applyLessonConflictChoice,
   detectLessonConflicts,
@@ -2790,7 +2791,16 @@ export function TankestromImportDialog({
                             <p className="min-w-0 flex-1 text-[13px] font-semibold leading-tight text-zinc-900 sm:text-[15px] sm:leading-snug">
                               <span className="line-clamp-2">{cardTitle}</span>
                             </p>
-                            <div className="flex shrink-0 items-center gap-1">
+                            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                              {u.importKind === 'task' ? (
+                                <span
+                                  className={`inline-flex rounded-full border px-1.5 py-px text-[8px] font-semibold sm:text-[10px] ${taskIntentBadgeClassName(
+                                    u.task.taskIntent ?? 'must_do'
+                                  )}`}
+                                >
+                                  {taskIntentLabelNb(u.task.taskIntent ?? 'must_do')}
+                                </span>
+                              ) : null}
                               <span
                                 className={`inline-flex rounded border px-1 py-px text-[9px] font-semibold tabular-nums sm:rounded-full sm:px-1.5 sm:py-0.5 sm:text-[10px] ${compactConf.className}`}
                                 title={badge.label}
@@ -2810,6 +2820,39 @@ export function TankestromImportDialog({
                           <p className="mt-0.5 text-[10px] leading-snug text-zinc-600 sm:mt-1 sm:text-[11px]">
                             {summaryMetaLine}
                           </p>
+                          {u.importKind === 'task' ? (
+                            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                              <span className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400 sm:text-[10px]">
+                                Oppgavetype
+                              </span>
+                              <div className="inline-flex max-w-full rounded-lg border border-zinc-200 bg-zinc-50/90 p-0.5">
+                                <button
+                                  type="button"
+                                  disabled={disabled}
+                                  className={`rounded-md px-2 py-1 text-[10px] font-semibold transition touch-manipulation sm:px-2.5 sm:text-[11px] ${
+                                    (u.task.taskIntent ?? 'must_do') === 'must_do'
+                                      ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200/80'
+                                      : 'text-zinc-500 hover:text-zinc-700'
+                                  }`}
+                                  onClick={() => updateTaskDraft(pid, { taskIntent: 'must_do' })}
+                                >
+                                  Må gjøre
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={disabled}
+                                  className={`rounded-md px-2 py-1 text-[10px] font-semibold transition touch-manipulation sm:px-2.5 sm:text-[11px] ${
+                                    (u.task.taskIntent ?? 'must_do') === 'can_help'
+                                      ? 'bg-white text-teal-900 shadow-sm ring-1 ring-teal-200/90'
+                                      : 'text-zinc-500 hover:text-teal-800'
+                                  }`}
+                                  onClick={() => updateTaskDraft(pid, { taskIntent: 'can_help' })}
+                                >
+                                  Kan bidra
+                                </button>
+                              </div>
+                            </div>
+                          ) : null}
                           {item.kind === 'event' &&
                           Array.isArray(item.event.metadata?.embeddedSchedule) &&
                           item.event.metadata.embeddedSchedule.length > 0 &&
@@ -3192,6 +3235,35 @@ export function TankestromImportDialog({
                               error={taskFieldErrors.title}
                               className="text-[15px] font-semibold"
                             />
+                            <div>
+                              <p className="mb-1 block text-caption font-medium text-zinc-600">Oppgavetype</p>
+                              <div className="inline-flex w-full max-w-md rounded-xl border border-zinc-200 bg-zinc-50/90 p-0.5">
+                                <button
+                                  type="button"
+                                  disabled={disabled}
+                                  className={`flex-1 rounded-lg px-2 py-2 text-[12px] font-semibold transition touch-manipulation ${
+                                    (u.task.taskIntent ?? 'must_do') === 'must_do'
+                                      ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200/80'
+                                      : 'text-zinc-500'
+                                  }`}
+                                  onClick={() => updateTaskDraft(pid, { taskIntent: 'must_do' })}
+                                >
+                                  Må gjøre
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={disabled}
+                                  className={`flex-1 rounded-lg px-2 py-2 text-[12px] font-semibold transition touch-manipulation ${
+                                    (u.task.taskIntent ?? 'must_do') === 'can_help'
+                                      ? 'bg-white text-teal-900 shadow-sm ring-1 ring-teal-200/90'
+                                      : 'text-zinc-500'
+                                  }`}
+                                  onClick={() => updateTaskDraft(pid, { taskIntent: 'can_help' })}
+                                >
+                                  Kan bidra
+                                </button>
+                              </div>
+                            </div>
                             <Input
                               id={`ts-${pid}-task-date`}
                               label="Dato"

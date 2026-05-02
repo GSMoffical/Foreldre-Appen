@@ -336,6 +336,9 @@ export interface DaySummary {
   minutesUntilNext: number | null;
 }
 
+/** Semantikk for gjøremål: plikt vs frivillig forespørsel (ingen påmelding i MVP). */
+export type TaskIntent = 'must_do' | 'can_help';
+
 /** A date-bound to-do item that is NOT a timed calendar block. */
 export interface Task {
   id: string;
@@ -353,4 +356,6 @@ export interface Task {
   completedAt?: string;
   /** When true, a visible indicator marks this day in month view (open tasks only). */
   showInMonthView?: boolean;
+  /** Default `must_do` når kolonne mangler i eldre rader. */
+  taskIntent?: TaskIntent;
 }

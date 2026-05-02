@@ -17,6 +17,7 @@ CREATE TABLE public.tasks (
   child_person_id       text,                           -- family_members.id (text), nullable
   completed_at          timestamptz,                    -- null = open, non-null = done
   show_in_month_view    boolean     NOT NULL DEFAULT false, -- true = show indicator in month calendar
+  task_intent           text        NOT NULL DEFAULT 'must_do' CHECK (task_intent IN ('must_do', 'can_help')),
   created_at            timestamptz NOT NULL DEFAULT now(),
   updated_at            timestamptz NOT NULL DEFAULT now()
 );
