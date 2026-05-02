@@ -11,6 +11,8 @@ import {
 import type { PortalEventProposal, PortalProposalItem, PortalSchoolWeekOverlayProposal } from './types'
 import type { EmbeddedScheduleSegment } from '../../types'
 import { groupEmbeddedScheduleByDate, parseEmbeddedScheduleFromMetadata } from '../../lib/embeddedSchedule'
+import { normalizeEmbeddedScheduleParentDisplayTitle } from '../../lib/tankestromCupEmbeddedScheduleMerge'
+import { semanticTitleCore } from '../../lib/tankestromImportDedupe'
 import type {
   ChildSchoolDayPlan,
   ChildSchoolProfile,
@@ -1649,12 +1651,109 @@ function formatNorwegianDateRangeLabel(isoStart: string, isoEnd: string): string
 
 const EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX = 4
 
+/** Traillere som i cup-merge — fjerner dag/dato-rygg fra segmenttitler i review. */
+const CHILD_SEGMENT_TITLE_TRAILERS: RegExp[] = [
+  /\s*[–—\-:]\s*informasjon for helgen\b.*$/i,
+  /\s*[–—\-:]\s*praktisk info(?:rmation)?\b.*$/i,
+  /\s*[–—\-:]\s*(?:uke|helg)\s+\d+.*$/i,
+  /\s*[–—\-:]\s*(?:mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag)\b(?:\s+\d{1,2}\.?(?:\s+[a-zæøå]+)?(?:\s+\d{4})?)?\s*$/i,
+  /\s+[–—\-]\s*(?:fredag|lørdag|søndag)\s*$/i,
+]
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function stripChildSegmentTitleTrailers(t: string): string {
+  let out = t.trim()
+  let prev = ''
+  while (out !== prev) {
+    prev = out
+    for (const p of CHILD_SEGMENT_TITLE_TRAILERS) {
+      out = out.replace(p, '').trim()
+    }
+  }
+  return out
+}
+
+/**
+ * Lesbar deltittel uten å gjenta forelder-navn + dato som allerede vises ved siden av.
+ */
+function embeddedScheduleChildDisplayTitle(
+  segmentTitle: string,
+  parentCardTitle: string | undefined
+): string {
+  const original = segmentTitle.trim()
+  let t = original
+  if (parentCardTitle?.trim()) {
+    const { title: parentNorm } = normalizeEmbeddedScheduleParentDisplayTitle(parentCardTitle.trim())
+    const pn = parentNorm.trim()
+    if (pn.length >= 3) {
+      t = t.replace(new RegExp(`^${escapeRegExp(pn)}\\s*[–—\\-:]\\s*`, 'iu'), '').trim()
+      t = t.replace(new RegExp(`^${escapeRegExp(pn)}\\s+`, 'iu'), '').trim()
+    }
+  }
+  t = stripChildSegmentTitleTrailers(t)
+  if (!t || t.length < 2) {
+    t = stripChildSegmentTitleTrailers(original)
+    if (!t) return original
+  }
+  const core = semanticTitleCore(t)
+  if (core.length >= 2) {
+    return core.charAt(0).toLocaleUpperCase('nb-NO') + core.slice(1)
+  }
+  const cap = t.charAt(0).toLocaleUpperCase('nb-NO') + t.slice(1)
+  return cap.length >= 2 ? cap : original
+}
+
+const HM24 = /^([01]\d|2[0-3]):[0-5]\d$/
+
+/**
+ * Ekte klokkeslett for visning, eller null når tid mangler eller er teknisk/usikker (unngår falsk «06:00»).
+ */
+function embeddedScheduleChildTimeDisplay(seg: EmbeddedScheduleSegment): {
+  clock: string | null
+  omittedSynthetic: boolean
+} {
+  const rawS = seg.start?.trim()
+  if (!rawS || !HM24.test(rawS.slice(0, 5))) {
+    return { clock: null, omittedSynthetic: true }
+  }
+  const s = rawS.slice(0, 5)
+  if (s === '00:00' || s === '06:00' || s === '23:59') {
+    return { clock: null, omittedSynthetic: true }
+  }
+  const rawE = seg.end?.trim()
+  if (rawE && HM24.test(rawE.slice(0, 5))) {
+    const e = rawE.slice(0, 5)
+    if (e !== s && e !== '23:59' && e !== '24:00') {
+      return { clock: `${s}–${e}`, omittedSynthetic: false }
+    }
+  }
+  return { clock: s, omittedSynthetic: false }
+}
+
+function embeddedScheduleChildDateShort(isoDate: string): string {
+  try {
+    const d = new Date(`${isoDate}T12:00:00`)
+    const day = d.toLocaleDateString('nb-NO', { weekday: 'short' }).replace(/\.$/, '').trim()
+    const dayShort = day.length > 3 ? day.slice(0, 3) : day
+    const dm = d.toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' }).replace(/\.$/, '')
+    return `${dayShort} ${dm}`.replace(/\s+/g, ' ').trim()
+  } catch {
+    return isoDate.slice(5)
+  }
+}
+
 function flattenEmbeddedScheduleForPreview(item: PortalEventProposal): EmbeddedScheduleSegment[] {
   const parsed = parseEmbeddedScheduleFromMetadata(item.event.metadata)
   return groupEmbeddedScheduleByDate(parsed).flatMap((g) => g.items)
 }
 
-function formatEmbeddedSchedulePreviewLine(seg: EmbeddedScheduleSegment): string {
+/** Kompakt én-linjes program (preview-liste); bruker normalisert tittel og skjuler syntetiske tider. */
+function formatEmbeddedSchedulePreviewLine(seg: EmbeddedScheduleSegment, parentCardTitle?: string): string {
+  const displayTitle = embeddedScheduleChildDisplayTitle(seg.title, parentCardTitle)
+  const { clock } = embeddedScheduleChildTimeDisplay(seg)
   let dayAbbr = ''
   try {
     dayAbbr = new Date(`${seg.date}T12:00:00`)
@@ -1665,12 +1764,15 @@ function formatEmbeddedSchedulePreviewLine(seg: EmbeddedScheduleSegment): string
   } catch {
     dayAbbr = seg.date.slice(8, 10) + '.'
   }
-  const t = seg.start ? seg.start.slice(0, 5) : ''
-  const timePrefix = t ? `${t} ` : ''
-  let title = seg.title.trim()
-  if (seg.isConditional) title = `${title} (betinget)`
-  if (title.length > 40) title = `${title.slice(0, 37)}…`
-  return `${dayAbbr} ${timePrefix}${title}`.replace(/\s+/g, ' ').trim()
+  let title = displayTitle
+  if (seg.isConditional && !/\(betinget\)/i.test(title)) {
+    title = `${title} (betinget)`
+  }
+  if (title.length > 42) title = `${title.slice(0, 39)}…`
+  const parts = [dayAbbr]
+  if (clock) parts.push(clock)
+  parts.push(title)
+  return parts.join(' · ')
 }
 
 function TankestromReviewTaskIntentChip({ proposalId, intent }: { proposalId: string; intent: TaskIntent }) {
@@ -1730,7 +1832,7 @@ function TankestromEmbeddedSchedulePreview({
             key={`${proposalId}-emb-${i}-${seg.date}-${seg.start ?? ''}-${seg.title.slice(0, 12)}`}
             className="text-[10px] leading-snug text-zinc-800 sm:text-[11px]"
           >
-            {formatEmbeddedSchedulePreviewLine(seg)}
+            {formatEmbeddedSchedulePreviewLine(seg, item.event.title)}
           </li>
         ))}
       </ul>
@@ -2981,12 +3083,14 @@ export function TankestromImportDialog({
                             />
                           ) : null}
                           {embeddedScheduleParentCard && item.kind === 'event' ? (
-                            <div className="mt-2 space-y-1 border-l-2 border-brandTeal/35 pl-2.5">
+                            <div className="mt-2 space-y-2 border-l-2 border-brandTeal/40 pl-2.5 sm:pl-3">
                               <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400 sm:text-[10px]">
                                 Delprogram
                               </p>
                               {((): ReactNode => {
                                 const rows = embeddedScheduleReviewRowsByParentId[pid] ?? []
+                                const parentTitleForChild =
+                                  u.importKind === 'event' ? u.event.title : undefined
                                 if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
                                   console.debug('[tankestrom embedded schedule review]', {
                                     embeddedScheduleChildReviewItemsVisible: rows.length,
@@ -2996,30 +3100,75 @@ export function TankestromImportDialog({
                                 return rows.map((row) => {
                                   const childId = makeEmbeddedChildProposalId(pid, row.origIndex)
                                   const childChecked = selectedIds.has(childId)
+                                  const displayTitle = embeddedScheduleChildDisplayTitle(
+                                    row.segment.title,
+                                    parentTitleForChild
+                                  )
+                                  const timeDisp = embeddedScheduleChildTimeDisplay(row.segment)
+                                  const timeLabel = timeDisp.clock
+                                    ? timeDisp.clock
+                                    : row.segment.isConditional
+                                      ? '–'
+                                      : 'Tid ikke avklart'
+                                  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+                                    console.debug('[tankestrom embedded child display]', {
+                                      embeddedScheduleChildDisplayTitleNormalized: displayTitle,
+                                      embeddedScheduleChildDisplayTimeNormalized:
+                                        timeDisp.clock ??
+                                        (row.segment.isConditional ? '—' : 'Tid ikke avklart'),
+                                      embeddedScheduleChildDisplayedWithoutSyntheticTime:
+                                        timeDisp.omittedSynthetic,
+                                      embeddedScheduleChildRenderedAsNestedBlock: true,
+                                      childProposalId: childId,
+                                    })
+                                  }
                                   return (
                                     <div
                                       key={childId}
-                                      className="flex items-start gap-1.5 rounded-lg border border-zinc-100 bg-white/70 px-2 py-1.5 sm:gap-2 sm:py-2"
+                                      className="rounded-xl border border-zinc-200/95 bg-white px-2.5 py-2 shadow-sm ring-1 ring-zinc-100/90 sm:px-3 sm:py-2.5"
                                     >
-                                      <input
-                                        type="checkbox"
-                                        className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-zinc-300 text-brandTeal focus:ring-brandTeal/30 sm:h-4 sm:w-4"
-                                        checked={childChecked}
-                                        disabled={!checked}
-                                        onChange={() => toggleProposal(childId)}
-                                        aria-label={`Velg programpunkt: ${row.segment.title}`}
-                                      />
-                                      <p className="min-w-0 flex-1 text-[10px] leading-snug text-zinc-800 sm:text-[11px]">
-                                        {formatEmbeddedSchedulePreviewLine(row.segment)}
-                                      </p>
-                                      <button
-                                        type="button"
-                                        disabled={!checked}
-                                        onClick={() => detachEmbeddedScheduleChild(pid, row.origIndex)}
-                                        className="shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:decoration-brandNavy disabled:cursor-not-allowed disabled:opacity-40 sm:text-[10px]"
-                                      >
-                                        Løsne
-                                      </button>
+                                      <div className="flex items-start gap-2 sm:gap-2.5">
+                                        <input
+                                          type="checkbox"
+                                          className="mt-1 h-4 w-4 shrink-0 rounded border-zinc-300 text-brandTeal focus:ring-brandTeal/30"
+                                          checked={childChecked}
+                                          disabled={!checked}
+                                          onChange={() => toggleProposal(childId)}
+                                          aria-label={`Velg programpunkt: ${displayTitle}`}
+                                        />
+                                        <div className="min-w-0 flex-1 space-y-1">
+                                          <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+                                            <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[11px]">
+                                              {embeddedScheduleChildDateShort(row.segment.date)}
+                                            </span>
+                                            <span
+                                              className={`max-w-[55%] text-right text-[10px] font-semibold tabular-nums sm:max-w-[60%] sm:text-[11px] ${
+                                                timeDisp.clock
+                                                  ? 'text-brandNavy'
+                                                  : 'font-medium normal-case tracking-normal text-zinc-400'
+                                              }`}
+                                            >
+                                              {timeLabel}
+                                            </span>
+                                          </div>
+                                          <p className="text-[12px] font-semibold leading-snug text-zinc-900 sm:text-[13px]">
+                                            {displayTitle}
+                                          </p>
+                                          {row.segment.isConditional ? (
+                                            <span className="inline-flex rounded-md border border-amber-200/90 bg-amber-50/95 px-1.5 py-px text-[8px] font-semibold uppercase tracking-wide text-amber-900 sm:text-[9px]">
+                                              Betinget
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                        <button
+                                          type="button"
+                                          disabled={!checked}
+                                          onClick={() => detachEmbeddedScheduleChild(pid, row.origIndex)}
+                                          className="mt-0.5 shrink-0 rounded-lg px-2 py-1 text-[9px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:bg-brandSky/25 hover:decoration-brandNavy disabled:cursor-not-allowed disabled:opacity-40 sm:text-[10px]"
+                                        >
+                                          Løsne
+                                        </button>
+                                      </div>
                                     </div>
                                   )
                                 })
