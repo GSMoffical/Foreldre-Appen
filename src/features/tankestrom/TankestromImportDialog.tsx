@@ -45,7 +45,12 @@ import {
   subjectLabelForKey,
   SUBJECTS_BY_BAND,
 } from '../../data/norwegianSubjects'
-import { resolveEnrichPreviewLineToBlockIdx, stripSubjectPrefixForBlockLine } from '../../lib/schoolWeekOverlayEnrichRouting'
+import {
+  isClientOverlayAdminLine,
+  resolveEnrichPreviewLineToBlockIdx,
+  stripSubjectPrefixForBlockLine,
+  tryClientOrphanLineToLessonIndex,
+} from '../../lib/schoolWeekOverlayEnrichRouting'
 import { tryExtractHeldagsproveHovedmalSidemalTitle } from '../../lib/schoolWeekOverlayReplaceTitle'
 
 /** Les `metadata.schoolContext` fra et event-forslag hvis det finnes. */
@@ -1175,6 +1180,55 @@ function SchoolWeekOverlayReviewCard({
                         )
                       }
 
+                      const overlayClientOrphanLinesBeforeAssignment = OVERLAY_PREVIEW_SECTION_ORDER.reduce(
+                        (n, key) => n + unplaced[key].length,
+                        0
+                      )
+                      let overlayClientOrphanLineAssignedToSubject = 0
+                      if (baseLessons.length > 0 && details.action === 'enrich_existing_school_block') {
+                        for (const key of OVERLAY_PREVIEW_SECTION_ORDER) {
+                          const nextUnplaced: string[] = []
+                          for (const line of unplaced[key]) {
+                            const t = line.trim()
+                            if (!t) continue
+                            if (isClientOverlayAdminLine(t)) continue
+                            const hit = tryClientOrphanLineToLessonIndex(t, enrichBand, baseLessons)
+                            if (hit) {
+                              const lesson = baseLessons[hit.idx]!
+                              const stripped = stripSubjectPrefixForBlockLine(t, enrichBand, lesson)
+                              let finalLine = stripped.text
+                              let finalSection: OverlayPreviewSectionLabel = key
+                              const inferredSection = overlayPreviewSectionLabel('', finalLine)
+                              if (
+                                (key === 'Ekstra beskjed' || key === 'Ressurser' || key === 'Lekse') &&
+                                inferredSection === 'I timen'
+                              ) {
+                                finalSection = 'I timen'
+                              }
+                              if (!isTautologicalOverlayPreviewLine(finalLine, finalSection)) {
+                                blocks[hit.idx]!.sections[finalSection].push(finalLine)
+                                overlayClientOrphanLineAssignedToSubject++
+                              }
+                            } else {
+                              nextUnplaced.push(line)
+                            }
+                          }
+                          unplaced[key] = nextUnplaced
+                        }
+                        for (const b of blocks) {
+                          for (const k of OVERLAY_PREVIEW_SECTION_ORDER) {
+                            b.sections[k] = dedupeOverlayPreviewLines(
+                              filterOverlayPreviewNoiseLines(b.sections[k], enrichBand, enrichNoise)
+                            )
+                          }
+                        }
+                        for (const key of OVERLAY_PREVIEW_SECTION_ORDER) {
+                          unplaced[key] = dedupeOverlayPreviewLines(
+                            filterOverlayPreviewNoiseLines(unplaced[key], enrichBand, enrichNoise)
+                          )
+                        }
+                      }
+
                       if (DEBUG_SCHOOL_IMPORT_PANEL) {
                         console.debug('[overlay preview block]', {
                           overlayPreviewMode: details.action === 'enrich_existing_school_block' ? 'school_block' : 'special',
@@ -1182,6 +1236,12 @@ function SchoolWeekOverlayReviewCard({
                           overlayPreviewUsedSchoolProfileBase: baseLessons.length > 0,
                           overlayPreviewMatchedSubjectBlocks: blocks.length,
                           overlayPreviewUnplacedUpdates: OVERLAY_PREVIEW_SECTION_ORDER.reduce(
+                            (n, key) => n + unplaced[key].length,
+                            0
+                          ),
+                          overlayClientOrphanLinesBeforeAssignment,
+                          overlayClientOrphanLineAssignedToSubject,
+                          overlayClientUnplacedLinesRemaining: OVERLAY_PREVIEW_SECTION_ORDER.reduce(
                             (n, key) => n + unplaced[key].length,
                             0
                           ),

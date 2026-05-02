@@ -372,6 +372,206 @@ function subjectUpdateMetaForLesson(L: SchoolLessonSlot): Pick<SchoolWeekOverlay
   return { subjectKey: L.subjectKey, ...(customLabel ? { customLabel } : {}) }
 }
 
+/** Samme mønster som import-preview — generell admintekst skal ikke forankres til fag. */
+const CLIENT_OVERLAY_ADMIN_LINE_RES: RegExp[] = [
+  /fravær/i,
+  /fraværs/i,
+  /melde\s+fravær/i,
+  /kontaktlærer/i,
+  /kontakt\s*lærer/i,
+  /skolemelding/i,
+  /skolearena/i,
+  /\bfronter\b/i,
+  /its[\s-]*learning/i,
+  /foresatte/i,
+  /foreldre\s+må/i,
+  /må\s+melde\s+seg/i,
+  /innlogging/i,
+  /innsyns/i,
+  /søknad\s+om/i,
+]
+
+export function isClientOverlayAdminLine(line: string): boolean {
+  return CLIENT_OVERLAY_ADMIN_LINE_RES.some((re) => re.test(line))
+}
+
+function lessonIndicesForTyskIntent(lessons: SchoolLessonSlot[]): number[] {
+  const out: number[] = []
+  for (let i = 0; i < lessons.length; i++) {
+    const L = lessons[i]!
+    if (L.subjectKey === 'tysk') out.push(i)
+    if (L.subjectKey === 'fremmedspråk') {
+      const bag = `${L.customLabel ?? ''} ${L.lessonSubcategory ?? ''}`
+      if (/\btysk\b|tyskland|german|deutsch/i.test(bag)) out.push(i)
+    }
+  }
+  return [...new Set(out)]
+}
+
+function lessonIndicesForSamfIntent(lessons: SchoolLessonSlot[]): number[] {
+  const out: number[] = []
+  for (let i = 0; i < lessons.length; i++) {
+    const L = lessons[i]!
+    if (L.subjectKey === 'samfunnsfag' || L.subjectKey === 'samfunnskunnskap') out.push(i)
+  }
+  return [...new Set(out)]
+}
+
+function clientOrphanSignalScores(n: string): { tysk: number; samf: number } {
+  let tysk = 0
+  let samf = 0
+  if (/\b(tyskprøve|tyskprøven|tysk\s*prøve|skriftlig\s+tysk|til\s+tyskprøven?)\b/.test(n)) tysk = 10
+  else if (/\btysk\b/.test(n) && /\b(prøve|skriftlig|muntlig|blyant|viskelær)\b/.test(n)) tysk = 6
+  if (/mars-?bad|badetøy|håndkle/.test(n)) samf = 10
+  else if (/\bspråktimen\b|møt\s+presis\b/.test(n)) samf = 5
+  return { tysk, samf }
+}
+
+/**
+ * Konservativ klient-tolkning av «Ikke plassert»-linjer når backend nesten treffer.
+ * Returnerer null hvis signalet er svakt eller tvetydig (f.eks. flere mulige timer).
+ */
+export function tryClientOrphanLineToLessonIndex(
+  line: string,
+  _band: NorwegianGradeBand,
+  lessons: SchoolLessonSlot[]
+): { idx: number; reason: string } | null {
+  const t = line.trim()
+  if (!t || lessons.length === 0) return null
+  if (isClientOverlayAdminLine(t)) return null
+  const n = normOverlayText(t)
+  const { tysk, samf } = clientOrphanSignalScores(n)
+  if (tysk < 6 && samf < 5) return null
+  if (tysk >= 6 && samf >= 5 && tysk === samf) return null
+
+  const preferTysk = tysk >= 6 && (tysk > samf || samf < 5)
+  const preferSamf = samf >= 5 && (samf > tysk || tysk < 6)
+  if (preferTysk && preferSamf) return null
+
+  if (preferTysk) {
+    const idxs = lessonIndicesForTyskIntent(lessons)
+    if (idxs.length !== 1) return null
+    return { idx: idxs[0]!, reason: `client_signal_tysk_${tysk >= 10 ? 'strong' : 'medium'}` }
+  }
+  if (preferSamf) {
+    const idxs = lessonIndicesForSamfIntent(lessons)
+    if (idxs.length !== 1) return null
+    return { idx: idxs[0]!, reason: `client_signal_samf_${samf >= 10 ? 'strong' : 'medium'}` }
+  }
+  return null
+}
+
+/**
+ * Flytter linjer fra `subjectKey: other` til riktig fag når tekstsignalet er tydelig.
+ * Brukes etter `redistributeEnrichSubjectUpdatesForDay` og i detaljvisning.
+ */
+export function applyClientOrphanFallbackToSubjectUpdates(
+  band: NorwegianGradeBand,
+  lessons: SchoolLessonSlot[],
+  updatesIn: SchoolWeekOverlaySubjectUpdate[]
+): SchoolWeekOverlaySubjectUpdate[] {
+  if (lessons.length === 0) return updatesIn
+  const otherIdx = updatesIn.findIndex((u) => u.subjectKey === 'other')
+  if (otherIdx < 0) return updatesIn
+
+  const other = updatesIn[otherIdx]!
+  const orphanLinesBefore: Array<{ sectionKey: string; line: string }> = []
+  for (const [sectionKey, lines] of Object.entries(other.sections ?? {})) {
+    for (const raw of lines ?? []) {
+      const t = raw.trim()
+      if (t) orphanLinesBefore.push({ sectionKey, line: t })
+    }
+  }
+  if (orphanLinesBefore.length === 0) return updatesIn
+
+  const dbg = import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+  const assignmentLog: Array<{
+    line: string
+    outcome: 'assigned' | 'keep_other' | 'drop_admin'
+    idx?: number
+    reason?: string
+  }> = []
+
+  const remainingOther: Record<string, string[]> = {}
+  const pushRemaining = (sk: string, line: string) => {
+    if (!remainingOther[sk]) remainingOther[sk] = []
+    remainingOther[sk].push(line)
+  }
+
+  const additionsByLessonIdx = new Map<number, Record<string, string[]>>()
+  const addToLesson = (idx: number, sectionKey: string, line: string) => {
+    let rec = additionsByLessonIdx.get(idx)
+    if (!rec) {
+      rec = {}
+      additionsByLessonIdx.set(idx, rec)
+    }
+    if (!rec[sectionKey]) rec[sectionKey] = []
+    rec[sectionKey]!.push(line)
+  }
+
+  for (const { sectionKey, line } of orphanLinesBefore) {
+    if (isClientOverlayAdminLine(line)) {
+      assignmentLog.push({ line, outcome: 'drop_admin' })
+      continue
+    }
+    const hit = tryClientOrphanLineToLessonIndex(line, band, lessons)
+    if (hit) {
+      addToLesson(hit.idx, sectionKey, line)
+      assignmentLog.push({ line, outcome: 'assigned', idx: hit.idx, reason: hit.reason })
+    } else {
+      pushRemaining(sectionKey, line)
+      assignmentLog.push({ line, outcome: 'keep_other' })
+    }
+  }
+
+  let next = updatesIn.filter((_, i) => i !== otherIdx)
+  for (const [idx, sectionsToAdd] of additionsByLessonIdx) {
+    const L = lessons[idx]!
+    const meta = subjectUpdateMetaForLesson(L)
+    const existingIdx = next.findIndex((u) => {
+      if (u.subjectKey !== meta.subjectKey) return false
+      const uCust = (u.customLabel ?? '').trim()
+      const mCust = (meta.customLabel ?? '').trim()
+      return uCust === mCust
+    })
+    if (existingIdx >= 0) {
+      const u = next[existingIdx]!
+      const merged: Record<string, string[]> = { ...(u.sections ?? {}) }
+      for (const [sk, lines] of Object.entries(sectionsToAdd)) {
+        merged[sk] = [...(merged[sk] ?? []), ...lines]
+      }
+      next[existingIdx] = { ...u, sections: merged }
+    } else {
+      next.push({ ...meta, sections: sectionsToAdd })
+    }
+  }
+
+  if (Object.keys(remainingOther).length > 0) {
+    next.push({ subjectKey: 'other', sections: remainingOther })
+  }
+
+  if (dbg) {
+    const assigned = assignmentLog.filter((a) => a.outcome === 'assigned').length
+    const dropped = assignmentLog.filter((a) => a.outcome === 'drop_admin').length
+    const kept = assignmentLog.filter((a) => a.outcome === 'keep_other').length
+    const fallbackOtherUsed = next.some((u) => u.subjectKey === 'other')
+    console.debug('[overlay client orphan fallback]', {
+      overlayClientOrphanLinesBeforeAssignment: orphanLinesBefore.length,
+      overlayClientOrphanLineAssignedToSubject: assigned,
+      overlayClientOrphanLineAssignmentReason: assignmentLog,
+      overlayClientUnplacedLinesRemaining: kept,
+      overlaySubjectUpdatesBuilt: next.length,
+      overlaySubjectUpdateFallbackOtherUsed: fallbackOtherUsed,
+      overlayAdminLinesDropped: dropped,
+    })
+  }
+
+  if (next.length === 0) {
+    return updatesIn.filter((u) => u.subjectKey !== 'other')
+  }
+  return next
+}
+
 /**
  * Deler opp overlay-linjer til én `subjectUpdate` per time (som import-preview),
  * med `subjectKey`/`customLabel` fra faktisk timeplan. Rest samles under `subjectKey: other`.
@@ -428,5 +628,7 @@ export function redistributeEnrichSubjectUpdatesForDay(
     out.push({ subjectKey: 'other', sections: fallbackSections })
   }
 
-  return out.length > 0 ? out : updatesIn
+  const refined =
+    out.length > 0 ? applyClientOrphanFallbackToSubjectUpdates(band, baseLessons, out) : out
+  return refined.length > 0 ? refined : updatesIn
 }
