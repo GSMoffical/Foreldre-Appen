@@ -11,9 +11,9 @@ export function normalizeTaskIntent(v: unknown): TaskIntent | undefined {
   return undefined
 }
 
-/** Visningsetiketter (review, lister). */
+/** Visningsetiketter (review, lister). Intern verdi `can_help` vises som «Valgfritt». */
 export function taskIntentLabelNb(intent: TaskIntent): string {
-  return intent === 'must_do' ? 'Må gjøre' : 'Kan bidra'
+  return intent === 'must_do' ? 'Må gjøre' : 'Valgfritt'
 }
 
 export function taskIntentBadgeClassName(intent: TaskIntent): string {

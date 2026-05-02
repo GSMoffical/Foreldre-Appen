@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import type { PortalEventProposal, PortalProposalItem, PortalSchoolWeekOverlayProposal } from './types'
+import type { EmbeddedScheduleSegment } from '../../types'
+import { groupEmbeddedScheduleByDate, parseEmbeddedScheduleFromMetadata } from '../../lib/embeddedSchedule'
 import type {
   ChildSchoolDayPlan,
   ChildSchoolProfile,
@@ -8,6 +10,7 @@ import type {
   SchoolContext,
   SchoolLessonSlot,
   Task,
+  TaskIntent,
   WeekdayMonFri,
 } from '../../types'
 import type { UseEventControllerReturn } from '../calendar/hooks/useEventController'
@@ -1634,6 +1637,105 @@ function formatNorwegianDateRangeLabel(isoStart: string, isoEnd: string): string
   }
 }
 
+const EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX = 4
+
+function flattenEmbeddedScheduleForPreview(item: PortalEventProposal): EmbeddedScheduleSegment[] {
+  const parsed = parseEmbeddedScheduleFromMetadata(item.event.metadata)
+  return groupEmbeddedScheduleByDate(parsed).flatMap((g) => g.items)
+}
+
+function formatEmbeddedSchedulePreviewLine(seg: EmbeddedScheduleSegment): string {
+  let dayAbbr = ''
+  try {
+    dayAbbr = new Date(`${seg.date}T12:00:00`)
+      .toLocaleDateString('nb-NO', { weekday: 'short' })
+      .replace(/\.$/, '')
+      .trim()
+    if (dayAbbr.length > 3) dayAbbr = dayAbbr.slice(0, 3)
+  } catch {
+    dayAbbr = seg.date.slice(8, 10) + '.'
+  }
+  const t = seg.start ? seg.start.slice(0, 5) : ''
+  const timePrefix = t ? `${t} ` : ''
+  let title = seg.title.trim()
+  if (seg.isConditional) title = `${title} (betinget)`
+  if (title.length > 40) title = `${title.slice(0, 37)}…`
+  return `${dayAbbr} ${timePrefix}${title}`.replace(/\s+/g, ' ').trim()
+}
+
+function TankestromReviewTaskIntentChip({ proposalId, intent }: { proposalId: string; intent: TaskIntent }) {
+  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+    console.debug('[tankestrom review task intent]', {
+      taskIntentLabelRendered: taskIntentLabelNb(intent),
+      proposalId,
+    })
+  }
+  return (
+    <span
+      className={`inline-flex rounded-full border px-1.5 py-px text-[8px] font-semibold sm:text-[10px] ${taskIntentBadgeClassName(
+        intent
+      )}`}
+    >
+      {taskIntentLabelNb(intent)}
+    </span>
+  )
+}
+
+function TankestromEmbeddedSchedulePreview({
+  proposalId,
+  item,
+  expanded,
+  onToggleExpanded,
+}: {
+  proposalId: string
+  item: PortalEventProposal
+  expanded: boolean
+  onToggleExpanded: () => void
+}) {
+  const flat = flattenEmbeddedScheduleForPreview(item)
+  if (flat.length === 0) return null
+
+  const visible = expanded ? flat : flat.slice(0, EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX)
+  const remainder = flat.length > EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX ? flat.length - EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX : 0
+
+  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+    console.debug('[tankestrom review embedded schedule preview]', {
+      embeddedSchedulePreviewRendered: true,
+      embeddedSchedulePreviewCollapsed: !expanded,
+      embeddedSchedulePreviewVisibleCount: visible.length,
+      proposalId,
+    })
+  }
+
+  return (
+    <div className="mt-1.5 rounded-lg border border-zinc-100 bg-white/80 px-2 py-1.5 sm:mt-2 sm:px-2.5 sm:py-2">
+      <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400 sm:text-[10px]">Program</p>
+      <ul className="mt-1 max-h-[11rem] space-y-0.5 overflow-y-auto overscroll-y-contain sm:max-h-60">
+        {visible.map((seg, i) => (
+          <li
+            key={`${proposalId}-emb-${i}-${seg.date}-${seg.start ?? ''}-${seg.title.slice(0, 12)}`}
+            className="text-[10px] leading-snug text-zinc-800 sm:text-[11px]"
+          >
+            {formatEmbeddedSchedulePreviewLine(seg)}
+          </li>
+        ))}
+      </ul>
+      {!expanded && remainder > 0 ? (
+        <p className="mt-1 text-[10px] font-medium text-zinc-500">+{remainder} til</p>
+      ) : null}
+      {flat.length > EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX ? (
+        <button
+          type="button"
+          onClick={onToggleExpanded}
+          className="mt-1 text-left text-[10px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:decoration-brandNavy touch-manipulation sm:text-[11px]"
+        >
+          {expanded ? 'Skjul program' : 'Vis hele programmet'}
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 /** Parent med innebygd program (merged cup/turnering) — egen meta-linje i review. */
 function isEmbeddedScheduleParentReviewCard(item: PortalProposalItem, importKind: string): boolean {
   if (item.kind !== 'event' || importKind !== 'event') return false
@@ -1836,6 +1938,16 @@ export function TankestromImportDialog({
   }, [])
   const toggleDetailsExpanded = useCallback((proposalId: string) => {
     setExpandedDetailIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(proposalId)) next.delete(proposalId)
+      else next.add(proposalId)
+      return next
+    })
+  }, [])
+
+  const [expandedProgramPreviewIds, setExpandedProgramPreviewIds] = useState<Set<string>>(() => new Set())
+  const toggleProgramPreviewExpanded = useCallback((proposalId: string) => {
+    setExpandedProgramPreviewIds((prev) => {
       const next = new Set(prev)
       if (next.has(proposalId)) next.delete(proposalId)
       else next.add(proposalId)
@@ -2793,13 +2905,10 @@ export function TankestromImportDialog({
                             </p>
                             <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
                               {u.importKind === 'task' ? (
-                                <span
-                                  className={`inline-flex rounded-full border px-1.5 py-px text-[8px] font-semibold sm:text-[10px] ${taskIntentBadgeClassName(
-                                    u.task.taskIntent ?? 'must_do'
-                                  )}`}
-                                >
-                                  {taskIntentLabelNb(u.task.taskIntent ?? 'must_do')}
-                                </span>
+                                <TankestromReviewTaskIntentChip
+                                  proposalId={pid}
+                                  intent={u.task.taskIntent ?? 'must_do'}
+                                />
                               ) : null}
                               <span
                                 className={`inline-flex rounded border px-1 py-px text-[9px] font-semibold tabular-nums sm:rounded-full sm:px-1.5 sm:py-0.5 sm:text-[10px] ${compactConf.className}`}
@@ -2820,6 +2929,14 @@ export function TankestromImportDialog({
                           <p className="mt-0.5 text-[10px] leading-snug text-zinc-600 sm:mt-1 sm:text-[11px]">
                             {summaryMetaLine}
                           </p>
+                          {embeddedScheduleParentCard && item.kind === 'event' ? (
+                            <TankestromEmbeddedSchedulePreview
+                              proposalId={pid}
+                              item={item}
+                              expanded={expandedProgramPreviewIds.has(pid)}
+                              onToggleExpanded={() => toggleProgramPreviewExpanded(pid)}
+                            />
+                          ) : null}
                           {u.importKind === 'task' ? (
                             <div className="mt-1.5 flex flex-wrap items-center gap-2">
                               <span className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400 sm:text-[10px]">
@@ -2848,7 +2965,7 @@ export function TankestromImportDialog({
                                   }`}
                                   onClick={() => updateTaskDraft(pid, { taskIntent: 'can_help' })}
                                 >
-                                  Kan bidra
+                                  {taskIntentLabelNb('can_help')}
                                 </button>
                               </div>
                             </div>
@@ -3260,7 +3377,7 @@ export function TankestromImportDialog({
                                   }`}
                                   onClick={() => updateTaskDraft(pid, { taskIntent: 'can_help' })}
                                 >
-                                  Kan bidra
+                                  {taskIntentLabelNb('can_help')}
                                 </button>
                               </div>
                             </div>
