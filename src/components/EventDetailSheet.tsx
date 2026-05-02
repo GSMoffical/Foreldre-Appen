@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { springDialog } from '../lib/motion'
 import { Button } from './ui/Button'
 import { inputBase, sheetPanel, sheetHandle, sheetHandleBar, sheetDetailBody, sheetSubtitle, btnSecondary, btnDanger } from '../lib/ui'
-import type { Event } from '../types'
+import type { EmbeddedScheduleSegment, Event } from '../types'
+import { groupEmbeddedScheduleByDate, parseEmbeddedScheduleFromMetadata } from '../lib/embeddedSchedule'
 import { formatTimeRange, durationMinutes } from '../lib/time'
 import { useFamily } from '../context/FamilyContext'
 import { getParticipantPeople } from '../lib/eventParticipants'
@@ -22,6 +23,18 @@ interface EventDetailSheetProps {
   mePersonId?: string | null
   /** Quick-assign a transport role directly from the detail sheet without opening the edit form. */
   onQuickAssignTransport?: (role: 'dropoff' | 'pickup', personId: string) => Promise<void> | void
+}
+
+function formatScheduleDayHeading(dateKey: string): string {
+  const d = new Date(`${dateKey}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return dateKey
+  return d.toLocaleDateString('nb-NO', { weekday: 'long', day: 'numeric', month: 'long' })
+}
+
+function segmentTimeLabel(s: EmbeddedScheduleSegment): string | null {
+  if (s.start && s.end) return formatTimeRange(s.start, s.end)
+  if (s.start) return s.start
+  return null
 }
 
 export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDuplicate, onMove, mePersonId, onQuickAssignTransport }: EventDetailSheetProps) {
@@ -91,6 +104,11 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
   const duration = durationMinutes(event.start, event.end)
   const durationStr =
     duration < 60 ? `${duration} min` : `${Math.floor(duration / 60)} t ${duration % 60} min`
+
+  const scheduleGroups = useMemo(() => {
+    const parsed = parseEmbeddedScheduleFromMetadata(event.metadata)
+    return groupEmbeddedScheduleByDate(parsed)
+  }, [event.metadata])
 
   useEffect(() => {
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -242,6 +260,53 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
             <p className="mt-2 text-body-sm text-zinc-600">
               <span className="font-medium">Notater:</span> {event.notes}
             </p>
+          )}
+
+          {scheduleGroups.length > 0 && (
+            <div className="mt-4">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Program</p>
+              <div className="space-y-4">
+                {scheduleGroups.map(({ date: dayKey, items }) => (
+                  <div key={dayKey}>
+                    <p className="mb-2 text-[13px] font-semibold capitalize text-zinc-800">
+                      {formatScheduleDayHeading(dayKey)}
+                    </p>
+                    <ul className="space-y-3">
+                      {items.map((seg, idx) => {
+                        const timeStr = segmentTimeLabel(seg)
+                        return (
+                          <li key={`${dayKey}-${idx}-${seg.title}`} className="flex gap-3">
+                            <div className="w-[4.25rem] shrink-0 pt-0.5 text-right">
+                              {timeStr ? (
+                                <span className="text-[12px] font-semibold tabular-nums text-zinc-600">{timeStr}</span>
+                              ) : (
+                                <span className="text-[11px] text-zinc-400">—</span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1 border-l border-zinc-200 pl-3">
+                              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                                <span className="text-[14px] font-medium leading-snug text-zinc-900">{seg.title}</span>
+                                {seg.isConditional && (
+                                  <span className="rounded-md bg-amber-100/90 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900/85">
+                                    Betinget
+                                  </span>
+                                )}
+                                {seg.kind ? (
+                                  <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">{seg.kind}</span>
+                                ) : null}
+                              </div>
+                              {seg.notes ? (
+                                <p className="mt-1 text-[12px] leading-relaxed text-zinc-500">{seg.notes}</p>
+                              ) : null}
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {showDeleteConfirm && (

@@ -195,6 +195,24 @@ export interface SchoolDayOverride {
   confidence?: number;
 }
 
+/**
+ * Ett punkt i et innebygd program under ett parent-event (cup, tur, leir osv.).
+ * Vises i detaljark; er ikke egne kalenderhendelser i MVP.
+ */
+export interface EmbeddedScheduleSegment {
+  /** YYYY-MM-DD */
+  date: string;
+  /** HH:mm (24h), valgfritt */
+  start?: string;
+  end?: string;
+  title: string;
+  notes?: string;
+  /** Valgfri maskinlesbar tag (f.eks. «meet», «match») for senere import/UI. */
+  kind?: string;
+  /** True når punktet er usikkert eller avhengig av f.eks. tidligere kamper (sluttspill). */
+  isConditional?: boolean;
+}
+
 export interface EventMetadata {
   transport?: TransportInfo;
   /** Participant person ids for multi-person activities.
@@ -231,6 +249,13 @@ export interface EventMetadata {
   }
   /** Konkrete dagsregler fra uke-overlay (for visning i detaljsheet). */
   schoolWeekOverlayDay?: SchoolWeekOverlayDayAction
+  /**
+   * Innebygd tidsprogram under ett sammensatt arrangement (parent-event i kalenderen).
+   * Barn av programmet har ingen egne rader i timeplanen i MVP — kun visning her og i fremtidig import.
+   */
+  embeddedSchedule?: EmbeddedScheduleSegment[];
+  /** Felles id for logisk gruppe (kobling til tasks/import senere); valgfri i MVP. */
+  blockGroupId?: string;
   /** Free-form metadata reserved for future automation features. */
   [key: string]: unknown;
 }

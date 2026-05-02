@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChildSchoolProfile, Event, Person, SchoolWeekOverlay, Task, WeekdayMonFri } from '../../types'
 import { filterSubjectUpdatesByLanguageTrack } from '../../lib/schoolWeekOverlayFilters'
+import { applyCupWeekendEmbeddedScheduleMerge } from '../../lib/tankestromCupEmbeddedScheduleMerge'
 import { dedupeNearDuplicateCalendarProposals } from '../../lib/tankestromImportDedupe'
 import { redistributeEnrichSubjectUpdatesForDay } from '../../lib/schoolWeekOverlayEnrichRouting'
 import type {
@@ -1076,7 +1077,9 @@ export function useTankestromImport({
         setSchoolProfileChildId(importChildId)
         const defaultPersonId = people[0]?.id ?? ''
         const sourceHint = humanImportSourceLabelForBundle(b)
-        const items = dedupeNearDuplicateCalendarProposals(b.items)
+        const items = applyCupWeekendEmbeddedScheduleMerge(dedupeNearDuplicateCalendarProposals(b.items), {
+          sourceText: textInput,
+        })
         setBundle({ ...b, items })
         const drafts = buildDraftsFromItems(items, validPersonIds, defaultPersonId, people, sourceHint)
         setDraftByProposalId(drafts)
@@ -1192,7 +1195,9 @@ export function useTankestromImport({
       setSchoolProfileChildId(importChildId)
       const defaultPersonId = people[0]?.id ?? ''
       const sourceHint = humanImportSourceLabelForBundle(merged)
-      const items = dedupeNearDuplicateCalendarProposals(merged.items)
+      const items = applyCupWeekendEmbeddedScheduleMerge(dedupeNearDuplicateCalendarProposals(merged.items), {
+        sourceText: undefined,
+      })
       setBundle({ ...merged, items })
       const drafts = buildDraftsFromItems(items, validPersonIds, defaultPersonId, people, sourceHint)
       setDraftByProposalId(drafts)

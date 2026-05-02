@@ -2746,6 +2746,13 @@ export function TankestromImportDialog({
                           <p className="mt-0.5 text-[10px] leading-snug text-zinc-600 sm:mt-1 sm:text-[11px]">
                             {summaryMetaLine}
                           </p>
+                          {item.kind === 'event' &&
+                          Array.isArray(item.event.metadata?.embeddedSchedule) &&
+                          item.event.metadata.embeddedSchedule.length > 0 ? (
+                            <p className="mt-0.5 text-[10px] font-medium text-brandNavy sm:text-[11px]">
+                              Program: {item.event.metadata.embeddedSchedule.length} punkter (vises i hendelsesdetaljer)
+                            </p>
+                          ) : null}
                           {!editorOpen && notesPrev ? (
                             <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-zinc-500 sm:text-[11px]">
                               {notesPrev}
