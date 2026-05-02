@@ -2596,6 +2596,9 @@ export function TankestromImportDialog({
                   const badge = confidenceBadgeStyle(item.confidence)
                   const sourceCtx = getSourceContextTextForItem(item)
                   const fullSourceDoc = buildFullSourceContextDocumentForItem(item)
+                  const hasMeaningfulSourceBasis = Boolean(
+                    (sourceCtx && sourceCtx.trim()) || (fullSourceDoc && fullSourceDoc.trim())
+                  )
                   const showSourceExpandToggle = sourceCtx && shouldOfferSourceExpand(fullSourceDoc, sourceCtx)
                   const sourceExpanded = expandedSourceIds.has(pid)
                   const detailsExpanded = expandedDetailIds.has(pid)
@@ -3167,53 +3170,57 @@ export function TankestromImportDialog({
                                 />
                               </div>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => toggleDetailsExpanded(pid)}
-                              className="flex w-full items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-left text-[12px] font-medium text-zinc-700 transition hover:bg-zinc-100"
-                              aria-expanded={detailsExpanded}
-                              aria-controls={`ts-task-extra-${pid}`}
-                            >
-                              <span>{detailsExpanded ? 'Skjul kildegrunnlag' : 'Vis kildegrunnlag'}</span>
-                              <svg
-                                className={`h-4 w-4 text-zinc-500 transition-transform ${detailsExpanded ? 'rotate-180' : ''}`}
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                strokeWidth={2.5}
-                                stroke="currentColor"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                              </svg>
-                            </button>
-                            {detailsExpanded && sourceCtx ? (
-                              <div
-                                id={`ts-task-extra-${pid}`}
-                                className="rounded-lg border border-zinc-200/80 bg-zinc-50/90 px-3 py-2"
-                              >
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                                  Kildegrunnlag (fra AI)
-                                </p>
-                                <p className="mt-1 text-[12px] leading-relaxed text-zinc-600">{sourceCtx}</p>
-                                {showSourceExpandToggle && fullSourceDoc ? (
-                                  <>
-                                    <button
-                                      type="button"
-                                      className="mt-2 text-left text-[12px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:decoration-brandNavy"
-                                      onClick={() => toggleSourceExpanded(pid)}
-                                      aria-expanded={sourceExpanded}
-                                    >
-                                      {sourceExpanded ? 'Vis mindre' : 'Vis mer'}
-                                    </button>
-                                    {sourceExpanded && fullSourceDoc ? (
-                                      <div className="mt-2 max-h-40 overflow-y-auto text-[12px] whitespace-pre-wrap text-zinc-700">
-                                        {fullSourceDoc.length > 8000
-                                          ? `${fullSourceDoc.slice(0, 7997)}…`
-                                          : fullSourceDoc}
-                                      </div>
+                            {hasMeaningfulSourceBasis ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleDetailsExpanded(pid)}
+                                  className="flex w-full items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-left text-[12px] font-medium text-zinc-700 transition hover:bg-zinc-100"
+                                  aria-expanded={detailsExpanded}
+                                  aria-controls={`ts-task-extra-${pid}`}
+                                >
+                                  <span>{detailsExpanded ? 'Skjul kildegrunnlag' : 'Vis kildegrunnlag'}</span>
+                                  <svg
+                                    className={`h-4 w-4 text-zinc-500 transition-transform ${detailsExpanded ? 'rotate-180' : ''}`}
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    strokeWidth={2.5}
+                                    stroke="currentColor"
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                                  </svg>
+                                </button>
+                                {detailsExpanded && sourceCtx ? (
+                                  <div
+                                    id={`ts-task-extra-${pid}`}
+                                    className="rounded-lg border border-zinc-200/80 bg-zinc-50/90 px-3 py-2"
+                                  >
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                                      Kildegrunnlag (fra AI)
+                                    </p>
+                                    <p className="mt-1 text-[12px] leading-relaxed text-zinc-600">{sourceCtx}</p>
+                                    {showSourceExpandToggle && fullSourceDoc ? (
+                                      <>
+                                        <button
+                                          type="button"
+                                          className="mt-2 text-left text-[12px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:decoration-brandNavy"
+                                          onClick={() => toggleSourceExpanded(pid)}
+                                          aria-expanded={sourceExpanded}
+                                        >
+                                          {sourceExpanded ? 'Vis mindre' : 'Vis mer'}
+                                        </button>
+                                        {sourceExpanded && fullSourceDoc ? (
+                                          <div className="mt-2 max-h-40 overflow-y-auto text-[12px] whitespace-pre-wrap text-zinc-700">
+                                            {fullSourceDoc.length > 8000
+                                              ? `${fullSourceDoc.slice(0, 7997)}…`
+                                              : fullSourceDoc}
+                                          </div>
+                                        ) : null}
+                                      </>
                                     ) : null}
-                                  </>
+                                  </div>
                                 ) : null}
-                              </div>
+                              </>
                             ) : null}
                           </div>
                         </>
