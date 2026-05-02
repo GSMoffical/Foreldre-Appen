@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { parseChildSchoolProfile, parsePortalImportProposalBundle } from '../tankestromApi'
+import {
+  normalizeTankestromAnalyzeHttpJson,
+  parseChildSchoolProfile,
+  parsePortalImportProposalBundle,
+} from '../tankestromApi'
 
 const provenance = {
   sourceSystem: 'tankestrom' as const,
@@ -404,5 +408,48 @@ describe('parsePortalImportProposalBundle — schoolWeekOverlayProposal', () => 
 
     expect(bundle.items).toHaveLength(0)
     expect(bundle.schoolWeekOverlayProposal?.proposalId).toBe('33333333-3333-4333-8333-333333333333')
+  })
+})
+
+describe('normalizeTankestromAnalyzeHttpJson (tekstmodus / JSON-svar)', () => {
+  it('pakker ut data og setter schemaVersion når bundle ellers er gyldig', () => {
+    const raw = {
+      data: {
+        provenance,
+        items: [
+          {
+            proposalId: 'c3d4e5f6-a7b8-4901-8234-567890abcdef',
+            kind: 'school_profile',
+            sourceId: 'src-1',
+            originalSourceType: 'weekly_timetable',
+            confidence: 0.9,
+            schoolProfile: { gradeBand: '8-10', weekdays: {} },
+          },
+        ],
+      },
+    }
+    const normalized = normalizeTankestromAnalyzeHttpJson(raw)
+    const bundle = parsePortalImportProposalBundle(normalized)
+    expect(bundle.schemaVersion).toBe('1.0.0')
+    expect(bundle.items).toHaveLength(1)
+  })
+
+  it('setter schemaVersion på toppnivå når feltet mangler', () => {
+    const raw = {
+      provenance,
+      items: [
+        {
+          proposalId: 'c3d4e5f6-a7b8-4901-8234-567890abcdef',
+          kind: 'school_profile',
+          sourceId: 'src-1',
+          originalSourceType: 'weekly_timetable',
+          confidence: 0.9,
+          schoolProfile: { gradeBand: '8-10', weekdays: {} },
+        },
+      ],
+    }
+    const normalized = normalizeTankestromAnalyzeHttpJson(raw)
+    const bundle = parsePortalImportProposalBundle(normalized)
+    expect(bundle.schemaVersion).toBe('1.0.0')
   })
 })

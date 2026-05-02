@@ -579,6 +579,65 @@ function readTopLevelSchoolProfilePayload(data: Record<string, unknown>): unknow
   return undefined
 }
 
+/** Gjenkjenner analyse-«bundle» før schemaVersion er injisert eller etter JSON-unwrap. */
+function looksLikeImportBundlePayload(r: Record<string, unknown>): boolean {
+  if (isRecord(r.provenance)) return true
+  if (Array.isArray(r.items)) return true
+  if (r.schoolWeekOverlayProposal != null) return true
+  if (readTopLevelSchoolProfilePayload(r) !== undefined) return true
+  return false
+}
+
+const TANKESTROM_ANALYZE_WRAP_KEYS = ['bundle', 'result', 'data', 'payload', 'output'] as const
+
+function unwrapTankestromAnalyzeJson(json: unknown): unknown {
+  let cur: unknown = json
+  for (let depth = 0; depth < 5; depth++) {
+    if (!isRecord(cur)) return cur
+    if (looksLikeImportBundlePayload(cur)) return cur
+    let inner: Record<string, unknown> | undefined
+    for (const k of TANKESTROM_ANALYZE_WRAP_KEYS) {
+      const v = cur[k]
+      if (isRecord(v) && looksLikeImportBundlePayload(v)) {
+        inner = v
+        break
+      }
+    }
+    if (!inner) return cur
+    cur = inner
+  }
+  return cur
+}
+
+function summarizeTankestromJsonShape(x: unknown, maxKeys = 14): unknown {
+  if (x === null) return 'null'
+  if (!isRecord(x)) return typeof x
+  const keys = Object.keys(x).sort()
+  const out: Record<string, unknown> = { keys: keys.slice(0, maxKeys) }
+  for (const k of keys.slice(0, maxKeys)) {
+    const v = x[k]
+    if (v === null) out[k] = 'null'
+    else if (Array.isArray(v)) out[k] = `array(${v.length})`
+    else if (isRecord(v)) out[k] = { keys: Object.keys(v).sort().slice(0, 12) }
+    else out[k] = typeof v
+  }
+  return out
+}
+
+/**
+ * Gjør HTTP-svar fra analyse-API kompatibelt med `parsePortalImportProposalBundle`.
+ * Tekstmodus (JSON body) returneres ofte uten `schemaVersion` eller innpakket i `data` / `result`.
+ */
+export function normalizeTankestromAnalyzeHttpJson(json: unknown): unknown {
+  const unwrapped = unwrapTankestromAnalyzeJson(json)
+  if (!isRecord(unwrapped)) return unwrapped
+  const sv = unwrapped.schemaVersion
+  if (sv === '1.0.0') return unwrapped
+  if (sv !== undefined && sv !== null && String(sv).trim() !== '') return unwrapped
+  if (!looksLikeImportBundlePayload(unwrapped)) return unwrapped
+  return { ...unwrapped, schemaVersion: '1.0.0' }
+}
+
 /**
  * Validerer og parser JSON fra analyse-backend til typet bundle.
  */
@@ -687,7 +746,31 @@ async function analyzeWithTankestrom(payload: AnalyzePayload): Promise<PortalImp
     throw new Error(`Analyse feilet (${res.status}): ${detail}`)
   }
 
-  return parsePortalImportProposalBundle(json)
+  const dbgText =
+    payload.kind === 'text' &&
+    (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true')
+
+  const normalized = normalizeTankestromAnalyzeHttpJson(json)
+
+  if (dbgText) {
+    console.debug('[tankestrom text analyze]', {
+      tankestrom_text_request_shape: { method: 'POST', contentType: 'application/json', bodyFields: ['text'] },
+      tankestrom_text_response_shape: summarizeTankestromJsonShape(json),
+      tankestrom_text_schema_version_received: isRecord(json) ? json.schemaVersion : undefined,
+      tankestrom_text_normalized_schema_version: isRecord(normalized) ? normalized.schemaVersion : undefined,
+    })
+  }
+
+  try {
+    return parsePortalImportProposalBundle(normalized)
+  } catch (e) {
+    if (dbgText) {
+      console.debug('[tankestrom text analyze]', {
+        tankestrom_text_bundle_parse_failed_reason: e instanceof Error ? e.message : String(e),
+      })
+    }
+    throw e
+  }
 }
 
 /**
