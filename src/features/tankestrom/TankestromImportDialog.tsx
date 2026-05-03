@@ -1761,6 +1761,12 @@ function embeddedScheduleChildDateShort(isoDate: string): string {
   }
 }
 
+/** Kun segmentets egne notater — ikke foreldernotasjon (unngår tekstvegg i kortet). */
+function embeddedScheduleChildSegmentNotesBody(seg: EmbeddedScheduleSegment): string | null {
+  const n = typeof seg.notes === 'string' ? seg.notes.trim() : ''
+  return n.length > 0 ? n : null
+}
+
 function flattenEmbeddedScheduleForPreview(item: PortalEventProposal): EmbeddedScheduleSegment[] {
   const parsed = parseEmbeddedScheduleFromMetadata(item.event.metadata)
   return groupEmbeddedScheduleByDate(parsed).flatMap((g) => g.items)
@@ -2092,6 +2098,28 @@ export function TankestromImportDialog({
     })
   }, [])
 
+  const [expandedDelprogramChildIds, setExpandedDelprogramChildIds] = useState<Set<string>>(() => new Set())
+  const toggleDelprogramChildExpanded = useCallback((childProposalId: string, seg: EmbeddedScheduleSegment) => {
+    setExpandedDelprogramChildIds((prev) => {
+      const next = new Set(prev)
+      const wasOpen = next.has(childProposalId)
+      if (wasOpen) next.delete(childProposalId)
+      else next.add(childProposalId)
+      const nowExpanded = !wasOpen
+      if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+        const hasNotes = Boolean(embeddedScheduleChildSegmentNotesBody(seg))
+        console.debug('[tankestrom embedded schedule child detail]', {
+          embeddedScheduleChildExpanded: nowExpanded,
+          embeddedScheduleChildExpandedInline: true,
+          embeddedScheduleChildNotesRendered: nowExpanded && hasNotes,
+          embeddedScheduleChildNotesMissing: nowExpanded && !hasNotes,
+          childProposalId: childProposalId,
+        })
+      }
+      return next
+    })
+  }, [])
+
   /** Full redigering for importkort — standard sammenslått for rask oversikt (særlig mobil). */
   const [reviewCardEditorOpen, setReviewCardEditorOpen] = useState<Set<string>>(() => new Set())
   const toggleReviewCardEditor = useCallback((proposalId: string) => {
@@ -2143,6 +2171,7 @@ export function TankestromImportDialog({
       setExpandedDetailIds(new Set())
       setReviewCardEditorOpen(new Set())
       setBulkPersonPick(new Set())
+      setExpandedDelprogramChildIds(new Set())
     }
   }, [open])
 
@@ -3204,6 +3233,10 @@ export function TankestromImportDialog({
                                       childProposalId: childId,
                                     })
                                   }
+                                  const delprogramDetailOpen = expandedDelprogramChildIds.has(childId)
+                                  const childNotesBody = embeddedScheduleChildSegmentNotesBody(row.segment)
+                                  const detailPanelId = `delprogram-child-detail-${childId}`
+                                  const detailTriggerId = `delprogram-child-trigger-${childId}`
                                   return (
                                     <div
                                       key={childId}
@@ -3218,7 +3251,14 @@ export function TankestromImportDialog({
                                           onChange={() => toggleProposal(childId)}
                                           aria-label={`Velg programpunkt: ${displayTitle}`}
                                         />
-                                        <div className="min-w-0 flex-1 space-y-1">
+                                        <button
+                                          type="button"
+                                          id={detailTriggerId}
+                                          aria-expanded={delprogramDetailOpen}
+                                          aria-controls={detailPanelId}
+                                          className="min-w-0 flex-1 space-y-1 rounded-lg text-left outline-none ring-brandTeal/25 transition hover:bg-zinc-50/90 focus-visible:ring-2 active:bg-zinc-50 touch-manipulation"
+                                          onClick={() => toggleDelprogramChildExpanded(childId, row.segment)}
+                                        >
                                           <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
                                             <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[11px]">
                                               {embeddedScheduleChildDateShort(row.segment.date)}
@@ -3241,7 +3281,10 @@ export function TankestromImportDialog({
                                               Betinget
                                             </span>
                                           ) : null}
-                                        </div>
+                                          <p className="text-[9px] font-medium text-zinc-400 sm:text-[10px]">
+                                            {delprogramDetailOpen ? 'Trykk for å skjule' : 'Trykk for detaljer og notater'}
+                                          </p>
+                                        </button>
                                         <button
                                           type="button"
                                           disabled={!checked}
@@ -3251,6 +3294,53 @@ export function TankestromImportDialog({
                                           Løsne
                                         </button>
                                       </div>
+                                      {delprogramDetailOpen ? (
+                                        <div
+                                          id={detailPanelId}
+                                          role="region"
+                                          aria-labelledby={detailTriggerId}
+                                          className="mt-2 space-y-2 border-t border-zinc-100 pt-2"
+                                        >
+                                          <dl className="grid gap-1.5 text-[11px] leading-snug text-zinc-800 sm:text-[12px]">
+                                            <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                                              <dt className="font-semibold text-zinc-500">Dato</dt>
+                                              <dd className="min-w-0">{embeddedScheduleChildDateShort(row.segment.date)}</dd>
+                                            </div>
+                                            <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                                              <dt className="font-semibold text-zinc-500">Tid</dt>
+                                              <dd className="min-w-0 tabular-nums">{timeLabel}</dd>
+                                            </div>
+                                            <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                                              <dt className="font-semibold text-zinc-500">Tittel</dt>
+                                              <dd className="min-w-0 font-medium text-zinc-900">{displayTitle}</dd>
+                                            </div>
+                                            {row.segment.isConditional ? (
+                                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                                <dt className="font-semibold text-zinc-500">Status</dt>
+                                                <dd>
+                                                  <span className="inline-flex rounded-md border border-amber-200/90 bg-amber-50/95 px-1.5 py-px text-[8px] font-semibold uppercase tracking-wide text-amber-900 sm:text-[9px]">
+                                                    Betinget
+                                                  </span>
+                                                </dd>
+                                              </div>
+                                            ) : null}
+                                          </dl>
+                                          <div>
+                                            <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400 sm:text-[10px]">
+                                              Notater for dette punktet
+                                            </p>
+                                            {childNotesBody ? (
+                                              <div className="mt-1 max-h-36 overflow-y-auto rounded-md border border-zinc-100 bg-zinc-50/80 px-2 py-1.5 text-[11px] leading-snug text-zinc-800 sm:max-h-44 sm:text-[12px]">
+                                                <p className="whitespace-pre-wrap break-words">{childNotesBody}</p>
+                                              </div>
+                                            ) : (
+                                              <p className="mt-1 text-[11px] leading-snug text-zinc-500 sm:text-[12px]">
+                                                Ingen egne notater for dette programpunktet.
+                                              </p>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ) : null}
                                     </div>
                                   )
                                 })
