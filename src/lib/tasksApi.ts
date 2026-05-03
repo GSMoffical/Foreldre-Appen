@@ -76,10 +76,7 @@ export async function fetchTasksForDateRange(
   return { byDate, error: null }
 }
 
-export async function createTask(
-  userId: string,
-  input: Omit<Task, 'id'>
-): Promise<Task | null> {
+export async function createTask(userId: string, input: Omit<Task, 'id'>): Promise<Task> {
   const { data, error } = await supabase
     .from('tasks')
     .insert({
@@ -98,7 +95,7 @@ export async function createTask(
     .single()
   if (error) {
     console.error('[tasksApi] createTask error', error)
-    return null
+    throw error
   }
   return mapRowToTask(data as TaskRow)
 }

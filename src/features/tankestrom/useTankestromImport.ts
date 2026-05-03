@@ -2334,6 +2334,19 @@ export function useTankestromImport({
 
         if (unified.importKind === 'task') {
           const t = unified.task
+          const rawIntent = t.taskIntent
+          const safeIntent = normalizeTaskIntent(rawIntent) ?? 'must_do'
+          if (
+            rawIntent !== safeIntent &&
+            (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true')
+          ) {
+            console.debug('[tankestrom task persist]', {
+              tankestromTaskPersistFixApplied: true,
+              proposalId: id,
+              taskIntentBefore: rawIntent,
+              taskIntentAfter: safeIntent,
+            })
+          }
           const taskInput: Omit<Task, 'id'> = {
             title: t.title.trim(),
             date: t.date.trim(),
@@ -2345,13 +2358,23 @@ export function useTankestromImport({
             childPersonId: t.childPersonId.trim() || undefined,
             assignedToPersonId: t.assignedToPersonId.trim() || undefined,
             showInMonthView: t.showInMonthView || undefined,
-            taskIntent: t.taskIntent,
+            taskIntent: safeIntent,
           }
           try {
             if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
-              console.debug('[tankestrom task intent]', {
-                taskIntentPersisted: t.taskIntent,
-                proposalId: id,
+              console.debug('[tankestrom task persist]', {
+                tankestromTaskPersistPayload: {
+                  proposalId: id,
+                  title: taskInput.title,
+                  titleLength: taskInput.title.length,
+                  taskIntent: taskInput.taskIntent,
+                  date: taskInput.date,
+                  dueTime: taskInput.dueTime ?? null,
+                  childPersonId: taskInput.childPersonId ?? null,
+                  assignedToPersonId: taskInput.assignedToPersonId ?? null,
+                  showInMonthView: taskInput.showInMonthView ?? false,
+                  notesLength: taskInput.notes?.length ?? 0,
+                },
               })
             }
             await createTask(taskInput)
@@ -2362,6 +2385,34 @@ export function useTankestromImport({
           } catch (e) {
             const { kind, message } = classifyTankestromPersistThrownError(e, 'createTask')
             recordFailure(id, 'task', 'createTask', kind, message)
+            if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+              const pg =
+                e && typeof e === 'object' && 'code' in e && 'message' in e
+                  ? (e as { code?: string; message?: string; details?: string; hint?: string })
+                  : null
+              console.debug('[tankestrom task persist]', {
+                tankestromTaskPersistFailureDetailed: true,
+                proposalId: id,
+                title: taskInput.title,
+                taskIntent: taskInput.taskIntent,
+                date: taskInput.date,
+                dueTime: taskInput.dueTime ?? null,
+                childPersonId: taskInput.childPersonId ?? null,
+                assignedToPersonId: taskInput.assignedToPersonId ?? null,
+                payload: taskInput,
+                classifiedKind: kind,
+                classifiedMessage: message,
+                supabaseCode: pg?.code,
+                supabaseMessage: pg?.message,
+                supabaseDetails: pg?.details,
+                supabaseHint: pg?.hint,
+                tankestromTaskPersistFailureFieldSummary: {
+                  titleEmpty: taskInput.title.length === 0,
+                  dateLooksLikeKey: /^\d{4}-\d{2}-\d{2}$/.test(taskInput.date),
+                  hasChildOrAssignee: !!(taskInput.childPersonId || taskInput.assignedToPersonId),
+                },
+              })
+            }
           }
           continue
         }
@@ -2561,6 +2612,25 @@ export function useTankestromImport({
           const { kind, message } = classifyTankestromPersistThrownError(e, 'createEvent')
           recordFailure(id, 'event', 'createEvent', kind, message)
         }
+      }
+      const taskPersistFailures = failureRecords.filter(
+        (f) => f.proposalSurfaceType === 'task' && f.operation === 'createTask'
+      )
+      if (
+        taskPersistFailures.length >= 2 &&
+        (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true')
+      ) {
+        const kinds = [...new Set(taskPersistFailures.map((f) => f.kind))]
+        const messages = taskPersistFailures.map((f) => f.message)
+        console.debug('[tankestrom task persist]', {
+          tankestromTaskPersistFailureSharedPattern: {
+            failureCount: taskPersistFailures.length,
+            distinctKinds: kinds,
+            allSameKind: kinds.length === 1,
+            distinctMessages: [...new Set(messages)],
+            proposalIds: taskPersistFailures.map((f) => f.proposalId),
+          },
+        })
       }
       if (failed > 0) {
         setError(buildTankestromImportFailureUserMessage(failureRecords, ids.length))

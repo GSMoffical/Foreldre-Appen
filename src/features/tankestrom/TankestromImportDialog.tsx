@@ -2363,6 +2363,16 @@ export function TankestromImportDialog({
     }
   }, [open])
 
+  useEffect(() => {
+    if (!open || step !== 'review') return
+    if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+      console.debug('[tankestrom import header]', {
+        reanalyzeButtonRenderedAsSecondary: true,
+        reanalyzeButtonVisualWeightReduced: true,
+      })
+    }
+  }, [open, step])
+
   const toggleBulkPersonPick = useCallback((id: string) => {
     setBulkPersonPick((prev) => {
       const next = new Set(prev)
@@ -2632,37 +2642,40 @@ export function TankestromImportDialog({
           </div>
           {step === 'review' ? (
             <>
-              <p
-                className="truncate px-4 pb-2.5 text-[11px] leading-snug text-zinc-500"
-                title={
-                  inputMode === 'file'
-                    ? pendingFiles
-                        .filter((p) => p.status === 'done')
-                        .map((p) => p.file.name)
-                        .join(', ') || undefined
-                    : undefined
-                }
-              >
-                <span className="font-medium text-zinc-400">Analysert kilde:</span>{' '}
-                <span className="font-semibold text-zinc-700">
-                  {inputMode === 'file' ? analyzedSourceSummary ?? 'Filer' : 'Limt inn tekst'}
-                </span>
-              </p>
-              <div className="px-4 pb-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  fullWidth
-                  loading={analyzeLoading}
-                  disabled={saveLoading || !hasPeople}
-                  onClick={() => void reanalyzeFromSameInput()}
+              <div className="border-b border-zinc-100/90 px-4 pb-2.5">
+                <p
+                  className="truncate text-[11px] leading-snug text-zinc-500"
+                  title={
+                    inputMode === 'file'
+                      ? pendingFiles
+                          .filter((p) => p.status === 'done')
+                          .map((p) => p.file.name)
+                          .join(', ') || undefined
+                      : undefined
+                  }
                 >
-                  Analyser på nytt
-                </Button>
-                <p className="mt-1.5 text-[10px] leading-snug text-zinc-500">
-                  Samme {inputMode === 'file' ? 'filer' : 'tekst'} som forrige analyse — nytt forsøk fra tjenesten.
+                  <span className="font-medium text-zinc-400">Analysert kilde:</span>{' '}
+                  <span className="font-semibold text-zinc-700">
+                    {inputMode === 'file' ? analyzedSourceSummary ?? 'Filer' : 'Limt inn tekst'}
+                  </span>
                 </p>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    fullWidth={false}
+                    className="h-auto shrink-0 px-1.5 py-0.5 text-[11px] font-medium text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
+                    loading={analyzeLoading}
+                    disabled={saveLoading || !hasPeople}
+                    onClick={() => void reanalyzeFromSameInput()}
+                  >
+                    Analyser på nytt
+                  </Button>
+                  <span className="min-w-0 text-[10px] leading-snug text-zinc-400">
+                    Samme {inputMode === 'file' ? 'filer' : 'tekst'} som sist — kjører analysen på nytt.
+                  </span>
+                </div>
               </div>
               {DEBUG_SCHOOL_IMPORT_PANEL && schoolReview ? (
                 <div

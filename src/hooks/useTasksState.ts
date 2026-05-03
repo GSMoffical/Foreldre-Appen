@@ -104,7 +104,6 @@ export function useTasksState(selectedDate: string) {
   async function addTask(input: Omit<Task, 'id'>) {
     if (!user || !effectiveUserId) throw new Error('Must be signed in to add tasks')
     const created = await createTaskApi(effectiveUserId, input)
-    if (!created) throw new Error('Could not save task')
     setTasksByDate((prev) => {
       const existing = prev[input.date] ?? []
       return { ...prev, [input.date]: [...existing, created] }
