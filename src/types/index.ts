@@ -230,6 +230,8 @@ export interface EventMetadata {
   backgroundSubkind?: 'school_day' | 'school_day_override' | 'school_lesson' | 'school_break' | 'work_day';
   /** True for all-day events — stored as 00:00–23:59 but rendered in the all-day row, never in the hourly timeline. */
   isAllDay?: boolean;
+  /** Tankestrøm / import: flerdagers «container»-event (cup/turnering) med heldags-anker per dag. */
+  multiDayAllDay?: boolean;
   /** YYYY-MM-DD end date for multi-day events (anchor date = start date stored in DB `date` column).
    *  Absent for single-day events. Inclusive: the event is visible on every day from anchor → endDate. */
   endDate?: string;

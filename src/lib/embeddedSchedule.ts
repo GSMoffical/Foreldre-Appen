@@ -67,3 +67,91 @@ export function flattenEmbeddedScheduleOrdered(metadata: EventMetadata | undefin
   const parsed = parseEmbeddedScheduleFromMetadata(metadata)
   return groupEmbeddedScheduleByDate(parsed).flatMap((g) => g.items)
 }
+
+function trimClockToHHmm(start: string, end: string): { s: string; e: string } {
+  return {
+    s: start.length > 5 ? start.slice(0, 5) : start,
+    e: end.length > 5 ? end.slice(0, 5) : end,
+  }
+}
+
+/** Samme signal som cup-merge: heldag lagret som 00:00–23:59 (eller 24:00). */
+export function isEmbeddedScheduleParentAllDayClockRange(start: string, end: string): boolean {
+  const { s, e } = trimClockToHHmm(start, end)
+  return s === '00:00' && (e === '23:59' || e === '24:00')
+}
+
+export type EmbeddedScheduleParentCardHeuristicResult = {
+  ok: boolean
+  reason: string
+  matchedFields: string[]
+  expectedButMissing?: string[]
+}
+
+/**
+ * Tankestrøm-review: når skal et event med `embeddedSchedule` vises som én forelderkort med delprogram?
+ * Tidligere krevde vi kun `metadata.isAllDay`; Tankestrøm sender ofte `multiDayAllDay` og/eller 00:00–23:59 uten `isAllDay`.
+ */
+export function evaluateEmbeddedScheduleParentCardHeuristic(item: {
+  kind: string
+  event: { start: string; end: string; metadata?: Record<string, unknown> | EventMetadata | null | undefined }
+}): EmbeddedScheduleParentCardHeuristicResult {
+  if (item.kind !== 'event') {
+    return {
+      ok: false,
+      reason: 'not_event',
+      matchedFields: [],
+      expectedButMissing: ['kind:event'],
+    }
+  }
+  const m = item.event.metadata
+  if (!m || typeof m !== 'object' || Array.isArray(m)) {
+    return {
+      ok: false,
+      reason: 'no_metadata',
+      matchedFields: [],
+      expectedButMissing: ['metadata'],
+    }
+  }
+  const sched = (m as { embeddedSchedule?: unknown }).embeddedSchedule
+  if (!Array.isArray(sched) || sched.length === 0) {
+    return {
+      ok: false,
+      reason: 'no_embedded_schedule',
+      matchedFields: [],
+      expectedButMissing: ['embeddedSchedule'],
+    }
+  }
+
+  const matched: string[] = ['embeddedSchedule']
+  const isAllDay = (m as { isAllDay?: boolean }).isAllDay === true
+  const multiDayAllDay = (m as { multiDayAllDay?: boolean }).multiDayAllDay === true
+  const allDayClock = isEmbeddedScheduleParentAllDayClockRange(item.event.start, item.event.end)
+
+  if (isAllDay) {
+    matched.push('isAllDay')
+    return { ok: true, reason: 'isAllDay', matchedFields: matched }
+  }
+  if (multiDayAllDay) {
+    matched.push('multiDayAllDay')
+    return { ok: true, reason: 'multiDayAllDay', matchedFields: matched }
+  }
+  if (allDayClock) {
+    matched.push('startEndAllDayPattern')
+    return { ok: true, reason: 'allDayClockRange', matchedFields: matched }
+  }
+
+  return {
+    ok: false,
+    reason: 'not_all_day_container_signal',
+    matchedFields: matched,
+    expectedButMissing: ['isAllDay', 'multiDayAllDay', 'startEnd00:00-23:59'],
+  }
+}
+
+export function isEmbeddedScheduleParentProposalItem(item: {
+  kind: string
+  event: { start: string; end: string; metadata?: Record<string, unknown> | EventMetadata | null | undefined }
+}): boolean {
+  return evaluateEmbeddedScheduleParentCardHeuristic(item).ok
+}

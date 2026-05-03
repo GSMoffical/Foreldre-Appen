@@ -15,7 +15,11 @@ import type {
   TankestromEventDraft,
 } from './types'
 import type { EmbeddedScheduleSegment } from '../../types'
-import { groupEmbeddedScheduleByDate, parseEmbeddedScheduleFromMetadata } from '../../lib/embeddedSchedule'
+import {
+  groupEmbeddedScheduleByDate,
+  isEmbeddedScheduleParentProposalItem,
+  parseEmbeddedScheduleFromMetadata,
+} from '../../lib/embeddedSchedule'
 import { normalizeEmbeddedScheduleParentDisplayTitle } from '../../lib/tankestromCupEmbeddedScheduleMerge'
 import { semanticTitleCore } from '../../lib/tankestromImportDedupe'
 import type {
@@ -1877,14 +1881,7 @@ function TankestromEmbeddedSchedulePreview({
 /** Parent med innebygd program (merged cup/turnering) — egen meta-linje i review. */
 function isEmbeddedScheduleParentReviewCard(item: PortalProposalItem, importKind: string): boolean {
   if (item.kind !== 'event' || importKind !== 'event') return false
-  const m = item.event.metadata
-  if (!m || typeof m !== 'object') return false
-  const sched = (m as { embeddedSchedule?: unknown }).embeddedSchedule
-  return (
-    Array.isArray(sched) &&
-    sched.length > 0 &&
-    (m as { isAllDay?: boolean }).isAllDay === true
-  )
+  return isEmbeddedScheduleParentProposalItem(item)
 }
 
 /** Kompakt kildegrunnlag fra API (original), ikke nødvendigvis lik redigert notat. */

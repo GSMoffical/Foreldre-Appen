@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChildSchoolProfile, EmbeddedScheduleSegment, Event, Person, SchoolWeekOverlay, Task, WeekdayMonFri } from '../../types'
-import { flattenEmbeddedScheduleOrdered } from '../../lib/embeddedSchedule'
+import {
+  evaluateEmbeddedScheduleParentCardHeuristic,
+  flattenEmbeddedScheduleOrdered,
+  isEmbeddedScheduleParentProposalItem,
+} from '../../lib/embeddedSchedule'
 import { filterSubjectUpdatesByLanguageTrack } from '../../lib/schoolWeekOverlayFilters'
 import { applyCupWeekendEmbeddedScheduleMerge } from '../../lib/tankestromCupEmbeddedScheduleMerge'
 import { dedupeNearDuplicateCalendarProposals } from '../../lib/tankestromImportDedupe'
@@ -102,11 +106,7 @@ export function parseEmbeddedChildProposalId(proposalId: string): {
 }
 
 function isEmbeddedScheduleParentCalendarItem(item: PortalProposalItem): item is PortalEventProposal {
-  if (item.kind !== 'event') return false
-  const m = item.event.metadata
-  if (!m || typeof m !== 'object') return false
-  const sched = (m as { embeddedSchedule?: unknown }).embeddedSchedule
-  return Array.isArray(sched) && sched.length > 0 && (m as { isAllDay?: boolean }).isAllDay === true
+  return item.kind === 'event' && isEmbeddedScheduleParentProposalItem(item)
 }
 
 function isEmbeddedScheduleParentForReview(
@@ -1160,7 +1160,30 @@ export function useTankestromImport({
     }
     const map: Record<string, EmbeddedScheduleReviewRow[]> = {}
     for (const item of bundle.items) {
-      if (item.kind !== 'event' || !isEmbeddedScheduleParentCalendarItem(item)) continue
+      if (item.kind !== 'event') continue
+      const rawSched = item.event.metadata?.embeddedSchedule
+      const hasRawSchedule = Array.isArray(rawSched) && rawSched.length > 0
+      if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+        if (hasRawSchedule) {
+          const h = evaluateEmbeddedScheduleParentCardHeuristic(item)
+          if (h.ok) {
+            console.debug('[tankestrom embedded parent heuristic]', {
+              embeddedScheduleParentCardHeuristicMatched: true,
+              embeddedScheduleParentCardMatchedFields: h.matchedFields,
+              parentProposalId: item.proposalId,
+            })
+          } else {
+            console.debug('[tankestrom embedded parent heuristic]', {
+              embeddedScheduleParentCardHeuristicRejected: true,
+              embeddedScheduleParentCardRejectedReason: h.reason,
+              embeddedScheduleParentCardMatchedFields: h.matchedFields,
+              embeddedScheduleParentCardExpectedButMissing: h.expectedButMissing,
+              parentProposalId: item.proposalId,
+            })
+          }
+        }
+      }
+      if (!isEmbeddedScheduleParentCalendarItem(item)) continue
       const flat = flattenEmbeddedScheduleOrdered(item.event.metadata)
       map[item.proposalId] = flat.map((segment, i) => ({ origIndex: i, segment }))
     }

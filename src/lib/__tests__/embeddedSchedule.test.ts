@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { groupEmbeddedScheduleByDate, parseEmbeddedScheduleFromMetadata } from '../embeddedSchedule'
+import {
+  evaluateEmbeddedScheduleParentCardHeuristic,
+  groupEmbeddedScheduleByDate,
+  parseEmbeddedScheduleFromMetadata,
+} from '../embeddedSchedule'
 import type { EventMetadata } from '../../types'
 
 describe('parseEmbeddedScheduleFromMetadata', () => {
@@ -21,6 +25,58 @@ describe('parseEmbeddedScheduleFromMetadata', () => {
     expect(out).toHaveLength(3)
     expect(out[0]).toMatchObject({ date: '2026-06-12', title: 'Oppmøte', start: '17:45' })
     expect(out[2]).toMatchObject({ isConditional: true, title: 'Sluttspill' })
+  })
+})
+
+describe('evaluateEmbeddedScheduleParentCardHeuristic', () => {
+  const baseEvent = {
+    kind: 'event' as const,
+    event: {
+      date: '2026-06-12',
+      start: '10:00',
+      end: '11:00',
+      title: 'X',
+      personId: 'p1',
+      metadata: {
+        embeddedSchedule: [{ date: '2026-06-12', title: 'Kamp' }],
+      } as EventMetadata,
+    },
+  }
+
+  it('godtar multiDayAllDay uten isAllDay (Tankestrøm cup-container)', () => {
+    const item = {
+      ...baseEvent,
+      event: {
+        ...baseEvent.event,
+        metadata: {
+          ...baseEvent.event.metadata,
+          multiDayAllDay: true,
+        } as EventMetadata,
+      },
+    }
+    const h = evaluateEmbeddedScheduleParentCardHeuristic(item)
+    expect(h.ok).toBe(true)
+    expect(h.matchedFields).toContain('multiDayAllDay')
+  })
+
+  it('godtar 00:00–23:59 uten isAllDay', () => {
+    const item = {
+      ...baseEvent,
+      event: {
+        ...baseEvent.event,
+        start: '00:00',
+        end: '23:59',
+      },
+    }
+    const h = evaluateEmbeddedScheduleParentCardHeuristic(item)
+    expect(h.ok).toBe(true)
+    expect(h.reason).toBe('allDayClockRange')
+  })
+
+  it('avviser innebygd program med vanlig klokkeslett og uten heldagssignal', () => {
+    const h = evaluateEmbeddedScheduleParentCardHeuristic(baseEvent)
+    expect(h.ok).toBe(false)
+    expect(h.reason).toBe('not_all_day_container_signal')
   })
 })
 
