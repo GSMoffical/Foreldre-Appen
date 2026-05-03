@@ -22,6 +22,7 @@ import {
 } from '../../lib/embeddedSchedule'
 import { normalizeEmbeddedScheduleParentDisplayTitle } from '../../lib/tankestromCupEmbeddedScheduleMerge'
 import { semanticTitleCore } from '../../lib/tankestromImportDedupe'
+import { stripRedundantHighlightsForReviewDisplay } from '../../lib/tankestromReviewNotesDisplay'
 import type {
   ChildSchoolDayPlan,
   ChildSchoolProfile,
@@ -1771,6 +1772,54 @@ function embeddedScheduleChildSegmentNotesBody(seg: EmbeddedScheduleSegment): st
   return n.length > 0 ? n : null
 }
 
+function logHighlightsReviewDebug(
+  raw: string,
+  suppressed: false | 'duplicate' | 'weak',
+  ctx: Record<string, unknown>
+): void {
+  if (!import.meta.env.DEV && import.meta.env.VITE_DEBUG_SCHOOL_IMPORT !== 'true') return
+  const hadHighlights = /høydepunkt(?:er)?\s*:/i.test(raw)
+  if (!hadHighlights && suppressed === false) return
+  console.debug('[tankestrom review highlights]', {
+    highlightsComparedAgainstNotes: true,
+    highlightsBlockRendered: hadHighlights && suppressed === false,
+    highlightsBlockSuppressedAsDuplicate: suppressed === 'duplicate',
+    highlightsBlockSuppressedAsWeak: suppressed === 'weak',
+    ...ctx,
+  })
+}
+
+/** Segmentnotater i delprogram: fjern redundant «Høydepunkter» som gjentar tittel/notat. */
+function embeddedChildNotesForReviewDisplay(
+  seg: EmbeddedScheduleSegment,
+  compareAgainstTitle: string | undefined,
+  childProposalId: string
+): string | null {
+  const raw = embeddedScheduleChildSegmentNotesBody(seg)
+  if (!raw) return null
+  const { text, suppressed } = stripRedundantHighlightsForReviewDisplay(raw, {
+    compareAgainst: compareAgainstTitle?.trim() || undefined,
+  })
+  logHighlightsReviewDebug(raw, suppressed, { context: 'embedded_child', childProposalId })
+  const out = text?.trim() ?? ''
+  return out.length > 0 ? out : null
+}
+
+function parentEventNotesForReviewPreview(
+  notesRaw: string | undefined,
+  embeddedParent: boolean,
+  compareAgainstTitle: string | undefined,
+  proposalId: string
+): string {
+  const s = typeof notesRaw === 'string' ? notesRaw.trim() : ''
+  if (!s || !embeddedParent) return s
+  const { text, suppressed } = stripRedundantHighlightsForReviewDisplay(s, {
+    compareAgainst: compareAgainstTitle?.trim() || undefined,
+  })
+  logHighlightsReviewDebug(s, suppressed, { context: 'embedded_parent', proposalId })
+  return text?.trim() ?? ''
+}
+
 function flattenEmbeddedScheduleForPreview(item: PortalEventProposal): EmbeddedScheduleSegment[] {
   const parsed = parseEmbeddedScheduleFromMetadata(item.event.metadata)
   return groupEmbeddedScheduleByDate(parsed).flatMap((g) => g.items)
@@ -3082,7 +3131,6 @@ export function TankestromImportDialog({
                   const editorOpen = reviewCardEditorOpen.has(pid)
                   const compactConf = confidenceBadgeCompactStyle(item.confidence)
                   const notesRaw = u.importKind === 'event' ? u.event.notes : u.task.notes
-                  const notesPrev = notesPreviewSnippet(notesRaw, 130)
                   const hasFieldErrors =
                     u.importKind === 'event'
                       ? Object.keys(eventFieldErrors).length > 0
@@ -3139,6 +3187,12 @@ export function TankestromImportDialog({
                     embeddedScheduleParentCard && u.importKind === 'event'
                       ? normalizeEmbeddedScheduleParentDisplayTitle(cardTitleRaw).title
                       : cardTitleRaw
+
+                  const notesForPreview =
+                    u.importKind === 'event' && embeddedScheduleParentCard
+                      ? parentEventNotesForReviewPreview(notesRaw, true, cardTitle, pid)
+                      : notesRaw ?? ''
+                  const notesPrev = notesPreviewSnippet(notesForPreview, 130)
 
                   const eventPeopleSummary =
                     u.importKind === 'event' ? formatEventDraftPeopleSummary(u.event, people) : ''
@@ -3237,7 +3291,7 @@ export function TankestromImportDialog({
                             />
                           ) : null}
                           {embeddedScheduleParentCard && item.kind === 'event' ? (
-                            <div className="mt-2 space-y-2 border-l-2 border-brandTeal/40 pl-2.5 sm:pl-3">
+                            <div className="mt-2 space-y-2.5 border-l-2 border-brandTeal/40 pl-2.5 sm:space-y-3 sm:pl-3">
                               <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400 sm:text-[10px]">
                                 Delprogram
                               </p>
@@ -3264,6 +3318,7 @@ export function TankestromImportDialog({
                                     : row.segment.isConditional
                                       ? '–'
                                       : 'Tid ikke avklart'
+                                  const uncertainTime = !timeDisp.clock && !row.segment.isConditional
                                   if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
                                     console.debug('[tankestrom embedded child display]', {
                                       embeddedScheduleChildDisplayTitleNormalized: displayTitle,
@@ -3273,22 +3328,30 @@ export function TankestromImportDialog({
                                       embeddedScheduleChildDisplayedWithoutSyntheticTime:
                                         timeDisp.omittedSynthetic,
                                       embeddedScheduleChildRenderedAsNestedBlock: true,
+                                      embeddedScheduleChildTimelineLayoutApplied: true,
+                                      embeddedScheduleChildTimeColumnNormalized: true,
+                                      embeddedScheduleChildDateTimeGroupingImproved: true,
+                                      embeddedScheduleChildUncertainTimeRendered: uncertainTime,
                                       childProposalId: childId,
                                     })
                                   }
                                   const delprogramDetailOpen = expandedDelprogramChildIds.has(childId)
-                                  const childNotesBody = embeddedScheduleChildSegmentNotesBody(row.segment)
+                                  const childNotesBody = embeddedChildNotesForReviewDisplay(
+                                    row.segment,
+                                    displayTitle,
+                                    childId
+                                  )
                                   const detailPanelId = `delprogram-child-detail-${childId}`
                                   const detailTriggerId = `delprogram-child-trigger-${childId}`
                                   return (
                                     <div
                                       key={childId}
-                                      className="rounded-xl border border-zinc-200/95 bg-white px-2.5 py-2 shadow-sm ring-1 ring-zinc-100/90 sm:px-3 sm:py-2.5"
+                                      className="rounded-xl border border-zinc-200/95 bg-white px-2.5 py-2.5 shadow-sm ring-1 ring-zinc-100/90 sm:px-3 sm:py-3"
                                     >
                                       <div className="flex items-start gap-2 sm:gap-2.5">
                                         <input
                                           type="checkbox"
-                                          className="mt-1 h-4 w-4 shrink-0 rounded border-zinc-300 text-brandTeal focus:ring-brandTeal/30"
+                                          className="mt-1.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-brandTeal focus:ring-brandTeal/30"
                                           checked={childChecked}
                                           disabled={!checked}
                                           onChange={() => toggleProposal(childId)}
@@ -3299,40 +3362,52 @@ export function TankestromImportDialog({
                                           id={detailTriggerId}
                                           aria-expanded={delprogramDetailOpen}
                                           aria-controls={detailPanelId}
-                                          className="min-w-0 flex-1 space-y-1 rounded-lg text-left outline-none ring-brandTeal/25 transition hover:bg-zinc-50/90 focus-visible:ring-2 active:bg-zinc-50 touch-manipulation"
+                                          className="min-w-0 flex-1 rounded-lg text-left outline-none ring-brandTeal/25 transition hover:bg-zinc-50/90 focus-visible:ring-2 active:bg-zinc-50 touch-manipulation"
                                           onClick={() => toggleDelprogramChildExpanded(childId, row.segment)}
                                         >
-                                          <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-                                            <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[11px]">
-                                              {embeddedScheduleChildDateShort(row.segment.date)}
-                                            </span>
-                                            <span
-                                              className={`max-w-[55%] text-right text-[10px] font-semibold tabular-nums sm:max-w-[60%] sm:text-[11px] ${
-                                                timeDisp.clock
-                                                  ? 'text-brandNavy'
-                                                  : 'font-medium normal-case tracking-normal text-zinc-400'
-                                              }`}
-                                            >
-                                              {timeLabel}
-                                            </span>
+                                          <div className="flex flex-col gap-1.5">
+                                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                              <span className="inline-flex shrink-0 rounded-md bg-zinc-100/90 px-2 py-0.5 text-[10px] font-semibold leading-snug text-zinc-800 sm:text-[11px]">
+                                                {embeddedScheduleChildDateShort(row.segment.date)}
+                                              </span>
+                                              <span
+                                                className="text-[10px] font-medium text-zinc-300 sm:text-[11px]"
+                                                aria-hidden
+                                              >
+                                                ·
+                                              </span>
+                                              <span
+                                                className={`inline-flex min-h-[1.375rem] shrink-0 items-center tabular-nums text-[10px] sm:min-h-0 sm:text-[11px] ${
+                                                  timeDisp.clock
+                                                    ? 'font-semibold text-brandNavy'
+                                                    : row.segment.isConditional
+                                                      ? 'font-medium text-zinc-500'
+                                                      : 'rounded-md bg-zinc-100/70 px-2 py-0.5 font-medium text-zinc-600'
+                                                }`}
+                                              >
+                                                {timeLabel}
+                                              </span>
+                                              {row.segment.isConditional ? (
+                                                <span className="inline-flex rounded-md border border-amber-200/90 bg-amber-50/95 px-1.5 py-px text-[8px] font-semibold uppercase tracking-wide text-amber-900 sm:text-[9px]">
+                                                  Betinget
+                                                </span>
+                                              ) : null}
+                                            </div>
+                                            <p className="text-[12px] font-semibold leading-snug text-zinc-900 sm:text-[13px]">
+                                              {displayTitle}
+                                            </p>
+                                            <p className="text-[9px] font-medium leading-snug text-zinc-400 sm:text-[10px]">
+                                              {delprogramDetailOpen
+                                                ? 'Trykk for å skjule'
+                                                : 'Trykk for detaljer og notater'}
+                                            </p>
                                           </div>
-                                          <p className="text-[12px] font-semibold leading-snug text-zinc-900 sm:text-[13px]">
-                                            {displayTitle}
-                                          </p>
-                                          {row.segment.isConditional ? (
-                                            <span className="inline-flex rounded-md border border-amber-200/90 bg-amber-50/95 px-1.5 py-px text-[8px] font-semibold uppercase tracking-wide text-amber-900 sm:text-[9px]">
-                                              Betinget
-                                            </span>
-                                          ) : null}
-                                          <p className="text-[9px] font-medium text-zinc-400 sm:text-[10px]">
-                                            {delprogramDetailOpen ? 'Trykk for å skjule' : 'Trykk for detaljer og notater'}
-                                          </p>
                                         </button>
                                         <button
                                           type="button"
                                           disabled={!checked}
                                           onClick={() => detachEmbeddedScheduleChild(pid, row.origIndex)}
-                                          className="mt-0.5 shrink-0 rounded-lg px-2 py-1 text-[9px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:bg-brandSky/25 hover:decoration-brandNavy disabled:cursor-not-allowed disabled:opacity-40 sm:text-[10px]"
+                                          className="mt-1 shrink-0 self-start rounded-lg px-2 py-1 text-[9px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:bg-brandSky/25 hover:decoration-brandNavy disabled:cursor-not-allowed disabled:opacity-40 sm:text-[10px]"
                                         >
                                           Løsne
                                         </button>
@@ -3351,7 +3426,15 @@ export function TankestromImportDialog({
                                             </div>
                                             <div className="flex flex-wrap gap-x-2 gap-y-0.5">
                                               <dt className="font-semibold text-zinc-500">Tid</dt>
-                                              <dd className="min-w-0 tabular-nums">{timeLabel}</dd>
+                                              <dd
+                                                className={`min-w-0 tabular-nums ${
+                                                  uncertainTime
+                                                    ? 'inline-flex w-fit rounded-md bg-zinc-100/80 px-2 py-0.5 font-medium text-zinc-600'
+                                                    : ''
+                                                }`}
+                                              >
+                                                {timeLabel}
+                                              </dd>
                                             </div>
                                             <div className="flex flex-wrap gap-x-2 gap-y-0.5">
                                               <dt className="font-semibold text-zinc-500">Tittel</dt>

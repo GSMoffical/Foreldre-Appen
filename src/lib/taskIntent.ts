@@ -34,38 +34,86 @@ export function suggestTaskIntentFromTitleAndNotes(title: string, notes?: string
   const dbg = import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
 
   /** Tydelig felles plikt / alle må følge opp */
-  if (
-    /svar i spond|må svar|svar senest|\bfrist\b|betal|betaling|egenandel|medisin|resept|meld fra om|bekreft|registrer|påmelding|kommer ikke|inne før|\balle\s+må\b|møteplikt/i.test(
+  const strongObligation =
+    /svar i spond|svar innen|\bsenest\b|må svar|svar senest|\bfrist\b|betal|betaling|egenandel|medisin|resept|meld fra om|bekreft|registrer|påmelding|inne før|\balle\s+må\b|\bmå gjøres\b|\bmå gjøre\b|møteplikt/i.test(
       text
     )
-  ) {
-    if (dbg) console.debug('[task intent]', { taskIntentStayedMustDo: true, reason: 'strong_obligation' })
+  if (strongObligation) {
+    if (dbg)
+      console.debug('[task intent]', {
+        taskIntentStayedMustDo: true,
+        taskIntentMustDoSignalMatched: true,
+        reason: 'strong_obligation',
+      })
     return 'must_do'
   }
 
-  /** Betinget / frivillig formulering → Valgfritt (vinner over «må gjøre»-default) */
-  const relaxedOptional =
-    /\b(dersom|hvis\b|om dere har|om noen kan|kan noen|trengs\s+(to\s+)?voksne|det trengs|gi beskjed hvis du kan|gi beskjed hvis dere kan|gi beskjed dersom|vil noen|kunne noen|hjelpe med|stå i kiosk|med frukt|\bkjøre\b|sjåfør|samlingspunkt|dugnad|\bbidra\b|foreldrehjelp|frivillig)\b/i
-  if (relaxedOptional.test(text)) {
-    if (dbg) console.debug('[task intent]', { taskIntentRelaxedToOptional: true, reason: 'conditional_or_voluntary' })
+  /**
+   * Meldeplikt til foresatte: fravær, helseopplysninger — ikke «kan dere hjelpe».
+   * Må kjøre før brede «åpen forespørsel»-mønstre (unngå at «hvis/dersom» alene gjør Valgfritt).
+   */
+  const childOrAttendanceObligation =
+    /\b(gi\s+beskjed|meld\s+fra|varsle)\b[\s\S]{0,140}\b(barnet|\bbarn\b)[\s\S]{0,140}(ikke\s+(kan\s+)?komm|kommer\s+ikke|utebliv|fravær|avmelde|sykdom|medisin|allergi|bruker\s+medisin)/i.test(
+      text
+    ) ||
+    /\b(barnet|\bbarn\b)[\s\S]{0,120}(ikke\s+(kan\s+)?komm|kommer\s+ikke|utebliv)[\s\S]{0,100}\b(gi\s+beskjed|meld\s+fra|varsle)\b/i.test(
+      text
+    )
+  if (childOrAttendanceObligation) {
+    if (dbg)
+      console.debug('[task intent]', {
+        taskIntentStayedMustDo: true,
+        taskIntentMustDoSignalMatched: true,
+        reason: 'child_health_or_attendance_inform',
+      })
+    return 'must_do'
+  }
+
+  /** Åpen forespørsel / dugnad / behov — ikke blanket «hvis» eller «gi beskjed dersom» (treffer også plikt-meldinger). */
+  const voluntaryOrOpenRequest =
+    /\b(kan noen|om noen kan|vil noen|kunne noen|noen\s+som\s+kan|det trengs|(?:to\s+)?voksne\s+trengs|foreldre\s+trengs|\btrengs\s+til\b|hjelpe med|ta ansvar for|\bfrukt\b|stå i kiosk|med frukt|\bkjøre\b|kjøring|sjåfør|samlingspunkt|dugnad|\bbidra\b|foreldrehjelp|frivillig|om\s+dere\s+har\s+anledning|hvis\s+dere\s+kan\s+hjelpe|om\s+dere\s+kan\s+hjelpe|gi\s+beskjed\s+hvis\s+du\s+kan|gi\s+beskjed\s+hvis\s+dere\s+kan|gi\s+beskjed\s+hvis\s+dere\s+har\s+anledning)/i.test(
+      text
+    )
+  if (voluntaryOrOpenRequest) {
+    if (dbg)
+      console.debug('[task intent]', {
+        taskIntentRelaxedToOptional: true,
+        taskIntentOptionalSignalMatched: true,
+        reason: 'voluntary_or_open_request',
+      })
     return 'can_help'
   }
 
   if (
     /gi beskjed om/i.test(text) &&
-    !/\bhvis du kan\b|\bom du kan hjelpe\b|\bdersom\b/i.test(text)
+    !/\bhvis du kan\b|\bhvis dere kan\b|\bom du kan hjelpe\b|\bderes anledning\b/i.test(text)
   ) {
-    if (dbg) console.debug('[task intent]', { taskIntentStayedMustDo: true, reason: 'gi_beskjed_om' })
+    if (dbg)
+      console.debug('[task intent]', {
+        taskIntentStayedMustDo: true,
+        taskIntentMustDoSignalMatched: true,
+        reason: 'gi_beskjed_om',
+      })
     return 'must_do'
   }
 
   const helpSignals =
-    /kan noen|noen som kan|trengs\s+(to\s+)?voksne|det trengs|om noen kan|gi beskjed hvis du kan|vil noen|kunne noen|hjelpe med|stå i kiosk|med frukt|\bkjøre\b|sjåfør|samlingspunkt|dugnad|\bbidra\b|foreldrehjelp/i
+    /kan noen|noen som kan|det trengs|(?:to\s+)?voksne\s+trengs|foreldre\s+trengs|om noen kan|gi beskjed hvis du kan|gi beskjed hvis dere kan|vil noen|kunne noen|hjelpe med|ta ansvar for|\bfrukt\b|stå i kiosk|med frukt|\bkjøre\b|kjøring|sjåfør|samlingspunkt|dugnad|\bbidra\b|foreldrehjelp|om\s+dere\s+har\s+anledning/i
   if (helpSignals.test(text)) {
-    if (dbg) console.debug('[task intent]', { taskIntentRelaxedToOptional: true, reason: 'help_signals' })
+    if (dbg)
+      console.debug('[task intent]', {
+        taskIntentRelaxedToOptional: true,
+        taskIntentOptionalSignalMatched: true,
+        reason: 'help_signals',
+      })
     return 'can_help'
   }
 
-  if (dbg) console.debug('[task intent]', { taskIntentStayedMustDo: true, reason: 'default' })
+  if (dbg)
+    console.debug('[task intent]', {
+      taskIntentStayedMustDo: true,
+      taskIntentMustDoSignalMatched: true,
+      reason: 'default',
+    })
   return 'must_do'
 }
