@@ -116,6 +116,11 @@ export interface TankestromEventDraft {
   start: string
   end: string
   personId: string
+  /**
+   * Flere deltakere på hendelsen (som `metadata.participants` ved import).
+   * Første id skal alltid være lik `personId` (primær / kalendereier for raden).
+   */
+  participantPersonIds?: string[]
   location: string
   notes: string
   reminderMinutes?: number

@@ -523,6 +523,14 @@ export function validateTankestromDraft(
   if (endMin <= startMin) return 'Sluttid må være senere enn starttid.'
 
   if (!d.personId.trim() || !validPersonIds.has(d.personId)) return 'Velg en gyldig person.'
+  if (d.participantPersonIds?.length) {
+    for (const id of d.participantPersonIds) {
+      if (!validPersonIds.has(id)) return 'Ugyldig deltaker på hendelsen.'
+    }
+    if (d.participantPersonIds[0] !== d.personId) {
+      return 'Primær person må være den første i deltakerlisten.'
+    }
+  }
   return null
 }
 
@@ -563,6 +571,17 @@ export function getTankestromDraftFieldErrors(
   if (!d.personId.trim() || !validPersonIds.has(d.personId)) {
     out.personId = 'Velg hvem hendelsen gjelder.'
   }
+  if (d.participantPersonIds?.length) {
+    for (const id of d.participantPersonIds) {
+      if (!validPersonIds.has(id)) {
+        out.personId = 'Ugyldig deltaker.'
+        break
+      }
+    }
+    if (d.participantPersonIds[0] !== d.personId) {
+      out.personId = 'Primær person må være først blant deltakerne.'
+    }
+  }
   return out
 }
 
@@ -587,6 +606,41 @@ function validateUnifiedDraft(d: TankestromImportDraft, validPersonIds: Set<stri
   return validateTankestromTaskDraft(d.task)
 }
 
+function bulkApplyTaskPersonFields(
+  people: Person[],
+  validPersonIds: Set<string>,
+  personIds: string[]
+): Pick<TankestromTaskDraft, 'childPersonId' | 'assignedToPersonId'> {
+  const resolved = personIds
+    .map((id) => people.find((p) => p.id === id && validPersonIds.has(id)))
+    .filter(Boolean) as Person[]
+  const children = resolved.filter((p) => p.memberKind === 'child')
+  const adults = resolved.filter((p) => p.memberKind !== 'child')
+  if (children.length > 0) {
+    return {
+      childPersonId: children[0]!.id,
+      assignedToPersonId: adults[0]?.id ?? '',
+    }
+  }
+  if (adults.length > 0) {
+    return { childPersonId: '', assignedToPersonId: adults[0]!.id }
+  }
+  return { childPersonId: '', assignedToPersonId: '' }
+}
+
+function mergeEventParticipantsIntoMetadata(
+  metadata: Record<string, unknown>,
+  draft: TankestromEventDraft,
+  validPersonIds: Set<string>
+): void {
+  const list = draft.participantPersonIds?.filter((id) => validPersonIds.has(id))
+  if (list && list.length > 1) {
+    metadata.participants = list
+  } else {
+    delete metadata.participants
+  }
+}
+
 function buildEventDraftFromProposal(
   p: PortalEventProposal,
   validPersonIds: Set<string>,
@@ -600,12 +654,23 @@ function buildEventDraftFromProposal(
       : null
   const dropoffBy = typeof transport?.dropoffBy === 'string' ? transport.dropoffBy : ''
   const pickupBy = typeof transport?.pickupBy === 'string' ? transport.pickupBy : ''
+  const metaParticipants =
+    ev.metadata && typeof ev.metadata === 'object' && !Array.isArray(ev.metadata)
+      ? (ev.metadata as { participants?: unknown }).participants
+      : undefined
+  const fromMeta = Array.isArray(metaParticipants)
+    ? metaParticipants.filter((x): x is string => typeof x === 'string' && validPersonIds.has(x))
+    : []
+  const merged = [...new Set([pid, ...fromMeta])]
+  const orderedParticipants = [pid, ...merged.filter((id) => id !== pid)]
+  const participantPersonIds = orderedParticipants.length > 1 ? orderedParticipants : undefined
   return {
     title: ev.title,
     date: ev.date,
     start: ev.start,
     end: ev.end,
     personId: pid,
+    participantPersonIds,
     location: ev.location ?? '',
     notes: ev.notes ?? '',
     reminderMinutes: typeof ev.reminderMinutes === 'number' ? ev.reminderMinutes : undefined,
@@ -876,6 +941,7 @@ function eventDraftFromTaskDraft(
     start,
     end,
     personId,
+    participantPersonIds: undefined,
     location: '',
     notes: t.notes,
     reminderMinutes: undefined,
@@ -1211,9 +1277,73 @@ export function useTankestromImport({
     setDraftByProposalId((prev) => {
       const cur = prev[proposalId]
       if (!cur || cur.importKind !== 'event') return prev
-      return { ...prev, [proposalId]: { importKind: 'event', event: { ...cur.event, ...patch } } }
+      const merged: TankestromEventDraft = { ...cur.event, ...patch }
+      if (patch.personId !== undefined && patch.participantPersonIds === undefined) {
+        merged.participantPersonIds = undefined
+      }
+      if (
+        (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') &&
+        patch.personId != null &&
+        patch.personId !== cur.event.personId
+      ) {
+        console.debug('[tankestrom review person]', {
+          reviewPersonOverridePerCard: proposalId,
+          personId: patch.personId,
+        })
+      }
+      return { ...prev, [proposalId]: { importKind: 'event', event: merged } }
     })
   }, [])
+
+  const applyReviewBulkPersonTargets = useCallback(
+    (rawPersonIds: string[], scope: 'selected' | 'all_calendar') => {
+      const personIds = [...new Set(rawPersonIds.filter((id) => validPersonIds.has(id)))]
+      if (personIds.length === 0) return
+
+      const primary = personIds[0]!
+      const participantPersonIds = personIds.length > 1 ? [...personIds] : undefined
+      const taskFields = bulkApplyTaskPersonFields(people, validPersonIds, personIds)
+
+      setDraftByProposalId((prev) => {
+        const targetIds =
+          scope === 'all_calendar' ? Object.keys(prev) : [...selectedIds].filter((id) => prev[id])
+
+        const next = { ...prev }
+        for (const proposalId of targetIds) {
+          const cur = next[proposalId]
+          if (!cur) continue
+          if (cur.importKind === 'event') {
+            next[proposalId] = {
+              importKind: 'event',
+              event: {
+                ...cur.event,
+                personId: primary,
+                participantPersonIds,
+              },
+            }
+          } else {
+            next[proposalId] = {
+              importKind: 'task',
+              task: { ...cur.task, ...taskFields },
+            }
+          }
+        }
+        return next
+      })
+
+      if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+        console.debug('[tankestrom review bulk person]', {
+          reviewBulkPersonSelectionApplied: true,
+          reviewParentChildPersonInheritanceApplied: true,
+          scope,
+          personIds,
+          primaryPersonId: primary,
+          eventParticipantCount: participantPersonIds?.length ?? 1,
+        })
+      }
+    },
+    [people, validPersonIds, selectedIds]
+  )
 
   const updateTaskDraft = useCallback((proposalId: string, patch: Partial<TankestromTaskDraft>) => {
     setDraftByProposalId((prev) => {
@@ -1672,6 +1802,7 @@ export function useTankestromImport({
             if (Object.keys(prevT).length > 0) metadata.transport = prevT
             else delete metadata.transport
           }
+          mergeEventParticipantsIntoMetadata(metadata, draftEv, validPersonIds)
           const input: Omit<Event, 'id'> = {
             personId: draftEv.personId,
             title: draftEv.title,
@@ -1785,6 +1916,7 @@ export function useTankestromImport({
           if (Object.keys(prev).length > 0) metadata.transport = prev
           else delete metadata.transport
         }
+        mergeEventParticipantsIntoMetadata(metadata, draft, validPersonIds)
         const input: Omit<Event, 'id'> = {
           personId: draft.personId,
           title: draft.title,
@@ -1880,5 +2012,6 @@ export function useTankestromImport({
     embeddedScheduleReviewRowsByParentId,
     detachedEmbeddedChildren,
     detachEmbeddedScheduleChild,
+    applyReviewBulkPersonTargets,
   }
 }

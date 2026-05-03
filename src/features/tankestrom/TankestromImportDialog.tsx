@@ -8,7 +8,12 @@ import {
   type DragEvent,
   type ReactNode,
 } from 'react'
-import type { PortalEventProposal, PortalProposalItem, PortalSchoolWeekOverlayProposal } from './types'
+import type {
+  PortalEventProposal,
+  PortalProposalItem,
+  PortalSchoolWeekOverlayProposal,
+  TankestromEventDraft,
+} from './types'
 import type { EmbeddedScheduleSegment } from '../../types'
 import { groupEmbeddedScheduleByDate, parseEmbeddedScheduleFromMetadata } from '../../lib/embeddedSchedule'
 import { normalizeEmbeddedScheduleParentDisplayTitle } from '../../lib/tankestromCupEmbeddedScheduleMerge'
@@ -70,6 +75,17 @@ import {
   tryClientOrphanLineToLessonIndex,
 } from '../../lib/schoolWeekOverlayEnrichRouting'
 import { tryExtractHeldagsproveHovedmalSidemalTitle } from '../../lib/schoolWeekOverlayReplaceTitle'
+
+function formatEventDraftPeopleSummary(ev: TankestromEventDraft, peopleList: Person[]): string {
+  const ids = ev.participantPersonIds?.length ? ev.participantPersonIds : ev.personId ? [ev.personId] : []
+  const names = ids
+    .map((id) => peopleList.find((p) => p.id === id)?.name)
+    .filter(Boolean) as string[]
+  if (names.length === 0) return ''
+  if (names.length === 1) return names[0]!
+  if (names.length === 2) return `${names[0]!} · ${names[1]!}`
+  return `${names[0]!} +${names.length - 1}`
+}
 
 /** Les `metadata.schoolContext` fra et event-forslag hvis det finnes. */
 function schoolContextFromEventProposal(p: PortalEventProposal): SchoolContext | null {
@@ -2030,12 +2046,14 @@ export function TankestromImportDialog({
     setSchoolProfileChildId,
     setSchoolProfileDraft,
     setSchoolWeekOverlayProposalDraft,
+    applyReviewBulkPersonTargets,
   } = useTankestromImport({ open, people, createEvent, createTask, updatePerson })
 
   const validPersonIds = useMemo(() => new Set(people.map((p) => p.id)), [people])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [fileDropActive, setFileDropActive] = useState(false)
+  const [bulkPersonPick, setBulkPersonPick] = useState<Set<string>>(() => new Set())
 
   const analyzedSourceSummary = useMemo(() => {
     if (inputMode !== 'file') return null
@@ -2124,8 +2142,23 @@ export function TankestromImportDialog({
       setExpandedSourceIds(new Set())
       setExpandedDetailIds(new Set())
       setReviewCardEditorOpen(new Set())
+      setBulkPersonPick(new Set())
     }
   }, [open])
+
+  const toggleBulkPersonPick = useCallback((id: string) => {
+    setBulkPersonPick((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+        console.debug('[tankestrom review bulk person]', {
+          reviewMultiPersonSelectionChanged: [...next],
+        })
+      }
+      return next
+    })
+  }, [])
 
   const handleClose = useCallback(() => {
     onClose()
@@ -2919,6 +2952,57 @@ export function TankestromImportDialog({
                 ) : null}
               </div>
 
+              {calendarProposalItems.length > 0 ? (
+                <div className="rounded-xl border border-zinc-200/95 bg-white px-3 py-2.5 shadow-sm">
+                  <p className="text-[12px] font-semibold text-zinc-900">Gjelder for</p>
+                  <p className="mt-1 text-[10px] leading-snug text-zinc-500 sm:text-[11px]">
+                    Velg én eller flere personer og bruk valget på mange forslag samtidig.{' '}
+                    <span className="font-medium text-zinc-600">
+                      Hendelser lagres med flere deltakere i kalenderen (som ved manuell opprettelse).
+                    </span>{' '}
+                    Gjøremål: første barn i utvalget blir «Gjelder barn», ellers første voksen som ansvarlig. Du kan
+                    fortsatt endre per kort under «Rediger».
+                  </p>
+                  <div className="mt-2 flex max-h-28 flex-wrap gap-1.5 overflow-y-auto sm:max-h-none">
+                    {people.map((p) => {
+                      const on = bulkPersonPick.has(p.id)
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => toggleBulkPersonPick(p.id)}
+                          className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition touch-manipulation ${
+                            on
+                              ? 'border-brandTeal/80 bg-brandTeal/15 text-brandNavy shadow-sm'
+                              : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 active:bg-zinc-100'
+                          }`}
+                        >
+                          {p.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div className="mt-2.5 flex flex-col gap-1.5 sm:flex-row sm:flex-wrap">
+                    <button
+                      type="button"
+                      disabled={bulkPersonPick.size === 0}
+                      onClick={() => applyReviewBulkPersonTargets([...bulkPersonPick], 'selected')}
+                      className="rounded-lg border border-brandNavy/35 bg-brandSky/20 px-3 py-2 text-[11px] font-semibold text-brandNavy hover:bg-brandSky/35 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      Bruk på valgte forslag
+                    </button>
+                    <button
+                      type="button"
+                      disabled={bulkPersonPick.size === 0}
+                      onClick={() => applyReviewBulkPersonTargets([...bulkPersonPick], 'all_calendar')}
+                      className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] font-semibold text-zinc-800 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      Bruk på alle forslag
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
               <ul className="space-y-2 sm:space-y-4">
                 {calendarReviewFlatEntries.map((entry) => {
                   const item = entry.item
@@ -2999,18 +3083,16 @@ export function TankestromImportDialog({
                         ? u.event.date
                         : ''
 
+                  const eventPeopleSummary =
+                    u.importKind === 'event' ? formatEventDraftPeopleSummary(u.event, people) : ''
                   const summaryMetaLine =
                     u.importKind === 'event'
                       ? embeddedScheduleParentCard
                         ? `${formatNorwegianDateRangeLabel(u.event.date, embeddedEndDate || u.event.date)} · Hele dagen · Program: ${programPointsCount} punkter${
-                            people.find((p) => p.id === u.event.personId)?.name
-                              ? ` · ${people.find((p) => p.id === u.event.personId)?.name}`
-                              : ''
+                            eventPeopleSummary ? ` · ${eventPeopleSummary}` : ''
                           }`
                         : `${formatNorwegianDateLabel(u.event.date)} · ${eventTimeSummary}${
-                            people.find((p) => p.id === u.event.personId)?.name
-                              ? ` · ${people.find((p) => p.id === u.event.personId)?.name}`
-                              : ''
+                            eventPeopleSummary ? ` · ${eventPeopleSummary}` : ''
                           }`
                       : `${formatNorwegianDateLabel(u.task.date)}${
                           u.task.dueTime.trim() ? ` · Frist ${u.task.dueTime.trim()}` : ''
