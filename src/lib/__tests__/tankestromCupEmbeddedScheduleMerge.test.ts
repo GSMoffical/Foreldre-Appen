@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { PortalEventProposal, PortalProposalItem, PortalTaskProposal } from '../../features/tankestrom/types'
 import {
   applyCupWeekendEmbeddedScheduleMerge,
+  embeddedScheduleChildCalendarExportTitle,
+  embeddedScheduleChildReviewDisplayTitle,
+  embeddedScheduleParentReviewDisplayTitle,
   normalizeEmbeddedScheduleParentDisplayTitle,
 } from '../tankestromCupEmbeddedScheduleMerge'
 
@@ -52,6 +55,37 @@ describe('normalizeEmbeddedScheduleParentDisplayTitle', () => {
     expect(wasDayLikeTitle).toBe(true)
     expect(title.trim()).toBe('Vårcupen 2026')
     expect(title).not.toMatch(/juni|søndag|fredag/i)
+  })
+
+  it('fjerner «samlet info for helgen» og datointervall fra parent (kalenderkjerne)', () => {
+    const { title, wasDayLikeTitle } = normalizeEmbeddedScheduleParentDisplayTitle(
+      'Vårcupen 2026 – samlet info for helgen – 12.–14. juni 2026'
+    )
+    expect(wasDayLikeTitle).toBe(true)
+    expect(title.trim()).toBe('Vårcupen 2026')
+    expect(title.toLowerCase()).not.toContain('samlet')
+  })
+
+  it('review parent: valgfri kort datolinje ved flere dager', () => {
+    const line = embeddedScheduleParentReviewDisplayTitle('Vårcupen 2026', '2026-06-12', '2026-06-14')
+    expect(line.startsWith('Vårcupen 2026 ·')).toBe(true)
+    expect(line).toMatch(/juni/i)
+  })
+
+  it('child review/eksport: kort tittel med ukedag, uten «samlet info»', () => {
+    const review = embeddedScheduleChildReviewDisplayTitle(
+      'Vårcupen 2026',
+      'Vårcupen 2026 – samlet info for helgen',
+      '2026-06-12'
+    )
+    expect(review.toLowerCase()).toContain('fredag')
+    expect(review.toLowerCase()).not.toContain('samlet info')
+    const cal = embeddedScheduleChildCalendarExportTitle(
+      { date: '2026-06-12', title: 'Vårcupen 2026 – samlet info for helgen' },
+      'Vårcupen 2026 – samlet info for helgen'
+    )
+    expect(cal.toLowerCase()).not.toContain('samlet info')
+    expect(cal.toLowerCase()).toContain('fredag')
   })
 })
 

@@ -20,7 +20,14 @@ import {
   isEmbeddedScheduleParentProposalItem,
   parseEmbeddedScheduleFromMetadata,
 } from '../../lib/embeddedSchedule'
-import { normalizeEmbeddedScheduleParentDisplayTitle } from '../../lib/tankestromCupEmbeddedScheduleMerge'
+import {
+  embeddedScheduleChildCalendarExportTitle,
+  embeddedScheduleChildReviewDisplayTitle,
+  embeddedScheduleParentReviewDisplayTitle,
+  normalizeEmbeddedScheduleParentDisplayTitle,
+} from '../../lib/tankestromCupEmbeddedScheduleMerge'
+import { deriveEmbeddedParentReviewSummary } from '../../lib/tankestromEmbeddedParentReviewSummary'
+import { deriveSchoolWeekSpecialSummary } from '../../lib/schoolWeekOverlayReviewSpecialSummary'
 import { semanticTitleCore } from '../../lib/tankestromImportDedupe'
 import {
   presentEmbeddedChildNotesForReview,
@@ -60,6 +67,7 @@ import {
   getTankestromTaskFieldErrors,
   inferLanguageTrackFromChildSchool,
   inferValgfagTrackFromChildSchool,
+  normalizeTimeInput,
   scanNotesBodyForLanguage,
   taskIndicatesForeignLanguageMismatchWithTrack,
   type TankestromPendingFile,
@@ -942,7 +950,23 @@ function SchoolWeekOverlayReviewCard({
   condensedWeeklySummary.sort((a, b) => a.length - b.length)
   const weeklyShown = condensedWeeklySummary.slice(0, 4)
 
+  const schoolWeekSpecialSummary = deriveSchoolWeekSpecialSummary({
+    weeklyCondensedLines: condensedWeeklySummary,
+    perDay: dayEntries.map(({ details }) => ({
+      summary: details.summary,
+      reason: details.reason,
+      sectionLines: collectOverlaySectionLinesFromDetails(details, track, resolvedValgfagTrack),
+    })),
+  })
+
   if (DEBUG_SCHOOL_IMPORT_PANEL) {
+    console.debug('[school week overlay special summary]', {
+      schoolWeekSummaryRendered: schoolWeekSpecialSummary.rendered,
+      schoolWeekSummaryHighlightFound: schoolWeekSpecialSummary.highlightFound,
+      schoolWeekSummarySuppressedAsWeak: schoolWeekSpecialSummary.suppressedAsWeak,
+      schoolWeekSummarySpecialEventMatched: schoolWeekSpecialSummary.specialEventMatched,
+      proposalId: overlay.proposalId,
+    })
     console.debug('[overlay review render-levels]', {
       track,
       hasWeeklySummary: overlay.weeklySummary.length > 0,
@@ -997,6 +1021,15 @@ function SchoolWeekOverlayReviewCard({
       <p className="mt-1 text-[11px] leading-snug text-indigo-900/90">
         Midlertidige ukeendringer oppdaget i A-planen. Dette er kun review i denne versjonen.
       </p>
+      {schoolWeekSpecialSummary.text ? (
+        <p
+          className="mt-2 line-clamp-3 text-[11px] font-medium leading-snug text-indigo-950"
+          title={schoolWeekSpecialSummary.text}
+        >
+          <span className="font-semibold text-indigo-900/90">Ukens særpreg: </span>
+          {schoolWeekSpecialSummary.text}
+        </p>
+      ) : null}
       <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-indigo-900">
         {overlay.weekNumber != null ? (
           <span className="inline-flex rounded-full border border-indigo-300 bg-white px-2 py-0.5 font-semibold">
@@ -1715,62 +1748,17 @@ function formatNorwegianDateRangeLabel(isoStart: string, isoEnd: string): string
 
 const EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX = 4
 
-/** Traillere som i cup-merge — fjerner dag/dato-rygg fra segmenttitler i review. */
-const CHILD_SEGMENT_TITLE_TRAILERS: RegExp[] = [
-  /\s*[–—\-:]\s*informasjon for helgen\b.*$/i,
-  /\s*[–—\-:]\s*praktisk info(?:rmation)?\b.*$/i,
-  /\s*[–—\-:]\s*(?:uke|helg)\s+\d+.*$/i,
-  /\s*[–—\-:]\s*(?:mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag)\b(?:\s+\d{1,2}\.?(?:\s+[a-zæøå]+)?(?:\s+\d{4})?)?\s*$/i,
-  /\s+[–—\-]\s*(?:fredag|lørdag|søndag)\s*$/i,
-]
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-function stripChildSegmentTitleTrailers(t: string): string {
-  let out = t.trim()
-  let prev = ''
-  while (out !== prev) {
-    prev = out
-    for (const p of CHILD_SEGMENT_TITLE_TRAILERS) {
-      out = out.replace(p, '').trim()
-    }
-  }
-  return out
-}
-
-/**
- * Lesbar deltittel uten å gjenta forelder-navn + dato som allerede vises ved siden av.
- */
-function embeddedScheduleChildDisplayTitle(
-  segmentTitle: string,
-  parentCardTitle: string | undefined
-): string {
-  const original = segmentTitle.trim()
-  let t = original
-  if (parentCardTitle?.trim()) {
-    const { title: parentNorm } = normalizeEmbeddedScheduleParentDisplayTitle(parentCardTitle.trim())
-    const pn = parentNorm.trim()
-    if (pn.length >= 3) {
-      t = t.replace(new RegExp(`^${escapeRegExp(pn)}\\s*[–—\\-:]\\s*`, 'iu'), '').trim()
-      t = t.replace(new RegExp(`^${escapeRegExp(pn)}\\s+`, 'iu'), '').trim()
-    }
-  }
-  t = stripChildSegmentTitleTrailers(t)
-  if (!t || t.length < 2) {
-    t = stripChildSegmentTitleTrailers(original)
-    if (!t) return original
-  }
-  const core = semanticTitleCore(t)
-  if (core.length >= 2) {
-    return core.charAt(0).toLocaleUpperCase('nb-NO') + core.slice(1)
-  }
-  const cap = t.charAt(0).toLocaleUpperCase('nb-NO') + t.slice(1)
-  return cap.length >= 2 ? cap : original
-}
-
 const HM24 = /^([01]\d|2[0-3]):[0-5]\d$/
+
+/** Lokalt utkast mens delprogram-punkt redigeres inline i review (lagres med Lagre). */
+type EmbeddedChildReviewEditBuffer = {
+  title: string
+  date: string
+  start: string
+  end: string
+  notes: string
+  personId: string
+}
 
 /**
  * Ekte klokkeslett for visning, eller null når tid mangler eller er teknisk/usikker (unngår falsk «06:00»).
@@ -1814,11 +1802,11 @@ function embeddedScheduleChildDateShort(isoDate: string): string {
  */
 function embeddedScheduleChildDetailTitleForPanel(
   seg: EmbeddedScheduleSegment,
-  parentTitleForChild: string | undefined,
+  parentCalendarCore: string | undefined,
   displayTitle: string,
   childProposalId: string
 ): string {
-  const pt = parentTitleForChild?.trim()
+  const pt = parentCalendarCore?.trim()
   const dt = displayTitle.trim()
   if (!pt) return dt
 
@@ -1833,7 +1821,7 @@ function embeddedScheduleChildDetailTitleForPanel(
   if (!sameBlob && !childIsOnlyParentPrefix) return dt
 
   const datePart = embeddedScheduleChildDateShort(seg.date)
-  const fromSeg = embeddedScheduleChildDisplayTitle(seg.title, parentTitleForChild)
+  const fromSeg = embeddedScheduleChildReviewDisplayTitle(pt, seg.title, seg.date)
   const logRefined = (refinedTitle: string) => {
     if (refinedTitle === dt) return
     if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
@@ -1911,8 +1899,10 @@ function flattenEmbeddedScheduleForPreview(item: PortalEventProposal): EmbeddedS
 }
 
 /** Kompakt én-linjes program (preview-liste); bruker normalisert tittel og skjuler syntetiske tider. */
-function formatEmbeddedSchedulePreviewLine(seg: EmbeddedScheduleSegment, parentCardTitle?: string): string {
-  const displayTitle = embeddedScheduleChildDisplayTitle(seg.title, parentCardTitle)
+function formatEmbeddedSchedulePreviewLine(seg: EmbeddedScheduleSegment, parentCalendarCore?: string): string {
+  const displayTitle = parentCalendarCore?.trim()
+    ? embeddedScheduleChildReviewDisplayTitle(parentCalendarCore.trim(), seg.title, seg.date)
+    : normalizeEmbeddedScheduleParentDisplayTitle(seg.title).title
   const { clock } = embeddedScheduleChildTimeDisplay(seg)
   let dayAbbr = ''
   try {
@@ -1998,7 +1988,7 @@ function TankestromEmbeddedSchedulePreview({
   item: PortalEventProposal
   /** Når satt (f.eks. gjenværende rader etter løsning), brukes den i stedet for metadata på item. */
   segmentsOverride?: EmbeddedScheduleSegment[]
-  /** Container-normalisert foreldertittel (unngår dag/dato i programlinjer). */
+  /** Kalender-/kjernetittel for parent (samme som `calendarExportTitleNormalized`, ikke review-linje med dato). */
   parentTitleForPreviewLines?: string
   expanded: boolean
   onToggleExpanded: () => void
@@ -2009,7 +1999,9 @@ function TankestromEmbeddedSchedulePreview({
 
   const visible = expanded ? flat : flat.slice(0, EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX)
   const remainder = flat.length > EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX ? flat.length - EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX : 0
-  const previewParentTitle = parentTitleForPreviewLines?.trim() || item.event.title
+  const previewParentTitle =
+    parentTitleForPreviewLines?.trim() ||
+    normalizeEmbeddedScheduleParentDisplayTitle(item.event.title.trim()).title
 
   if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
     console.debug('[tankestrom review embedded schedule preview]', {
@@ -2203,6 +2195,7 @@ export function TankestromImportDialog({
     embeddedScheduleReviewRowsByParentId,
     detachedEmbeddedChildren,
     detachEmbeddedScheduleChild,
+    updateEmbeddedScheduleSegment,
     selectedIds,
     toggleProposal,
     draftByProposalId,
@@ -2305,6 +2298,9 @@ export function TankestromImportDialog({
 
   /** Full redigering for importkort — standard sammenslått for rask oversikt (særlig mobil). */
   const [reviewCardEditorOpen, setReviewCardEditorOpen] = useState<Set<string>>(() => new Set())
+  const [embeddedChildReviewEditors, setEmbeddedChildReviewEditors] = useState<
+    Record<string, EmbeddedChildReviewEditBuffer>
+  >({})
   const toggleReviewCardEditor = useCallback((proposalId: string) => {
     setReviewCardEditorOpen((prev) => {
       const next = new Set(prev)
@@ -2355,6 +2351,7 @@ export function TankestromImportDialog({
       setReviewCardEditorOpen(new Set())
       setBulkPersonPick(new Set())
       setExpandedDelprogramChildIds(new Set())
+      setEmbeddedChildReviewEditors({})
     }
   }, [open])
 
@@ -3316,9 +3313,17 @@ export function TankestromImportDialog({
 
                   const cardTitleRaw =
                     (u.importKind === 'event' ? u.event.title : u.task.title).trim() || 'Uten tittel'
-                  const cardTitle =
+                  const parentCalendarExportCore =
                     embeddedScheduleParentCard && u.importKind === 'event'
                       ? normalizeEmbeddedScheduleParentDisplayTitle(cardTitleRaw).title
+                      : ''
+                  const cardTitle =
+                    embeddedScheduleParentCard && u.importKind === 'event'
+                      ? embeddedScheduleParentReviewDisplayTitle(
+                          parentCalendarExportCore,
+                          u.event.date,
+                          embeddedEndDate || u.event.date
+                        )
                       : cardTitleRaw
 
                   const reviewTitleDisplay = reviewCardTitleDisplay(cardTitle)
@@ -3339,9 +3344,27 @@ export function TankestromImportDialog({
 
                   const notesForPreview =
                     u.importKind === 'event' && embeddedScheduleParentCard
-                      ? parentEventNotesForReviewPreview(notesRaw, true, cardTitle, pid)
+                      ? parentEventNotesForReviewPreview(notesRaw, true, parentCalendarExportCore, pid)
                       : notesRaw ?? ''
                   const notesPrev = notesPreviewSnippet(notesForPreview, 130)
+
+                  const embeddedParentReviewSummary =
+                    embeddedScheduleParentCard && u.importKind === 'event' && item.kind === 'event'
+                      ? deriveEmbeddedParentReviewSummary({
+                          notesForPreview,
+                          parentTitleCompare: (parentCalendarExportCore || cardTitleRaw).trim(),
+                          metadata:
+                            item.event.metadata &&
+                            typeof item.event.metadata === 'object' &&
+                            !Array.isArray(item.event.metadata)
+                              ? (item.event.metadata as Record<string, unknown>)
+                              : undefined,
+                          segments:
+                            (embeddedScheduleReviewRowsByParentId[pid]?.length ?? 0) > 0
+                              ? embeddedScheduleReviewRowsByParentId[pid]!.map((r) => r.segment)
+                              : parseEmbeddedScheduleFromMetadata(item.event.metadata),
+                        })
+                      : null
 
                   const eventPeopleSummary =
                     u.importKind === 'event' ? formatEventDraftPeopleSummary(u.event, people) : ''
@@ -3368,10 +3391,19 @@ export function TankestromImportDialog({
                     (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true')
                   ) {
                     console.debug('[tankestrom embedded parent review display]', {
+                      reviewParentDisplayTitleNormalized: cardTitle,
+                      calendarExportTitleNormalized: parentCalendarExportCore,
+                      reviewSummaryPhraseSuppressedInExportTitle:
+                        parentCalendarExportCore.trim().toLowerCase() !== cardTitleRaw.toLowerCase(),
                       embeddedScheduleParentDisplayTitleNormalized: cardTitle,
                       embeddedScheduleParentDisplayMetaNormalized: summaryMetaLine,
                       embeddedScheduleParentSuppressedDayLikeTime: true,
                       embeddedScheduleParentRenderedAsContainerCard: true,
+                      parentSummaryRendered: Boolean(embeddedParentReviewSummary?.text),
+                      parentSummaryDerivedFromExistingNotes:
+                        embeddedParentReviewSummary?.derivedFromExistingNotes ?? false,
+                      parentSummarySuppressedAsWeak: embeddedParentReviewSummary?.suppressedAsWeak ?? false,
+                      parentSummaryDisplayedInReview: Boolean(embeddedParentReviewSummary?.text),
                       proposalId: pid,
                     })
                   }
@@ -3445,6 +3477,14 @@ export function TankestromImportDialog({
                           <p className="mt-0.5 text-[10px] leading-snug text-zinc-600 sm:mt-1 sm:text-[11px]">
                             {summaryMetaLine}
                           </p>
+                          {embeddedParentReviewSummary?.text ? (
+                            <p
+                              className="mt-1.5 line-clamp-2 text-[11px] leading-snug text-zinc-700 sm:mt-2 sm:text-[12px]"
+                              title={embeddedParentReviewSummary.text}
+                            >
+                              {embeddedParentReviewSummary.text}
+                            </p>
+                          ) : null}
                           {(() => {
                             const existingMatch =
                               !detachedFromParentLabel &&
@@ -3508,7 +3548,7 @@ export function TankestromImportDialog({
                               proposalId={pid}
                               item={item}
                               segmentsOverride={embeddedScheduleReviewRowsByParentId[pid]?.map((r) => r.segment)}
-                              parentTitleForPreviewLines={cardTitle}
+                              parentTitleForPreviewLines={parentCalendarExportCore}
                               expanded={expandedProgramPreviewIds.has(pid)}
                               onToggleExpanded={() => toggleProgramPreviewExpanded(pid)}
                             />
@@ -3520,8 +3560,8 @@ export function TankestromImportDialog({
                               </p>
                               {((): ReactNode => {
                                 const rows = embeddedScheduleReviewRowsByParentId[pid] ?? []
-                                const parentTitleForChild =
-                                  u.importKind === 'event' ? cardTitle : undefined
+                                const parentCalendarCoreForChild =
+                                  u.importKind === 'event' ? parentCalendarExportCore : undefined
                                 if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
                                   console.debug('[tankestrom embedded schedule review]', {
                                     embeddedScheduleChildReviewItemsVisible: rows.length,
@@ -3531,9 +3571,17 @@ export function TankestromImportDialog({
                                 return rows.map((row) => {
                                   const childId = makeEmbeddedChildProposalId(pid, row.origIndex)
                                   const childChecked = selectedIds.has(childId)
-                                  const displayTitle = embeddedScheduleChildDisplayTitle(
-                                    row.segment.title,
-                                    parentTitleForChild
+                                  const displayTitle =
+                                    parentCalendarCoreForChild && parentCalendarCoreForChild.trim()
+                                      ? embeddedScheduleChildReviewDisplayTitle(
+                                          parentCalendarCoreForChild,
+                                          row.segment.title,
+                                          row.segment.date
+                                        )
+                                      : normalizeEmbeddedScheduleParentDisplayTitle(row.segment.title).title
+                                  const calendarExportChildTitle = embeddedScheduleChildCalendarExportTitle(
+                                    row.segment,
+                                    cardTitleRaw
                                   )
                                   const timeDisp = embeddedScheduleChildTimeDisplay(row.segment)
                                   const derivedOppmote = tryDeriveOppmoteStartFromSegmentNotes(row.segment, {
@@ -3553,6 +3601,10 @@ export function TankestromImportDialog({
                                   )
                                   if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
                                     console.debug('[tankestrom embedded child display]', {
+                                      reviewChildDisplayTitleNormalized: displayTitle,
+                                      calendarExportTitleNormalized: calendarExportChildTitle,
+                                      reviewSummaryPhraseSuppressedInExportTitle:
+                                        calendarExportChildTitle.trim() !== row.segment.title.trim(),
                                       embeddedScheduleChildDisplayTitleNormalized: displayTitle,
                                       embeddedScheduleChildDisplayTimeNormalized:
                                         derivedOppmote?.displayClock ??
@@ -3571,18 +3623,19 @@ export function TankestromImportDialog({
                                   const delprogramDetailOpen = expandedDelprogramChildIds.has(childId)
                                   const childNotesPresentation = presentEmbeddedChildNotesForReview({
                                     seg: row.segment,
-                                    parentCardTitle: parentTitleForChild,
+                                    parentCardTitle: parentCalendarCoreForChild,
                                     displayTitle,
                                     childProposalId: childId,
                                   })
                                   const detailPanelTitle = embeddedScheduleChildDetailTitleForPanel(
                                     row.segment,
-                                    parentTitleForChild,
+                                    parentCalendarCoreForChild,
                                     displayTitle,
                                     childId
                                   )
                                   const detailPanelId = `delprogram-child-detail-${childId}`
                                   const detailTriggerId = `delprogram-child-trigger-${childId}`
+                                  const embEdit = embeddedChildReviewEditors[childId]
                                   return (
                                     <div
                                       key={childId}
@@ -3641,15 +3694,249 @@ export function TankestromImportDialog({
                                             </p>
                                           </div>
                                         </button>
-                                        <button
-                                          type="button"
-                                          disabled={!checked}
-                                          onClick={() => detachEmbeddedScheduleChild(pid, row.origIndex)}
-                                          className="mt-1 shrink-0 self-start rounded-lg px-2 py-1 text-[9px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:bg-brandSky/25 hover:decoration-brandNavy disabled:cursor-not-allowed disabled:opacity-40 sm:text-[10px]"
-                                        >
-                                          Løsne
-                                        </button>
+                                        <div className="mt-1 flex shrink-0 flex-col items-stretch gap-1 self-start">
+                                          <button
+                                            type="button"
+                                            disabled={!checked || !!embEdit}
+                                            onClick={() => {
+                                              if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+                                                console.debug('[tankestrom embedded child edit]', {
+                                                  embeddedChildEditOpened: true,
+                                                  childProposalId: childId,
+                                                  parentProposalId: pid,
+                                                })
+                                              }
+                                              const childDraft = draftByProposalId[childId]
+                                              const parentPersonId = u.importKind === 'event' ? u.event.personId : ''
+                                              let personFromChild = parentPersonId
+                                              if (childDraft && childDraft.importKind === 'event') {
+                                                const ev = childDraft.event
+                                                if (validPersonIds.has(ev.personId)) {
+                                                  personFromChild = ev.personId
+                                                }
+                                              }
+                                              setEmbeddedChildReviewEditors((prev) => ({
+                                                ...prev,
+                                                [childId]: {
+                                                  title: row.segment.title,
+                                                  date: row.segment.date,
+                                                  start:
+                                                    row.segment.start && row.segment.start.length >= 5
+                                                      ? row.segment.start.slice(0, 5)
+                                                      : '',
+                                                  end:
+                                                    row.segment.end && row.segment.end.length >= 5
+                                                      ? row.segment.end.slice(0, 5)
+                                                      : '',
+                                                  notes: row.segment.notes ?? '',
+                                                  personId: personFromChild,
+                                                },
+                                              }))
+                                            }}
+                                            className="rounded-lg px-2 py-1 text-[9px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:bg-brandSky/25 hover:decoration-brandNavy disabled:cursor-not-allowed disabled:opacity-40 sm:text-[10px]"
+                                          >
+                                            Rediger
+                                          </button>
+                                          <button
+                                            type="button"
+                                            disabled={!checked}
+                                            onClick={() => {
+                                              setEmbeddedChildReviewEditors((p) => {
+                                                const n = { ...p }
+                                                delete n[childId]
+                                                return n
+                                              })
+                                              detachEmbeddedScheduleChild(pid, row.origIndex)
+                                            }}
+                                            className="rounded-lg px-2 py-1 text-[9px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:bg-brandSky/25 hover:decoration-brandNavy disabled:cursor-not-allowed disabled:opacity-40 sm:text-[10px]"
+                                          >
+                                            Løsne
+                                          </button>
+                                        </div>
                                       </div>
+                                      {embEdit ? (
+                                        <div
+                                          className="mt-2 space-y-2 rounded-lg border border-brandTeal/30 bg-brandSky/15 px-2 py-2 sm:px-3"
+                                          role="region"
+                                          aria-label="Rediger programpunkt"
+                                        >
+                                          <p className="text-[9px] font-semibold uppercase tracking-wide text-brandNavy/90 sm:text-[10px]">
+                                            Rediger programpunkt
+                                          </p>
+                                          <Input
+                                            id={`ts-emb-${childId}-title`}
+                                            label="Tittel"
+                                            value={embEdit.title}
+                                            onChange={(e) =>
+                                              setEmbeddedChildReviewEditors((p) => {
+                                                const cur = p[childId]
+                                                if (!cur) return p
+                                                return { ...p, [childId]: { ...cur, title: e.target.value } }
+                                              })
+                                            }
+                                            disabled={!checked}
+                                            className="text-[13px] font-semibold sm:text-[14px]"
+                                          />
+                                          <Input
+                                            id={`ts-emb-${childId}-date`}
+                                            label="Dato"
+                                            type="date"
+                                            value={embEdit.date}
+                                            onChange={(e) =>
+                                              setEmbeddedChildReviewEditors((p) => {
+                                                const cur = p[childId]
+                                                if (!cur) return p
+                                                return { ...p, [childId]: { ...cur, date: e.target.value } }
+                                              })
+                                            }
+                                            disabled={!checked}
+                                            className="text-[13px]"
+                                          />
+                                          <div className="grid grid-cols-2 gap-2">
+                                            <Input
+                                              id={`ts-emb-${childId}-start`}
+                                              label="Start"
+                                              type="time"
+                                              step={60}
+                                              value={embEdit.start}
+                                              onChange={(e) =>
+                                                setEmbeddedChildReviewEditors((p) => {
+                                                  const cur = p[childId]
+                                                  if (!cur) return p
+                                                  return { ...p, [childId]: { ...cur, start: e.target.value } }
+                                                })
+                                              }
+                                              disabled={!checked}
+                                              className="text-[13px]"
+                                            />
+                                            <Input
+                                              id={`ts-emb-${childId}-end`}
+                                              label="Slutt"
+                                              type="time"
+                                              step={60}
+                                              value={embEdit.end}
+                                              onChange={(e) =>
+                                                setEmbeddedChildReviewEditors((p) => {
+                                                  const cur = p[childId]
+                                                  if (!cur) return p
+                                                  return { ...p, [childId]: { ...cur, end: e.target.value } }
+                                                })
+                                              }
+                                              disabled={!checked}
+                                              className="text-[13px]"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label
+                                              htmlFor={`ts-emb-${childId}-person`}
+                                              className="mb-1 block text-caption font-medium text-zinc-600"
+                                            >
+                                              Person
+                                            </label>
+                                            <select
+                                              id={`ts-emb-${childId}-person`}
+                                              className="w-full rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-[13px] text-zinc-900 shadow-sm focus:border-brandTeal focus:outline-none focus:ring-2 focus:ring-brandTeal/25"
+                                              value={embEdit.personId}
+                                              disabled={!checked}
+                                              onChange={(e) =>
+                                                setEmbeddedChildReviewEditors((p) => {
+                                                  const cur = p[childId]
+                                                  if (!cur) return p
+                                                  return { ...p, [childId]: { ...cur, personId: e.target.value } }
+                                                })
+                                              }
+                                            >
+                                              {people
+                                                .filter((person) => validPersonIds.has(person.id))
+                                                .map((person) => (
+                                                  <option key={person.id} value={person.id}>
+                                                    {person.name}
+                                                  </option>
+                                                ))}
+                                            </select>
+                                          </div>
+                                          <Textarea
+                                            id={`ts-emb-${childId}-notes`}
+                                            label="Notater"
+                                            value={embEdit.notes}
+                                            onChange={(e) =>
+                                              setEmbeddedChildReviewEditors((p) => {
+                                                const cur = p[childId]
+                                                if (!cur) return p
+                                                return { ...p, [childId]: { ...cur, notes: e.target.value } }
+                                              })
+                                            }
+                                            disabled={!checked}
+                                            rows={3}
+                                            className="min-h-[4.5rem] text-[12px] sm:text-[13px]"
+                                          />
+                                          <div className="flex flex-wrap gap-2 pt-0.5">
+                                            <button
+                                              type="button"
+                                              disabled={!checked}
+                                              onClick={() => {
+                                                const buf = embEdit
+                                                if (!buf) return
+                                                const sN = normalizeTimeInput(buf.start)
+                                                const eN = normalizeTimeInput(buf.end)
+                                                const patch: Partial<EmbeddedScheduleSegment> = {
+                                                  title: buf.title.trim() || 'Uten tittel',
+                                                  date: buf.date,
+                                                  notes: buf.notes.trim() ? buf.notes.trim() : undefined,
+                                                  start: buf.start.trim() && HM24.test(sN) ? sN : undefined,
+                                                  end: buf.end.trim() && HM24.test(eN) ? eN : undefined,
+                                                }
+                                                updateEmbeddedScheduleSegment(pid, row.origIndex, patch, {
+                                                  personId: buf.personId,
+                                                })
+                                                if (
+                                                  import.meta.env.DEV ||
+                                                  import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+                                                ) {
+                                                  console.debug('[tankestrom embedded child edit]', {
+                                                    embeddedChildEditSaved: true,
+                                                    embeddedChildEditAppliedInline: true,
+                                                    childProposalId: childId,
+                                                    parentProposalId: pid,
+                                                  })
+                                                }
+                                                setEmbeddedChildReviewEditors((p) => {
+                                                  const n = { ...p }
+                                                  delete n[childId]
+                                                  return n
+                                                })
+                                              }}
+                                              className="rounded-lg bg-brandNavy px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-brandNavy/90 disabled:cursor-not-allowed disabled:opacity-45 sm:text-[12px]"
+                                            >
+                                              Lagre
+                                            </button>
+                                            <button
+                                              type="button"
+                                              disabled={!checked}
+                                              onClick={() => {
+                                                if (
+                                                  import.meta.env.DEV ||
+                                                  import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+                                                ) {
+                                                  console.debug('[tankestrom embedded child edit]', {
+                                                    embeddedChildEditCancelled: true,
+                                                    childProposalId: childId,
+                                                    parentProposalId: pid,
+                                                  })
+                                                }
+                                                setEmbeddedChildReviewEditors((p) => {
+                                                  const n = { ...p }
+                                                  delete n[childId]
+                                                  return n
+                                                })
+                                              }}
+                                              className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-zinc-800 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-45 sm:text-[12px]"
+                                            >
+                                              Avbryt
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ) : null}
                                       {delprogramDetailOpen ? (
                                         <div
                                           id={detailPanelId}

@@ -6,7 +6,11 @@ import {
   isEmbeddedScheduleParentProposalItem,
 } from '../../lib/embeddedSchedule'
 import { filterSubjectUpdatesByLanguageTrack } from '../../lib/schoolWeekOverlayFilters'
-import { applyCupWeekendEmbeddedScheduleMerge } from '../../lib/tankestromCupEmbeddedScheduleMerge'
+import {
+  applyCupWeekendEmbeddedScheduleMerge,
+  embeddedScheduleChildCalendarExportTitle,
+  normalizeEmbeddedScheduleParentDisplayTitle,
+} from '../../lib/tankestromCupEmbeddedScheduleMerge'
 import { dedupeNearDuplicateCalendarProposals } from '../../lib/tankestromImportDedupe'
 import { redistributeEnrichSubjectUpdatesForDay } from '../../lib/schoolWeekOverlayEnrichRouting'
 import type {
@@ -158,9 +162,17 @@ function buildEmbeddedChildEventDraft(
     segment.end && isHm24(normalizeTimeInput(segment.end))
       ? normalizeTimeInput(segment.end)
       : hmPlusMinutes(start, 60)
+  const calendarTitle = embeddedScheduleChildCalendarExportTitle(segment, parentDraft.title)
+  if (import.meta.env.DEV && calendarTitle.trim() !== segment.title.trim()) {
+    console.debug('[tankestrom calendar export title]', {
+      calendarExportTitleNormalized: calendarTitle,
+      reviewSummaryPhraseSuppressedInExportTitle: true,
+      segmentTitleRaw: segment.title,
+    })
+  }
   return {
     ...parentDraft,
-    title: segment.title,
+    title: calendarTitle,
     date: segment.date,
     start,
     end,
@@ -201,7 +213,7 @@ function buildDetachedEmbeddedChildProposal(
       date: segment.date,
       start,
       end,
-      title: segment.title,
+      title: embeddedScheduleChildCalendarExportTitle(segment, parent.event.title),
       notes: segment.notes?.trim() ? segment.notes.trim() : parent.event.notes,
       metadata: baseMeta,
     },
@@ -694,8 +706,12 @@ function buildEventDraftFromProposal(
   const merged = [...new Set([pid, ...fromMeta])]
   const orderedParticipants = [pid, ...merged.filter((id) => id !== pid)]
   const participantPersonIds = orderedParticipants.length > 1 ? orderedParticipants : undefined
+  const title =
+    isEmbeddedScheduleParentProposalItem(p)
+      ? normalizeEmbeddedScheduleParentDisplayTitle(ev.title.trim()).title
+      : ev.title
   return {
-    title: ev.title,
+    title,
     date: ev.date,
     start: ev.start,
     end: ev.end,
@@ -1408,6 +1424,57 @@ export function useTankestromImport({
     }
   }, [proposalItems])
 
+  /**
+   * Oppdaterer ett innebygd programpunkt i review og synker tilsvarende barn-utkast (forblir under samme forelder).
+   */
+  const updateEmbeddedScheduleSegment = useCallback(
+    (
+      parentProposalId: string,
+      origIndex: number,
+      segmentPatch: Partial<EmbeddedScheduleSegment>,
+      opts?: { personId?: string }
+    ) => {
+      let mergedSegment: EmbeddedScheduleSegment | undefined
+      setEmbeddedScheduleReviewRowsByParentId((prev) => {
+        const rows = prev[parentProposalId]
+        if (!rows) return prev
+        const nextRows = rows.map((r) => {
+          if (r.origIndex !== origIndex) return r
+          mergedSegment = { ...r.segment, ...segmentPatch }
+          return { origIndex, segment: mergedSegment }
+        })
+        if (!mergedSegment) return prev
+        return { ...prev, [parentProposalId]: nextRows }
+      })
+      if (!mergedSegment) return
+      const segmentForChild = mergedSegment
+
+      setDraftByProposalId((prev) => {
+        const parentDraftEntry = prev[parentProposalId]
+        if (!parentDraftEntry || parentDraftEntry.importKind !== 'event') return prev
+        const childId = makeEmbeddedChildProposalId(parentProposalId, origIndex)
+        const baseChild = buildEmbeddedChildEventDraft(parentDraftEntry.event, segmentForChild)
+        const prevChild = prev[childId]
+        let personId = baseChild.personId
+        let participantPersonIds = baseChild.participantPersonIds
+        if (opts?.personId !== undefined) {
+          if (validPersonIds.has(opts.personId)) {
+            personId = opts.personId
+            participantPersonIds = undefined
+          }
+        } else if (prevChild?.importKind === 'event') {
+          personId = prevChild.event.personId
+          participantPersonIds = prevChild.event.participantPersonIds
+        }
+        return {
+          ...prev,
+          [childId]: { importKind: 'event', event: { ...baseChild, personId, participantPersonIds } },
+        }
+      })
+    },
+    [validPersonIds]
+  )
+
   const updateEventDraft = useCallback((proposalId: string, patch: Partial<TankestromEventDraft>) => {
     setDraftByProposalId((prev) => {
       const cur = prev[proposalId]
@@ -2052,7 +2119,11 @@ export function useTankestromImport({
             const included = rows.filter((r) =>
               selectedIds.has(makeEmbeddedChildProposalId(item.proposalId, r.origIndex))
             )
-            baseMeta.embeddedSchedule = included.map((r) => r.segment)
+            const parentTitleForSegments = normalizeEmbeddedScheduleParentDisplayTitle(draft.title.trim()).title
+            baseMeta.embeddedSchedule = included.map((r) => ({
+              ...r.segment,
+              title: embeddedScheduleChildCalendarExportTitle(r.segment, parentTitleForSegments),
+            }))
           }
 
           const metadata: Record<string, unknown> = {
@@ -2114,7 +2185,11 @@ export function useTankestromImport({
             const included = rows.filter((r) =>
               selectedIds.has(makeEmbeddedChildProposalId(item.proposalId, r.origIndex))
             )
-            baseMeta.embeddedSchedule = included.map((r) => r.segment)
+            const parentTitleForSegments = normalizeEmbeddedScheduleParentDisplayTitle(draft.title.trim()).title
+            baseMeta.embeddedSchedule = included.map((r) => ({
+              ...r.segment,
+              title: embeddedScheduleChildCalendarExportTitle(r.segment, parentTitleForSegments),
+            }))
           }
         }
 
@@ -2141,9 +2216,13 @@ export function useTankestromImport({
           else delete metadata.transport
         }
         mergeEventParticipantsIntoMetadata(metadata, draft, validPersonIds)
+        const calendarTitle =
+          item.kind === 'event' && isEmbeddedScheduleParentCalendarItem(item)
+            ? normalizeEmbeddedScheduleParentDisplayTitle(draft.title.trim()).title
+            : draft.title.trim()
         const input: Omit<Event, 'id'> = {
           personId: draft.personId,
-          title: draft.title,
+          title: calendarTitle,
           start: draft.start,
           end: draft.end,
           notes: draft.notes.length > 0 ? draft.notes : undefined,
@@ -2240,6 +2319,7 @@ export function useTankestromImport({
     embeddedScheduleReviewRowsByParentId,
     detachedEmbeddedChildren,
     detachEmbeddedScheduleChild,
+    updateEmbeddedScheduleSegment,
     applyReviewBulkPersonTargets,
     existingEventMatchesByProposalId,
     existingEventLinkByProposalId,

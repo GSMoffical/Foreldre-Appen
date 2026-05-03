@@ -60,25 +60,203 @@ function commonLocation(group: PortalEventProposal[]): string | undefined {
   return locs.every((l) => l === first) ? first : undefined
 }
 
+function escapeRegexChars(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * Fjerner review-/oppsummeringsfraser som ikke hører hjemme i kalendertittel (overalt i strengen, iterativt).
+ */
+export function stripEmbeddedScheduleReviewSummaryPhrases(t: string): string {
+  const REVIEW_SUMMARY_PHRASE_PATTERNS: RegExp[] = [
+    /\s*[–—\-:]\s*samlet info for helgen\b/gi,
+    /\s*[–—\-:]\s*samlet informasjon for helgen\b/gi,
+    /\s*[–—\-:]\s*informasjon for helgen\b/gi,
+    /\s*[–—\-:]\s*praktisk info(?:rmation)? for helgen\b/gi,
+    /\s*[–—\-:]\s*oversikt for helgen\b/gi,
+    /\s*[–—\-:]\s*helge(?:informasjon|info)\b/gi,
+    /\s*[–—\-:]\s*oppsummering for helgen\b/gi,
+  ]
+  let out = t.trim()
+  for (let pass = 0; pass < 6; pass++) {
+    const before = out
+    for (const p of REVIEW_SUMMARY_PHRASE_PATTERNS) {
+      out = out.replace(p, ' ').replace(/\s+/g, ' ').trim()
+    }
+    out = out.replace(/\s*[–—]\s*[–—]\s*/g, ' – ').trim()
+    if (out === before) break
+  }
+  return out
+}
+
+/** Samme traillere som i review-dialog for barn av parent-program. */
+const EMBEDDED_CHILD_SEGMENT_TITLE_TRAILERS: RegExp[] = [
+  /\s*[–—\-:]\s*informasjon for helgen\b.*$/i,
+  /\s*[–—\-:]\s*samlet info for helgen\b.*$/i,
+  /\s*[–—\-:]\s*praktisk info(?:rmation)?\b.*$/i,
+  /\s*[–—\-:]\s*(?:uke|helg)\s+\d+.*$/i,
+  /\s*[–—\-:]\s*(?:mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag)\b(?:\s+\d{1,2}\.?(?:\s+[a-zæøå]+)?(?:\s+\d{4})?)?\s*$/i,
+  /\s+[–—\-]\s*(?:fredag|lørdag|søndag)\s*$/i,
+]
+
+function stripEmbeddedChildSegmentTrailers(s: string): string {
+  let out = s.trim()
+  let prev = ''
+  while (out !== prev) {
+    prev = out
+    for (const p of EMBEDDED_CHILD_SEGMENT_TITLE_TRAILERS) {
+      out = out.replace(p, '').trim()
+    }
+  }
+  return out
+}
+
+function osloCalendarInstant(isoDate: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null
+  const [y, m, d] = isoDate.split('-').map(Number)
+  return new Date(Date.UTC(y!, m! - 1, d!, 12, 0, 0))
+}
+
+function norwegianWeekdayLong(isoDate: string): string {
+  try {
+    const inst = osloCalendarInstant(isoDate)
+    if (!inst) return ''
+    return inst.toLocaleDateString('nb-NO', { weekday: 'long', timeZone: 'Europe/Oslo' }).trim()
+  } catch {
+    return ''
+  }
+}
+
+function formatEmbeddedParentReviewDateRangeSuffix(dateMin: string, dateMax: string): string {
+  if (!dateMin || !dateMax || dateMin === dateMax) return ''
+  const a = osloCalendarInstant(dateMin)
+  const b = osloCalendarInstant(dateMax)
+  if (!a || !b || Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return ''
+  const oslo: Intl.DateTimeFormatOptions = { timeZone: 'Europe/Oslo' }
+  try {
+    const partsA = new Intl.DateTimeFormat('en-CA', {
+      ...oslo,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    }).formatToParts(a)
+    const partsB = new Intl.DateTimeFormat('en-CA', {
+      ...oslo,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    }).formatToParts(b)
+    const ga = (t: Intl.DateTimeFormatPartTypes) => Number(partsA.find((x) => x.type === t)?.value)
+    const gb = (t: Intl.DateTimeFormatPartTypes) => Number(partsB.find((x) => x.type === t)?.value)
+    const y1 = ga('year')
+    const y2 = gb('year')
+    const m1 = ga('month')
+    const m2 = gb('month')
+    const d1 = ga('day')
+    const d2 = gb('day')
+    if (y1 === y2 && m1 === m2) {
+      const month = a.toLocaleDateString('nb-NO', { month: 'long', ...oslo })
+      return `${d1}.–${d2}. ${month} ${y1}`
+    }
+    const left = a.toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', ...oslo }).replace(/\.$/, '')
+    const right = b
+      .toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric', ...oslo })
+      .replace(/\.$/, '')
+    return `${left} – ${right}`
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * Kort parent-tittel i review (arrangementsnavn + valgfri datoperiode når flere dager).
+ * `calendarCoreTitle` skal være output fra `normalizeEmbeddedScheduleParentDisplayTitle`.
+ */
+export function embeddedScheduleParentReviewDisplayTitle(
+  calendarCoreTitle: string,
+  dateMin: string,
+  dateMax: string
+): string {
+  const core = calendarCoreTitle.trim()
+  const suffix = formatEmbeddedParentReviewDateRangeSuffix(dateMin, dateMax)
+  return suffix ? `${core} · ${suffix}` : core
+}
+
+function deriveShortDistinctSegmentActivity(parentCalendarCoreTitle: string, segmentTitle: string): string {
+  let t = stripEmbeddedScheduleReviewSummaryPhrases(segmentTitle.trim())
+  const pc = parentCalendarCoreTitle.trim()
+  if (pc.length >= 3) {
+    t = t.replace(new RegExp(`^${escapeRegexChars(pc)}\\s*[–—\\-:]\\s*`, 'iu'), '').trim()
+  }
+  t = stripEmbeddedChildSegmentTrailers(t)
+  t = t.trim()
+  if (!t || t.length < 2) return ''
+  const actCore = semanticTitleCore(t)
+  const pCore = semanticTitleCore(pc)
+  if (actCore.length < 2 || actCore === pCore) return ''
+  if (/^(samlet|helg|helgen|informasjon|oversikt|oppsummering|praktisk|info)\b/i.test(actCore)) return ''
+  if (/^(mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag)$/.test(actCore)) return ''
+  const display = actCore.charAt(0).toLocaleUpperCase('nb-NO') + actCore.slice(1)
+  return display.length > 44 ? `${display.slice(0, 41)}…` : display
+}
+
+/**
+ * Kort, dagsspesifikk tittel for delprogram i review (og samme logikk for kalender-eksport).
+ */
+export function embeddedScheduleChildReviewDisplayTitle(
+  parentCalendarCoreTitle: string,
+  segmentTitle: string,
+  segmentIsoDate: string
+): string {
+  const core = parentCalendarCoreTitle.trim()
+  const wd = norwegianWeekdayLong(segmentIsoDate)
+  if (!core || core.length < 2) {
+    return segmentTitleForDisplay(segmentTitle)
+  }
+  if (!wd) {
+    return segmentTitleForDisplay(segmentTitle)
+  }
+  const activity = deriveShortDistinctSegmentActivity(core, segmentTitle)
+  const base = `${core} – ${wd}`
+  return activity ? `${base} · ${activity}` : base
+}
+
+/**
+ * Kalendertittel for løsrevet / importert programpunkt (ikke «samlet info»-språk).
+ */
+export function embeddedScheduleChildCalendarExportTitle(
+  segment: EmbeddedScheduleSegment,
+  parentEventTitle: string
+): string {
+  const parentCore = normalizeEmbeddedScheduleParentDisplayTitle(parentEventTitle.trim()).title
+  return embeddedScheduleChildReviewDisplayTitle(parentCore, segment.title, segment.date)
+}
+
 function segmentTitleForDisplay(rawTitle: string): string {
-  const core = semanticTitleCore(rawTitle)
-  if (core.length < 3) return rawTitle.trim()
+  const cleaned = stripEmbeddedScheduleReviewSummaryPhrases(rawTitle.trim())
+  const source = cleaned.length >= 2 ? cleaned : rawTitle.trim()
+  const core = semanticTitleCore(source)
+  if (core.length < 3) return source.length >= 2 ? source : rawTitle.trim()
   return core.charAt(0).toLocaleUpperCase('nb-NO') + core.slice(1)
 }
 
 /** Fjerner dag-/helg-påsydde traillere («… – fredag», «… – informasjon for helgen») fra parent-tittel. */
 const PARENT_TITLE_TRAILERS: RegExp[] = [
   /\s*[–—\-:]\s*informasjon for helgen\b.*$/i,
+  /\s*[–—\-:]\s*samlet info for helgen\b.*$/i,
   /\s*[–—\-:]\s*praktisk info(?:rmation)?\b.*$/i,
   /\s*[–—\-:]\s*(?:uke|helg)\s+\d+.*$/i,
   /\s*[–—\-:]\s*(?:mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag)\b(?:\s+\d{1,2}\.?(?:\s+[a-zæøå]+)?(?:\s+\d{4})?)?\s*$/i,
   /\s+[–—\-]\s*(?:fredag|lørdag|søndag)\s*$/i,
   /** Tankestrøm: «Cup – fredag 12. juni – søndag 14. juni» i én sveip (flere ledd etter første ukedag). */
   /\s*[–—\-]\s*(?:mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag)\b.*$/i,
+  /** «… – 12.–14. juni 2026» / usikkerhets- eller datointervall-påsats på parent. */
+  /\s*[–—\-]\s*\d{1,2}\.\s*[–—]\s*\d{1,2}\.\s+[a-zæøå]+(?:\s+\d{4})?\s*$/i,
 ]
 
 /**
  * Gjør merged parent-tittel container-aktig (samme navn som arrangementet, ikke én dags overskrift).
+ * Brukes som faktisk kalender-/lagringstittel (uten review-metafraser).
  */
 export function normalizeEmbeddedScheduleParentDisplayTitle(raw: string): {
   title: string
@@ -87,7 +265,8 @@ export function normalizeEmbeddedScheduleParentDisplayTitle(raw: string): {
   const original = raw.trim()
   if (!original) return { title: raw, wasDayLikeTitle: false }
 
-  let stripped = original
+  const summaryStripped = stripEmbeddedScheduleReviewSummaryPhrases(original)
+  let stripped = summaryStripped
   let prev = ''
   while (stripped !== prev) {
     prev = stripped
@@ -107,7 +286,8 @@ export function normalizeEmbeddedScheduleParentDisplayTitle(raw: string): {
   const wasDayLikeTitle =
     original !== titled ||
     PARENT_TITLE_TRAILERS.some((p) => p.test(original)) ||
-    /\s[–—\-]\s*(?:fredag|lørdag|søndag)\b/i.test(original)
+    /\s[–—\-]\s*(?:fredag|lørdag|søndag)\b/i.test(original) ||
+    summaryStripped !== original
 
   return { title: titled.length >= 2 ? titled : original, wasDayLikeTitle }
 }
