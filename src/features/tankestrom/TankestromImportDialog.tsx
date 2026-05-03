@@ -26,7 +26,10 @@ import {
   presentEmbeddedChildNotesForReview,
   presentationHasRenderableContent,
 } from '../../lib/tankestromEmbeddedChildNotesPresentation'
-import { stripRedundantHighlightsForReviewDisplay } from '../../lib/tankestromReviewNotesDisplay'
+import {
+  normalizeNotesDedupeKey,
+  stripRedundantHighlightsForReviewDisplay,
+} from '../../lib/tankestromReviewNotesDisplay'
 import type {
   ChildSchoolDayPlan,
   ChildSchoolProfile,
@@ -1771,6 +1774,64 @@ function embeddedScheduleChildDateShort(isoDate: string): string {
   }
 }
 
+/**
+ * Tittel i utvidet delprogram-detalj: unngå at samme forelder-«samlet info» gjentas på hvert barn.
+ */
+function embeddedScheduleChildDetailTitleForPanel(
+  seg: EmbeddedScheduleSegment,
+  parentTitleForChild: string | undefined,
+  displayTitle: string,
+  childProposalId: string
+): string {
+  const pt = parentTitleForChild?.trim()
+  const dt = displayTitle.trim()
+  if (!pt) return dt
+
+  const sameBlob =
+    normalizeNotesDedupeKey(dt) === normalizeNotesDedupeKey(pt) ||
+    (semanticTitleCore(dt) === semanticTitleCore(pt) && semanticTitleCore(dt).length >= 8)
+  const childIsOnlyParentPrefix =
+    dt.length <= pt.length + 6 &&
+    normalizeNotesDedupeKey(pt).startsWith(normalizeNotesDedupeKey(dt)) &&
+    dt.length >= 12
+
+  if (!sameBlob && !childIsOnlyParentPrefix) return dt
+
+  const datePart = embeddedScheduleChildDateShort(seg.date)
+  const fromSeg = embeddedScheduleChildDisplayTitle(seg.title, parentTitleForChild)
+  const logRefined = (refinedTitle: string) => {
+    if (refinedTitle === dt) return
+    if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+      console.debug('[tankestrom embedded child detail title]', {
+        embeddedScheduleChildDisplayTitleRefined: true,
+        childProposalId,
+        refinedTitle,
+      })
+    }
+  }
+
+  if (
+    fromSeg.trim().length >= 2 &&
+    normalizeNotesDedupeKey(fromSeg) !== normalizeNotesDedupeKey(pt) &&
+    semanticTitleCore(fromSeg) !== semanticTitleCore(pt)
+  ) {
+    const refined = `${datePart} · ${fromSeg}`
+    logRefined(refined)
+    return refined
+  }
+
+  const { clock } = embeddedScheduleChildTimeDisplay(seg)
+  if (clock) {
+    const refined = `${datePart} · ${clock}`
+    logRefined(refined)
+    return refined
+  }
+
+  const fallback = `${datePart} · Programpunkt`
+  logRefined(fallback)
+  return fallback
+}
+
 /** Kun segmentets egne notater — ikke foreldernotasjon (unngår tekstvegg i kortet). */
 function embeddedScheduleChildSegmentNotesBody(seg: EmbeddedScheduleSegment): string | null {
   const n = typeof seg.notes === 'string' ? seg.notes.trim() : ''
@@ -3404,6 +3465,12 @@ export function TankestromImportDialog({
                                     displayTitle,
                                     childProposalId: childId,
                                   })
+                                  const detailPanelTitle = embeddedScheduleChildDetailTitleForPanel(
+                                    row.segment,
+                                    parentTitleForChild,
+                                    displayTitle,
+                                    childId
+                                  )
                                   const detailPanelId = `delprogram-child-detail-${childId}`
                                   const detailTriggerId = `delprogram-child-trigger-${childId}`
                                   return (
@@ -3501,7 +3568,7 @@ export function TankestromImportDialog({
                                             </div>
                                             <div className="flex flex-wrap gap-x-2 gap-y-0.5">
                                               <dt className="font-semibold text-zinc-500">Tittel</dt>
-                                              <dd className="min-w-0 font-medium text-zinc-900">{displayTitle}</dd>
+                                              <dd className="min-w-0 font-medium text-zinc-900">{detailPanelTitle}</dd>
                                             </div>
                                             {row.segment.isConditional ? (
                                               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -3521,16 +3588,18 @@ export function TankestromImportDialog({
                                                 <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[10px]">
                                                   Høydepunkter
                                                 </p>
-                                                <ul className="mt-1.5 space-y-1.5 sm:space-y-2">
+                                                <ul className="mt-1.5 list-disc space-y-1.5 pl-4 marker:text-zinc-400 sm:space-y-2 sm:pl-[1.125rem]">
                                                   {childNotesPresentation.highlights.map((h, i) => (
                                                     <li
                                                       key={`${h.sortMinutes}-${i}`}
-                                                      className="flex gap-2 text-[11px] leading-snug sm:text-[12px]"
+                                                      className="pl-0.5 text-[11px] leading-snug sm:text-[12px]"
                                                     >
-                                                      <span className="shrink-0 font-semibold tabular-nums text-brandNavy">
-                                                        {h.displayTime}
+                                                      <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                                                        <span className="inline-flex shrink-0 rounded-md bg-orange-50 px-2 py-0.5 text-[11px] font-bold tabular-nums text-orange-900 ring-1 ring-orange-200/90 sm:text-[12px]">
+                                                          {h.displayTime}
+                                                        </span>
+                                                        <span className="min-w-0 font-medium text-zinc-800">{h.label}</span>
                                                       </span>
-                                                      <span className="min-w-0 text-zinc-800">{h.label}</span>
                                                     </li>
                                                   ))}
                                                 </ul>

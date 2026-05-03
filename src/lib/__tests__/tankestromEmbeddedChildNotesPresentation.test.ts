@@ -3,7 +3,7 @@ import type { EmbeddedScheduleSegment } from '../../types'
 import { presentEmbeddedChildNotesForReview } from '../tankestromEmbeddedChildNotesPresentation'
 
 describe('presentEmbeddedChildNotesForReview', () => {
-  it('samler klokkeslett, sorterer stigende og skiller notater', () => {
+  it('samler klokkeslett fra notat, sorterer stigende; dropper segment-vindu når notat har tider', () => {
     const seg: EmbeddedScheduleSegment = {
       date: '2026-06-01',
       title: 'Cup-dag',
@@ -28,12 +28,49 @@ describe('presentEmbeddedChildNotesForReview', () => {
     })
     expect(p?.mode).toBe('structured')
     if (p?.mode !== 'structured') return
-    const times = p.highlights.map((h) => h.displayTime)
-    expect(times.slice().sort()).toEqual([...times].sort())
-    expect(times[0]).toMatch(/^09:20/)
-    expect(times[times.length - 1]).toMatch(/17:45/)
+    expect(p.highlights).toHaveLength(3)
+    const times = p.highlights.map((h) => h.timeStart)
+    expect(times).toEqual(['09:20', '15:10', '17:45'])
+    expect(p.highlights.some((h) => h.displayTime.includes('10:00'))).toBe(false)
     expect(p.noteLines.some((l) => l.includes('mat'))).toBe(true)
     expect(p.noteLines.some((l) => l.includes('Oppmøte 45'))).toBe(true)
+  })
+
+  it('undertrykker bred segmenttid når notat har mer konkret klokkeslett', () => {
+    const seg: EmbeddedScheduleSegment = {
+      date: '2026-06-07',
+      title: 'Finale',
+      start: '17:45',
+      end: '18:45',
+      notes: 'Kampstart kl. 18:40. Husk drikke.',
+    }
+    const p = presentEmbeddedChildNotesForReview({
+      seg,
+      displayTitle: 'Finale',
+      childProposalId: 'test-seg-suppress',
+    })
+    expect(p?.mode).toBe('structured')
+    if (p?.mode !== 'structured') return
+    expect(p.highlights).toHaveLength(1)
+    expect(p.highlights[0]!.timeStart).toBe('18:40')
+    expect(p.noteLines.some((l) => l.toLowerCase().includes('husk'))).toBe(true)
+  })
+
+  it('parser «Kamp kl. 09:20» som highlight', () => {
+    const seg: EmbeddedScheduleSegment = {
+      date: '2026-06-01',
+      title: 'Dag 1',
+      notes: 'Kamp kl. 09:20',
+    }
+    const p = presentEmbeddedChildNotesForReview({
+      seg,
+      displayTitle: 'Dag 1',
+      childProposalId: 'test-kl',
+    })
+    expect(p?.mode).toBe('structured')
+    if (p?.mode !== 'structured') return
+    expect(p.highlights[0]!.timeStart).toBe('09:20')
+    expect(normalizeLabel(p.highlights[0]!.label)).toContain('kamp')
   })
 
   it('viser ikke høydepunkter-blokk når eneste punkt er trivial «—» etter tom etikett', () => {
@@ -66,4 +103,27 @@ describe('presentEmbeddedChildNotesForReview', () => {
     expect(p.highlights).toHaveLength(1)
     expect(p.noteLines).toEqual(['Husk drikke'])
   })
+
+  it('beholder segmenttid som highlight når notatet ikke har egne klokkeslett', () => {
+    const seg: EmbeddedScheduleSegment = {
+      date: '2026-06-01',
+      title: 'Trening',
+      start: '16:00',
+      end: '17:00',
+      notes: 'Ta med ball og vann.',
+    }
+    const p = presentEmbeddedChildNotesForReview({
+      seg,
+      displayTitle: 'Trening',
+      childProposalId: 'test-seg-only',
+    })
+    expect(p?.mode).toBe('structured')
+    if (p?.mode !== 'structured') return
+    expect(p.highlights).toHaveLength(1)
+    expect(p.highlights[0]!.displayTime).toContain('16:00')
+  })
 })
+
+function normalizeLabel(s: string): string {
+  return s.toLocaleLowerCase('nb-NO').replace(/\s+/g, ' ').trim()
+}
