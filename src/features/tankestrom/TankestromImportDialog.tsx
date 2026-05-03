@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import type { PortalEventProposal } from './types'
 import type { UseEventControllerReturn } from '../calendar/hooks/useEventController'
-import { useTankestromImport, getTankestromDraftFieldErrors } from './useTankestromImport'
+import {
+  useTankestromImport,
+  getTankestromDraftFieldErrors,
+  type TankestromPendingFile,
+} from './useTankestromImport'
 import { cardSection, typSectionCap } from '../../lib/ui'
 import { Button } from '../../components/ui/Button'
 import { Input, Textarea } from '../../components/ui/Input'
@@ -45,8 +49,6 @@ function formatNorwegianDateLabel(isoDate: string): string {
 
 /** Kompakt kildegrunnlag fra API (original), ikke nødvendigvis lik redigert notat. */
 function getSourceContextText(item: PortalEventProposal): string | null {
-  const rawNotes = item.event.notes?.trim()
-  if (rawNotes) return rawNotes.length > 200 ? `${rawNotes.slice(0, 197)}…` : rawNotes
   const meta = item.event.metadata
   if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
     const rec = meta as Record<string, unknown>
@@ -75,8 +77,6 @@ function metaFieldHeading(key: (typeof META_SOURCE_KEYS)[number]): string {
 /** Fullt sammensatt kildegrunnlag for utvidet visning (ikke avkortet). */
 function buildFullSourceContextDocument(item: PortalEventProposal): string | null {
   const blocks: string[] = []
-  const notes = item.event.notes?.trim()
-  if (notes) blocks.push(`Notat fra kilde\n${notes}`)
 
   const meta = item.event.metadata
   if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
@@ -85,7 +85,6 @@ function buildFullSourceContextDocument(item: PortalEventProposal): string | nul
       const v = rec[key]
       if (typeof v !== 'string' || !v.trim()) continue
       const t = v.trim()
-      if (notes && t === notes) continue
       blocks.push(`${metaFieldHeading(key)}\n${t}`)
     }
   }
@@ -103,6 +102,46 @@ function shouldOfferSourceExpand(full: string | null, preview: string | null): b
   return full.includes('\n\n────────\n\n')
 }
 
+const TANKESTROM_FILE_ACCEPT =
+  'image/*,.pdf,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+
+function pendingFileStatusLabel(p: TankestromPendingFile): string {
+  switch (p.status) {
+    case 'ready':
+      return 'Klar'
+    case 'analyzing':
+      return 'Behandler…'
+    case 'done':
+      return 'Ferdig'
+    case 'error':
+      return p.statusDetail ? `Feilet: ${p.statusDetail}` : 'Feilet'
+    default:
+      return ''
+  }
+}
+
+function pendingFileStatusClass(p: TankestromPendingFile): string {
+  switch (p.status) {
+    case 'ready':
+      return 'border-zinc-200 bg-zinc-50 text-zinc-600'
+    case 'analyzing':
+      return 'border-brandTeal/40 bg-brandSky/30 text-brandNavy'
+    case 'done':
+      return 'border-emerald-200 bg-emerald-50 text-emerald-900'
+    case 'error':
+      return 'border-rose-200 bg-rose-50 text-rose-900'
+    default:
+      return 'border-zinc-200 bg-zinc-50 text-zinc-600'
+  }
+}
+
+function reminderLabel(reminderMinutes: number | undefined): string {
+  if (reminderMinutes == null) return 'Ingen'
+  if (reminderMinutes < 60) return `${reminderMinutes} min før`
+  if (reminderMinutes % 60 === 0) return `${reminderMinutes / 60} t før`
+  return `${reminderMinutes} min før`
+}
+
 export interface TankestromImportDialogProps {
   open: boolean
   onClose: () => void
@@ -115,10 +154,12 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
     step,
     inputMode,
     setInputMode,
-    setFileFromInput,
-    file,
+    pendingFiles,
+    addFilesFromList,
+    removePendingFile,
     textInput,
     setTextInput,
+    analyzeWarning,
     eventProposals,
     selectedIds,
     toggleProposal,
@@ -134,9 +175,29 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
 
   const validPersonIds = useMemo(() => new Set(people.map((p) => p.id)), [people])
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [fileDropActive, setFileDropActive] = useState(false)
+
+  const analyzedSourceSummary = useMemo(() => {
+    if (inputMode !== 'file') return null
+    const ok = pendingFiles.filter((p) => p.status === 'done')
+    if (ok.length === 0) return null
+    if (ok.length === 1) return ok[0]!.file.name
+    return `${ok.length} filer`
+  }, [inputMode, pendingFiles])
+
   const [expandedSourceIds, setExpandedSourceIds] = useState<Set<string>>(() => new Set())
+  const [expandedDetailIds, setExpandedDetailIds] = useState<Set<string>>(() => new Set())
   const toggleSourceExpanded = useCallback((proposalId: string) => {
     setExpandedSourceIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(proposalId)) next.delete(proposalId)
+      else next.add(proposalId)
+      return next
+    })
+  }, [])
+  const toggleDetailsExpanded = useCallback((proposalId: string) => {
+    setExpandedDetailIds((prev) => {
       const next = new Set(prev)
       if (next.has(proposalId)) next.delete(proposalId)
       else next.add(proposalId)
@@ -163,7 +224,10 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
   }, [eventProposals.length, selectedIds, draftByProposalId, validPersonIds])
 
   useEffect(() => {
-    if (!open) setExpandedSourceIds(new Set())
+    if (!open) {
+      setExpandedSourceIds(new Set())
+      setExpandedDetailIds(new Set())
+    }
   }, [open])
 
   const handleClose = useCallback(() => {
@@ -215,11 +279,18 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
           {step === 'review' ? (
             <p
               className="truncate px-4 pb-2.5 text-[11px] leading-snug text-zinc-500"
-              title={inputMode === 'file' ? file?.name : undefined}
+              title={
+                inputMode === 'file'
+                  ? pendingFiles
+                      .filter((p) => p.status === 'done')
+                      .map((p) => p.file.name)
+                      .join(', ') || undefined
+                  : undefined
+              }
             >
               <span className="font-medium text-zinc-400">Analysert kilde:</span>{' '}
               <span className="font-semibold text-zinc-700">
-                {inputMode === 'file' ? file?.name ?? 'Fil' : 'Limt inn tekst'}
+                {inputMode === 'file' ? analyzedSourceSummary ?? 'Filer' : 'Limt inn tekst'}
               </span>
             </p>
           ) : null}
@@ -264,21 +335,114 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
 
               {inputMode === 'file' ? (
                 <div className={`${cardSection} p-3`}>
-                  <p className={typSectionCap}>Fil</p>
+                  <p className={typSectionCap}>Filer</p>
+                  <p className="mt-1 text-[12px] leading-snug text-zinc-500">
+                    Velg flere filer på én gang, eller slipp dem i feltet nedenfor.
+                  </p>
                   <input
+                    ref={fileInputRef}
                     type="file"
-                    accept="image/*,.pdf,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    className="mt-2 block w-full text-[13px] text-zinc-700 file:mr-3 file:rounded-lg file:border-0 file:bg-brandSky file:px-3 file:py-2 file:text-[13px] file:font-medium file:text-brandNavy"
+                    multiple
+                    accept={TANKESTROM_FILE_ACCEPT}
+                    className="sr-only"
+                    aria-label="Velg filer til analyse"
                     onChange={(e) => {
-                      const f = e.target.files?.[0] ?? null
-                      setFileFromInput(f)
+                      const list = e.target.files
+                      if (list && list.length > 0) addFilesFromList(list)
+                      e.target.value = ''
                     }}
                   />
-                  {file && (
-                    <p className="mt-2 truncate text-[12px] text-zinc-500" title={file.name}>
-                      {file.name}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className={`mt-3 flex min-h-[100px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-3 py-4 text-center transition sm:min-h-[112px] ${
+                      fileDropActive
+                        ? 'border-brandTeal bg-brandSky/25 text-brandNavy'
+                        : 'border-zinc-200 bg-zinc-50/80 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50'
+                    }`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        fileInputRef.current?.click()
+                      }
+                    }}
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragEnter={(e: DragEvent) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setFileDropActive(true)
+                    }}
+                    onDragOver={(e: DragEvent) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setFileDropActive(true)
+                    }}
+                    onDragLeave={(e: DragEvent) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      if (!e.currentTarget.contains(e.relatedTarget as Node)) setFileDropActive(false)
+                    }}
+                    onDrop={(e: DragEvent) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setFileDropActive(false)
+                      const list = e.dataTransfer.files
+                      if (list && list.length > 0) addFilesFromList(list)
+                    }}
+                  >
+                    <svg
+                      className="pointer-events-none mb-2 h-8 w-8 text-zinc-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                      aria-hidden
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"
+                      />
+                    </svg>
+                    <p className="pointer-events-none text-[13px] font-medium text-zinc-800">
+                      Slipp filer her eller trykk for å velge
                     </p>
-                  )}
+                    <p className="pointer-events-none mt-1 text-[11px] text-zinc-500">
+                      PDF, bilder og Word-dokumenter
+                    </p>
+                  </div>
+
+                  {pendingFiles.length > 0 ? (
+                    <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto overscroll-y-contain" aria-label="Valgte filer">
+                      {pendingFiles.map((p) => (
+                        <li
+                          key={p.id}
+                          className={`flex items-start gap-2 rounded-xl border px-2.5 py-2 text-left text-[12px] ${pendingFileStatusClass(p)}`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium" title={p.file.name}>
+                              {p.file.name}
+                            </p>
+                            <p className="mt-0.5 text-[11px] opacity-90">{pendingFileStatusLabel(p)}</p>
+                          </div>
+                          <button
+                            type="button"
+                            className="shrink-0 rounded-lg p-1.5 text-current opacity-70 hover:bg-black/5 hover:opacity-100 disabled:pointer-events-none disabled:opacity-40"
+                            aria-label={`Fjern ${p.file.name}`}
+                            disabled={analyzeLoading}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              removePendingFile(p.id)
+                            }}
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </div>
               ) : (
                 <div className={`${cardSection} p-3`}>
@@ -297,6 +461,11 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
             </div>
           ) : (
             <div className="space-y-4">
+              {analyzeWarning ? (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] leading-snug text-amber-950 whitespace-pre-wrap">
+                  {analyzeWarning}
+                </p>
+              ) : null}
               <div className="rounded-xl border border-brandNavy/15 bg-brandSky/20 px-3 py-2.5">
                 <p className="text-[12px] font-medium leading-snug text-brandNavy">
                   Gå gjennom forslagene nedenfor. Kun <span className="font-semibold">avkryssede</span> kort importeres
@@ -335,6 +504,7 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
                   const fullSourceDoc = buildFullSourceContextDocument(item)
                   const showSourceExpandToggle = sourceCtx && shouldOfferSourceExpand(fullSourceDoc, sourceCtx)
                   const sourceExpanded = expandedSourceIds.has(pid)
+                  const detailsExpanded = expandedDetailIds.has(pid)
                   const ts = draft.start.length > 5 ? draft.start.slice(0, 5) : draft.start
                   const te = draft.end.length > 5 ? draft.end.slice(0, 5) : draft.end
                   const hm = /^([01]\d|2[0-3]):[0-5]\d$/
@@ -480,23 +650,15 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
                         </div>
 
                         <div className="rounded-xl border border-zinc-100 bg-zinc-50/80 px-3 py-3">
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-                            Sted og notater (valgfritt)
-                          </p>
-                          <div className="mt-2 space-y-2">
-                            <Input
-                              id={`ts-${pid}-location`}
-                              label="Sted"
-                              value={draft.location}
-                              onChange={(e) => updateDraft(pid, { location: e.target.value })}
-                              disabled={disabled}
-                              className="text-[13px] text-zinc-800"
-                              placeholder="F.eks. skole, adresse"
-                            />
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Notater</p>
+                          <div className="mt-2">
                             <Textarea
                               id={`ts-${pid}-notes`}
                               label="Notater"
-                              rows={2}
+                              rows={3}
+                              autoResize
+                              minRows={3}
+                              maxRows={12}
                               value={draft.notes}
                               onChange={(e: ChangeEvent<HTMLTextAreaElement>) => updateDraft(pid, { notes: e.target.value })}
                               disabled={disabled}
@@ -506,46 +668,168 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
                           </div>
                         </div>
 
-                        {sourceCtx && (
-                          <div className="rounded-lg border border-zinc-200/80 bg-zinc-50/90 px-3 py-2">
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                              Kildegrunnlag (fra AI)
-                            </p>
-                            <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-zinc-600">{sourceCtx}</p>
-                            {showSourceExpandToggle && fullSourceDoc ? (
-                              <>
-                                <button
-                                  type="button"
-                                  className="mt-2 text-left text-[12px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:decoration-brandNavy"
-                                  onClick={() => toggleSourceExpanded(pid)}
-                                  aria-expanded={sourceExpanded}
-                                  aria-controls={`ts-source-expanded-${pid}`}
-                                >
-                                  {sourceExpanded ? 'Vis mindre' : 'Vis mer av kildegrunnlag'}
-                                </button>
-                                {sourceExpanded ? (
-                                  <div
-                                    id={`ts-source-expanded-${pid}`}
-                                    className="mt-3 border-t border-zinc-200/90 pt-3"
+                        <button
+                          type="button"
+                          onClick={() => toggleDetailsExpanded(pid)}
+                          className="flex w-full items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-left text-[12px] font-medium text-zinc-700 transition hover:bg-zinc-100"
+                          aria-expanded={detailsExpanded}
+                          aria-controls={`ts-extra-details-${pid}`}
+                        >
+                          <span>{detailsExpanded ? 'Skjul ekstradetaljer' : 'Vis ekstradetaljer'}</span>
+                          <svg
+                            className={`h-4 w-4 text-zinc-500 transition-transform ${detailsExpanded ? 'rotate-180' : ''}`}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={2.5}
+                            stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                          </svg>
+                        </button>
+
+                        {detailsExpanded ? (
+                          <div id={`ts-extra-details-${pid}`} className="space-y-3 rounded-xl border border-zinc-100 bg-zinc-50/60 px-3 py-3">
+                            <Input
+                              id={`ts-${pid}-location`}
+                              label="Sted"
+                              value={draft.location}
+                              onChange={(e) => updateDraft(pid, { location: e.target.value })}
+                              disabled={disabled}
+                              className="text-[13px] text-zinc-800"
+                              placeholder="F.eks. skole, adresse"
+                            />
+                            <div className="space-y-1">
+                              <label htmlFor={`ts-${pid}-reminder`} className="block text-caption font-medium text-zinc-600">
+                                Påminnelse
+                              </label>
+                              <select
+                                id={`ts-${pid}-reminder`}
+                                className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
+                                value={draft.reminderMinutes == null ? '' : String(draft.reminderMinutes)}
+                                onChange={(e) =>
+                                  updateDraft(pid, {
+                                    reminderMinutes: e.target.value === '' ? undefined : Number(e.target.value),
+                                  })
+                                }
+                                disabled={disabled}
+                              >
+                                <option value="">Ingen</option>
+                                <option value="5">5 min før</option>
+                                <option value="15">15 min før</option>
+                                <option value="30">30 min før</option>
+                                <option value="60">1 time før</option>
+                                <option value="120">2 timer før</option>
+                                <option value="1440">24 timer før</option>
+                              </select>
+                              <p className="text-[11px] text-zinc-500">
+                                Valgt: <span className="font-medium text-zinc-700">{reminderLabel(draft.reminderMinutes)}</span>
+                              </p>
+                            </div>
+
+                            <div className="space-y-1 rounded-lg border border-zinc-200/90 bg-white/70 px-2.5 py-2">
+                              <p className="text-caption font-medium text-zinc-600">Gjentakelse</p>
+                              {item.event.recurrenceGroupId ? (
+                                <label className="flex items-center gap-2 text-[12px] text-zinc-700">
+                                  <input
+                                    type="checkbox"
+                                    className="h-4 w-4 rounded border-zinc-300 text-brandTeal focus:ring-brandTeal/30"
+                                    checked={draft.includeRecurrence}
+                                    onChange={(e) => updateDraft(pid, { includeRecurrence: e.target.checked })}
+                                    disabled={disabled}
+                                  />
+                                  Behold gjentakelse fra forslag
+                                </label>
+                              ) : (
+                                <p className="text-[12px] text-zinc-500">Ingen gjentakelse i dette forslaget.</p>
+                              )}
+                            </div>
+
+                            <div className="space-y-2 rounded-lg border border-zinc-200/90 bg-white/70 px-2.5 py-2">
+                              <p className="text-caption font-medium text-zinc-600">Levering og henting</p>
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                <div>
+                                  <label htmlFor={`ts-${pid}-dropoff`} className="mb-1 block text-[11px] font-medium text-zinc-500">
+                                    Levert av
+                                  </label>
+                                  <select
+                                    id={`ts-${pid}-dropoff`}
+                                    className="w-full rounded-xl border border-zinc-200 bg-white px-2.5 py-2 text-[13px] text-zinc-900 outline-none transition focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
+                                    value={draft.dropoffBy}
+                                    onChange={(e) => updateDraft(pid, { dropoffBy: e.target.value })}
+                                    disabled={disabled}
                                   >
-                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                                      Utvidet kildegrunnlag
-                                    </p>
-                                    <div
-                                      className="mt-1.5 max-h-56 overflow-y-auto overscroll-y-contain rounded-md border border-zinc-100 bg-white px-2.5 py-2 text-[12px] leading-relaxed text-zinc-700 whitespace-pre-wrap break-words"
-                                      role="region"
-                                      aria-label="Fullt kildegrunnlag fra AI"
+                                    <option value="">Ingen</option>
+                                    {people.map((p) => (
+                                      <option key={p.id} value={p.id}>
+                                        {p.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label htmlFor={`ts-${pid}-pickup`} className="mb-1 block text-[11px] font-medium text-zinc-500">
+                                    Hentes av
+                                  </label>
+                                  <select
+                                    id={`ts-${pid}-pickup`}
+                                    className="w-full rounded-xl border border-zinc-200 bg-white px-2.5 py-2 text-[13px] text-zinc-900 outline-none transition focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
+                                    value={draft.pickupBy}
+                                    onChange={(e) => updateDraft(pid, { pickupBy: e.target.value })}
+                                    disabled={disabled}
+                                  >
+                                    <option value="">Ingen</option>
+                                    {people.map((p) => (
+                                      <option key={p.id} value={p.id}>
+                                        {p.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+
+                            {sourceCtx && (
+                              <div className="rounded-lg border border-zinc-200/80 bg-zinc-50/90 px-3 py-2">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                                  Kildegrunnlag (fra AI)
+                                </p>
+                                <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-zinc-600">{sourceCtx}</p>
+                                {showSourceExpandToggle && fullSourceDoc ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="mt-2 text-left text-[12px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:decoration-brandNavy"
+                                      onClick={() => toggleSourceExpanded(pid)}
+                                      aria-expanded={sourceExpanded}
+                                      aria-controls={`ts-source-expanded-${pid}`}
                                     >
-                                      {fullSourceDoc.length > 12000
-                                        ? `${fullSourceDoc.slice(0, 11997)}…`
-                                        : fullSourceDoc}
-                                    </div>
-                                  </div>
+                                      {sourceExpanded ? 'Vis mindre' : 'Vis mer av kildegrunnlag'}
+                                    </button>
+                                    {sourceExpanded ? (
+                                      <div
+                                        id={`ts-source-expanded-${pid}`}
+                                        className="mt-3 border-t border-zinc-200/90 pt-3"
+                                      >
+                                        <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                                          Utvidet kildegrunnlag
+                                        </p>
+                                        <div
+                                          className="mt-1.5 max-h-56 overflow-y-auto overscroll-y-contain rounded-md border border-zinc-100 bg-white px-2.5 py-2 text-[12px] leading-relaxed text-zinc-700 whitespace-pre-wrap break-words"
+                                          role="region"
+                                          aria-label="Fullt kildegrunnlag fra AI"
+                                        >
+                                          {fullSourceDoc.length > 12000
+                                            ? `${fullSourceDoc.slice(0, 11997)}…`
+                                            : fullSourceDoc}
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                  </>
                                 ) : null}
-                              </>
-                            ) : null}
+                              </div>
+                            )}
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     </li>
                   )
@@ -577,9 +861,14 @@ export function TankestromImportDialog({ open, onClose, people, createEvent }: T
               variant="primary"
               className="flex-1"
               loading={analyzeLoading}
-              disabled={!hasPeople || (inputMode === 'file' ? !file : !textInput.trim())}
+              disabled={
+                !hasPeople || (inputMode === 'file' ? pendingFiles.length === 0 : !textInput.trim())
+              }
               onClick={() => {
-                logEvent('tankestrom_analyze_started', {})
+                logEvent('tankestrom_analyze_started', {
+                  mode: inputMode,
+                  fileCount: inputMode === 'file' ? pendingFiles.length : 0,
+                })
                 void runAnalyze()
               }}
             >
