@@ -26,6 +26,7 @@ import { stripRedundantHighlightsForReviewDisplay } from '../../lib/tankestromRe
 import type {
   ChildSchoolDayPlan,
   ChildSchoolProfile,
+  Event,
   NorwegianGradeBand,
   Person,
   SchoolContext,
@@ -2052,6 +2053,8 @@ export interface TankestromImportDialogProps {
   people: Person[]
   createEvent: UseEventControllerReturn['createEvent']
   createTask: (input: Omit<Task, 'id'>) => Promise<void>
+  editEvent?: UseEventControllerReturn['editEvent']
+  getAnchoredForegroundEventsForMatching?: () => { event: Event; anchorDate: string }[]
   updatePerson?: (
     id: string,
     updates: Partial<Pick<Person, 'name' | 'colorTint' | 'colorAccent' | 'memberKind' | 'school' | 'work'>>
@@ -2064,6 +2067,8 @@ export function TankestromImportDialog({
   people,
   createEvent,
   createTask,
+  editEvent,
+  getAnchoredForegroundEventsForMatching,
   updatePerson,
 }: TankestromImportDialogProps) {
   const {
@@ -2103,7 +2108,18 @@ export function TankestromImportDialog({
     setSchoolProfileDraft,
     setSchoolWeekOverlayProposalDraft,
     applyReviewBulkPersonTargets,
-  } = useTankestromImport({ open, people, createEvent, createTask, updatePerson })
+    existingEventMatchesByProposalId,
+    existingEventLinkByProposalId,
+    setExistingEventImportLink,
+  } = useTankestromImport({
+    open,
+    people,
+    createEvent,
+    createTask,
+    editEvent,
+    getAnchoredForegroundEventsForMatching,
+    updatePerson,
+  })
 
   const validPersonIds = useMemo(() => new Set(people.map((p) => p.id)), [people])
 
@@ -3280,6 +3296,64 @@ export function TankestromImportDialog({
                           <p className="mt-0.5 text-[10px] leading-snug text-zinc-600 sm:mt-1 sm:text-[11px]">
                             {summaryMetaLine}
                           </p>
+                          {(() => {
+                            const existingMatch =
+                              !detachedFromParentLabel &&
+                              u.importKind === 'event' &&
+                              item.kind === 'event' &&
+                              getAnchoredForegroundEventsForMatching
+                                ? existingEventMatchesByProposalId[pid]
+                                : undefined
+                            const cand = existingMatch?.candidate
+                            const showBanner = Boolean(cand && !existingMatch?.rejected)
+                            if (!showBanner || !cand) return null
+                            const linkChoice = existingEventLinkByProposalId[pid] ?? 'new'
+                            return (
+                              <div className="mt-2 rounded-lg border border-amber-200/90 bg-amber-50/95 px-2.5 py-2 sm:px-3">
+                                <p className="text-[11px] font-semibold leading-snug text-amber-950">
+                                  Mulig eksisterende arrangement funnet
+                                </p>
+                                <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-amber-900/90">
+                                  «{cand.event.title}»
+                                </p>
+                                <div className="mt-2 flex flex-col gap-1.5 sm:flex-row sm:flex-wrap">
+                                  <button
+                                    type="button"
+                                    disabled={!editEvent}
+                                    title={
+                                      !editEvent
+                                        ? 'Oppdatering er ikke tilgjengelig i denne økten'
+                                        : undefined
+                                    }
+                                    onClick={() =>
+                                      setExistingEventImportLink(pid, 'update', {
+                                        eventId: cand.event.id,
+                                        anchorDate: cand.anchorDate,
+                                      })
+                                    }
+                                    className={`touch-manipulation rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                                      linkChoice === 'update'
+                                        ? 'border-brandTeal bg-brandTeal/15 text-brandNavy ring-1 ring-brandTeal/25'
+                                        : 'border-amber-300/90 bg-white text-amber-950 hover:bg-amber-100/80 disabled:cursor-not-allowed disabled:opacity-45'
+                                    }`}
+                                  >
+                                    Oppdater eksisterende
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setExistingEventImportLink(pid, 'new')}
+                                    className={`touch-manipulation rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                                      linkChoice === 'new'
+                                        ? 'border-zinc-400 bg-zinc-100 text-zinc-900 ring-1 ring-zinc-300/60'
+                                        : 'border-amber-200/90 bg-white text-amber-950 hover:bg-amber-100/60'
+                                    }`}
+                                  >
+                                    Behold som nytt
+                                  </button>
+                                </div>
+                              </div>
+                            )
+                          })()}
                           {embeddedScheduleParentCard && item.kind === 'event' ? (
                             <TankestromEmbeddedSchedulePreview
                               proposalId={pid}

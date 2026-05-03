@@ -85,6 +85,7 @@ function App() {
     hasRawEventsInWeek,
     getVisibleEventsForDate,
     prefetchEventsForDateRange,
+    getAnchoredForegroundEventsForMatching,
   } = useScheduleState()
   useReminders(reminderEvents, osloTodayDateKey)
   const hasLinkedPartner = people.some((p) => p.memberKind === 'parent' && !!p.linkedAuthUserId)
@@ -456,6 +457,8 @@ function App() {
         people={people}
         createEvent={controller.createEvent}
         createTask={taskController.createTask}
+        editEvent={controller.editEvent}
+        getAnchoredForegroundEventsForMatching={getAnchoredForegroundEventsForMatching}
         updatePerson={updatePerson}
       />
       <CalendarOverlays

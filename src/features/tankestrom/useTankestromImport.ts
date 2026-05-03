@@ -29,6 +29,10 @@ import { detectLessonConflicts } from '../../lib/schoolProfileConflicts'
 import { normalizeTaskIntent, suggestTaskIntentFromTitleAndNotes } from '../../lib/taskIntent'
 import { parseTime } from '../../lib/time'
 import { getISOWeek, getISOWeekYear } from '../../lib/isoWeek'
+import {
+  findConservativeExistingEventMatch,
+  type ExistingEventMatchResult,
+} from '../../lib/tankestromExistingEventMatch'
 
 type Step = 'pick' | 'review'
 export type TankestromInputMode = 'file' | 'text'
@@ -114,6 +118,32 @@ function isEmbeddedScheduleParentForReview(
   draft: TankestromImportDraft | undefined
 ): boolean {
   return item.kind === 'event' && draft?.importKind === 'event' && isEmbeddedScheduleParentCalendarItem(item)
+}
+
+function proposalImportDateRangeForMatch(
+  item: PortalEventProposal,
+  draft: TankestromEventDraft,
+  embeddedRows: EmbeddedScheduleReviewRow[] | undefined
+): { start: string; end: string } | null {
+  const start = draft.date.trim()
+  if (!DATE_KEY_RE.test(start)) return null
+  const meta = item.event.metadata
+  const endFromMeta =
+    meta && typeof meta === 'object' && !Array.isArray(meta) && typeof (meta as { endDate?: unknown }).endDate === 'string'
+      ? String((meta as { endDate: string }).endDate).trim()
+      : ''
+  if (DATE_KEY_RE.test(endFromMeta) && endFromMeta >= start) {
+    return { start, end: endFromMeta }
+  }
+  if (isEmbeddedScheduleParentProposalItem(item) && embeddedRows?.length) {
+    let maxD = start
+    for (const r of embeddedRows) {
+      const d = (r.segment.date ?? '').trim()
+      if (DATE_KEY_RE.test(d) && d > maxD) maxD = d
+    }
+    return { start, end: maxD }
+  }
+  return { start, end: start }
 }
 
 function buildEmbeddedChildEventDraft(
@@ -962,11 +992,24 @@ export interface SchoolProfileReviewState {
   parsedProfileSnapshotJson: string
 }
 
+export type TankestromEditEventFn = (
+  date: string,
+  event: Event,
+  updates: Partial<
+    Pick<Event, 'personId' | 'title' | 'start' | 'end' | 'notes' | 'location' | 'reminderMinutes' | 'metadata'>
+  >,
+  newDate?: string
+) => Promise<void>
+
 export interface UseTankestromImportOptions {
   open: boolean
   people: Person[]
   createEvent: (date: string, input: Omit<Event, 'id'>) => Promise<void>
   createTask: (input: Omit<Task, 'id'>) => Promise<void>
+  /** Oppdater eksisterende hendelse ved import (valgfri MVP). */
+  editEvent?: TankestromEditEventFn
+  /** Eksisterende forgrunnshendelser for konservativ match i review. */
+  getAnchoredForegroundEventsForMatching?: () => { event: Event; anchorDate: string }[]
   /** Kreves for lagring av timeplan-import (skoleprofil). */
   updatePerson?: (
     id: string,
@@ -979,6 +1022,8 @@ export function useTankestromImport({
   people,
   createEvent,
   createTask,
+  editEvent,
+  getAnchoredForegroundEventsForMatching,
   updatePerson,
 }: UseTankestromImportOptions) {
   const [step, setStep] = useState<Step>('pick')
@@ -1016,6 +1061,13 @@ export function useTankestromImport({
     Array<{ proposal: PortalEventProposal; parentProposalId: string }>
   >([])
   const [detachedEmbeddedChildIds, setDetachedEmbeddedChildIds] = useState<Set<string>>(() => new Set())
+
+  const [existingEventLinkByProposalId, setExistingEventLinkByProposalId] = useState<
+    Record<string, 'new' | 'update'>
+  >({})
+  const [existingEventUpdateTarget, setExistingEventUpdateTarget] = useState<
+    Record<string, { eventId: string; anchorDate: string }>
+  >({})
 
   const embeddedRowsRef = useRef(embeddedScheduleReviewRowsByParentId)
   const detachedIdsRef = useRef(detachedEmbeddedChildIds)
@@ -1061,6 +1113,64 @@ export function useTankestromImport({
     return !!child
   }, [bundle?.schoolWeekOverlayProposal, schoolProfileChildId, people, updatePerson])
 
+  const existingEventMatchesByProposalId = useMemo((): Record<string, ExistingEventMatchResult> => {
+    if (step !== 'review' || !bundle || !getAnchoredForegroundEventsForMatching) return {}
+    const anchored = getAnchoredForegroundEventsForMatching()
+    const out: Record<string, ExistingEventMatchResult> = {}
+    for (const item of calendarProposalItems) {
+      if (item.kind !== 'event') continue
+      const draftWrap = draftByProposalId[item.proposalId]
+      if (!draftWrap || draftWrap.importKind !== 'event') continue
+      const range = proposalImportDateRangeForMatch(
+        item,
+        draftWrap.event,
+        embeddedScheduleReviewRowsByParentId[item.proposalId]
+      )
+      if (!range) continue
+      const pid = draftWrap.event.personId.trim()
+      if (!pid) continue
+      out[item.proposalId] = findConservativeExistingEventMatch(
+        item,
+        draftWrap.event.title.trim(),
+        range.start,
+        range.end,
+        pid,
+        anchored
+      )
+    }
+    return out
+  }, [
+    step,
+    bundle,
+    calendarProposalItems,
+    draftByProposalId,
+    getAnchoredForegroundEventsForMatching,
+    embeddedScheduleReviewRowsByParentId,
+  ])
+
+  const setExistingEventImportLink = useCallback(
+    (proposalId: string, choice: 'new' | 'update', updateTarget?: { eventId: string; anchorDate: string }) => {
+      if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+        console.debug('[tankestrom existing event link]', {
+          existingEventUpdateModeSelected: choice,
+          proposalId,
+          updateTarget,
+        })
+      }
+      setExistingEventLinkByProposalId((prev) => ({ ...prev, [proposalId]: choice }))
+      if (choice === 'new') {
+        setExistingEventUpdateTarget((prev) => {
+          const n = { ...prev }
+          delete n[proposalId]
+          return n
+        })
+      } else if (choice === 'update' && updateTarget) {
+        setExistingEventUpdateTarget((prev) => ({ ...prev, [proposalId]: updateTarget }))
+      }
+    },
+    []
+  )
+
   const prevSchoolChildForLangAdjustRef = useRef<string | null>(null)
 
   const reset = useCallback(() => {
@@ -1076,6 +1186,8 @@ export function useTankestromImport({
     setEmbeddedScheduleReviewRowsByParentId({})
     setDetachedEmbeddedChildren([])
     setDetachedEmbeddedChildIds(new Set())
+    setExistingEventLinkByProposalId({})
+    setExistingEventUpdateTarget({})
     setAnalyzeLoading(false)
     setSaveLoading(false)
     setError(null)
@@ -1890,6 +2002,95 @@ export function useTankestromImport({
           notes: raw.notes.trim(),
         }
 
+        if (
+          item.kind === 'event' &&
+          editEvent &&
+          getAnchoredForegroundEventsForMatching &&
+          (existingEventLinkByProposalId[id] ?? 'new') === 'update' &&
+          existingEventUpdateTarget[id]
+        ) {
+          const target = existingEventUpdateTarget[id]!
+          const anchorsNow = getAnchoredForegroundEventsForMatching()
+          const found = anchorsNow.find((a) => a.event.id === target.eventId)
+          if (!found) {
+            failed += 1
+            continue
+          }
+          const existingEvent = found.event
+          const anchorDate = found.anchorDate
+
+          const integration = {
+            proposalId: item.proposalId,
+            importRunId: bundle.provenance.importRunId,
+            confidence: item.confidence,
+            originalSourceType: item.originalSourceType,
+            externalRef: item.externalRef,
+            sourceSystem: bundle.provenance.sourceSystem,
+          }
+
+          let baseMeta: Record<string, unknown> = {}
+          if (
+            existingEvent.metadata &&
+            typeof existingEvent.metadata === 'object' &&
+            !Array.isArray(existingEvent.metadata)
+          ) {
+            baseMeta = { ...(existingEvent.metadata as Record<string, unknown>) }
+          }
+          delete baseMeta.__anchorDate
+
+          const ev = item.event
+          const proposalMeta =
+            ev.metadata && typeof ev.metadata === 'object' && !Array.isArray(ev.metadata) ? { ...ev.metadata } : {}
+          const endDateRaw = typeof proposalMeta.endDate === 'string' ? proposalMeta.endDate.trim() : ''
+          if (DATE_KEY_RE.test(endDateRaw)) {
+            baseMeta.endDate = endDateRaw
+          }
+          if (proposalMeta.isAllDay === true) baseMeta.isAllDay = true
+          if (proposalMeta.multiDayAllDay === true) baseMeta.multiDayAllDay = true
+          if (isEmbeddedScheduleParentCalendarItem(item)) {
+            const rows = embeddedScheduleReviewRowsByParentId[item.proposalId] ?? []
+            const included = rows.filter((r) =>
+              selectedIds.has(makeEmbeddedChildProposalId(item.proposalId, r.origIndex))
+            )
+            baseMeta.embeddedSchedule = included.map((r) => r.segment)
+          }
+
+          const metadata: Record<string, unknown> = {
+            ...baseMeta,
+            sourceId: item.sourceId,
+            integration,
+          }
+          const transportMeta: Record<string, unknown> = {}
+          if (draft.dropoffBy.trim()) transportMeta.dropoffBy = draft.dropoffBy.trim()
+          if (draft.pickupBy.trim()) transportMeta.pickupBy = draft.pickupBy.trim()
+          if (Object.keys(transportMeta).length > 0) {
+            metadata.transport = {
+              ...(baseMeta.transport && typeof baseMeta.transport === 'object' && !Array.isArray(baseMeta.transport)
+                ? (baseMeta.transport as Record<string, unknown>)
+                : {}),
+              ...transportMeta,
+            }
+          } else if (baseMeta.transport && typeof baseMeta.transport === 'object') {
+            const prevT = { ...(baseMeta.transport as Record<string, unknown>) }
+            delete prevT.dropoffBy
+            delete prevT.pickupBy
+            if (Object.keys(prevT).length > 0) metadata.transport = prevT
+            else delete metadata.transport
+          }
+          mergeEventParticipantsIntoMetadata(metadata, draft, validPersonIds)
+
+          const updates: Partial<Event> = { metadata }
+          if (draft.notes.length > 0) updates.notes = draft.notes
+          if (draft.location.length > 0) updates.location = draft.location
+
+          try {
+            await editEvent(anchorDate, existingEvent, updates)
+          } catch {
+            failed += 1
+          }
+          continue
+        }
+
         const integration = {
           proposalId: item.proposalId,
           importRunId: bundle.provenance.importRunId,
@@ -1977,6 +2178,10 @@ export function useTankestromImport({
     embeddedScheduleReviewRowsByParentId,
     detachedEmbeddedChildIds,
     detachedEmbeddedChildren,
+    editEvent,
+    getAnchoredForegroundEventsForMatching,
+    existingEventLinkByProposalId,
+    existingEventUpdateTarget,
   ])
 
   /**
@@ -2036,5 +2241,8 @@ export function useTankestromImport({
     detachedEmbeddedChildren,
     detachEmbeddedScheduleChild,
     applyReviewBulkPersonTargets,
+    existingEventMatchesByProposalId,
+    existingEventLinkByProposalId,
+    setExistingEventImportLink,
   }
 }

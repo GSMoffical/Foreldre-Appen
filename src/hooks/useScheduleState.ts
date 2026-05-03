@@ -39,6 +39,7 @@ import {
   getEventEndDate,
   filterTimedEvents,
   filterAllDayEvents,
+  isForegroundEvent,
 } from '../lib/eventLayer'
 import {
   addCalendarDaysOslo,
@@ -330,6 +331,23 @@ export function useScheduleState() {
     (date: string) => calculateVisibleEvents(getAllEventsForDate(date), selectedPersonIds),
     [userEventsByDate, selectedPersonIds]
   )
+
+  /**
+   * Unike forgrunnshendelser med DB-ankerdato (for import-matching mot eksisterende kalender).
+   */
+  const getAnchoredForegroundEventsForMatching = useCallback((): { event: Event; anchorDate: string }[] => {
+    const out: { event: Event; anchorDate: string }[] = []
+    const seen = new Set<string>()
+    for (const [anchorDate, list] of Object.entries(userEventsByDate)) {
+      for (const e of list) {
+        if (!isForegroundEvent(e)) continue
+        if (seen.has(e.id)) continue
+        seen.add(e.id)
+        out.push({ event: e, anchorDate })
+      }
+    }
+    return out
+  }, [userEventsByDate])
 
   /** Load events for an arbitrary date range (e.g. full month in month view) into cache. */
   const prefetchEventsForDateRange = useCallback(
@@ -638,5 +656,6 @@ export function useScheduleState() {
     hasRawEventsInWeek,
     getVisibleEventsForDate,
     prefetchEventsForDateRange,
+    getAnchoredForegroundEventsForMatching,
   }
 }
