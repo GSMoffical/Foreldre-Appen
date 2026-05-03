@@ -30,6 +30,7 @@ import { deriveEmbeddedParentReviewSummary } from '../../lib/tankestromEmbeddedP
 import { deriveSchoolWeekSpecialSummary } from '../../lib/schoolWeekOverlayReviewSpecialSummary'
 import { semanticTitleCore } from '../../lib/tankestromImportDedupe'
 import {
+  embeddedScheduleChildReviewListTimeClock,
   presentEmbeddedChildNotesForReview,
   presentationHasRenderableContent,
   tryDeriveOppmoteStartFromSegmentNotes,
@@ -1843,7 +1844,7 @@ function embeddedScheduleChildDetailTitleForPanel(
     return refined
   }
 
-  const { clock } = embeddedScheduleChildTimeDisplay(seg)
+  const { clock } = embeddedScheduleChildReviewListTimeClock(seg)
   if (clock) {
     const refined = `${datePart} · ${clock}`
     logRefined(refined)
@@ -3583,21 +3584,21 @@ export function TankestromImportDialog({
                                     row.segment,
                                     cardTitleRaw
                                   )
-                                  const timeDisp = embeddedScheduleChildTimeDisplay(row.segment)
+                                  const reviewListClock = embeddedScheduleChildReviewListTimeClock(row.segment)
                                   const derivedOppmote = tryDeriveOppmoteStartFromSegmentNotes(row.segment, {
                                     childProposalId: childId,
                                   })
                                   const timeLabel = derivedOppmote?.displayClock
                                     ? derivedOppmote.displayClock
-                                    : timeDisp.clock
-                                      ? timeDisp.clock
+                                    : reviewListClock.clock
+                                      ? reviewListClock.clock
                                       : row.segment.isConditional
                                         ? '–'
                                         : 'Tid ikke avklart'
                                   const uncertainTime =
-                                    !derivedOppmote && !timeDisp.clock && !row.segment.isConditional
+                                    !derivedOppmote && !reviewListClock.clock && !row.segment.isConditional
                                   const hasConcreteTimeDisplay = Boolean(
-                                    derivedOppmote?.displayClock ?? timeDisp.clock
+                                    derivedOppmote?.displayClock ?? reviewListClock.clock
                                   )
                                   if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
                                     console.debug('[tankestrom embedded child display]', {
@@ -3608,10 +3609,18 @@ export function TankestromImportDialog({
                                       embeddedScheduleChildDisplayTitleNormalized: displayTitle,
                                       embeddedScheduleChildDisplayTimeNormalized:
                                         derivedOppmote?.displayClock ??
-                                        timeDisp.clock ??
+                                        reviewListClock.clock ??
                                         (row.segment.isConditional ? '—' : 'Tid ikke avklart'),
                                       embeddedScheduleChildDisplayedWithoutSyntheticTime:
-                                        timeDisp.omittedSynthetic,
+                                        reviewListClock.omittedSynthetic,
+                                      embeddedScheduleChildDerivedMeetingTimeApplied: Boolean(derivedOppmote),
+                                      embeddedScheduleChildDurationSuppressedAsUnknown:
+                                        reviewListClock.durationSuppressedAsUnknown,
+                                      embeddedScheduleChildSingleStartTimeDisplayed:
+                                        Boolean(timeLabel) &&
+                                        timeLabel !== '–' &&
+                                        timeLabel !== 'Tid ikke avklart' &&
+                                        !String(timeLabel).includes('–'),
                                       embeddedScheduleChildRenderedAsNestedBlock: true,
                                       embeddedScheduleChildTimelineLayoutApplied: true,
                                       embeddedScheduleChildTimeColumnNormalized: true,

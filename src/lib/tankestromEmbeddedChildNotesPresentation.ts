@@ -104,6 +104,49 @@ function segmentClockParts(seg: EmbeddedScheduleSegment): {
   return { start: s, end, sortMinutes: hmToSortMinutes(sh, sm), displayTime }
 }
 
+/**
+ * Når notat beskriver oppmøte relativt til «første kamp» og segment-slutt = aktivitetstid,
+ * er «start–slutt» ofte misvisende (ikke varighet). Vis kun oppmøte/start i presentasjon.
+ */
+function applyChildReviewClockPolicy(
+  seg: EmbeddedScheduleSegment,
+  parts: NonNullable<ReturnType<typeof segmentClockParts>>
+): { clock: NonNullable<ReturnType<typeof segmentClockParts>>; durationSuppressed: boolean } {
+  const raw = typeof seg.notes === 'string' ? seg.notes.trim() : ''
+  if (raw.length < 20) return { clock: parts, durationSuppressed: false }
+  if (!relativeOffsetContextOk(raw)) return { clock: parts, durationSuppressed: false }
+  const anchor = findActivityAnchorHm(raw)
+  if (!anchor || !parts.end || parts.end !== anchor) return { clock: parts, durationSuppressed: false }
+  return {
+    clock: { ...parts, end: undefined, displayTime: parts.start },
+    durationSuppressed: true,
+  }
+}
+
+/** Klokkeslett for liste/detalj i import-review (samme syntetikk-filter som segmentClockParts + review-policy). */
+export function embeddedScheduleChildReviewListTimeClock(seg: EmbeddedScheduleSegment): {
+  clock: string | null
+  omittedSynthetic: boolean
+  durationSuppressedAsUnknown: boolean
+} {
+  const rawS = seg.start?.trim()
+  if (!rawS || !/^([01]\d|2[0-3]):[0-5]\d/.test(rawS.slice(0, 5))) {
+    return { clock: null, omittedSynthetic: true, durationSuppressedAsUnknown: false }
+  }
+  const s = rawS.slice(0, 5)
+  if (SYNTHETIC_CLOCK.has(s)) {
+    return { clock: null, omittedSynthetic: true, durationSuppressedAsUnknown: false }
+  }
+  const parts = segmentClockParts(seg)
+  if (!parts) return { clock: null, omittedSynthetic: true, durationSuppressedAsUnknown: false }
+  const { clock: adjusted, durationSuppressed } = applyChildReviewClockPolicy(seg, parts)
+  return {
+    clock: adjusted.displayTime,
+    omittedSynthetic: false,
+    durationSuppressedAsUnknown: durationSuppressed,
+  }
+}
+
 function toPublicHighlight(h: InternalHighlight): EmbeddedChildHighlight {
   return {
     timeStart: h.timeStart,
@@ -163,8 +206,33 @@ function klSuffixParse(line: string): { highlight: InternalHighlight | null; rem
   return { highlight, remainder }
 }
 
-/** Flere klokkeslett på én linje (komma / «og»); én highlight per treff. */
-function inlineTimeHighlights(line: string): { list: InternalHighlight[]; remainder: string } {
+function cleanSlotBetweenTimes(
+  slice: string,
+  side: 'before' | 'after',
+  hasNeighborTime: boolean
+): string {
+  let t = slice.trim()
+  if (!t) return ''
+  if (side === 'after' && hasNeighborTime) {
+    t = t.replace(/\s+kl\.?\s*$/i, '').trim()
+    t = t.replace(/\s+og\s*$/i, '').trim()
+  }
+  if (side === 'before') {
+    t = t.replace(/^(?:[;,]\s*|\s*og\s+)+/i, '').trim()
+    t = t.replace(/\s+kl\.?\s*$/i, '').trim()
+  }
+  return t.replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * Flere klokkeslett på én linje: én highlight per tid, etikett fra tekst **mellom** tidene
+ * (unngår «09:20 Kamper kl. 15:10» på begge).
+ */
+function inlineTimeHighlights(line: string): {
+  list: InternalHighlight[]
+  remainder: string
+  ambiguousAllEmpty: boolean
+} {
   const trimmed = line.trim()
   const matches: { start: number; end: number; h: string; m: string }[] = []
   let m: RegExpExecArray | null
@@ -174,24 +242,57 @@ function inlineTimeHighlights(line: string): { list: InternalHighlight[]; remain
     if (SYNTHETIC_CLOCK.has(t)) continue
     matches.push({ start: m.index, end: m.index + m[0].length, h: m[1]!, m: m[2]! })
   }
-  if (matches.length === 0) return { list: [], remainder: trimmed }
+  if (matches.length === 0) return { list: [], remainder: trimmed, ambiguousAllEmpty: false }
 
   const list: InternalHighlight[] = []
-  for (const mat of matches) {
+  for (let i = 0; i < matches.length; i++) {
+    const mat = matches[i]!
+    const prev = matches[i - 1]
+    const next = matches[i + 1]
     const start = padHm(mat.h, mat.m)
-    const before = trimmed.slice(0, mat.start).replace(/[;,]\s*$|^\s*[•\-\*]\s*/u, '').trim()
-    const after = trimmed.slice(mat.end).replace(/^[;,]\s*|\s+og\s+/i, ' ').trim()
-    let label = cleanHighlightLabel(
-      [before, after].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim() || '—'
-    )
+    const afterRaw = trimmed.slice(mat.end, next?.start ?? trimmed.length)
+    const beforeRaw = trimmed.slice(prev?.end ?? 0, mat.start)
+    const after = cleanSlotBetweenTimes(afterRaw, 'after', Boolean(next))
+    const before = cleanSlotBetweenTimes(beforeRaw, 'before', Boolean(prev))
+    const beforeEndsWithKl = /\bkl\.?\s*$/i.test(beforeRaw.trim())
+    const afterHasLetters = after.length > 0 && /[a-zæøåA-ZÆØÅ]/.test(after)
+    const beforeHasLetters = before.length > 0 && /[a-zæøåA-ZÆØÅ]/.test(before)
+
+    let label: string
+    if (!beforeEndsWithKl && afterHasLetters) {
+      label = after
+    } else if (beforeHasLetters) {
+      label = before
+    } else if (afterHasLetters) {
+      label = after
+    } else {
+      label = '—'
+    }
+
+    if (i > 0 && label !== '—') {
+      const prevLab = list[list.length - 1]!.label
+      if (normalizeNotesDedupeKey(label) === normalizeNotesDedupeKey(prevLab)) {
+        label = '—'
+      }
+    }
+
     const [sh, sm] = [start.slice(0, 2), start.slice(3, 5)]
     list.push({
       timeStart: start,
-      label,
+      label: cleanHighlightLabel(label),
       displayTime: start,
       sortMinutes: hmToSortMinutes(sh, sm),
       _source: 'note',
     })
+  }
+
+  let ambiguousAllEmpty = false
+  if (matches.length >= 2) {
+    const substantive = list.filter((h) => {
+      const L = cleanHighlightLabel(h.label)
+      return L !== '—' && L.trim().length > 0
+    })
+    ambiguousAllEmpty = substantive.length === 0
   }
 
   let remainder = trimmed
@@ -204,7 +305,7 @@ function inlineTimeHighlights(line: string): { list: InternalHighlight[]; remain
     .replace(/\s+/g, ' ')
     .trim()
 
-  return { list, remainder }
+  return { list, remainder, ambiguousAllEmpty }
 }
 
 function countConcreteTimesInLine(line: string): number {
@@ -218,11 +319,24 @@ function countConcreteTimesInLine(line: string): number {
   return c
 }
 
-function parseLineForNoteHighlights(line: string): { highlights: InternalHighlight[]; noteRemainder: string | null } {
+function parseLineForNoteHighlights(line: string): {
+  highlights: InternalHighlight[]
+  noteRemainder: string | null
+  inlineMultiTime?: boolean
+  inlineMultiAmbiguous?: boolean
+} {
   if (countConcreteTimesInLine(line) >= 2) {
-    const { list, remainder } = inlineTimeHighlights(line)
+    const { list, remainder, ambiguousAllEmpty } = inlineTimeHighlights(line)
+    if (ambiguousAllEmpty) {
+      return {
+        highlights: [],
+        noteRemainder: line,
+        inlineMultiTime: true,
+        inlineMultiAmbiguous: true,
+      }
+    }
     const rem = remainder.length >= 6 ? remainder : null
-    return { highlights: list, noteRemainder: rem }
+    return { highlights: list, noteRemainder: rem, inlineMultiTime: true, inlineMultiAmbiguous: false }
   }
 
   const lead = leadingLineHighlight(line)
@@ -233,7 +347,10 @@ function parseLineForNoteHighlights(line: string): { highlights: InternalHighlig
   if (kl.highlight) {
     return { highlights: [kl.highlight], noteRemainder: kl.remainder }
   }
-  const { list, remainder } = inlineTimeHighlights(line)
+  const { list, remainder, ambiguousAllEmpty } = inlineTimeHighlights(line)
+  if (ambiguousAllEmpty) {
+    return { highlights: [], noteRemainder: line, inlineMultiTime: true, inlineMultiAmbiguous: true }
+  }
   if (list.length === 0) {
     return { highlights: [], noteRemainder: line }
   }
@@ -284,17 +401,105 @@ function logChildNotesDebug(payload: Record<string, unknown>): void {
 }
 
 function noteDuplicatesHighlight(line: string, highlights: EmbeddedChildHighlight[]): boolean {
+  const cleaned = cleanNoteLine(line)
   const lk = normalizeNotesDedupeKey(line)
-  const lineClean = normalizeNotesDedupeKey(cleanNoteLine(line))
+  const lineClean = normalizeNotesDedupeKey(cleaned)
+  const lineCoreRaw = semanticTitleCore(cleaned)
+  const lineCoreKey = lineCoreRaw.length >= 10 ? normalizeNotesDedupeKey(lineCoreRaw) : ''
+
   for (const h of highlights) {
     const labRaw = cleanHighlightLabel(h.label)
     if (lk === fullLineDedupeKey(h)) return true
     const lab = normalizeNotesDedupeKey(labRaw)
+    const labCoreRaw = semanticTitleCore(labRaw === '—' ? '' : labRaw)
+    const labCoreKey = labCoreRaw.length >= 10 ? normalizeNotesDedupeKey(labCoreRaw) : ''
     const fullClean = normalizeNotesDedupeKey(`${h.displayTime} ${labRaw}`)
     if (lab.length >= 4 && (lk === lab || lineClean === lab)) return true
+    if (lineCoreKey && labCoreKey && lineCoreKey === labCoreKey) return true
     if (lk.includes(fullClean) && fullClean.length >= 10) return true
   }
   return false
+}
+
+type NearDuplicateNoteClass =
+  | 'distinct'
+  | 'identical_or_semantic'
+  | 'keep_existing_drop_new'
+  | 'replace_existing_with_new'
+
+const NEAR_DUP_CONTAIN_MIN = 28
+
+function classifyNearDuplicateNoteLines(a: string, b: string): NearDuplicateNoteClass {
+  const ca = cleanNoteLine(a)
+  const cb = cleanNoteLine(b)
+  const ka = normalizeNotesDedupeKey(ca)
+  const kb = normalizeNotesDedupeKey(cb)
+  if (!ka || !kb) return 'distinct'
+  if (ka === kb) return 'identical_or_semantic'
+
+  const caCore = semanticTitleCore(ca)
+  const cbCore = semanticTitleCore(cb)
+  if (caCore.length >= 12 && cbCore.length >= 12 && caCore === cbCore) return 'identical_or_semantic'
+
+  const shorter = ka.length <= kb.length ? ka : kb
+  const longer = ka.length > kb.length ? ka : kb
+  if (shorter.length >= NEAR_DUP_CONTAIN_MIN && longer.includes(shorter)) {
+    return ka.length > kb.length ? 'keep_existing_drop_new' : 'replace_existing_with_new'
+  }
+  return 'distinct'
+}
+
+/**
+ * Fjerner identiske og åpenbart like notatlinjer etter highlight-/tid-pruning.
+ * Konservativ: krever lang nok «inneholder»-match (NEAR_DUP_CONTAIN_MIN) for å slå sammen.
+ */
+function dedupeChildReviewNoteLinesAmongSelves(lines: string[]): {
+  lines: string[]
+  exactDeduped: number
+  semanticDeduped: number
+} {
+  let exactDeduped = 0
+  const afterExact: string[] = []
+  const seenKey = new Set<string>()
+  for (const line of lines) {
+    const k = normalizeNotesDedupeKey(cleanNoteLine(line))
+    if (seenKey.has(k)) {
+      exactDeduped += 1
+      continue
+    }
+    seenKey.add(k)
+    afterExact.push(line)
+  }
+
+  let semanticDeduped = 0
+  const final: string[] = []
+  for (const line of afterExact) {
+    let skip = false
+    let replaced = false
+    for (let i = 0; i < final.length; i++) {
+      const rel = classifyNearDuplicateNoteLines(final[i]!, line)
+      if (rel === 'identical_or_semantic') {
+        semanticDeduped += 1
+        skip = true
+        break
+      }
+      if (rel === 'keep_existing_drop_new') {
+        semanticDeduped += 1
+        skip = true
+        break
+      }
+      if (rel === 'replace_existing_with_new') {
+        final[i] = line
+        semanticDeduped += 1
+        replaced = true
+        break
+      }
+    }
+    if (skip) continue
+    if (!replaced) final.push(line)
+  }
+
+  return { lines: final, exactDeduped, semanticDeduped }
 }
 
 /** Fjern notatlinjer som bare gjentar tider som allerede er i highlights. */
@@ -354,12 +559,17 @@ export function presentEmbeddedChildNotesForReview(args: {
   const highlightsDraft: InternalHighlight[] = []
   const noteCandidates: string[] = []
   let sectionPrefixStripped = 0
+  let inlineMultiTimeLineCount = 0
+  let inlineMultiAmbiguousLineCount = 0
 
   for (const line of lines) {
     if (!line) continue
     if (SECTION_HEADER_ONLY.test(line)) continue
 
-    const { highlights: fromLine, noteRemainder } = parseLineForNoteHighlights(line)
+    const { highlights: fromLine, noteRemainder, inlineMultiTime, inlineMultiAmbiguous } =
+      parseLineForNoteHighlights(line)
+    if (inlineMultiTime) inlineMultiTimeLineCount += 1
+    if (inlineMultiAmbiguous) inlineMultiAmbiguousLineCount += 1
     if (fromLine.length > 0) {
       for (const fh of fromLine) {
         const beforeLab = fh.label
@@ -382,7 +592,14 @@ export function presentEmbeddedChildNotesForReview(args: {
     }
   }
 
-  const segClock = segmentClockParts(seg)
+  const segClockRaw = segmentClockParts(seg)
+  let durationSuppressedAsUnknown = false
+  let segClock: ReturnType<typeof segmentClockParts> = null
+  if (segClockRaw) {
+    const pol = applyChildReviewClockPolicy(seg, segClockRaw)
+    segClock = pol.clock
+    durationSuppressedAsUnknown = pol.durationSuppressed
+  }
   let genericSegmentTimeSuppressed = false
   let concreteTimesPromoted = false
 
@@ -447,9 +664,19 @@ export function presentEmbeddedChildNotesForReview(args: {
   const useStructured = publicHighlights.length > 0
 
   if (useStructured) {
-    let noteLines = filterParent(noteCandidates).filter((line) => !noteDuplicatesHighlight(line, publicHighlights))
-    const pruned = pruneNoteLinesAgainstHighlights(noteLines, publicHighlights)
-    noteLines = pruned.kept
+    const parentFiltered = filterParent(noteCandidates)
+    let highlightDuplicateSuppressed = 0
+    const afterHighlightDup: string[] = []
+    for (const line of parentFiltered) {
+      if (noteDuplicatesHighlight(line, publicHighlights)) {
+        highlightDuplicateSuppressed += 1
+        continue
+      }
+      afterHighlightDup.push(line)
+    }
+    const pruned = pruneNoteLinesAgainstHighlights(afterHighlightDup, publicHighlights)
+    const among = dedupeChildReviewNoteLinesAmongSelves(pruned.kept)
+    const noteLines = among.lines
 
     logChildNotesDebug({
       embeddedScheduleChildSectionPrefixStripped: sectionPrefixStripped > 0,
@@ -464,6 +691,17 @@ export function presentEmbeddedChildNotesForReview(args: {
       embeddedScheduleChildHighlightsSorted: publicHighlights.length > 1,
       embeddedScheduleChildNotesSectionRendered: noteLines.length > 0,
       embeddedScheduleChildParentLikeTextSuppressed: parentSuppressed,
+      embeddedScheduleChildNoteDedupedExact: among.exactDeduped,
+      embeddedScheduleChildNoteDedupedSemantic: among.semanticDeduped,
+      embeddedScheduleChildNoteDuplicateSuppressed:
+        highlightDuplicateSuppressed + pruned.removed + among.exactDeduped + among.semanticDeduped,
+      embeddedScheduleChildNotesAfterDedupeCount: noteLines.length,
+      embeddedScheduleChildMultipleTimesParsed: inlineMultiTimeLineCount,
+      embeddedScheduleChildMultipleTimesAmbiguous: inlineMultiAmbiguousLineCount,
+      embeddedScheduleChildDurationSuppressedAsUnknown: durationSuppressedAsUnknown,
+      embeddedScheduleChildSingleStartTimeDisplayed:
+        publicHighlights.length > 0 &&
+        publicHighlights.every((h) => !h.timeEnd && !h.displayTime.includes('–')),
       childProposalId,
       highlightCount: publicHighlights.length,
     })
@@ -479,7 +717,8 @@ export function presentEmbeddedChildNotesForReview(args: {
       return cn
     })
     .filter(Boolean)
-  const finalPlain = plainLines.join('\n').trim()
+  const amongPlain = dedupeChildReviewNoteLinesAmongSelves(plainLines)
+  const finalPlain = amongPlain.lines.join('\n').trim()
   if (!finalPlain) return null
 
   logChildNotesDebug({
@@ -493,6 +732,14 @@ export function presentEmbeddedChildNotesForReview(args: {
     embeddedScheduleChildHighlightsStructured: false,
     embeddedScheduleChildNotesSectionRendered: true,
     embeddedScheduleChildParentLikeTextSuppressed: parentSuppressed,
+    embeddedScheduleChildNoteDedupedExact: amongPlain.exactDeduped,
+    embeddedScheduleChildNoteDedupedSemantic: amongPlain.semanticDeduped,
+    embeddedScheduleChildNoteDuplicateSuppressed: amongPlain.exactDeduped + amongPlain.semanticDeduped,
+    embeddedScheduleChildNotesAfterDedupeCount: amongPlain.lines.length,
+    embeddedScheduleChildMultipleTimesParsed: inlineMultiTimeLineCount,
+    embeddedScheduleChildMultipleTimesAmbiguous: inlineMultiAmbiguousLineCount,
+    embeddedScheduleChildDurationSuppressedAsUnknown: false,
+    embeddedScheduleChildSingleStartTimeDisplayed: false,
     childProposalId,
   })
   return { mode: 'plain', notesText: finalPlain }
@@ -615,6 +862,7 @@ export function tryDeriveOppmoteStartFromSegmentNotes(
 
   log({
     embeddedScheduleChildDerivedStartTimeApplied: true,
+    embeddedScheduleChildDerivedMeetingTimeApplied: true,
     displayClock: derived,
     anchorHm: anchor,
     offsetMinutes: offset,

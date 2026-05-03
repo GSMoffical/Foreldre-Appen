@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { EmbeddedScheduleSegment } from '../../types'
 import {
+  embeddedScheduleChildReviewListTimeClock,
   presentEmbeddedChildNotesForReview,
   tryDeriveOppmoteStartFromSegmentNotes,
 } from '../tankestromEmbeddedChildNotesPresentation'
@@ -90,6 +91,55 @@ describe('presentEmbeddedChildNotesForReview', () => {
     expect(p?.mode).toBe('plain')
   })
 
+  it('fjerner gjentatte identiske notatlinjer (samme innhold to ganger)', () => {
+    const seg: EmbeddedScheduleSegment = {
+      date: '2026-06-01',
+      title: 'Cup-dag',
+      start: '10:00',
+      end: '11:00',
+      notes: [
+        'Høydepunkter:',
+        '15:10 Kamp',
+        '',
+        'Notater:',
+        'Oppmøte 45 minutter før hver kamp',
+        'Oppmøte 45 minutter før hver kamp',
+        'Det er meldt ustabilt vær.',
+        'Det er meldt ustabilt vær.',
+        'Ta med drikke',
+      ].join('\n'),
+    }
+    const p = presentEmbeddedChildNotesForReview({
+      seg,
+      parentCardTitle: 'Stor cup 2026',
+      displayTitle: 'Cup-dag',
+      childProposalId: 'test-dup-notes',
+    })
+    expect(p?.mode).toBe('structured')
+    if (p?.mode !== 'structured') return
+    const opp45 = p.noteLines.filter((l) => l.includes('Oppmøte 45'))
+    const vær = p.noteLines.filter((l) => l.toLowerCase().includes('ustabilt'))
+    expect(opp45).toHaveLength(1)
+    expect(vær).toHaveLength(1)
+  })
+
+  it('viser ikke notatlinje som bare gjentar høydepunkt-tekst', () => {
+    const seg: EmbeddedScheduleSegment = {
+      date: '2026-06-01',
+      title: 'Kamp',
+      notes: ['17:45 Oppmøte ved baneområdet', '', 'Notater:', 'Oppmøte ved baneområdet'].join('\n'),
+    }
+    const p = presentEmbeddedChildNotesForReview({
+      seg,
+      displayTitle: 'Kamp',
+      childProposalId: 'test-note-dup-highlight',
+    })
+    expect(p?.mode).toBe('structured')
+    if (p?.mode !== 'structured') return
+    expect(p.highlights.some((h) => h.timeStart === '17:45')).toBe(true)
+    expect(p.noteLines.some((l) => l.toLowerCase().includes('baneområde'))).toBe(false)
+  })
+
   it('fjerner notatlinje som dupliserer highlight (samme klokkereste)', () => {
     const seg: EmbeddedScheduleSegment = {
       date: '2026-06-01',
@@ -151,6 +201,77 @@ describe('presentEmbeddedChildNotesForReview', () => {
     const d = tryDeriveOppmoteStartFromSegmentNotes(seg, { childProposalId: 'derive-1' })
     expect(d?.displayClock).toBe('17:45')
     expect(d?.anchorHm).toBe('18:40')
+  })
+
+  it('parser flere tider på én linje uten å krysse etiketter (Kamper kl. …)', () => {
+    const seg: EmbeddedScheduleSegment = {
+      date: '2026-06-07',
+      title: 'Cup',
+      notes: '09:20 Kamper kl. 15:10',
+    }
+    const p = presentEmbeddedChildNotesForReview({
+      seg,
+      displayTitle: 'Cup',
+      childProposalId: 'test-multi-inline',
+    })
+    expect(p?.mode).toBe('structured')
+    if (p?.mode !== 'structured') return
+    expect(p.highlights).toHaveLength(2)
+    const byTime = [...p.highlights].sort((a, b) => a.timeStart.localeCompare(b.timeStart))
+    expect(byTime[0]!.timeStart).toBe('09:20')
+    expect(normalizeLabel(byTime[0]!.label)).toContain('kamper')
+    expect(byTime[1]!.timeStart).toBe('15:10')
+    expect(byTime[1]!.label.trim()).toBe('—')
+  })
+
+  it('tolker «Kamp kl. 09:20, neste kl. 15:10» med riktige etiketter per tid', () => {
+    const seg: EmbeddedScheduleSegment = {
+      date: '2026-06-07',
+      title: 'Dag',
+      notes: 'Kamp kl. 09:20, neste kl. 15:10',
+    }
+    const p = presentEmbeddedChildNotesForReview({
+      seg,
+      displayTitle: 'Dag',
+      childProposalId: 'test-multi-kl',
+    })
+    expect(p?.mode).toBe('structured')
+    if (p?.mode !== 'structured') return
+    expect(p.highlights).toHaveLength(2)
+    const h09 = p.highlights.find((h) => h.timeStart === '09:20')
+    const h15 = p.highlights.find((h) => h.timeStart === '15:10')
+    expect(normalizeLabel(h09?.label ?? '')).toContain('kamp')
+    expect(normalizeLabel(h15?.label ?? '')).toContain('neste')
+  })
+
+  it('ved bare flere klokkeslett uten tekst faller linjen til notat (trygt)', () => {
+    const seg: EmbeddedScheduleSegment = {
+      date: '2026-06-07',
+      title: 'X',
+      notes: '09:20  15:10',
+    }
+    const p = presentEmbeddedChildNotesForReview({
+      seg,
+      displayTitle: 'X',
+      childProposalId: 'test-ambiguous-times',
+    })
+    expect(p?.mode).toBe('plain')
+    if (p?.mode !== 'plain') return
+    expect(p.notesText).toMatch(/09:20/)
+    expect(p.notesText).toMatch(/15:10/)
+  })
+
+  it('skjuler segment slutt i review-klokke når slutt = første kamp og notat har relativt oppmøte', () => {
+    const seg: EmbeddedScheduleSegment = {
+      date: '2026-06-07',
+      title: 'Finale',
+      start: '17:45',
+      end: '18:40',
+      notes: 'Oppmøte 55 minutter før kampstart. Første kamp kl. 18:40.',
+    }
+    const c = embeddedScheduleChildReviewListTimeClock(seg)
+    expect(c.clock).toBe('17:45')
+    expect(c.durationSuppressedAsUnknown).toBe(true)
   })
 
   it('beholder segmenttid som highlight når notatet ikke har egne klokkeslett', () => {
