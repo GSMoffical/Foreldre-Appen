@@ -43,7 +43,9 @@ import {
   aggregatePersistFailureKinds,
   buildTankestromImportFailureUserMessage,
   buildTankestromTaskPersistPayloadFingerprint,
+  buildTaskPersistFailureSupabaseDebugPayload,
   classifyTankestromPersistThrownError,
+  taskPersistFailureCanonicalBucket,
   type TankestromImportPersistFailureRecord,
   type TankestromImportPersistOperation,
 } from '../../lib/tankestromImportPersistDiagnostics'
@@ -2209,7 +2211,14 @@ export function useTankestromImport({
         operation: TankestromImportPersistFailureRecord['operation'],
         kind: TankestromImportPersistFailureRecord['kind'],
         message: string,
-        extras?: Pick<TankestromImportPersistFailureRecord, 'taskPersistContext' | 'supabaseCode' | 'supabaseMessage'>
+        extras?: Pick<
+          TankestromImportPersistFailureRecord,
+          | 'taskPersistContext'
+          | 'supabaseCode'
+          | 'supabaseMessage'
+          | 'supabaseDetails'
+          | 'supabaseHint'
+        >
       ) => {
         failed += 1
         failedIds.add(proposalId)
@@ -2343,6 +2352,23 @@ export function useTankestromImport({
               taskIntentAfter: safeIntent,
             })
           }
+          const childTrim = t.childPersonId.trim()
+          const assignTrim = t.assignedToPersonId.trim()
+          const childPersonId =
+            childTrim && validPersonIds.has(childTrim) ? childTrim : undefined
+          const assignedToPersonId =
+            assignTrim && validPersonIds.has(assignTrim) ? assignTrim : undefined
+          if (
+            TANKESTROM_IMPORT_PERSIST_DEBUG &&
+            ((childTrim && !validPersonIds.has(childTrim)) || (assignTrim && !validPersonIds.has(assignTrim)))
+          ) {
+            console.debug('[tankestrom task persist]', {
+              tankestromTaskPersistInvalidPersonIdStripped: true,
+              proposalId: id,
+              childPersonIdRaw: childTrim || null,
+              assignedToPersonIdRaw: assignTrim || null,
+            })
+          }
           const taskInput: Omit<Task, 'id'> = {
             title: t.title.trim(),
             date: t.date.trim(),
@@ -2351,8 +2377,8 @@ export function useTankestromImport({
               t.dueTime.trim() && isHm24(normalizeTimeInput(t.dueTime))
                 ? normalizeTimeInput(t.dueTime)
                 : undefined,
-            childPersonId: t.childPersonId.trim() || undefined,
-            assignedToPersonId: t.assignedToPersonId.trim() || undefined,
+            childPersonId,
+            assignedToPersonId,
             showInMonthView: t.showInMonthView || undefined,
             taskIntent: safeIntent,
           }
@@ -2380,7 +2406,7 @@ export function useTankestromImport({
             }
           } catch (e) {
             const classified = classifyTankestromPersistThrownError(e, 'createTask')
-            const { kind, message, supabaseCode, supabaseMessage } = classified
+            const { kind, message, supabaseCode, supabaseMessage, supabaseDetails, supabaseHint } = classified
             recordFailure(id, 'task', 'createTask', kind, message, {
               taskPersistContext: {
                 title: taskInput.title,
@@ -2392,12 +2418,29 @@ export function useTankestromImport({
               },
               supabaseCode,
               supabaseMessage,
+              supabaseDetails,
+              supabaseHint,
             })
             if (TANKESTROM_IMPORT_PERSIST_DEBUG) {
-              const pg =
-                e && typeof e === 'object' && 'code' in e && 'message' in e
-                  ? (e as { code?: string; message?: string; details?: string; hint?: string })
-                  : null
+              const failureSnapshot: TankestromImportPersistFailureRecord = {
+                proposalId: id,
+                proposalSurfaceType: 'task',
+                operation: 'createTask',
+                kind,
+                message,
+                taskPersistContext: {
+                  title: taskInput.title,
+                  date: taskInput.date,
+                  dueTime: taskInput.dueTime,
+                  taskIntent: taskInput.taskIntent ?? safeIntent,
+                  childPersonId: taskInput.childPersonId ?? null,
+                  assignedToPersonId: taskInput.assignedToPersonId ?? null,
+                },
+                supabaseCode,
+                supabaseMessage,
+                supabaseDetails,
+                supabaseHint,
+              }
               console.debug('[tankestrom task persist]', {
                 tankestromTaskPersistFailureDetailed: true,
                 proposalId: id,
@@ -2410,14 +2453,13 @@ export function useTankestromImport({
                 payload: taskInput,
                 classifiedKind: kind,
                 classifiedMessage: message,
-                supabaseCode: pg?.code ?? supabaseCode,
-                supabaseMessage: pg?.message ?? supabaseMessage,
-                supabaseDetails: pg?.details,
-                supabaseHint: pg?.hint,
+                ...buildTaskPersistFailureSupabaseDebugPayload(failureSnapshot),
                 tankestromTaskPersistPayloadFingerprint: buildTankestromTaskPersistPayloadFingerprint(taskInput),
                 tankestromTaskPersistLikelyConcurrencyIssue: false,
                 tankestromTaskPersistLikelyValidationIssue:
-                  kind === 'validation' || taskInput.title.trim().length === 0 || !/^\d{4}-\d{2}-\d{2}$/.test(taskInput.date.trim()),
+                  kind === 'validation' ||
+                  taskInput.title.trim().length === 0 ||
+                  !/^\d{4}-\d{2}-\d{2}$/.test(taskInput.date.trim()),
                 tankestromTaskPersistFailureFieldSummary: {
                   titleEmpty: taskInput.title.length === 0,
                   dateLooksLikeKey: /^\d{4}-\d{2}-\d{2}$/.test(taskInput.date),
@@ -2808,6 +2850,10 @@ export function useTankestromImport({
                 (f.taskPersistContext?.title?.trim() ?? '') === '' ||
                 !/^\d{4}-\d{2}-\d{2}$/.test((f.taskPersistContext?.date ?? '').trim())
             ),
+            tankestromTaskPersistSharedRootCauseDetected:
+              taskPersistFailures.length >= 2 &&
+              new Set(taskPersistFailures.map(taskPersistFailureCanonicalBucket)).size === 1,
+            distinctSupabaseCodes: [...new Set(taskPersistFailures.map((f) => f.supabaseCode ?? '(ingen kode)'))],
             tankestromTaskPersistPayloadFingerprints: taskPersistFailures.map((f) =>
               f.taskPersistContext
                 ? buildTankestromTaskPersistPayloadFingerprint({
@@ -2826,8 +2872,8 @@ export function useTankestromImport({
               proposalId: f.proposalId,
               kind: f.kind,
               message: f.message,
-              supabaseCode: f.supabaseCode,
-              supabaseMessage: f.supabaseMessage,
+              canonicalBucket: taskPersistFailureCanonicalBucket(f),
+              ...buildTaskPersistFailureSupabaseDebugPayload(f),
               ...f.taskPersistContext,
             })),
           },
@@ -2842,6 +2888,7 @@ export function useTankestromImport({
           tankestromImportSucceededProposalIds: ids.filter((i) => !failedIds.has(i)),
           tankestromImportFailureKindCounts: aggregatePersistFailureKinds(failureRecords),
           tankestromImportUserFacingFailureMessageBuilt: userFacingFailure,
+          tankestromImportTaskFailureUserMessageRefined: userFacingFailure,
         })
         return false
       }

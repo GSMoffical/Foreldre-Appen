@@ -34,6 +34,8 @@ export type TankestromImportPersistFailureRecord = {
   taskPersistContext?: TankestromImportPersistTaskPersistContext
   supabaseCode?: string
   supabaseMessage?: string
+  supabaseDetails?: string
+  supabaseHint?: string
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -44,6 +46,10 @@ function asPostgrestError(err: unknown): PostgrestError | null {
   if (!isRecord(err)) return null
   if (typeof err.code === 'string' && typeof err.message === 'string') {
     return err as unknown as PostgrestError
+  }
+  const inner = err.error
+  if (isRecord(inner) && typeof inner.code === 'string' && typeof inner.message === 'string') {
+    return inner as unknown as PostgrestError
   }
   return null
 }
@@ -64,6 +70,8 @@ export type TankestromPersistClassification = {
   message: string
   supabaseCode?: string
   supabaseMessage?: string
+  supabaseDetails?: string
+  supabaseHint?: string
 }
 
 export function classifyTankestromPersistThrownError(
@@ -87,7 +95,14 @@ export function classifyTankestromPersistThrownError(
     const formatted = formatSupabaseError(pg)
     const code = pg.code ?? ''
     const msg = (pg.message ?? '').toLowerCase()
-    const base = { supabaseCode: code || undefined, supabaseMessage: pg.message }
+    const details = typeof pg.details === 'string' && pg.details.trim() ? pg.details.trim() : undefined
+    const hint = typeof pg.hint === 'string' && pg.hint.trim() ? pg.hint.trim() : undefined
+    const base = {
+      supabaseCode: code || undefined,
+      supabaseMessage: pg.message,
+      supabaseDetails: details,
+      supabaseHint: hint,
+    }
     if (code === 'PGRST301' || msg.includes('jwt') || (msg.includes('expired') && msg.includes('token'))) {
       return { kind: 'auth', message: formatted, ...base }
     }
@@ -154,15 +169,6 @@ const HINT_PRIORITY: TankestromImportPersistErrorKind[] = [
   'unknown',
 ]
 
-const TASK_FAILURE_KIND_PHRASE_NB: Partial<Record<TankestromImportPersistErrorKind, string>> = {
-  network: 'nettverks- eller tilkoblingsproblem',
-  auth: 'innlogging / utløpt sesjon',
-  permission: 'manglende tilgang (rettigheter)',
-  validation: 'sannsynlig ugyldig dato, klokkeslett eller andre felt',
-  task_create_failed: 'serveren avviste lagringen',
-  unknown: 'ukjent årsak',
-}
-
 const MAX_TITLE_SNIPPET = 44
 
 function ellipsizeForUserMessage(title: string): string {
@@ -178,16 +184,144 @@ function titleSamplesForFailures(records: TankestromImportPersistFailureRecord[]
     .join('», «')
 }
 
-function groupFailuresByKind(
-  list: TankestromImportPersistFailureRecord[]
-): Map<TankestromImportPersistErrorKind, TankestromImportPersistFailureRecord[]> {
-  const m = new Map<TankestromImportPersistErrorKind, TankestromImportPersistFailureRecord[]>()
-  for (const f of list) {
-    const arr = m.get(f.kind) ?? []
-    arr.push(f)
-    m.set(f.kind, arr)
+/** Stabil nøkkel for «samme rotårsak» (kind + Postgres/PostgREST-kode). */
+export function taskPersistFailureCanonicalBucket(f: TankestromImportPersistFailureRecord): string {
+  return `${f.kind}|${f.supabaseCode ?? '∅'}`
+}
+
+function taskPersistCorpusLower(f: TankestromImportPersistFailureRecord): string {
+  return [f.supabaseMessage, f.supabaseDetails, f.supabaseHint, f.message]
+    .filter((s): s is string => typeof s === 'string' && s.length > 0)
+    .join(' | ')
+    .toLowerCase()
+}
+
+/** Kort teknisk etikett til debug (ikke nødvendigvis brukt i UI). */
+export function mapTaskPersistFailureRootCauseTechnical(f: TankestromImportPersistFailureRecord): string {
+  const code = f.supabaseCode ?? '—'
+  const tail = (f.supabaseMessage ?? f.message).trim().slice(0, 160)
+  return tail ? `${code}: ${tail}` : code
+}
+
+/**
+ * Presis, kort norsk forklaring basert på faktisk Supabase/Postgres-signal.
+ * Brukes i import-feilbanner for oppgaver.
+ */
+export function describeTaskPersistRootCauseForUser(f: TankestromImportPersistFailureRecord): string {
+  const code = f.supabaseCode ?? ''
+  const corpus = taskPersistCorpusLower(f)
+
+  if (f.kind === 'network') return 'nettverksfeil eller manglende svar fra server'
+  if (f.kind === 'auth') return 'sesjon utløpt eller ugyldig innlogging'
+  if (f.kind === 'permission') return 'tilgangsregler (RLS) blokkerte raden'
+
+  if (code === '23503' || corpus.includes('foreign key') || corpus.includes('violates foreign key constraint')) {
+    if (corpus.includes('child_person') || corpus.includes('child_person_id')) {
+      return '«Barn»-feltet peker på en person som ikke finnes i familien'
+    }
+    if (corpus.includes('assigned_to') || corpus.includes('assigned_to_person')) {
+      return '«Ansvarlig»-feltet peker på en person som ikke finnes i familien'
+    }
+    if (corpus.includes('user_id') || corpus.includes('users')) {
+      return 'koblingen til brukerkonto matcher ikke (user_id)'
+    }
+    return 'database avviste personkobling (fremmednøkkel)'
   }
-  return m
+
+  if (code === '23502' || (corpus.includes('null value') && corpus.includes('not-null'))) {
+    return 'obligatorisk felt mangler i databasen'
+  }
+
+  if (code === '23514' || corpus.includes('violates check constraint')) {
+    return 'feltverdi brøt en sjekkregel i databasen'
+  }
+
+  if (code === '23505' || corpus.includes('unique constraint') || corpus.includes('duplicate key')) {
+    return 'duplikat — raden finnes allerede'
+  }
+
+  if (code === '22P02' || corpus.includes('invalid input syntax')) {
+    if (corpus.includes('date') || corpus.includes('timestamp')) {
+      return 'ugyldig dato eller tidsformat'
+    }
+    return 'ugyldig verdi sendt til databasen'
+  }
+
+  if (code === '42P01' || corpus.includes('does not exist') || corpus.includes('relation')) {
+    return 'databaseobjekt mangler (tabell/kolonne)'
+  }
+
+  if (f.kind === 'validation') {
+    return 'ugyldig data (format, dato eller begrensning)'
+  }
+
+  if (code.startsWith('PGRST') || code.startsWith('08')) {
+    const short = (f.supabaseMessage ?? f.message).trim()
+    if (short.length > 0 && short.length <= 100) return `PostgREST (${code}): ${short}`
+    return `PostgREST-feil (${code || 'ukjent'})`
+  }
+
+  if (code && (f.supabaseMessage ?? '').trim()) {
+    const m = (f.supabaseMessage ?? '').trim()
+    return m.length <= 120 ? `${code}: ${m}` : `${code}: ${m.slice(0, 117)}…`
+  }
+
+  if ((f.message ?? '').trim()) {
+    const m = f.message.trim()
+    return m.length <= 120 ? m : `${m.slice(0, 117)}…`
+  }
+
+  return 'server/database avviste raden uten detaljert melding'
+}
+
+export function buildTaskPersistFailureSupabaseDebugPayload(
+  f: TankestromImportPersistFailureRecord
+): Record<string, unknown> {
+  return {
+    tankestromTaskPersistSupabaseCode: f.supabaseCode ?? null,
+    tankestromTaskPersistSupabaseMessage: f.supabaseMessage ?? null,
+    tankestromTaskPersistSupabaseDetails: f.supabaseDetails ?? null,
+    tankestromTaskPersistSupabaseHint: f.supabaseHint ?? null,
+    tankestromTaskPersistFailureRootCauseMapped: mapTaskPersistFailureRootCauseTechnical(f),
+  }
+}
+
+function summarizeTaskFailuresForUser(taskFailures: TankestromImportPersistFailureRecord[]): string {
+  const bucket = taskPersistFailureCanonicalBucket
+  const groups = new Map<string, TankestromImportPersistFailureRecord[]>()
+  for (const f of taskFailures) {
+    const k = bucket(f)
+    const arr = groups.get(k) ?? []
+    arr.push(f)
+    groups.set(k, arr)
+  }
+  const sorted = [...groups.entries()].sort((a, b) => b[1].length - a[1].length)
+
+  if (sorted.length === 1) {
+    const list = sorted[0]![1]
+    const phrase = describeTaskPersistRootCauseForUser(list[0]!)
+    const samples = titleSamplesForFailures(list, 4)
+    const more = list.length > 4 ? ` (+${list.length - 4} til)` : ''
+    return `Alle ${list.length} oppgavene feilet av samme grunn: ${phrase}. Eksempler: «${samples}»${more}.`
+  }
+
+  const parts: string[] = []
+  const maxBuckets = 3
+  let overflow = 0
+  sorted.forEach(([_, list], i) => {
+    if (i >= maxBuckets) {
+      overflow += list.length
+      return
+    }
+    const phrase = describeTaskPersistRootCauseForUser(list[0]!)
+    const samples = titleSamplesForFailures(list, 2)
+    const moreB = list.length > 2 ? ` (+${list.length - 2} til)` : ''
+    parts.push(`${list.length} oppgave(r) — ${phrase}. Eksempler: «${samples}»${moreB}.`)
+  })
+  if (overflow > 0) {
+    parts.push(`${overflow} oppgave(r) med andre årsaker — prøv igjen eller åpne hvert forslag og sjekk feltene.`)
+  }
+  return parts.join(' ')
 }
 
 /** Kompakt brukermelding (mobilvennlig), med konkret oppgave-kontekst når tilgjengelig. */
@@ -213,15 +347,7 @@ export function buildTankestromImportFailureUserMessage(
   const detailParts: string[] = []
 
   if (taskFailures.length > 0) {
-    const byKind = groupFailuresByKind(taskFailures)
-    for (const k of HINT_PRIORITY) {
-      const list = byKind.get(k)
-      if (!list?.length) continue
-      const phrase = TASK_FAILURE_KIND_PHRASE_NB[k] ?? KIND_HINT_NB[k] ?? 'feil ved lagring'
-      const samples = titleSamplesForFailures(list, 4)
-      const more = list.length > 4 ? ` (+${list.length - 4} til)` : ''
-      detailParts.push(`${list.length} oppgave(r) — ${phrase}. Eksempler: «${samples}»${more}.`)
-    }
+    detailParts.push(summarizeTaskFailuresForUser(taskFailures))
   }
 
   if (eventFailures.length > 0) {

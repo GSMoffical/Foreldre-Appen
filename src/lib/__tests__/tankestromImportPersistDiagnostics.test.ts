@@ -3,6 +3,7 @@ import {
   buildTankestromImportFailureUserMessage,
   buildTankestromTaskPersistPayloadFingerprint,
   classifyTankestromPersistThrownError,
+  describeTaskPersistRootCauseForUser,
 } from '../tankestromImportPersistDiagnostics'
 
 describe('tankestromImportPersistDiagnostics', () => {
@@ -44,6 +45,29 @@ describe('tankestromImportPersistDiagnostics', () => {
     expect(msg.toLowerCase()).toMatch(/nettverk|tilkobling/)
   })
 
+  it('forklarer fremmednøkkel mot barn-felt ut fra Supabase-details', () => {
+    const phrase = describeTaskPersistRootCauseForUser({
+      proposalId: 'x',
+      proposalSurfaceType: 'task',
+      operation: 'createTask',
+      kind: 'task_create_failed',
+      message: 'insert failed',
+      supabaseCode: '23503',
+      supabaseMessage: 'violates foreign key',
+      supabaseDetails: 'Key (child_person_id)=(bad) is not present in table "people".',
+    })
+    expect(phrase.toLowerCase()).toMatch(/barn|familien/)
+  })
+
+  it('klassifiserer innkapslet PostgREST-feil', () => {
+    const r = classifyTankestromPersistThrownError(
+      { error: { code: '42501', message: 'new row violates row-level security policy' } },
+      'createTask'
+    )
+    expect(r.kind).toBe('permission')
+    expect(r.supabaseCode).toBe('42501')
+  })
+
   it('grupperer flere oppgave-feil etter type med titteleksempler', () => {
     const msg = buildTankestromImportFailureUserMessage(
       [
@@ -79,7 +103,7 @@ describe('tankestromImportPersistDiagnostics', () => {
       5
     )
     expect(msg).toContain('2 av 5')
-    expect(msg.toLowerCase()).toMatch(/ugyldig|dato|klokkeslett|felt/)
+    expect(msg.toLowerCase()).toMatch(/samme grunn|ugyldig|format|dato/)
     expect(msg).toContain('«A»')
     expect(msg).toContain('«B»')
   })
