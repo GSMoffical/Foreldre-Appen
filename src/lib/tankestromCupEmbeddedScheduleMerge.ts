@@ -265,7 +265,10 @@ export function normalizeEmbeddedScheduleParentDisplayTitle(raw: string): {
   const original = raw.trim()
   if (!original) return { title: raw, wasDayLikeTitle: false }
 
-  const summaryStripped = stripEmbeddedScheduleReviewSummaryPhrases(original)
+  /** Fjern review-/menneske-suffiks « · Fredag og lørdag» før dag-påsats, ellers blir hybrid «…– fredag · …». */
+  const summaryStripped = stripEmbeddedScheduleReviewSummaryPhrases(
+    original.replace(/\s*·\s*.+$/, '').trim()
+  )
   let stripped = summaryStripped
   let prev = ''
   while (stripped !== prev) {

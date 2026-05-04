@@ -66,6 +66,16 @@ describe('normalizeEmbeddedScheduleParentDisplayTitle', () => {
     expect(title.toLowerCase()).not.toContain('samlet')
   })
 
+  it('fjerner review-suffiks « · …» før dag-påsats (unngår hybrid «…– fredag · Fredag og lørdag»)', () => {
+    const { title, wasDayLikeTitle } = normalizeEmbeddedScheduleParentDisplayTitle(
+      'Vårcupen – fredag · Fredag og lørdag'
+    )
+    expect(wasDayLikeTitle).toBe(true)
+    expect(title.toLowerCase()).toContain('vårcupen')
+    expect(title.toLowerCase()).not.toContain('fredag')
+    expect(title).not.toMatch(/·/)
+  })
+
   it('review parent: valgfri kort datolinje ved flere dager', () => {
     const line = embeddedScheduleParentReviewDisplayTitle('Vårcupen 2026', '2026-06-12', '2026-06-14')
     expect(line.startsWith('Vårcupen 2026 ·')).toBe(true)

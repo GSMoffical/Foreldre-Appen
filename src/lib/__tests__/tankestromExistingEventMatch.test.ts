@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { Event } from '../../types'
 import type { PortalEventProposal } from '../../features/tankestrom/types'
-import { findConservativeExistingEventMatch } from '../tankestromExistingEventMatch'
+import {
+  arrangementTitleCoreForMatch,
+  findConservativeExistingEventMatch,
+} from '../tankestromExistingEventMatch'
 
 function baseProposal(overrides: Partial<PortalEventProposal['event']> = {}): PortalEventProposal {
   return {
@@ -75,6 +78,56 @@ describe('findConservativeExistingEventMatch', () => {
     )
     expect(r.rejected).toBe(true)
     expect(r.candidate).toBeNull()
+  })
+
+  it('matcher eksisterende cup-dag-rad (barn) når import er programforelder med samme arrangementskjerne', () => {
+    const proposal: PortalEventProposal = {
+      proposalId: '22222222-2222-4222-8222-222222222222',
+      kind: 'event',
+      sourceId: 'src',
+      originalSourceType: 'text',
+      confidence: 0.9,
+      event: {
+        date: '2026-06-12',
+        personId: 'child-1',
+        title: 'Vårcupen 2026',
+        start: '00:00',
+        end: '23:59',
+        notes: '',
+        location: '',
+        metadata: {
+          endDate: '2026-06-13',
+          isAllDay: true,
+          multiDayAllDay: true,
+          embeddedSchedule: [
+            { date: '2026-06-12', title: 'Trening' },
+            { date: '2026-06-13', title: 'Kamp' },
+          ],
+        },
+      },
+    }
+    const existingFriday: Event = {
+      id: 'evt-fri',
+      personId: 'child-1',
+      title: 'Vårcupen – fredag',
+      start: '17:00',
+      end: '20:00',
+      notes: '',
+      metadata: {},
+    }
+    const r = findConservativeExistingEventMatch(
+      proposal,
+      proposal.event.title,
+      '2026-06-12',
+      '2026-06-13',
+      'child-1',
+      [{ event: existingFriday, anchorDate: '2026-06-12' }]
+    )
+    expect(r.rejected).toBe(false)
+    expect(r.candidate?.event.id).toBe('evt-fri')
+    expect(arrangementTitleCoreForMatch(proposal.event.title)).toBe(
+      arrangementTitleCoreForMatch(existingFriday.title)
+    )
   })
 
   it('avviser import som ikke er container-lik (ingen flerdagers/endDate-skille, ikke programforelder)', () => {
