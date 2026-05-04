@@ -2165,6 +2165,7 @@ export interface TankestromImportDialogProps {
   createTask: (input: Omit<Task, 'id'>) => Promise<void>
   editEvent?: UseEventControllerReturn['editEvent']
   getAnchoredForegroundEventsForMatching?: () => { event: Event; anchorDate: string }[]
+  deleteEvent?: (date: string, eventId: string) => Promise<void>
   updatePerson?: (
     id: string,
     updates: Partial<Pick<Person, 'name' | 'colorTint' | 'colorAccent' | 'memberKind' | 'school' | 'work'>>
@@ -2179,6 +2180,7 @@ export function TankestromImportDialog({
   createTask,
   editEvent,
   getAnchoredForegroundEventsForMatching,
+  deleteEvent,
   updatePerson,
 }: TankestromImportDialogProps) {
   const {
@@ -2236,6 +2238,7 @@ export function TankestromImportDialog({
     createTask,
     editEvent,
     getAnchoredForegroundEventsForMatching,
+    deleteEvent,
     updatePerson,
   })
 

@@ -39,6 +39,7 @@ import {
   findConservativeExistingEventMatch,
   type ExistingEventMatchResult,
 } from '../../lib/tankestromExistingEventMatch'
+import { cleanupParallelClusterDayRowsAfterEmbeddedParentUpdate } from '../../lib/tankestromExistingEventClusterCleanup'
 import {
   aggregatePersistFailureKinds,
   buildTankestromImportFailureUserMessage,
@@ -1112,6 +1113,8 @@ export interface UseTankestromImportOptions {
   editEvent?: TankestromEditEventFn
   /** Eksisterende forgrunnshendelser for konservativ match i review. */
   getAnchoredForegroundEventsForMatching?: () => { event: Event; anchorDate: string }[]
+  /** Slett overflødige dag-rader etter oppdatering av programforelder (valgfritt). */
+  deleteEvent?: (date: string, eventId: string) => Promise<void>
   /** Kreves for lagring av timeplan-import (skoleprofil). */
   updatePerson?: (
     id: string,
@@ -1126,6 +1129,7 @@ export function useTankestromImport({
   createTask,
   editEvent,
   getAnchoredForegroundEventsForMatching,
+  deleteEvent,
   updatePerson,
 }: UseTankestromImportOptions) {
   const [step, setStep] = useState<Step>('pick')
@@ -2564,6 +2568,7 @@ export function useTankestromImport({
           }
           if (proposalMeta.isAllDay === true) baseMeta.isAllDay = true
           if (proposalMeta.multiDayAllDay === true) baseMeta.multiDayAllDay = true
+          let clusterCleanupProgramDates: string[] = []
           if (isEmbeddedScheduleParentCalendarItem(item)) {
             const rows = embeddedScheduleReviewRowsByParentId[item.proposalId] ?? []
             const included = rows.filter((r) =>
@@ -2574,6 +2579,9 @@ export function useTankestromImport({
               ...r.segment,
               title: embeddedScheduleChildCalendarExportTitle(r.segment, parentTitleForSegments),
             }))
+            clusterCleanupProgramDates = included
+              .map((r) => r.segment.date.trim())
+              .filter((d) => DATE_KEY_RE.test(d))
           }
 
           const metadata: Record<string, unknown> = {
@@ -2607,6 +2615,16 @@ export function useTankestromImport({
           try {
             await editEvent(anchorDate, existingEvent, updates)
             recordSuccess(id, 'event', 'editEvent')
+            if (deleteEvent && clusterCleanupProgramDates.length > 0) {
+              await cleanupParallelClusterDayRowsAfterEmbeddedParentUpdate({
+                deleteEvent,
+                getAnchoredForegroundEventsForMatching: getAnchoredForegroundEventsForMatching!,
+                anchorEventId: target.eventId,
+                importParentTitleRaw: draft.title.trim(),
+                importPersonId: draft.personId.trim(),
+                programDates: clusterCleanupProgramDates,
+              })
+            }
             if (item.originalSourceType === MANUAL_REVIEW_SOURCE_TYPE) {
               logEvent('manualReviewItemImported', { proposalId: id, kind: 'event' })
             }
@@ -2964,6 +2982,7 @@ export function useTankestromImport({
     detachedEmbeddedChildren,
     editEvent,
     getAnchoredForegroundEventsForMatching,
+    deleteEvent,
     existingEventLinkByProposalId,
     existingEventUpdateTarget,
   ])

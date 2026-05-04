@@ -459,6 +459,7 @@ function App() {
         createTask={taskController.createTask}
         editEvent={controller.editEvent}
         getAnchoredForegroundEventsForMatching={getAnchoredForegroundEventsForMatching}
+        deleteEvent={deleteEvent}
         updatePerson={updatePerson}
       />
       <CalendarOverlays
