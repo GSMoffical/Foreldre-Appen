@@ -5,6 +5,24 @@ import { supabase } from './supabaseClient'
 const TASK_COLUMNS =
   'id, user_id, title, notes, date, due_time, assigned_to_person_id, child_person_id, completed_at, show_in_month_view, task_intent, created_at, updated_at'
 
+/** Brukes når `task_intent` mangler i DB / PostgREST schema cache (PGRST204). */
+const TASK_COLUMNS_WITHOUT_TASK_INTENT =
+  'id, user_id, title, notes, date, due_time, assigned_to_person_id, child_person_id, completed_at, show_in_month_view, created_at, updated_at'
+
+const TASK_INTENT_FALLBACK_DEBUG =
+  import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+
+/**
+ * PostgREST: kolonne finnes ikke i schema cache (migrering ikke kjørt, feil miljø, eller cache ikke oppdatert).
+ * Da feiler insert/select som ber om `task_intent`.
+ */
+export function isPostgrestTaskIntentColumnMissingError(err: unknown): boolean {
+  if (err === null || typeof err !== 'object') return false
+  const e = err as { code?: string; message?: string }
+  if (e.code !== 'PGRST204') return false
+  return (e.message ?? '').toLowerCase().includes('task_intent')
+}
+
 type TaskRow = {
   id: string
   user_id: string
@@ -77,27 +95,61 @@ export async function fetchTasksForDateRange(
 }
 
 export async function createTask(userId: string, input: Omit<Task, 'id'>): Promise<Task> {
-  const { data, error } = await supabase
+  const baseRow = {
+    user_id: userId,
+    title: input.title,
+    notes: input.notes ?? null,
+    date: input.date,
+    due_time: input.dueTime ?? null,
+    assigned_to_person_id: input.assignedToPersonId ?? null,
+    child_person_id: input.childPersonId ?? null,
+    completed_at: null,
+    show_in_month_view: input.showInMonthView ?? false,
+  }
+
+  const first = await supabase
     .from('tasks')
     .insert({
-      user_id: userId,
-      title: input.title,
-      notes: input.notes ?? null,
-      date: input.date,
-      due_time: input.dueTime ?? null,
-      assigned_to_person_id: input.assignedToPersonId ?? null,
-      child_person_id: input.childPersonId ?? null,
-      completed_at: null,
-      show_in_month_view: input.showInMonthView ?? false,
+      ...baseRow,
       task_intent: input.taskIntent ?? 'must_do',
     })
     .select(TASK_COLUMNS)
     .single()
-  if (error) {
-    console.error('[tasksApi] createTask error', error)
-    throw error
+
+  if (!first.error) {
+    return mapRowToTask(first.data as TaskRow)
   }
-  return mapRowToTask(data as TaskRow)
+
+  if (isPostgrestTaskIntentColumnMissingError(first.error)) {
+    if (TASK_INTENT_FALLBACK_DEBUG) {
+      console.debug('[tasksApi] createTask', {
+        taskIntentColumnMissingDetected: true,
+        taskIntentSchemaMismatchLikely: true,
+        taskIntentFallbackRetryStarted: true,
+        taskIntentPayloadOmittedForRetry: true,
+      })
+    }
+    const second = await supabase.from('tasks').insert(baseRow).select(TASK_COLUMNS_WITHOUT_TASK_INTENT).single()
+    if (!second.error) {
+      if (TASK_INTENT_FALLBACK_DEBUG) {
+        console.debug('[tasksApi] createTask', {
+          taskIntentFallbackRetrySucceeded: true,
+        })
+      }
+      return mapRowToTask({ ...(second.data as TaskRow), task_intent: null })
+    }
+    if (TASK_INTENT_FALLBACK_DEBUG) {
+      console.debug('[tasksApi] createTask', {
+        taskIntentFallbackRetryFailed: true,
+        followUpError: second.error,
+      })
+    }
+    console.error('[tasksApi] createTask error (fallback insert also failed)', second.error)
+    throw second.error
+  }
+
+  console.error('[tasksApi] createTask error', first.error)
+  throw first.error
 }
 
 export async function updateTask(

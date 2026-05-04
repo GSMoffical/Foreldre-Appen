@@ -1,5 +1,7 @@
 -- ============================================================================
 -- Tasks: task_intent (must_do | can_help) — kjør i Supabase SQL Editor
+-- Uten denne kolonnen: PostgREST kan gi PGRST204 («Could not find task_intent…»).
+-- Etter ALTER: ev. «Reload schema» i Supabase eller vent på cache-oppdatering.
 -- ============================================================================
 
 ALTER TABLE public.tasks

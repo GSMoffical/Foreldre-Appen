@@ -215,6 +215,10 @@ export function describeTaskPersistRootCauseForUser(f: TankestromImportPersistFa
   if (f.kind === 'auth') return 'sesjon utløpt eller ugyldig innlogging'
   if (f.kind === 'permission') return 'tilgangsregler (RLS) blokkerte raden'
 
+  if (code === 'PGRST204' && corpus.includes('task_intent')) {
+    return 'kolonnen task_intent mangler i databasen (migrering ikke kjørt, feil miljø, eller PostgREST-cache ikke oppdatert)'
+  }
+
   if (code === '23503' || corpus.includes('foreign key') || corpus.includes('violates foreign key constraint')) {
     if (corpus.includes('child_person') || corpus.includes('child_person_id')) {
       return '«Barn»-feltet peker på en person som ikke finnes i familien'
