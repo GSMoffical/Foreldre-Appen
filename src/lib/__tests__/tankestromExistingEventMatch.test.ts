@@ -29,7 +29,9 @@ function baseProposal(overrides: Partial<PortalEventProposal['event']> = {}): Po
 
 describe('findConservativeExistingEventMatch', () => {
   it('returnerer kandidat når tittel, dato, person og sted stemmer godt nok (container + multi-day)', () => {
-    const proposal = baseProposal()
+    const proposal = baseProposal({
+      metadata: { endDate: '2026-06-02', isAllDay: true, arrangementStableKey: 'learn|håndball|1' },
+    })
     const existing: Event = {
       id: 'evt-existing',
       personId: 'child-1',
@@ -55,6 +57,7 @@ describe('findConservativeExistingEventMatch', () => {
     expect(r.rejected).toBe(false)
     expect(r.candidate?.event.id).toBe('evt-existing')
     expect(r.score).toBeGreaterThanOrEqual(78)
+    expect(r.learnedStableKey).toBe(true)
   })
 
   it('avviser ved for svak tittel selv med overlapp', () => {
@@ -128,6 +131,48 @@ describe('findConservativeExistingEventMatch', () => {
     expect(arrangementTitleCoreForMatch(proposal.event.title)).toBe(
       arrangementTitleCoreForMatch(existingFriday.title)
     )
+  })
+
+  it('matcher på arrangementStableKey før container/tittel (score 100)', () => {
+    const stable = 'cup|vårcupen-2026|child-1|2026-06-12'
+    const proposal: PortalEventProposal = {
+      proposalId: '33333333-3333-4333-8333-333333333333',
+      kind: 'event',
+      sourceId: 'src',
+      originalSourceType: 'text',
+      confidence: 0.9,
+      event: {
+        date: '2026-06-12',
+        personId: 'child-1',
+        title: 'Vårcupen — detalj',
+        start: '10:00',
+        end: '11:00',
+        notes: '',
+        location: '',
+        metadata: { arrangementStableKey: stable },
+      },
+    }
+    const existing: Event = {
+      id: 'evt-stable',
+      personId: 'child-1',
+      title: 'Vårcupen – fredag',
+      start: '09:00',
+      end: '12:00',
+      notes: '',
+      metadata: { arrangementStableKey: stable },
+    }
+    const r = findConservativeExistingEventMatch(
+      proposal,
+      proposal.event.title,
+      '2026-06-12',
+      '2026-06-12',
+      'child-1',
+      [{ event: existing, anchorDate: '2026-06-12' }]
+    )
+    expect(r.rejected).toBe(false)
+    expect(r.score).toBe(100)
+    expect(r.candidate?.event.id).toBe('evt-stable')
+    expect(r.learnedStableKey).toBeUndefined()
   })
 
   it('avviser import som ikke er container-lik (ingen flerdagers/endDate-skille, ikke programforelder)', () => {

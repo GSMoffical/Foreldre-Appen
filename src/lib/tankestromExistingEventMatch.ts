@@ -36,6 +36,14 @@ function dateRangesOverlap(a0: string, a1: string, b0: string, b1: string): bool
   return a1 >= b0 && a0 <= b1
 }
 
+export function readArrangementStableKey(meta: unknown): string | undefined {
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return undefined
+  const raw = (meta as Record<string, unknown>).arrangementStableKey
+  if (typeof raw !== 'string') return undefined
+  const t = raw.trim()
+  return t.length > 0 ? t : undefined
+}
+
 /** Importert forslag oppfører seg som container / flerdagers (smal MVP-fokus). */
 export function importEventIsContainerLikeForMatching(item: PortalEventProposal): boolean {
   if (item.kind !== 'event') return false
@@ -105,9 +113,13 @@ export type ExistingEventMatchResult = {
   score: number
   rejected: boolean
   rejectReason?: string
+  /** True når import har arrangementStableKey og treff mangler det — skal backfilles ved update. */
+  learnedStableKey?: boolean
 }
 
 const SUGGEST_MIN_SCORE = 78
+/** Med incoming stableKey og uten nøkkel på treff: aksepter heuristikk ned til denne (bakoverkompatibel læring). */
+const LEARN_STABLE_KEY_MIN_SCORE = 70
 const FOLLOWUP_CLUSTER_SCORE_BOOST = 16
 const EXISTING_CONTAINER_ANCHOR_BONUS = 12
 
@@ -132,6 +144,33 @@ export function findConservativeExistingEventMatch(
         reason: 'not_event_proposal',
       })
     return { candidate: null, score: 0, rejected: true, rejectReason: 'not_event' }
+  }
+
+  const incomingStableKey = readArrangementStableKey(proposal.event.metadata)
+  if (incomingStableKey) {
+    for (const anchor of anchoredExisting) {
+      const existingStableKey = readArrangementStableKey(anchor.event.metadata)
+      if (!existingStableKey || existingStableKey !== incomingStableKey) continue
+      const { event, anchorDate } = anchor
+      const exEnd = getEventEndDate(event, anchorDate)
+      if (!dateRangesOverlap(importStartDate, importEndDate, anchorDate, exEnd)) continue
+      const participants = getEventParticipantIds(event)
+      if (!participants.includes(importPersonId)) continue
+      if (dbg) {
+        console.debug('[tankestrom existing event match]', {
+          existingEventCandidateMatched: true,
+          existingEventCandidateScore: 100,
+          arrangementStableKeyMatch: true,
+          stableKeyMatched: true,
+          matchReason: 'stable_key_match',
+          titleDetail: 'stable_key_match',
+          eventId: event.id,
+          anchorDate,
+          arrangementStableKey: incomingStableKey,
+        })
+      }
+      return { candidate: anchor, score: 100, rejected: false }
+    }
   }
 
   if (!importEventIsContainerLikeForMatching(proposal)) {
@@ -262,7 +301,30 @@ export function findConservativeExistingEventMatch(
     return { candidate: null, score: 0, rejected: true, rejectReason: 'no_candidate' }
   }
 
-  if (best.score < SUGGEST_MIN_SCORE) {
+  const existingStableOnBest = readArrangementStableKey(best.anchor.event.metadata)
+  const canBackfillStable = Boolean(incomingStableKey) && !existingStableOnBest
+
+  if (best.score < LEARN_STABLE_KEY_MIN_SCORE) {
+    missedStrongOverlap = overlapPersonAnchors > 0
+    if (dbg)
+      console.debug('[tankestrom existing event match]', {
+        existingEventCandidateRejected: true,
+        existingEventCandidateScore: best.score,
+        existingEventMatchCandidateRejectedReason: 'below_threshold',
+        existingEventMatchCandidateScore: best.score,
+        reason: 'below_learn_stable_key_min',
+        titleDetail: best.titleDetail,
+        existingEventMatchCandidatesComputed: scoredCandidatesForDebug,
+        existingEventMatchMissedDespiteStrongOverlap: missedStrongOverlap,
+        existingEventMatchTitleCoreNormalized: {
+          import: arrangementTitleCoreForMatch(importTitle),
+          existing: arrangementTitleCoreForMatch(best.anchor.event.title),
+        },
+      })
+    return { candidate: null, score: best.score, rejected: true, rejectReason: 'below_threshold' }
+  }
+
+  if (best.score < SUGGEST_MIN_SCORE && !canBackfillStable) {
     missedStrongOverlap = overlapPersonAnchors > 0
     if (dbg)
       console.debug('[tankestrom existing event match]', {
@@ -282,6 +344,8 @@ export function findConservativeExistingEventMatch(
     return { candidate: null, score: best.score, rejected: true, rejectReason: 'below_threshold' }
   }
 
+  const learnedStableKey = canBackfillStable && best.score >= LEARN_STABLE_KEY_MIN_SCORE
+
   if (dbg) {
     console.debug('[tankestrom existing event match]', {
       existingEventCandidateMatched: true,
@@ -293,6 +357,15 @@ export function findConservativeExistingEventMatch(
       titleDetail: best.titleDetail,
       anchorDate: best.anchor.anchorDate,
       eventId: best.anchor.event.id,
+      learnedStableKey,
+      ...(learnedStableKey
+        ? {
+            existingEventStableKeyLearned: true,
+            existingEventStableKeyBackfilled: true,
+            arrangementStableKey: incomingStableKey,
+            relaxedThresholdUsed: best.score < SUGGEST_MIN_SCORE,
+          }
+        : {}),
       existingEventMatchSelectedTarget: {
         eventId: best.anchor.event.id,
         anchorDate: best.anchor.anchorDate,
@@ -311,5 +384,10 @@ export function findConservativeExistingEventMatch(
     })
   }
 
-  return { candidate: best.anchor, score: best.score, rejected: false }
+  return {
+    candidate: best.anchor,
+    score: best.score,
+    rejected: false,
+    ...(learnedStableKey ? { learnedStableKey: true } : {}),
+  }
 }

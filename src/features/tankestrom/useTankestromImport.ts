@@ -37,6 +37,7 @@ import { parseTime } from '../../lib/time'
 import { getISOWeek, getISOWeekYear } from '../../lib/isoWeek'
 import {
   findConservativeExistingEventMatch,
+  readArrangementStableKey,
   type ExistingEventMatchResult,
 } from '../../lib/tankestromExistingEventMatch'
 import { cleanupParallelClusterDayRowsAfterEmbeddedParentUpdate } from '../../lib/tankestromExistingEventClusterCleanup'
@@ -2682,6 +2683,20 @@ export function useTankestromImport({
             else delete metadata.transport
           }
           mergeEventParticipantsIntoMetadata(metadata, draft, validPersonIds)
+
+          const matchRow = existingEventMatchesByProposalId[id]
+          const incomingStableForPatch = readArrangementStableKey(ev.metadata)
+          if (matchRow?.learnedStableKey && incomingStableForPatch) {
+            metadata.arrangementStableKey = incomingStableForPatch
+            if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+              console.debug('[tankestrom approve existing event stable key]', {
+                existingEventStableKeyLearned: true,
+                existingEventStableKeyBackfilled: true,
+                proposalId: id,
+                arrangementStableKey: incomingStableForPatch,
+              })
+            }
+          }
 
           const updates: Partial<Event> = { metadata }
           if (draft.notes.length > 0) updates.notes = draft.notes

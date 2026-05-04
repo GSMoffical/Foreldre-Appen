@@ -258,6 +258,10 @@ export interface EventMetadata {
   embeddedSchedule?: EmbeddedScheduleSegment[];
   /** Felles id for logisk gruppe (kobling til tasks/import senere); valgfri i MVP. */
   blockGroupId?: string;
+  /**
+   * Tankestrøm: deterministisk nøkkel for samme arrangement på tvers av meldinger (import-matching).
+   */
+  arrangementStableKey?: string;
   /** Free-form metadata reserved for future automation features. */
   [key: string]: unknown;
 }
