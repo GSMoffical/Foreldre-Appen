@@ -12,7 +12,7 @@ import type {
   WeekdayMonFri,
 } from '../types'
 import { springDialog } from '../lib/motion'
-import { sheetPanel, sheetHandle, sheetHandleBar, sheetDetailBody, typSectionCap, btnRowAction } from '../lib/ui'
+import { sheetPanel, sheetDetailBody, typSectionCap, sheetHeaderStrip, sheetHeaderClose, btnRowAction } from '../lib/ui'
 import { useFamily } from '../context/FamilyContext'
 import { dateKeyToWeekdayMon0 } from '../lib/weekday'
 import { subjectLabelForKey } from '../data/norwegianSubjects'
@@ -438,12 +438,18 @@ export function BackgroundDetailSheet({
           aria-modal="true"
           aria-label="Detaljer skole og jobb"
         >
-          <div className={sheetHandle}>
-            <div className={sheetHandleBar} aria-hidden />
+          <div className={sheetHeaderStrip} style={{ background: `linear-gradient(135deg, #14472f, ${person.colorAccent ?? '#1d5a3f'} 180%)` }}>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/60">{title}</p>
+              <h2 className="mt-0.5 text-[18px] font-bold leading-tight text-white">{person.name}</h2>
+            </div>
+            <button type="button" onClick={onClose} aria-label="Lukk" className={sheetHeaderClose}>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
           <div className={sheetDetailBody}>
-            <p className={typSectionCap}>{title}</p>
-            <h2 className="mt-1 text-[20px] font-bold text-neutral-600 leading-tight">{person.name}</h2>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <p className="text-body-sm text-neutral-500">{formatTimeRange(event.start, event.end)}</p>
               {schoolDayOverride ? (

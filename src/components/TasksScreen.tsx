@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { OnboardingHint } from './OnboardingHint'
-import { typHeading, typSectionCap, btnPrimaryPill, screenHeaderRow } from '../lib/ui'
+import { typSectionCap, btnPrimaryPill } from '../lib/ui'
+import { SynkaWordmark } from './ui/SynkaLogo'
 import type { Task, Person } from '../types'
 import { taskIntentBadgeClassName, taskIntentLabelNb } from '../lib/taskIntent'
 import type { WeekDayLayout } from '../hooks/useScheduleState'
@@ -470,12 +471,13 @@ export function TasksScreen({
 
       <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto scrollbar-none">
         {/* Screen header */}
-        <div className={screenHeaderRow}>
-          <h2 className={typHeading}>Gjøremål</h2>
+        <div className="flex items-center justify-between px-4 pb-2 pt-4">
+          <SynkaWordmark variant="green" width={56} />
           <button type="button" onClick={openAddTask} className={btnPrimaryPill}>
             + Nytt gjøremål
           </button>
         </div>
+        <h2 className="px-4 pb-3 font-display text-[26px] font-bold leading-tight text-neutral-600">Gjøremål</h2>
 
         {/* Notification inbox strip — only visible when there are unread notifications */}
         {inboxNotifications.length > 0 && onMarkInboxRead && onDismissNotification && (

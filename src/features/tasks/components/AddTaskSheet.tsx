@@ -8,8 +8,8 @@ import { useConfirmClose } from '../../../hooks/useConfirmClose'
 import {
   inputBase, textareaBase, selectBase, inputLabel,
   btnPrimary, btnSecondary, btnDanger, btnDisclosure,
-  sheetPanel, sheetHandle, sheetHandleBar, sheetFormBody,
-  sheetTitle,
+  sheetPanel, sheetFormBody,
+  sheetHeaderStrip, sheetHeaderTitle, sheetHeaderClose,
 } from '../../../lib/ui'
 
 interface AddTaskSheetProps {
@@ -105,14 +105,9 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
         aria-modal="true"
         aria-label={isEdit ? 'Rediger gjøremål' : 'Nytt gjøremål'}
       >
-        <div className={`${sheetHandle} relative`}>
-          <div className={sheetHandleBar} aria-hidden />
-          <button
-            type="button"
-            onClick={guardedClose}
-            aria-label="Lukk"
-            className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 transition hover:bg-neutral-200 hover:text-neutral-600 touch-manipulation"
-          >
+        <div className={sheetHeaderStrip}>
+          <h2 className={sheetHeaderTitle}>{isEdit ? 'Rediger gjøremål' : 'Nytt gjøremål'}</h2>
+          <button type="button" onClick={guardedClose} aria-label="Lukk" className={sheetHeaderClose}>
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
             </svg>
@@ -120,7 +115,6 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
         </div>
 
         <form onSubmit={handleSubmit} className={sheetFormBody}>
-          <h2 className={sheetTitle}>{isEdit ? 'Rediger gjøremål' : 'Nytt gjøremål'}</h2>
           <div className="space-y-1.5">
             <label className={inputLabel} htmlFor="task-title">Tittel *</label>
             <input

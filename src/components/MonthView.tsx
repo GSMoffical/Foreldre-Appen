@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { Event } from '../types'
+import { SynkaWordmark } from './ui/SynkaLogo'
 import { getISOWeek, getISOWeekYear } from '../lib/isoWeek'
 import { formatTimeRange } from '../lib/time'
 import { useFamily } from '../context/FamilyContext'
@@ -245,24 +246,29 @@ export function MonthView({
 
   return (
     <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden px-3 pt-2">
+      {/* Branded header row */}
+      <div className="flex items-center justify-between px-1 pb-2 pt-2">
+        <SynkaWordmark variant="green" width={56} />
+      </div>
+      {/* Month nav row */}
       <div className="grid shrink-0 grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-1 pb-3">
         <button
           type="button"
           onClick={prevMonth}
-          className="justify-self-start rounded-lg p-2 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-600"
+          className="flex h-8 w-8 items-center justify-center justify-self-start rounded-full border border-neutral-200 bg-white text-neutral-400 shadow-card hover:bg-neutral-50"
           aria-label="Forrige måned"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
           </svg>
         </button>
-        <h2 className="min-w-0 truncate text-center font-display text-[17px] font-semibold text-neutral-600">
+        <h2 className="min-w-0 truncate text-center font-display text-[22px] font-bold text-neutral-600">
           {MONTH_NAMES[viewMonth]} {viewYear}
         </h2>
         <button
           type="button"
           onClick={nextMonth}
-          className="justify-self-end rounded-lg p-2 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-600"
+          className="flex h-8 w-8 items-center justify-center justify-self-end rounded-full border border-neutral-200 bg-white text-neutral-400 shadow-card hover:bg-neutral-50"
           aria-label="Neste måned"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">

@@ -210,9 +210,9 @@ export function ActivityBlock({
         width: `${widthPercent}%`,
         left: `${leftPercent}%`,
         boxSizing: 'border-box',
-        backgroundColor: primaryPerson.colorTint,
-        borderLeftWidth: 0,
-        borderLeftColor: 'transparent',
+        backgroundColor: '#ffffff',
+        borderLeft: `4px solid ${primaryPerson.colorAccent}`,
+        boxShadow: `0 1px 4px rgba(0,0,0,0.08), 0 0 0 1px ${primaryPerson.colorAccent}22`,
         WebkitUserSelect: 'none',
         userSelect: 'none',
         WebkitTouchCallout: 'none',
@@ -230,18 +230,15 @@ export function ActivityBlock({
       whileTap={isDragging ? undefined : { scale: 0.98 }}
       aria-label={`${primaryPerson.name}, ${block.title}, ${formatTimeRange(block.start, block.end)}`}
     >
-      {/* Segmented left stripe showing all participants */}
-      {participants.length > 0 && (
+      {/* Multi-participant top tint when >1 person */}
+      {participants.length > 1 && (
         <div
-          className="pointer-events-none absolute left-0 top-0 bottom-0 w-[6px] overflow-hidden rounded-l-block"
+          className="pointer-events-none absolute left-0 top-0 right-0 h-[2px] opacity-60"
           aria-hidden
-        >
-          <div className="flex h-full w-full">
-            {participants.map((p) => (
-              <div key={p.id} className="flex-1" style={{ backgroundColor: p.colorAccent }} />
-            ))}
-          </div>
-        </div>
+          style={{
+            background: `linear-gradient(to right, ${participants.map((p) => p.colorAccent).join(', ')})`,
+          }}
+        />
       )}
       {/* Shimmer sweep when commit is pending: a bright band slides left → right */}
       {isPendingCommit && (

@@ -14,6 +14,7 @@ import { logEvent } from '../../lib/appLogger'
 import { COPY } from '../../lib/norwegianCopy'
 import { formatCalendarPeriodContextLabel, todayKeyOslo } from '../../lib/osloCalendar'
 import { useFamily } from '../../context/FamilyContext'
+import { SynkaWordmark } from '../../components/ui/SynkaLogo'
 import type { Event, Task, PersonId, TimelineLayoutItem, GapInfo } from '../../types'
 import type { SaveFeedbackState } from '../app/hooks/useSaveFeedback'
 import type { WeekDayLayout } from '../../hooks/useScheduleState'
@@ -110,16 +111,53 @@ export function CalendarHomeTab({
   const todayHasData = todayEvents.length > 0 || todayOpenTasks.length > 0
 
   return (
-    <div className="relative mt-2 flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden pb-4">
+    <div className="relative flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden">
       <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-hidden">
+
+        {/* ── Screen Header ──────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between px-4 pt-4 pb-2">
+          <SynkaWordmark variant="green" width={64} />
+          <div className="flex items-center gap-2">
+            {saveFeedback && (
+              <motion.span
+                initial={reducedMotion ? false : { opacity: 0, x: 6 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={springSnappy}
+                className={`text-[11px] font-semibold ${
+                  saveFeedback === 'error' ? 'text-semantic-red-500' : saveFeedback === 'saving' ? 'text-neutral-400' : 'text-primary-600'
+                }`}
+              >
+                {saveFeedback === 'saving' ? COPY.feedback.saving : saveFeedback === 'error' ? COPY.feedback.saveFailed : '✓ lagret'}
+              </motion.span>
+            )}
+            {searchOpen ? null : (
+              <SearchBar
+                open={false}
+                onOpenChange={setSearchOpen}
+                weekLayoutData={weekLayoutData}
+                onJumpToDate={setSelectedDate}
+                onSelectEvent={handleSelectEvent}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Date headline */}
+        {periodContextLabel && (
+          <p className="px-4 pb-1 font-display text-[22px] font-bold leading-tight text-neutral-600">
+            {periodContextLabel}
+          </p>
+        )}
+
+        {/* Family filter */}
         <FamilyFilterBar
           selectedPersonIds={selectedPersonIds}
           onFilterChange={setSelectedPersonIds}
           mePersonId={mePersonId}
         />
-        {/* Controls row — collapses to a full-width search strip when search is open */}
+
+        {/* Controls row */}
         {searchOpen ? (
-          /* Search mode: only the SearchBar (input + X button), full row width */
           <div className="flex items-center px-3 pb-1.5 pt-0.5">
             <SearchBar
               open={true}
@@ -130,15 +168,14 @@ export function CalendarHomeTab({
             />
           </div>
         ) : (
-          /* Normal mode: nav + action buttons + search icon at right */
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-3 pb-1.5 pt-0.5">
+          <div className="flex items-center gap-1.5 px-3 pb-1.5 pt-0.5">
             <button
               type="button"
               onClick={() => handleChangeWeek(-1)}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-neutral-100 text-neutral-400 shadow-card transition hover:bg-neutral-50 active:bg-neutral-200 touch-manipulation"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-400 shadow-card transition hover:bg-neutral-50 active:bg-neutral-200 touch-manipulation"
               aria-label="Forrige uke"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 19.5-7.5-7.5 7.5-7.5" />
               </svg>
             </button>
@@ -147,79 +184,41 @@ export function CalendarHomeTab({
               type="button"
               onClick={handleJumpToToday}
               aria-label="Hopp til i dag"
-              className="shrink-0 rounded-xl border border-neutral-200 bg-neutral-100 px-2.5 py-1.5 text-caption font-medium text-neutral-500 shadow-card transition hover:bg-neutral-50 active:bg-neutral-200 touch-manipulation"
+              className="shrink-0 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-neutral-500 shadow-card transition hover:bg-neutral-50 active:bg-neutral-200 touch-manipulation"
             >
               I dag
             </button>
             <button
               type="button"
               onClick={() => handleChangeWeek(1)}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-neutral-100 text-neutral-400 shadow-card transition hover:bg-neutral-50 active:bg-neutral-200 touch-manipulation"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-400 shadow-card transition hover:bg-neutral-50 active:bg-neutral-200 touch-manipulation"
               aria-label="Neste uke"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
               </svg>
             </button>
-            <div className="h-5 w-px shrink-0 bg-neutral-200" />
-            <button
-              id="onb-add-event"
-              type="button"
-              onClick={() => openAddEvent()}
-              className="shrink-0 rounded-pill bg-primary-600 px-3 py-1.5 text-caption font-semibold text-neutral-100 shadow-card transition hover:bg-primary-700 active:translate-y-px active:shadow-press focus:outline-none focus:ring-2 focus:ring-primary-500/50 touch-manipulation"
-            >
-              + Hendelse
-            </button>
-            <button
-              id="onb-add-task"
-              type="button"
-              onClick={() => openAddTask()}
-              className="shrink-0 rounded-pill border border-primary-600 px-3 py-1.5 text-caption font-semibold text-primary-600 transition hover:bg-primary-50 active:translate-y-px focus:outline-none focus:ring-2 focus:ring-primary-500/50 touch-manipulation"
-            >
-              + Gjøremål
-            </button>
-            {/* Right-side: save indicator + search icon — grouped so ml-auto works */}
-            <div className="ml-auto flex shrink-0 items-center gap-1.5">
-              {saveFeedback && (
-                <motion.span
-                  initial={reducedMotion ? false : { scale: 0.85, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={springSnappy}
-                  className={`inline-flex shrink-0 items-center gap-1 text-caption font-medium ${
-                    saveFeedback === 'error' ? 'text-semantic-red-600' : saveFeedback === 'saving' ? 'text-neutral-400' : 'text-primary-600'
-                  }`}
-                >
-                  {saveFeedback !== 'saving' && (
-                    <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                    </svg>
-                  )}
-                  {saveFeedback === 'saving'
-                    ? COPY.feedback.saving
-                    : saveFeedback === 'error'
-                      ? COPY.feedback.saveFailed
-                      : COPY.feedback.saved}
-                </motion.span>
-              )}
-              <SearchBar
-                open={false}
-                onOpenChange={setSearchOpen}
-                weekLayoutData={weekLayoutData}
-                onJumpToDate={setSelectedDate}
-                onSelectEvent={handleSelectEvent}
-              />
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <button
+                id="onb-add-task"
+                type="button"
+                onClick={() => openAddTask()}
+                className="shrink-0 rounded-full border border-neutral-300 bg-white px-3 py-1 text-[11px] font-semibold text-neutral-500 shadow-card transition hover:bg-neutral-50 active:scale-95 focus:outline-none touch-manipulation"
+              >
+                + Gjøremål
+              </button>
+              <button
+                id="onb-add-event"
+                type="button"
+                onClick={() => openAddEvent()}
+                className="shrink-0 rounded-full bg-primary-600 px-3.5 py-1 text-[11px] font-semibold text-white shadow-card transition hover:bg-primary-700 active:scale-95 active:shadow-press focus:outline-none touch-manipulation"
+              >
+                + Hendelse
+              </button>
             </div>
           </div>
         )}
         <div id="onb-week-strip">
-          {periodContextLabel ? (
-            <p
-              className="px-3 pb-1 pt-0.5 text-center text-[12px] font-semibold leading-tight text-neutral-500 tabular-nums"
-              aria-live="polite"
-            >
-              {periodContextLabel}
-            </p>
-          ) : null}
           <WeekStrip
             days={weekLayoutData}
             selectedDate={selectedDate}

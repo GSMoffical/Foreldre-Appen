@@ -23,39 +23,40 @@ export function WeekDayCard({ day, isSelected, onSelect, variants, openTaskCount
       type="button"
       onClick={onSelect}
       variants={variants}
-      className={`relative flex min-h-[44px] min-w-0 flex-1 basis-0 flex-col items-center justify-center rounded-card border-2 py-2 touch-manipulation transition-shadow ${
+      className={`relative flex min-h-[52px] min-w-0 flex-1 basis-0 flex-col items-center justify-center rounded-2xl py-2 touch-manipulation transition-all ${
         isSelected
-          ? 'border-neutral-600 bg-primary-50 shadow-card'
+          ? 'bg-white shadow-[0_2px_12px_rgba(29,90,63,0.18)]'
           : isToday
-            ? 'border-primary-600/30 bg-primary-50'
-            : 'border-transparent bg-transparent'
+            ? 'bg-primary-50/70'
+            : 'bg-transparent'
       }`}
-      whileTap={{ scale: 0.98, transition: springSnappy }}
+      style={isSelected ? { outline: '2px solid #1d5a3f', outlineOffset: '-2px' } : undefined}
+      whileTap={{ scale: 0.95, transition: springSnappy }}
       aria-pressed={isSelected}
-      aria-label={`Select ${day.dayLabel} ${day.date}`}
+      aria-label={`Velg ${day.dayLabel} ${day.date}`}
     >
       <span
-        className={`text-caption font-medium uppercase tracking-wide ${
-          isSelected ? 'text-neutral-500' : isToday ? 'text-primary-600' : 'text-neutral-400'
+        className={`text-[10px] font-semibold uppercase tracking-widest ${
+          isSelected ? 'text-primary-700' : isToday ? 'text-primary-600' : 'text-neutral-400'
         }`}
       >
         {day.dayAbbr}
       </span>
       <span
-        className={`font-display mt-0.5 text-heading font-semibold ${
-          isSelected ? 'text-neutral-600' : isToday ? 'text-primary-600' : 'text-neutral-400'
+        className={`mt-0.5 font-display text-[18px] font-bold leading-none ${
+          isSelected ? 'text-primary-700' : isToday ? 'text-primary-600' : 'text-neutral-500'
         }`}
       >
         {dateNum}
       </span>
       {norwegianDay && (
         <span
-          className="pointer-events-none absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-accent-sun-main/90"
+          className="pointer-events-none absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-accent-sun-main"
           title="Helligdag eller skoleferie"
           aria-hidden
         />
       )}
-      <div className="mt-1 flex gap-0.5">
+      <div className="mt-1 flex min-h-[6px] gap-0.5">
         {people.filter((p) => day.personIdsWithEvents.includes(p.id)).map((p) => (
           <span
             key={p.id}

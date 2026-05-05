@@ -7,8 +7,9 @@ import { useConfirmClose } from '../hooks/useConfirmClose'
 import {
   inputBase, textareaBase, inputLabel, typLabel,
   btnPrimary, btnSecondary, btnDanger,
-  sheetPanel, sheetHandle, sheetHandleBar, sheetFormBody,
-  sheetTitle, btnDisclosure, personChipActive, personChipInactive,
+  sheetPanel, sheetFormBody,
+  sheetHeaderStrip, sheetHeaderTitle, sheetHeaderClose,
+  btnDisclosure, personChipActive, personChipInactive,
   dropdownTrigger,
 } from '../lib/ui'
 
@@ -346,21 +347,15 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
           aria-modal="true"
           aria-label="Rediger hendelse"
         >
-        <div className={`${sheetHandle} relative`}>
-          <div className={sheetHandleBar} aria-hidden />
-          <button
-            type="button"
-            onClick={guardedClose}
-            aria-label="Lukk"
-            className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 transition hover:bg-neutral-200 hover:text-neutral-600 touch-manipulation"
-          >
+        <div className={sheetHeaderStrip}>
+          <h2 className={sheetHeaderTitle}>Rediger hendelse</h2>
+          <button type="button" onClick={guardedClose} aria-label="Lukk" className={sheetHeaderClose}>
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
         <form className={sheetFormBody} onSubmit={handleSubmit}>
-          <h2 className={sheetTitle}>Rediger hendelse</h2>
 
           {confirming && (
             <div className="rounded-lg border border-accent-sun-tint bg-accent-sun-tint p-3.5 space-y-3">

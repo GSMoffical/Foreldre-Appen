@@ -96,29 +96,42 @@ export function AuthScreen() {
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 max-w-full flex-col overflow-x-hidden">
-      {inviteParam && (
-        <div className="mx-3 mt-2 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-2 text-[12px] text-neutral-600" role="status">
-          Du har blitt invitert til en familie. Logg inn eller opprett konto for å akseptere invitasjonen.
-        </div>
-      )}
-      <header className="flex flex-col px-4 pt-3 pb-4 bg-neutral-100 rounded-b-[32px] border-b border-neutral-200">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <SynkaWordmark variant="green" width={100} />
-            <p className="mt-1 text-[12px] text-neutral-400">
-              {mode === 'signin'
-                ? 'Logg inn for å se familiens ukeplan.'
-                : 'Opprett konto for å dele kalender med andre foreldre.'}
-            </p>
-          </div>
-          <div className="relative h-14 w-14 overflow-hidden rounded-[24px] bg-neutral-100 border border-neutral-300 shadow-card flex items-center justify-center">
-            <SynkaLogoIcon size="lg" />
-          </div>
-        </div>
-      </header>
 
-      <div className="mt-3 flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden px-3 pb-4">
-        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden rounded-2xl border-2 border-primary-700/15 bg-neutral-100 px-6 pb-4 pt-6 shadow-card">
+      {/* ── Green hero section ─────────────────────────────────────────── */}
+      <div
+        className="relative flex flex-col items-center overflow-hidden px-6 pb-10 pt-12"
+        style={{ background: 'linear-gradient(160deg, #14472f 0%, #1d5a3f 60%, #245a43 100%)' }}
+      >
+        {/* Decorative blobs */}
+        <div
+          className="synka-blob"
+          style={{ width: 180, height: 180, top: -40, right: -50, background: '#4f9a73' }}
+          aria-hidden
+        />
+        <div
+          className="synka-blob"
+          style={{ width: 120, height: 120, bottom: -20, left: -30, background: '#39E9D4', opacity: 0.18 }}
+          aria-hidden
+        />
+
+        <SynkaLogoIcon size="2xl" className="relative z-10 drop-shadow-lg" />
+        <SynkaWordmark variant="beige" width={130} className="relative z-10 mt-4" />
+        <p className="relative z-10 mt-2 text-center text-[13px] font-medium leading-snug text-white/60">
+          {mode === 'signin'
+            ? 'Familiekalender for deg og partneren din.'
+            : 'Start din felles familiekalender i dag.'}
+        </p>
+
+        {inviteParam && (
+          <div className="relative z-10 mt-4 w-full max-w-xs rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-center text-[12px] text-white/80" role="status">
+            Du er invitert til en familie. Logg inn eller opprett konto for å akseptere.
+          </div>
+        )}
+      </div>
+
+      {/* ── Form card ───────────────────────────────────────────────────── */}
+      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden px-4 pb-6 pt-5">
+        <div className="w-full rounded-2xl bg-white px-5 pb-5 pt-5 shadow-card">
           <form className="space-y-4" onSubmit={handleSubmit} noValidate>
             {inviteParam && (
               <fieldset className="space-y-2">
@@ -304,22 +317,22 @@ export function AuthScreen() {
 
         </div>
 
-        <div className="mt-4 border border-neutral-200 bg-neutral-50 rounded-xl px-4 py-3 text-center text-[12px] text-neutral-600">
+        <div className="mt-4 text-center">
           {mode === 'signin' ? (
             <button
               type="button"
-              className="font-semibold underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-neutral-300 rounded"
+              className="text-[13px] font-medium text-neutral-500 hover:text-primary-600 transition focus:outline-none"
               onClick={() => switchMode('signup')}
             >
-              Ny bruker? Opprett konto
+              Ny bruker? <span className="font-semibold text-primary-600">Opprett konto →</span>
             </button>
           ) : (
             <button
               type="button"
-              className="font-semibold underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-neutral-300 rounded"
+              className="text-[13px] font-medium text-neutral-500 hover:text-primary-600 transition focus:outline-none"
               onClick={() => switchMode('signin')}
             >
-              Har du allerede en konto? Logg inn
+              Har konto? <span className="font-semibold text-primary-600">Logg inn →</span>
             </button>
           )}
         </div>

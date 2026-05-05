@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { cardSection, typSectionCap, btnSecondary, btnDanger, btnPrimaryPill } from '../lib/ui'
 import { useAuth } from '../context/AuthContext'
+import { SynkaWordmark } from './ui/SynkaLogo'
 import { useUserPreferences } from '../context/UserPreferencesContext'
 import { useFamily } from '../context/FamilyContext'
 import { useEffectiveUserId } from '../context/EffectiveUserIdContext'
@@ -84,9 +85,23 @@ export function SettingsScreen({
   }
 
   return (
-    <div className="flex w-full min-w-0 max-w-full flex-col px-4 pt-5 pb-10">
-      <h2 className="text-[20px] font-semibold text-neutral-600">Innstillinger</h2>
-      <div className={`mt-5 ${cardSection} p-4`}>
+    <div className="flex w-full min-w-0 max-w-full flex-col px-4 pb-12">
+      {/* ── Screen header ─────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between pt-4 pb-1">
+        <SynkaWordmark variant="green" width={56} />
+        <button
+          type="button"
+          onClick={() => signOut()}
+          className="rounded-full border border-neutral-300 bg-white px-3 py-1 text-[11px] font-semibold text-neutral-500 shadow-sm transition hover:bg-neutral-50 active:bg-neutral-100 touch-manipulation"
+        >
+          Logg ut
+        </button>
+      </div>
+      <h1 className="mt-2 mb-5 font-display text-[26px] font-bold leading-tight text-neutral-600">
+        Profil &amp; innstillinger
+      </h1>
+
+      <div className={`${cardSection} p-4`}>
         <p className={typSectionCap}>Konto</p>
         <p className="mt-1.5 text-[13px] text-neutral-600 break-all">{user?.email ?? '—'}</p>
         <p className="mt-1.5 text-[12px] text-neutral-400">
@@ -336,13 +351,6 @@ export function SettingsScreen({
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => signOut()}
-        className="mt-8 w-full rounded-md border border-neutral-200 bg-neutral-100 py-[11px] text-[14px] font-medium text-neutral-600 hover:bg-neutral-200 active:bg-neutral-300"
-      >
-        Logg ut
-      </button>
     </div>
   )
 }

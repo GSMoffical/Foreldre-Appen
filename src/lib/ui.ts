@@ -90,35 +90,49 @@ export const inputError = 'mt-1 text-caption text-semantic-red-600'
 // ── Bottom sheet container ─────────────────────────────────────────────────────
 /** Outer sheet panel — pair with `rounded-t-sheet shadow-sheet` */
 export const sheetPanel =
-  'pointer-events-auto flex w-full min-h-[52dvh] max-h-[min(92dvh,920px)] flex-col overflow-y-auto overflow-x-hidden rounded-t-sheet bg-neutral-100 shadow-sheet scrollbar-none'
+  'pointer-events-auto flex w-full min-h-[52dvh] max-h-[min(92dvh,920px)] flex-col overflow-y-auto overflow-x-hidden rounded-t-sheet bg-neutral-50 shadow-sheet scrollbar-none'
 
-/** Sticky drag-handle bar at top of sheet */
+/** Sticky drag-handle bar at top of sheet — warm beige, NOT white */
 export const sheetHandle =
-  'sticky top-0 z-10 flex shrink-0 justify-center bg-neutral-100 pt-2.5 pb-1'
+  'sticky top-0 z-10 flex shrink-0 justify-center bg-neutral-50 pt-2.5 pb-1'
 
 /** The drag indicator pill */
-export const sheetHandleBar = 'h-1 w-10 rounded-full bg-neutral-200'
+export const sheetHandleBar = 'h-1 w-10 rounded-full bg-neutral-300'
+
+/**
+ * Green sheet header strip — title row for form/detail sheets.
+ * Usage: <div className={sheetHeaderStrip}><h2>...</h2><button>×</button></div>
+ */
+export const sheetHeaderStrip =
+  'flex shrink-0 items-center justify-between rounded-t-sheet bg-primary-700 px-5 py-4'
+
+/** Title inside a green header strip */
+export const sheetHeaderTitle = 'text-[17px] font-semibold text-white'
+
+/** Close button inside a green header strip */
+export const sheetHeaderClose =
+  'flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25 focus:outline-none'
 
 /** Body padding for form sheets */
 export const sheetFormBody =
-  'flex min-h-0 flex-1 flex-col px-5 pb-[calc(2rem+env(safe-area-inset-bottom,0px))] pt-2 space-y-5'
+  'flex min-h-0 flex-1 flex-col px-5 pb-[calc(2rem+env(safe-area-inset-bottom,0px))] pt-4 space-y-5'
 
 /** Body padding for detail / read sheets */
 export const sheetDetailBody =
-  'flex min-h-0 flex-1 flex-col px-5 pb-[calc(2rem+env(safe-area-inset-bottom,0px))] pt-1'
+  'flex min-h-0 flex-1 flex-col px-5 pb-[calc(2rem+env(safe-area-inset-bottom,0px))] pt-3'
 
 // ── Cards & surfaces ──────────────────────────────────────────────────────────
-/** Primary content card (warm white, rounded-card) */
-export const cardBase = 'rounded-card border border-neutral-200 bg-neutral-100 shadow-card'
+/** Primary content card (true white on warm beige) */
+export const cardBase = 'rounded-card bg-white shadow-[0_1px_6px_rgba(0,0,0,0.07)]'
 
 /** Settings-style section card */
-export const cardSection = 'rounded-xl border border-neutral-200 bg-neutral-100 shadow-soft'
+export const cardSection = 'rounded-2xl bg-white shadow-[0_1px_6px_rgba(0,0,0,0.07)]'
 
 /** Inset / nested surface (slightly recessed, warm tint) */
-export const cardInset = 'rounded-lg border border-neutral-200 bg-neutral-50'
+export const cardInset = 'rounded-xl border border-neutral-200/60 bg-neutral-50'
 
 /** Grouped list container (task groups, event lists) */
-export const cardList = 'rounded-xl border border-neutral-200 bg-neutral-100'
+export const cardList = 'rounded-2xl bg-white shadow-[0_1px_6px_rgba(0,0,0,0.07)]'
 
 // ── Sheet typography helpers ───────────────────────────────────────────────────
 /** Primary title inside a sheet (h2) */
