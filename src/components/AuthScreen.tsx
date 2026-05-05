@@ -1,6 +1,9 @@
 import { useState, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { SynkaLogoIcon, SynkaWordmark } from './ui/SynkaLogo'
+import { Input } from './ui'
+import { SynkaButton } from './ui/SynkaButton'
+import { SynkaDecorativeShape } from './ui/SynkaDecorativeShape'
 
 const MIN_PASSWORD_LENGTH = 6
 const INVITE_MEMBER_KIND_KEY = 'invite-member-kind'
@@ -102,16 +105,18 @@ export function AuthScreen() {
         className="relative flex flex-col items-center overflow-hidden px-6 pb-10 pt-12"
         style={{ background: 'linear-gradient(160deg, #14472f 0%, #1d5a3f 60%, #245a43 100%)' }}
       >
-        {/* Decorative blobs */}
-        <div
-          className="synka-blob"
-          style={{ width: 180, height: 180, top: -40, right: -50, background: '#4f9a73' }}
-          aria-hidden
+        {/* Decorative shapes from brand assets */}
+        <SynkaDecorativeShape
+          variant="mint"
+          size={160}
+          opacity={0.28}
+          className="absolute -right-10 -top-10 pointer-events-none"
         />
-        <div
-          className="synka-blob"
-          style={{ width: 120, height: 120, bottom: -20, left: -30, background: '#39E9D4', opacity: 0.18 }}
-          aria-hidden
+        <SynkaDecorativeShape
+          variant="yellow"
+          size={100}
+          opacity={0.22}
+          className="absolute -bottom-6 -left-8 pointer-events-none"
         />
 
         <SynkaLogoIcon size="2xl" className="relative z-10 drop-shadow-lg" />
@@ -185,134 +190,87 @@ export function AuthScreen() {
             )}
             {mode === 'signup' && (
               <>
-                <div className="space-y-1">
-                  <label className="text-[12px] font-medium text-neutral-500" htmlFor="auth-name">
-                    Ditt navn
-                  </label>
-                  <input
-                    id="auth-name"
-                    type="text"
-                    autoComplete="name"
-                    required
-                    placeholder="F.eks. Anne eller Ola"
-                    className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-[14px] text-neutral-600 outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-500/20"
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value)
-                      clearMessages()
-                    }}
-                  />
-                  <p className="text-[11px] text-neutral-400">
-                    Hvem du er i familien – vises i appen
-                  </p>
-                </div>
+                <Input
+                  id="auth-name"
+                  label="Ditt navn"
+                  type="text"
+                  autoComplete="name"
+                  required
+                  placeholder="F.eks. Anne eller Ola"
+                  hint="Hvem du er i familien – vises i appen"
+                  value={name}
+                  onChange={(e) => { setName(e.target.value); clearMessages() }}
+                />
                 {!inviteParam && (
-                  <div className="space-y-1">
-                    <label className="text-[12px] font-medium text-neutral-500" htmlFor="auth-family-name">
-                      Familienavn
-                    </label>
-                    <input
-                      id="auth-family-name"
-                      type="text"
-                      autoComplete="off"
-                      required
-                      placeholder="F.eks. Olsen eller Hansen"
-                      className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-[14px] text-neutral-600 outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-500/20"
-                      value={familyName}
-                      onChange={(e) => {
-                        setFamilyName(e.target.value)
-                        clearMessages()
-                      }}
-                    />
-                    <p className="text-[11px] text-neutral-400">
-                      Navnet på familien – vises øverst i appen
-                    </p>
-                  </div>
+                  <Input
+                    id="auth-family-name"
+                    label="Familienavn"
+                    type="text"
+                    autoComplete="off"
+                    required
+                    placeholder="F.eks. Olsen eller Hansen"
+                    hint="Navnet på familien – vises øverst i appen"
+                    value={familyName}
+                    onChange={(e) => { setFamilyName(e.target.value); clearMessages() }}
+                  />
                 )}
               </>
             )}
-            <div className="space-y-1">
-              <label className="text-[12px] font-medium text-neutral-500" htmlFor="auth-email">
-                E-post
-              </label>
-              <input
-                id="auth-email"
-                type="email"
-                autoComplete="email"
-                required
-                className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-[14px] text-neutral-600 outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-500/20 aria-[invalid]:border-semantic-red-500"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value)
-                  clearMessages()
-                }}
-                aria-invalid={!!error}
-                aria-describedby={error ? 'auth-error' : undefined}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[12px] font-medium text-neutral-500" htmlFor="auth-password">
-                Passord
-              </label>
-              <input
-                id="auth-password"
-                type="password"
-                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-                required
-                minLength={mode === 'signup' ? MIN_PASSWORD_LENGTH : undefined}
-                className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-[14px] text-neutral-600 outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-500/20 aria-[invalid]:border-semantic-red-500"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value)
-                  clearMessages()
-                }}
-                aria-invalid={!!error}
-              />
-              {mode === 'signup' && (
-                <p className="text-[11px] text-neutral-400">
-                  Minst {MIN_PASSWORD_LENGTH} tegn
-                </p>
-              )}
-            </div>
+            <Input
+              id="auth-email"
+              label="E-post"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); clearMessages() }}
+              aria-invalid={!!error}
+            />
+            <Input
+              id="auth-password"
+              label="Passord"
+              type="password"
+              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+              required
+              minLength={mode === 'signup' ? MIN_PASSWORD_LENGTH : undefined}
+              hint={mode === 'signup' ? `Minst ${MIN_PASSWORD_LENGTH} tegn` : undefined}
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); clearMessages() }}
+              aria-invalid={!!error}
+            />
             {mode === 'signup' && (
-              <div className="space-y-1">
-                <label className="text-[12px] font-medium text-neutral-500" htmlFor="auth-confirm-password">
-                  Gjenta passord
-                </label>
-                <input
-                  id="auth-confirm-password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-[14px] text-neutral-600 outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-500/20 aria-[invalid]:border-semantic-red-500"
-                  value={confirmPassword}
-                  onChange={(e) => {
-                    setConfirmPassword(e.target.value)
-                    clearMessages()
-                  }}
-                  aria-invalid={!!(error && error.includes('Passordene'))}
-                />
-              </div>
+              <Input
+                id="auth-confirm-password"
+                label="Gjenta passord"
+                type="password"
+                autoComplete="new-password"
+                required
+                value={confirmPassword}
+                onChange={(e) => { setConfirmPassword(e.target.value); clearMessages() }}
+              />
             )}
 
             {error && (
-              <p id="auth-error" className="text-[12px] text-semantic-red-600" role="alert">
+              <p id="auth-error" className="rounded-lg bg-semantic-red-50 px-3.5 py-2.5 text-[13px] text-semantic-red-700" role="alert">
                 {error}
               </p>
             )}
             {success && (
-              <p className="text-[12px] text-neutral-600" role="status">
+              <p className="rounded-lg bg-primary-50 px-3.5 py-2.5 text-[13px] text-primary-700" role="status">
                 {success}
               </p>
             )}
 
-            <button
+            <SynkaButton
               type="submit"
-              disabled={loading}
-              className="mt-2 w-full rounded-md bg-primary-600 py-2.5 text-[15px] font-semibold text-neutral-100 shadow-card transition hover:bg-primary-700 disabled:bg-[#b9cdc1] disabled:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 active:bg-primary-800 active:shadow-press"
+              variant="primary"
+              shape="pill"
+              size="lg"
+              loading={loading}
+              className="mt-1 w-full"
             >
-              {loading ? 'Vennligst vent…' : mode === 'signin' ? 'Logg inn' : 'Opprett konto'}
-            </button>
+              {mode === 'signin' ? 'Logg inn' : 'Opprett konto'}
+            </SynkaButton>
           </form>
 
         </div>

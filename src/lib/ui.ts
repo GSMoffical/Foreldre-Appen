@@ -70,18 +70,18 @@ export const btnGhost =
 // ── Inputs ────────────────────────────────────────────────────────────────────
 /** Standard text input — use on all form fields */
 export const inputBase =
-  'w-full rounded-md border border-neutral-200 bg-neutral-50 px-3.5 py-3 text-body text-neutral-600 placeholder:text-neutral-400 outline-none transition-all duration-120 focus:border-primary-600 focus:bg-neutral-100 focus:ring-2 focus:ring-primary-600/15 disabled:opacity-60'
+  'w-full rounded-md border border-neutral-300 bg-white px-4 py-3 text-[14px] text-neutral-600 placeholder:text-neutral-400 outline-none transition-all duration-150 focus:border-primary-600 focus:shadow-[0_0_0_3px_rgba(29,90,63,0.12)] disabled:opacity-50 disabled:bg-neutral-50'
 
 /** Multi-line textarea */
 export const textareaBase =
-  'w-full rounded-md border border-neutral-200 bg-neutral-50 px-3.5 py-3 text-body text-neutral-600 placeholder:text-neutral-400 outline-none resize-none transition-all duration-120 focus:border-primary-600 focus:bg-neutral-100 focus:ring-2 focus:ring-primary-600/15'
+  'w-full rounded-md border border-neutral-300 bg-white px-4 py-3 text-[14px] text-neutral-600 placeholder:text-neutral-400 outline-none resize-none transition-all duration-150 focus:border-primary-600 focus:shadow-[0_0_0_3px_rgba(29,90,63,0.12)]'
 
 /** Select / dropdown — matches inputBase */
 export const selectBase =
-  'w-full rounded-md border border-neutral-200 bg-neutral-50 px-3.5 py-3 text-body text-neutral-600 outline-none transition-all duration-120 focus:border-primary-600 focus:bg-neutral-100 focus:ring-2 focus:ring-primary-600/15'
+  'w-full rounded-md border border-neutral-300 bg-white px-4 py-3 text-[14px] text-neutral-600 outline-none transition-all duration-150 focus:border-primary-600 focus:shadow-[0_0_0_3px_rgba(29,90,63,0.12)]'
 
 /** Field label (sits above the input) */
-export const inputLabel = 'mb-1.5 block text-label font-medium text-neutral-500'
+export const inputLabel = 'mb-1.5 block text-[12px] font-semibold text-neutral-500'
 /** Hint text below input */
 export const inputHint = 'mt-1 text-caption text-neutral-400'
 /** Validation error below input */

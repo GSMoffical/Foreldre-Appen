@@ -6,11 +6,12 @@ import { taskIntentLabelNb } from '../../../lib/taskIntent'
 import { useFamily } from '../../../context/FamilyContext'
 import { useConfirmClose } from '../../../hooks/useConfirmClose'
 import {
-  inputBase, textareaBase, selectBase, inputLabel,
-  btnPrimary, btnSecondary, btnDanger, btnDisclosure,
+  selectBase, inputLabel,
   sheetPanel, sheetFormBody,
   sheetHeaderStrip, sheetHeaderTitle, sheetHeaderClose,
 } from '../../../lib/ui'
+import { Input, Textarea } from '../../../components/ui'
+import { SynkaButton } from '../../../components/ui/SynkaButton'
 
 interface AddTaskSheetProps {
   date: string
@@ -115,46 +116,40 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
         </div>
 
         <form onSubmit={handleSubmit} className={sheetFormBody}>
-          <div className="space-y-1.5">
-            <label className={inputLabel} htmlFor="task-title">Tittel *</label>
-            <input
-              id="task-title"
-              ref={titleRef}
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Hva skal gjøres?"
-              required
-              className={inputBase}
-            />
-          </div>
+          <Input
+            id="task-title"
+            ref={titleRef}
+            label="Tittel"
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Hva skal gjøres?"
+            required
+          />
+
+          <Input
+            id="task-date"
+            label="Dato"
+            type="date"
+            value={taskDate}
+            onChange={(e) => setTaskDate(e.target.value)}
+            required
+          />
 
           <div className="space-y-1.5">
-            <label className={inputLabel} htmlFor="task-date">Dato *</label>
-            <input
-              id="task-date"
-              type="date"
-              value={taskDate}
-              onChange={(e) => setTaskDate(e.target.value)}
-              required
-              className={inputBase}
-            />
-          </div>
-
-          <div className="space-y-1">
-            <span className={inputLabel}>Type</span>
-            <div className="flex rounded-lg border border-neutral-200 bg-neutral-50 p-0.5">
+            <span className={inputLabel}>Type oppgave</span>
+            <div className="flex overflow-hidden rounded-md border border-neutral-300 bg-neutral-100 p-0.5">
               {(['must_do', 'can_help'] as const).map((intent) => (
                 <button
                   key={intent}
                   type="button"
                   onClick={() => setTaskIntent(intent)}
-                  className={`flex-1 rounded-lg px-2 py-2 text-[12px] font-semibold transition touch-manipulation ${
+                  className={`flex-1 rounded py-2.5 text-[13px] font-semibold transition-all duration-150 touch-manipulation ${
                     taskIntent === intent
                       ? intent === 'must_do'
-                        ? 'bg-neutral-100 text-neutral-600 shadow-sm ring-1 ring-neutral-200'
-                        : 'bg-primary-50 text-primary-700 shadow-sm ring-1 ring-primary-100'
-                      : 'text-neutral-400'
+                        ? 'bg-white text-neutral-700 shadow-sm'
+                        : 'bg-primary-600 text-white shadow-sm'
+                      : 'text-neutral-400 hover:text-neutral-500'
                   }`}
                 >
                   {taskIntentLabelNb(intent)}
@@ -166,7 +161,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
           <button
             type="button"
             onClick={() => setShowMore((v) => !v)}
-            className={btnDisclosure}
+            className="flex items-center gap-1.5 self-start text-[13px] font-semibold text-primary-600 transition hover:text-primary-700 focus:outline-none"
           >
             <svg
               className={`h-3.5 w-3.5 transition-transform duration-150 ${showMore ? 'rotate-180' : ''}`}
@@ -174,21 +169,18 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
             </svg>
-            {showMore ? 'Skjul ekstradetaljer' : 'Mer (klokkeslett, person, notater)'}
+            {showMore ? 'Skjul detaljer' : 'Legg til detaljer'}
           </button>
 
           {showMore && (
             <>
-              <div className="space-y-1.5">
-                <label className={inputLabel} htmlFor="task-time">Frist (klokkeslett)</label>
-                <input
-                  id="task-time"
-                  type="time"
-                  value={dueTime}
-                  onChange={(e) => setDueTime(e.target.value)}
-                  className={inputBase}
-                />
-              </div>
+              <Input
+                id="task-time"
+                label="Frist (klokkeslett)"
+                type="time"
+                value={dueTime}
+                onChange={(e) => setDueTime(e.target.value)}
+              />
 
               {people.length > 0 && (
                 <div className="space-y-1.5">
@@ -224,17 +216,17 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
                 </div>
               )}
 
-              <div className="space-y-1.5">
-                <label className={inputLabel} htmlFor="task-notes">Notater</label>
-                <textarea
-                  id="task-notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Valgfritt…"
-                  rows={3}
-                  className={textareaBase}
-                />
-              </div>
+              <Textarea
+                id="task-notes"
+                label="Notater"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Valgfritt…"
+                rows={3}
+                autoResize
+                minRows={2}
+                maxRows={6}
+              />
 
               <div className="flex items-center justify-between gap-3 py-0.5">
                 <label
@@ -264,22 +256,29 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
           )}
 
           {confirming && (
-            <div className="rounded-lg border border-accent-sun-tint bg-accent-sun-tint p-3.5 space-y-3">
-              <p className="text-body-sm font-medium text-neutral-600">Du har ulagrede endringer. Forkaste?</p>
+            <div className="rounded-xl border border-accent-sun-tint bg-[#fdf8ec] p-4 space-y-3">
+              <p className="text-[14px] font-medium text-neutral-600">Du har ulagrede endringer. Forkaste?</p>
               <div className="flex gap-2">
-                <button type="button" onClick={cancelConfirm} className={`flex-1 ${btnSecondary}`}>Bli her</button>
-                <button type="button" onClick={confirmClose} className={`flex-1 ${btnDanger}`}>Forkast</button>
+                <SynkaButton type="button" variant="secondary" onClick={cancelConfirm} className="flex-1">Bli her</SynkaButton>
+                <SynkaButton type="button" variant="danger" onClick={confirmClose} className="flex-1">Forkast</SynkaButton>
               </div>
             </div>
           )}
 
           <div className="flex gap-2 pt-1">
-            <button type="button" onClick={guardedClose} className={`flex-1 ${btnSecondary}`}>
+            <SynkaButton type="button" variant="secondary" onClick={guardedClose} className="flex-1">
               Avbryt
-            </button>
-            <button type="submit" disabled={!title.trim() || saving} className={`flex-1 ${btnPrimary}`}>
-              {saving ? 'Lagrer…' : isEdit ? 'Lagre endringer' : 'Legg til gjøremål'}
-            </button>
+            </SynkaButton>
+            <SynkaButton
+              type="submit"
+              variant="primary"
+              shape="pill"
+              disabled={!title.trim()}
+              loading={saving}
+              className="flex-1"
+            >
+              {isEdit ? 'Lagre endringer' : 'Legg til gjøremål'}
+            </SynkaButton>
           </div>
         </form>
       </motion.div>
