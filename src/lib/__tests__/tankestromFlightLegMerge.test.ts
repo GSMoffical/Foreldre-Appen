@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { PortalEventProposal, PortalProposalItem } from '../../features/tankestrom/types'
 import {
   buildFlightCalendarTitle,
+  buildFlightTitleFromTravel,
   dedupeNearDuplicateCalendarProposals,
 } from '../tankestromImportDedupe'
 import {
@@ -64,6 +65,20 @@ function initialEventSelectionCount(items: PortalProposalItem[], ctx: ReturnType
 describe('buildFlightCalendarTitle', () => {
   it('bruker tankestrek mellom byer', () => {
     expect(buildFlightCalendarTitle('New York', 'London')).toBe('Flyreise New York–London')
+  })
+})
+
+describe('buildFlightTitleFromTravel (defensiv)', () => {
+  it('bytter ut JUN–JUN med byer når originCity/destinationCity finnes', () => {
+    const title = buildFlightTitleFromTravel({
+      type: 'flight',
+      origin: 'JUN',
+      destination: 'JUN',
+      originCity: 'Oslo',
+      destinationCity: 'Bergen',
+    })
+    expect(title).toBe('Flyreise Oslo–Bergen')
+    expect(title).not.toMatch(/JUN/i)
   })
 })
 
@@ -144,6 +159,66 @@ describe('fly avreise + ankomst (boarding pass)', () => {
     const arr = flightEvent('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Ankomst', '11:30', '')
     const out = dedupeNearDuplicateCalendarProposals([dep, arr])
     expect(out).toHaveLength(2)
+  })
+
+  it('slår sammen uten flightNumber når samme kilde/dato og tider er avreise→ankomst (løs nøkkel)', () => {
+    const travelLoose = {
+      type: 'flight',
+      origin: 'JUN',
+      destination: 'JUN',
+      originCity: 'Oslo',
+      destinationCity: 'Bergen',
+      departureTime: '08:30',
+      arrivalTime: '11:30',
+    }
+    const dep: PortalEventProposal = {
+      proposalId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      kind: 'event',
+      sourceId: 'boarding-pass-img-1',
+      originalSourceType: 'boarding_pass',
+      confidence: 0.9,
+      event: {
+        date: '2025-06-10',
+        personId: '',
+        title: 'Flyreise JUN–JUN',
+        start: '08:30',
+        end: '',
+        metadata: { travel: { ...travelLoose } },
+      },
+    }
+    const arr: PortalEventProposal = {
+      proposalId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      kind: 'event',
+      sourceId: 'boarding-pass-img-1',
+      originalSourceType: 'boarding_pass',
+      confidence: 0.9,
+      event: {
+        date: '2025-06-10',
+        personId: '',
+        title: 'Flyreise JUN–JUN',
+        start: '11:30',
+        end: '',
+        metadata: { travel: { ...travelLoose } },
+      },
+    }
+    const out = dedupeNearDuplicateCalendarProposals([dep, arr])
+    expect(out).toHaveLength(1)
+
+    const ctx = buildImportClassificationContext({
+      inputMode: 'file',
+      provenanceSourceType: 'boarding_pass',
+      sourceLength: 4000,
+      calendarItemCount: out.length,
+      secondaryCandidateCount: 0,
+    })
+    expect(primaryCalendarCount(out, ctx)).toBe(1)
+    expect(initialEventSelectionCount(out, ctx)).toBe(1)
+
+    const ev = out[0] as PortalEventProposal
+    expect(ev.event.start).toBe('08:30')
+    expect(ev.event.end).toBe('11:30')
+    expect(ev.event.title).toBe('Flyreise Oslo–Bergen')
+    expect(ev.event.title).not.toMatch(/JUN/i)
   })
 
   it('sammenslått fly forblir i hovedlisten ved middels confidence og lang dokumentmodus', () => {
