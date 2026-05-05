@@ -22,15 +22,19 @@ export function parseEmbeddedScheduleFromMetadata(
     if (!item || typeof item !== 'object') continue
     const o = item as unknown as Record<string, unknown>
     const date = typeof o.date === 'string' ? o.date.trim() : ''
-    const title = typeof o.title === 'string' ? o.title.trim() : ''
-    if (!DATE_KEY.test(date) || !title) continue
+    const titleRaw = typeof o.title === 'string' ? o.title.trim() : ''
+    const title = titleRaw || 'Program'
+    if (!DATE_KEY.test(date)) continue
     const seg: EmbeddedScheduleSegment = { date, title }
-    if (typeof o.start === 'string') {
-      const s = trimHHmm(o.start)
-      if (s) seg.start = s
-    }
+    const startFromField = typeof o.start === 'string' ? trimHHmm(o.start) : undefined
+    const startFromAlt = typeof o.startTime === 'string' ? trimHHmm(o.startTime) : undefined
+    const startPick = startFromField ?? startFromAlt
+    if (startPick) seg.start = startPick
     if (typeof o.end === 'string') {
       const e = trimHHmm(o.end)
+      if (e) seg.end = e
+    } else if (typeof o.endTime === 'string') {
+      const e = trimHHmm(o.endTime)
       if (e) seg.end = e
     }
     if (typeof o.notes === 'string' && o.notes.trim()) seg.notes = o.notes.trim()

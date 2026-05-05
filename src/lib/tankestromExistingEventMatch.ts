@@ -1,4 +1,4 @@
-import type { Event, EventMetadata } from '../types'
+import type { Event, EventMetadata, PersonId } from '../types'
 import type { PortalEventProposal } from '../features/tankestrom/types'
 import {
   isEmbeddedScheduleParentProposalItem,
@@ -105,6 +105,98 @@ export function readArrangementBlockGroupId(meta: unknown): string | undefined {
   return t.length > 0 ? t : undefined
 }
 
+const ARRANGEMENT_TITLE_STOPWORDS = new Set([
+  'i',
+  'for',
+  'med',
+  'og',
+  'på',
+  'til',
+  'fra',
+  'som',
+  'en',
+  'et',
+])
+
+/** Avvis kun når begge sider har kjent person og de er ulike. */
+export function personIdsConflict(importPersonId: string, event: Event): boolean {
+  const inc = importPersonId.trim()
+  if (!inc) return false
+  const ids = getEventParticipantIds(event)
+  if (ids.length === 0) return false
+  return !ids.includes(inc as PersonId)
+}
+
+/**
+ * Kompakt sammenligningsstreng for norske arrangementstitler (cup-navn, varianter uten diakritikk).
+ */
+export function normalizeArrangementTitleForSimilarity(raw: string): string {
+  const core = arrangementTitleCoreForMatch(raw)
+  let t = core.toLocaleLowerCase('nb-NO')
+  t = t.normalize('NFD').replace(/\p{M}/gu, '')
+  t = t.replace(/æ/g, 'ae').replace(/ø/g, 'o').replace(/å/g, 'a')
+  t = t.replace(/[^a-z0-9]+/g, ' ')
+  const parts = t
+    .split(/\s+/)
+    .map((w) => w.replace(/^(en|et|ne|ene)$/,'')) // light suffix noise
+    .filter((w) => w.length > 0 && !ARRANGEMENT_TITLE_STOPWORDS.has(w))
+  return parts.join('')
+}
+
+function bigramSimilarity(a: string, b: string): number {
+  if (a.length < 2 || b.length < 2) return 0
+  const bigrams = (s: string): string[] => {
+    const arr: string[] = []
+    for (let i = 0; i < s.length - 1; i++) arr.push(s.slice(i, i + 2))
+    return arr
+  }
+  const ba = bigrams(a)
+  const bb = bigrams(b)
+  const map = new Map<string, number>()
+  for (const x of ba) map.set(x, (map.get(x) ?? 0) + 1)
+  let inter = 0
+  for (const x of bb) {
+    const c = map.get(x) ?? 0
+    if (c > 0) {
+      inter += 1
+      map.set(x, c - 1)
+    }
+  }
+  return (2 * inter) / (ba.length + bb.length)
+}
+
+function scoreCompactArrangementTitles(ca: string, cb: string): { score: number; detail: string } | null {
+  if (!ca || !cb) return null
+  if (ca === cb) return { score: 52, detail: 'title_arrangement_compact_exact' }
+  let pref = 0
+  const maxPref = Math.min(ca.length, cb.length)
+  for (let i = 0; i < maxPref; i++) {
+    if (ca[i] !== cb[i]) break
+    pref += 1
+  }
+  if (pref >= 5) return { score: 44, detail: 'title_arrangement_compact_prefix' }
+  const [short, long] = ca.length <= cb.length ? [ca, cb] : [cb, ca]
+  if (short.length >= 4 && long.includes(short)) {
+    return { score: 46, detail: 'title_arrangement_compact_substring' }
+  }
+  const sim = bigramSimilarity(ca, cb)
+  if (sim >= 0.38) return { score: Math.round(26 + sim * 26), detail: 'title_arrangement_compact_bigram' }
+  return null
+}
+
+function readMetadataSourceKind(meta: unknown): string | undefined {
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return undefined
+  const sk = (meta as Record<string, unknown>).sourceKind
+  return typeof sk === 'string' && sk.trim() ? sk.trim().toLowerCase() : undefined
+}
+
+function sourceKindMatchBoost(proposal: PortalEventProposal): number {
+  const sk = readMetadataSourceKind(proposal.event.metadata)
+  if (!sk) return 0
+  if (sk === 'document_import' || sk === 'pasted_text' || sk === 'uploaded_file') return 4
+  return 0
+}
+
 function getIncomingArrangementRange(
   proposal: PortalEventProposal,
   importStart: string,
@@ -180,7 +272,16 @@ export function dateCompatibleForArrangement(
 export function importEventIsContainerLikeForMatching(item: PortalEventProposal): boolean {
   if (item.kind !== 'event') return false
   if (isEmbeddedScheduleParentProposalItem(item)) return true
-  const end = item.event.metadata && typeof item.event.metadata === 'object' ? item.event.metadata.endDate : undefined
+  const meta = item.event.metadata
+  if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
+    const sched = parseEmbeddedScheduleFromMetadata(meta as EventMetadata)
+    const distinctDates = new Set(sched.map((s) => s.date))
+    if (distinctDates.size >= 2) return true
+    if (distinctDates.size >= 1 && readArrangementStableKey(meta) && readUpdateIntentLikelyFollowup(meta)) {
+      return true
+    }
+  }
+  const end = meta && typeof meta === 'object' && !Array.isArray(meta) ? meta.endDate : undefined
   return typeof end === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(end) && end !== item.event.date.trim()
 }
 
@@ -211,19 +312,38 @@ function scoreTitleCores(a: string, b: string, detailPrefix: string): { score: n
   return null
 }
 
-function titleScore(importTitle: string, existingTitle: string): { score: number; detail: string } {
-  const ar = arrangementTitleCoreForMatch(importTitle)
-  const br = arrangementTitleCoreForMatch(existingTitle)
-  if (ar.length >= 4 && br.length >= 4) {
-    const r = scoreTitleCores(ar, br, 'title_arrangement_')
-    if (r) return r
+function titleScore(
+  proposal: PortalEventProposal,
+  importTitle: string,
+  existingTitle: string
+): { score: number; detail: string } {
+  const variants: string[] = [importTitle]
+  const core = readArrangementCoreTitle(proposal.event.metadata)
+  if (core) variants.push(core)
+
+  let best: { score: number; detail: string } = { score: 0, detail: 'weak_title' }
+  for (const variant of variants) {
+    const ar0 = normalizeArrangementTitleForSimilarity(variant)
+    const br0 = normalizeArrangementTitleForSimilarity(existingTitle)
+    if (ar0.length >= 4 && br0.length >= 4) {
+      const c = scoreCompactArrangementTitles(ar0, br0)
+      if (c && c.score > best.score) best = c
+    }
+    const ar = arrangementTitleCoreForMatch(variant)
+    const br = arrangementTitleCoreForMatch(existingTitle)
+    if (ar.length >= 4 && br.length >= 4) {
+      const r = scoreTitleCores(ar, br, 'title_arrangement_')
+      if (r && r.score > best.score) best = r
+    }
+    const a = semanticTitleCore(variant)
+    const b = semanticTitleCore(existingTitle)
+    if (a && b) {
+      const fallback = scoreTitleCores(a, b, 'title_semantic_')
+      if (fallback && fallback.score > best.score) best = fallback
+    }
   }
-  const a = semanticTitleCore(importTitle)
-  const b = semanticTitleCore(existingTitle)
-  if (!a || !b) return { score: 0, detail: 'weak_title' }
-  const fallback = scoreTitleCores(a, b, 'title_semantic_')
-  if (fallback) return fallback
-  return { score: 0, detail: 'title_mismatch' }
+  if (best.score === 0) return { score: 0, detail: 'title_mismatch' }
+  return best
 }
 
 /** Én kalender-rad (typisk cup-dag eksportert som barn) uten flerdagers-span og uten embeddedSchedule på raden. */
@@ -241,6 +361,8 @@ function isFollowUpClusterDayRowAnchor(anchor: AnchoredExistingEvent): boolean {
 }
 
 function titleDetailToReason(detail: string): string | null {
+  if (detail.includes('compact_prefix')) return 'Lignende arrangementsnavn (samme begynnelse)'
+  if (detail.includes('compact')) return 'Lignende arrangementsnavn'
   if (detail.includes('exact_core')) return 'Lignende eller samme arrangementsnavn'
   if (detail.includes('substring_core') || detail.includes('token_overlap')) return 'Lignende arrangementsnavn'
   return null
@@ -252,8 +374,14 @@ function buildHeuristicMatchReasons(opts: {
   likelyFollowup: boolean
   canBackfillStable: boolean
   usedEmbeddedScheduleDateTolerance: boolean
+  personNeutral: boolean
 }): string[] {
-  const reasons: string[] = ['Samme barn/person']
+  const reasons: string[] = []
+  if (opts.personNeutral) {
+    reasons.push('Person er ikke satt på importforslag — samsvar fra navn og dato')
+  } else {
+    reasons.push('Samme barn/person')
+  }
   const tr = titleDetailToReason(opts.titleDetail)
   if (tr) reasons.push(tr)
   if (opts.locationMatch) reasons.push('Samme sted')
@@ -289,6 +417,12 @@ const LEARN_STABLE_KEY_MIN_SCORE_WITH_KEY_AND_FOLLOWUP = 45
 const FOLLOWUP_CLUSTER_SCORE_BOOST = 16
 const EXISTING_CONTAINER_ANCHOR_BONUS = 12
 
+function existingAnchorDateRange(anchor: AnchoredExistingEvent): string {
+  const a0 = anchor.anchorDate
+  const a1 = getEventEndDate(anchor.event, anchor.anchorDate)
+  return a0 === a1 ? a0 : `${a0}–${a1}`
+}
+
 /**
  * Finn én konservativ kandidat: overlapp i dato (ev. program/oppfølging), delt person, sterk nok tittel + container-lik import og eksisterende.
  */
@@ -319,14 +453,30 @@ export function findConservativeExistingEventMatch(
       ? LEARN_STABLE_KEY_MIN_SCORE_WITH_KEY_AND_FOLLOWUP
       : LEARN_STABLE_KEY_MIN_SCORE_WITH_KEY
 
+  const incomingRangeLogged = getIncomingArrangementRange(proposal, importStartDate, importEndDate)
+  const incomingDateRangeStr = `${incomingRangeLogged.start}–${incomingRangeLogged.end}`
+
+  type MatchCandidateDiag = {
+    incomingTitle: string
+    incomingPersonId: string
+    incomingStableKey: string | undefined
+    incomingDateRange: string
+    existingTitle: string
+    existingPersonId: PersonId | null
+    existingDateRange: string
+    score: number
+    reasons: string[]
+    rejectedReason: string | null
+  }
+  const matchCandidateDiags: MatchCandidateDiag[] = []
+
   if (incomingStableKey) {
     for (const anchor of anchoredExisting) {
       const existingStableKey = readArrangementStableKey(anchor.event.metadata)
       if (!existingStableKey || existingStableKey !== incomingStableKey) continue
       const { event, anchorDate } = anchor
       if (!dateCompatibleForArrangement(proposal, importStartDate, importEndDate, anchor, likelyFollowup)) continue
-      const participants = getEventParticipantIds(event)
-      if (!participants.includes(importPersonId)) continue
+      if (personIdsConflict(importPersonId, event)) continue
       if (dbg) {
         console.debug('[tankestrom existing event match]', {
           existingEventCandidateMatched: true,
@@ -348,7 +498,9 @@ export function findConservativeExistingEventMatch(
         defaultAction: 'update',
         reasons: [
           'Samme arrangementsnøkkel',
-          'Samme barn/person',
+          importPersonId.trim()
+            ? 'Samme barn/person'
+            : 'Person er ikke satt på importforslag — nøkkel og dato stemmer',
           'Dato overlapper, ligger i programmet eller er nær',
         ],
       }
@@ -396,22 +548,63 @@ export function findConservativeExistingEventMatch(
 
     const containerLike = existingEventLooksLikeContainer(anchor)
     const clusterFollowUp = !containerLike && isFollowUpClusterDayRowAnchor(anchor)
-    if (!containerLike && !clusterFollowUp) continue
+    if (!containerLike && !clusterFollowUp) {
+      matchCandidateDiags.push({
+        incomingTitle: importTitle,
+        incomingPersonId: importPersonId.trim() || '(mangler)',
+        incomingStableKey,
+        incomingDateRange: incomingDateRangeStr,
+        existingTitle: event.title,
+        existingPersonId: event.personId,
+        existingDateRange: existingAnchorDateRange(anchor),
+        score: 0,
+        reasons: [],
+        rejectedReason: 'existing_not_container_or_cluster_day',
+      })
+      continue
+    }
 
     const exEnd = getEventEndDate(event, anchorDate)
     const naiveOverlap = dateRangesOverlap(importStartDate, importEndDate, anchorDate, exEnd)
     const expandedInc = getIncomingArrangementRange(proposal, importStartDate, importEndDate)
     const tolerantOverlap = dateCompatibleForArrangement(proposal, importStartDate, importEndDate, anchor, likelyFollowup)
-    if (!tolerantOverlap) continue
+    if (!tolerantOverlap) {
+      matchCandidateDiags.push({
+        incomingTitle: importTitle,
+        incomingPersonId: importPersonId.trim() || '(mangler)',
+        incomingStableKey,
+        incomingDateRange: incomingDateRangeStr,
+        existingTitle: event.title,
+        existingPersonId: event.personId,
+        existingDateRange: existingAnchorDateRange(anchor),
+        score: 0,
+        reasons: [],
+        rejectedReason: 'date_incompatible',
+      })
+      continue
+    }
 
     const usedEmbeddedScheduleDateTolerance = !naiveOverlap && tolerantOverlap
 
-    const participants = getEventParticipantIds(event)
-    if (!participants.includes(importPersonId)) continue
+    if (personIdsConflict(importPersonId, event)) {
+      matchCandidateDiags.push({
+        incomingTitle: importTitle,
+        incomingPersonId: importPersonId.trim() || '(mangler)',
+        incomingStableKey,
+        incomingDateRange: incomingDateRangeStr,
+        existingTitle: event.title,
+        existingPersonId: event.personId,
+        existingDateRange: existingAnchorDateRange(anchor),
+        score: 0,
+        reasons: [],
+        rejectedReason: 'person_mismatch_both_known_differ',
+      })
+      continue
+    }
 
     overlapPersonAnchors += 1
 
-    const { score: ts, detail: titleDetail } = titleScore(importTitle, event.title)
+    const { score: ts, detail: titleDetail } = titleScore(proposal, importTitle, event.title)
     if (ts < 32) {
       if (dbg)
         scoredCandidatesForDebug.push({
@@ -423,10 +616,22 @@ export function findConservativeExistingEventMatch(
           clusterFollowUp,
           skippedReason: 'title_below_32',
         })
+      matchCandidateDiags.push({
+        incomingTitle: importTitle,
+        incomingPersonId: importPersonId.trim() || '(mangler)',
+        incomingStableKey,
+        incomingDateRange: incomingDateRangeStr,
+        existingTitle: event.title,
+        existingPersonId: event.personId,
+        existingDateRange: existingAnchorDateRange(anchor),
+        score: ts,
+        reasons: titleDetailToReason(titleDetail) ? [titleDetailToReason(titleDetail)!] : [],
+        rejectedReason: 'title_below_32',
+      })
       continue
     }
 
-    let score = ts + 30
+    let score = ts + 30 + sourceKindMatchBoost(proposal)
     const li = normLoc(proposal.event.location)
     const le = normLoc(event.location)
     const locationMatch = li.length > 2 && le.length > 2 && li === le
@@ -468,6 +673,25 @@ export function findConservativeExistingEventMatch(
       })
     }
 
+    const candReasons: string[] = []
+    const tr = titleDetailToReason(titleDetail)
+    if (tr) candReasons.push(tr)
+    if (locationMatch) candReasons.push('Samme sted')
+    if (usedEmbeddedScheduleDateTolerance) candReasons.push('Dato via program/utvidet spenn')
+
+    matchCandidateDiags.push({
+      incomingTitle: importTitle,
+      incomingPersonId: importPersonId.trim() || '(mangler)',
+      incomingStableKey,
+      incomingDateRange: incomingDateRangeStr,
+      existingTitle: event.title,
+      existingPersonId: event.personId,
+      existingDateRange: existingAnchorDateRange(anchor),
+      score,
+      reasons: candReasons,
+      rejectedReason: null,
+    })
+
     const cand = {
       anchor,
       score,
@@ -493,6 +717,11 @@ export function findConservativeExistingEventMatch(
     if (betterScore || preferContainer || preferEarlier) {
       best = cand
     }
+  }
+
+  const topDiag = [...matchCandidateDiags].sort((a, b) => b.score - a.score).slice(0, 5)
+  for (const row of topDiag) {
+    console.info('[Tankestrom match candidate]', row)
   }
 
   if (!best) {
@@ -546,6 +775,7 @@ export function findConservativeExistingEventMatch(
     likelyFollowup,
     canBackfillStable,
     usedEmbeddedScheduleDateTolerance: best.usedEmbeddedScheduleDateTolerance,
+    personNeutral: !importPersonId.trim(),
   })
 
   if (dbg) {

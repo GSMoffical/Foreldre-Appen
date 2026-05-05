@@ -1446,7 +1446,6 @@ export function useTankestromImport({
       )
       if (!range) continue
       const pid = draftWrap.event.personId.trim()
-      if (!pid) continue
       out[item.proposalId] = findConservativeExistingEventMatch(
         item,
         draftWrap.event.title.trim(),

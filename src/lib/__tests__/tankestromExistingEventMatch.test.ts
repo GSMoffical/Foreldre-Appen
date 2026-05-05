@@ -5,6 +5,8 @@ import {
   arrangementTitleCoreForMatch,
   findBestArrangementMatch,
   findConservativeExistingEventMatch,
+  normalizeArrangementTitleForSimilarity,
+  personIdsConflict,
 } from '../tankestromExistingEventMatch'
 
 function baseProposal(overrides: Partial<PortalEventProposal['event']> = {}): PortalEventProposal {
@@ -27,6 +29,45 @@ function baseProposal(overrides: Partial<PortalEventProposal['event']> = {}): Po
     },
   }
 }
+
+describe('normalizeArrangementTitleForSimilarity', () => {
+  it('gir felles prefiks for vårcup-varianter', () => {
+    const a = normalizeArrangementTitleForSimilarity('Vår cup i fotball')
+    const b = normalizeArrangementTitleForSimilarity('Vårcupen')
+    expect(a.startsWith('varcup')).toBe(true)
+    expect(b.startsWith('varcup')).toBe(true)
+    let pref = 0
+    const m = Math.min(a.length, b.length)
+    for (let i = 0; i < m; i++) {
+      if (a[i] !== b[i]) break
+      pref += 1
+    }
+    expect(pref).toBeGreaterThanOrEqual(5)
+  })
+})
+
+describe('personIdsConflict', () => {
+  it('er nøytral når import mangler person', () => {
+    const e: Event = {
+      id: 'e1',
+      personId: 'ida',
+      title: 'Test',
+      start: '10:00',
+      end: '11:00',
+    }
+    expect(personIdsConflict('', e)).toBe(false)
+  })
+  it('avviser når begge har person og de er ulike', () => {
+    const e: Event = {
+      id: 'e1',
+      personId: 'ida',
+      title: 'Test',
+      start: '10:00',
+      end: '11:00',
+    }
+    expect(personIdsConflict('ola', e)).toBe(true)
+  })
+})
 
 describe('findConservativeExistingEventMatch', () => {
   it('returnerer kandidat når tittel, dato, person og sted stemmer godt nok (container + multi-day)', () => {
@@ -234,6 +275,58 @@ describe('findConservativeExistingEventMatch', () => {
     expect(['learned', 'probable']).toContain(r.matchStatus)
     expect(r.defaultAction).toBe('update')
     expect(r.learnedStableKey).toBe(true)
+  })
+
+  it('matcher vårcup-oppfølging uten person på import (person nøytral)', () => {
+    const existing: Event = {
+      id: 'event-1',
+      personId: 'ida',
+      title: 'Vår cup i fotball',
+      start: '17:45',
+      end: '18:00',
+      metadata: { endDate: '2026-06-13' },
+    }
+    const proposal: PortalEventProposal = {
+      proposalId: '55555555-5555-4555-8555-555555555555',
+      kind: 'event',
+      sourceId: 'src',
+      originalSourceType: 'uploaded_file',
+      confidence: 0.92,
+      event: {
+        date: '2026-06-12',
+        personId: '',
+        title: 'Vårcupen – fredag og lørdag – 12.–13. juni 2026',
+        start: '17:45',
+        end: '18:45',
+        metadata: {
+          endDate: '2026-06-13',
+          sourceKind: 'uploaded_file',
+          arrangementStableKey: 'tg-arr-varcupen-2026-06-fotball',
+          arrangementCoreTitle: 'Vårcupen',
+          updateIntent: {
+            likelyFollowup: true,
+            confidence: 'medium',
+            signals: ['more_info_or_program_update'],
+          },
+          embeddedSchedule: [
+            { date: '2026-06-12', startTime: '17:45', title: 'Dag 1' },
+            { date: '2026-06-13', startTime: '10:00', title: 'Dag 2' },
+          ],
+        },
+      },
+    }
+    const r = findBestArrangementMatch(
+      proposal,
+      proposal.event.title,
+      '2026-06-12',
+      '2026-06-12',
+      '',
+      [{ event: existing, anchorDate: '2026-06-12' }]
+    )
+    expect(r.rejected).toBe(false)
+    expect(r.candidate?.event.id).toBe('event-1')
+    expect(['learned', 'probable']).toContain(r.matchStatus)
+    expect(r.defaultAction).toBe('update')
   })
 
   it('avviser import som ikke er container-lik (ingen flerdagers/endDate-skille, ikke programforelder)', () => {
