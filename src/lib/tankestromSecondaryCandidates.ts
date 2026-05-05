@@ -95,6 +95,14 @@ export function shouldPromoteEventItemToPrimary(
   if (title.length < 1) return false
   if (!hasConcreteDateOrDateRangeForEvent(item)) return false
 
+  const ev = item.event
+  const meta =
+    ev.metadata && typeof ev.metadata === 'object' && !Array.isArray(ev.metadata)
+      ? (ev.metadata as Record<string, unknown>)
+      : null
+  if (meta?.requiresManualTimeReview === true) return true
+  if (!ev.start?.trim() || !ev.end?.trim()) return true
+
   if (hasArrangementSignalsForEvent(item)) return true
 
   if (ctx.isExplicitUserImport) {

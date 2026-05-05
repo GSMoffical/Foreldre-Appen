@@ -22,6 +22,7 @@ import type {
 } from '../types'
 import { resolveSubjectKey } from './schoolContext'
 import { normalizeTaskIntent } from './taskIntent'
+import { normalizeImportTime, rawEventTimeInput } from './tankestromImportTime'
 
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null && !Array.isArray(x)
@@ -332,17 +333,19 @@ function parseEventPayload(raw: unknown): PortalEventPayload {
   if (!isRecord(raw)) throw new Error('Ugyldig svar: event-payload mangler')
   const date = asString(raw.date, 'event.date')
   if (!isDateKey(date)) throw new Error('Ugyldig svar: event.date må være YYYY-MM-DD')
-  const start = asString(raw.start, 'event.start')
-  const end = asString(raw.end, 'event.end')
-  if (!isHm(start) || !isHm(end)) throw new Error('Ugyldig svar: start/slutt må være HH:mm')
+  const startRaw = rawEventTimeInput(raw.start)
+  const endRaw = rawEventTimeInput(raw.end)
+  const startTime = startRaw !== undefined ? normalizeImportTime(startRaw) : null
+  const endTime = endRaw !== undefined ? normalizeImportTime(endRaw) : null
+
   const personId = asEventPersonId(raw.personId)
   const title = asString(raw.title, 'event.title')
   const out: PortalEventPayload = {
     date,
     personId,
     title,
-    start,
-    end,
+    start: startTime ?? '',
+    end: endTime ?? '',
   }
   const notes = asOptionalString(raw.notes)
   if (notes !== undefined) out.notes = notes
@@ -365,6 +368,23 @@ function parseEventPayload(raw: unknown): PortalEventPayload {
           })()
       : {}
   mergeTankestromEventTopLevelIntoMetadata(meta, raw)
+
+  if (startTime !== null && endTime !== null) {
+    delete meta.requiresManualTimeReview
+    delete meta.startTimeSource
+    delete meta.endTimeSource
+    delete meta.inferredEndTime
+  } else {
+    if (startTime === null) {
+      meta.startTimeSource = 'missing_or_unreadable'
+    }
+    if (endTime === null) {
+      meta.inferredEndTime = false
+      meta.endTimeSource = 'missing_or_unreadable'
+    }
+    meta.requiresManualTimeReview = true
+  }
+
   if (Object.keys(meta).length > 0) out.metadata = meta
   return out
 }

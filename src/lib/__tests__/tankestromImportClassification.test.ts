@@ -90,4 +90,24 @@ describe('Tankestrom import classification (primary vs «Kanskje også relevant�
     expect(shouldPromoteEventItemToPrimary(item, ctx)).toBe(true)
     expect(proposalItemQualifiesSecondaryZone(item, ctx)).toBe(false)
   })
+
+  it('langt dokument: manglende sluttid skal ikke flytte forslaget til «Kanskje også relevant»', () => {
+    const item = vaarcupenLikeEvent(0.45)
+    item.event.end = ''
+    item.event.metadata = {
+      ...item.event.metadata,
+      requiresManualTimeReview: true,
+      endTimeSource: 'missing_or_unreadable',
+      inferredEndTime: false,
+    }
+    const ctx = buildImportClassificationContext({
+      inputMode: 'text',
+      provenanceSourceType: 'pasted_text',
+      sourceLength: 7000,
+      calendarItemCount: 1,
+      secondaryCandidateCount: 0,
+    })
+    expect(shouldPromoteEventItemToPrimary(item, ctx)).toBe(true)
+    expect(proposalItemQualifiesSecondaryZone(item, ctx)).toBe(false)
+  })
 })

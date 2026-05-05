@@ -628,9 +628,16 @@ export function validateTankestromDraft(
   const parsed = new Date(`${dateStr}T12:00:00`)
   if (Number.isNaN(parsed.getTime())) return 'Ugyldig dato.'
 
+  if (!d.start.trim()) {
+    return 'Starttid ikke oppgitt. Rediger forslaget og legg inn starttid før import.'
+  }
   const startNorm = normalizeTimeInput(d.start)
-  const endNorm = normalizeTimeInput(d.end)
   if (!isHm24(startNorm)) return 'Starttid må være gyldig klokkeslett (HH:mm, 24 t).'
+
+  if (!d.end.trim()) {
+    return 'Sluttid ikke oppgitt. Rediger forslaget og legg inn sluttid før import.'
+  }
+  const endNorm = normalizeTimeInput(d.end)
   if (!isHm24(endNorm)) return 'Sluttid må være gyldig klokkeslett (HH:mm, 24 t).'
 
   const startMin = parseTime(startNorm)
@@ -681,10 +688,22 @@ export function getTankestromDraftFieldErrors(
     const parsed = new Date(`${dateStr}T12:00:00`)
     if (Number.isNaN(parsed.getTime())) out.date = 'Ugyldig dato.'
   }
+  if (!d.start.trim()) {
+    out.start = 'Starttid ikke oppgitt. Rediger forslaget og legg inn starttid før import.'
+  } else {
+    const startNorm = normalizeTimeInput(d.start)
+    if (!isHm24(startNorm)) out.start = 'Ugyldig tid (HH:mm, 24 t).'
+  }
+
+  if (!d.end.trim()) {
+    out.end = 'Sluttid ikke oppgitt. Rediger forslaget og legg inn sluttid før import.'
+  } else {
+    const endNorm = normalizeTimeInput(d.end)
+    if (!isHm24(endNorm)) out.end = 'Ugyldig tid (HH:mm, 24 t).'
+  }
+
   const startNorm = normalizeTimeInput(d.start)
   const endNorm = normalizeTimeInput(d.end)
-  if (!isHm24(startNorm)) out.start = 'Ugyldig tid (HH:mm, 24 t).'
-  if (!isHm24(endNorm)) out.end = 'Ugyldig tid (HH:mm, 24 t).'
   if (isHm24(startNorm) && isHm24(endNorm) && parseTime(endNorm) <= parseTime(startNorm)) {
     out.end = 'Slutt må være etter start.'
   }
