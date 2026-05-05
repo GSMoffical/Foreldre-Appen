@@ -119,7 +119,7 @@ export type ExistingEventMatchResult = {
 
 const SUGGEST_MIN_SCORE = 78
 /** Med incoming stableKey og uten nøkkel på treff: aksepter heuristikk ned til denne (bakoverkompatibel læring). */
-const LEARN_STABLE_KEY_MIN_SCORE = 70
+const LEARN_STABLE_KEY_MIN_SCORE_WITH_KEY = 55
 const FOLLOWUP_CLUSTER_SCORE_BOOST = 16
 const EXISTING_CONTAINER_ANCHOR_BONUS = 12
 
@@ -304,7 +304,7 @@ export function findConservativeExistingEventMatch(
   const existingStableOnBest = readArrangementStableKey(best.anchor.event.metadata)
   const canBackfillStable = Boolean(incomingStableKey) && !existingStableOnBest
 
-  if (best.score < LEARN_STABLE_KEY_MIN_SCORE) {
+  if (best.score < LEARN_STABLE_KEY_MIN_SCORE_WITH_KEY) {
     missedStrongOverlap = overlapPersonAnchors > 0
     if (dbg)
       console.debug('[tankestrom existing event match]', {
@@ -344,7 +344,7 @@ export function findConservativeExistingEventMatch(
     return { candidate: null, score: best.score, rejected: true, rejectReason: 'below_threshold' }
   }
 
-  const learnedStableKey = canBackfillStable && best.score >= LEARN_STABLE_KEY_MIN_SCORE
+  const learnedStableKey = canBackfillStable && best.score >= LEARN_STABLE_KEY_MIN_SCORE_WITH_KEY
 
   if (dbg) {
     console.debug('[tankestrom existing event match]', {
