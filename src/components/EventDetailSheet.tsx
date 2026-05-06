@@ -106,6 +106,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
     pickupPerson != null ||
     (isChildEvent && mePersonId != null && onQuickAssignTransport != null)
   const isAllDay = !!(event.metadata?.isAllDay)
+  const isDateOnly = event.metadata?.timePrecision === 'date_only'
   const eventEndDate = event.metadata?.endDate as string | undefined
   const duration = durationMinutes(event.start, event.end)
   const durationStr =
@@ -217,6 +218,10 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
           {isAllDay ? (
             <p className="mt-2 text-body font-medium text-brandNavy">
               Heldags{eventEndDate && eventEndDate !== date ? ` · t.o.m. ${eventEndDate}` : ''}
+            </p>
+          ) : isDateOnly ? (
+            <p className="mt-2 text-body font-medium text-zinc-700">
+              {(event.metadata?.displayTimeLabel as string | undefined) ?? 'Tid ikke avklart'}
             </p>
           ) : (
             <>

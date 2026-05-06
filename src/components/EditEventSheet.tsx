@@ -302,6 +302,10 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
               ...(event.metadata ?? {}),
               participants: selectedPersonIds,
               isAllDay: isAllDay || undefined,
+              timePrecision: isAllDay ? (event.metadata?.timePrecision ?? undefined) : 'timed',
+              displayTimeLabel: isAllDay ? (event.metadata?.displayTimeLabel ?? undefined) : undefined,
+              requiresManualTimeReview:
+                isAllDay ? (event.metadata?.requiresManualTimeReview ?? undefined) : false,
               endDate: (allDayEndDate && allDayEndDate > eventDate) ? allDayEndDate : undefined,
               transport:
                 dropoffBy || pickupBy

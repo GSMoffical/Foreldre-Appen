@@ -128,4 +128,12 @@ describe('validateTankestromDraft tid', () => {
       'Starttid ikke oppgitt. Rediger forslaget og legg inn starttid før import.'
     )
   })
+
+  it('tillater date_only når både start og slutt mangler', () => {
+    const d = { ...base, start: '', end: '' }
+    expect(validateTankestromDraft(d, new Set(['p1']))).toBe(null)
+    const err = getTankestromDraftFieldErrors(d, new Set(['p1']))
+    expect(err.start).toBeUndefined()
+    expect(err.end).toBeUndefined()
+  })
 })

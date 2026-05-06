@@ -61,6 +61,8 @@ export interface WeekDayLayout {
   events: Event[]
   /** All-day / multi-day foreground events — rendered in the AllDayRow, NOT in the timeline. */
   allDayEvents: Event[]
+  /** Date-bound events without concrete clock. */
+  unspecifiedEvents: Event[]
   layoutItems: TimelineLayoutItem[]
   backgroundLayoutItems: TimelineLayoutItem[]
   gaps: GapInfo[]
@@ -108,6 +110,10 @@ function addDays(dateKey: string, delta: number): string {
 
 function isOvernightEvent(e: Event): boolean {
   return e.end <= e.start
+}
+
+function isDateOnlyEvent(e: Event): boolean {
+  return e.metadata?.timePrecision === 'date_only'
 }
 
 /** Returns the 7 date keys (YYYY-MM-DD) for the week (Mon–Sun) containing the given date. */
@@ -531,7 +537,8 @@ export function useScheduleState() {
       const dayEvents = getAllEventsForDate(day.date)
       const visible = calculateVisibleEvents(dayEvents, selectedPersonIds)
       const foreground = filterForegroundEvents(visible)
-      const timed = filterTimedEvents(foreground)
+      const unspecified = foreground.filter((e) => isDateOnlyEvent(e))
+      const timed = filterTimedEvents(foreground).filter((e) => !isDateOnlyEvent(e))
       const allDay = filterAllDayEvents(foreground)
       const background = buildBackgroundEventsForDate(day.date, people, selectedPersonIds, dayEvents)
       const busyForGaps = [...timed, ...background]
@@ -552,6 +559,7 @@ export function useScheduleState() {
         personIdsWithEvents: visiblePersonIds,
         events: timed,
         allDayEvents: allDay,
+        unspecifiedEvents: unspecified,
         layoutItems,
         backgroundLayoutItems,
         gaps,
@@ -582,12 +590,16 @@ export function useScheduleState() {
   )
 
   const foregroundTimedEvents = useMemo(
-    () => filterTimedEvents(foregroundEvents),
+    () => filterTimedEvents(foregroundEvents).filter((e) => !isDateOnlyEvent(e)),
     [foregroundEvents]
   )
 
   const allDayEventsForDay = useMemo(
     () => filterAllDayEvents(foregroundEvents),
+    [foregroundEvents]
+  )
+  const unspecifiedEventsForDay = useMemo(
+    () => foregroundEvents.filter((e) => isDateOnlyEvent(e)),
     [foregroundEvents]
   )
 
@@ -635,6 +647,7 @@ export function useScheduleState() {
     weekLayoutData,
     visibleEvents: foregroundEvents,
     allDayEventsForDay,
+    unspecifiedEventsForDay,
     layoutItems,
     backgroundLayoutItems,
     gaps,

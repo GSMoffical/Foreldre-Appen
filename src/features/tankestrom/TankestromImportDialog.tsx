@@ -3384,6 +3384,7 @@ export function TankestromImportDialog({
 
                   const eventTimeSummary = (() => {
                     if (u.importKind !== 'event') return ''
+                    if (!u.event.start.trim() && !u.event.end.trim()) return 'Tid ikke avklart'
                     const ts = u.event.start.length > 5 ? u.event.start.slice(0, 5) : u.event.start
                     const te = u.event.end.length > 5 ? u.event.end.slice(0, 5) : u.event.end
                     const hm = /^([01]\d|2[0-3]):[0-5]\d$/

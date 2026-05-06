@@ -26,6 +26,10 @@ export type TankestromImportPersistTaskPersistContext = {
 
 export type TankestromImportPersistFailureRecord = {
   proposalId: string
+  childId?: string
+  title?: string
+  date?: string
+  field?: 'title' | 'date' | 'start' | 'end' | 'personId' | 'parent' | 'database' | 'unknown'
   proposalSurfaceType: 'event' | 'task'
   operation: TankestromImportPersistOperation | 'editEventPrecheck'
   kind: TankestromImportPersistErrorKind
@@ -331,14 +335,14 @@ function summarizeTaskFailuresForUser(taskFailures: TankestromImportPersistFailu
 /** Kompakt brukermelding (mobilvennlig), med konkret oppgave-kontekst når tilgjengelig. */
 export function buildTankestromImportFailureUserMessage(
   failures: TankestromImportPersistFailureRecord[],
-  totalSelected: number
+  _totalSelected: number
 ): string {
   if (failures.length === 0) return ''
   const n = failures.length
   const taskFailures = failures.filter((f) => f.proposalSurfaceType === 'task')
   const eventFailures = failures.filter((f) => f.proposalSurfaceType === 'event')
 
-  let head = `${n} av ${totalSelected} forslag kunne ikke lagres`
+  let head = `${n} av ${_totalSelected} forslag kunne ikke lagres`
   if (taskFailures.length > 0 && eventFailures.length > 0) {
     head += ` (${taskFailures.length} oppgave(r), ${eventFailures.length} hendelse(r))`
   } else if (taskFailures.length > 0) {
@@ -355,6 +359,28 @@ export function buildTankestromImportFailureUserMessage(
   }
 
   if (eventFailures.length > 0) {
+    const specific = eventFailures
+      .slice(0, 8)
+      .map((f) => {
+        const t = (f.title ?? '').trim() || 'Uten tittel'
+        const db = f.supabaseCode ? ` (databasekode: ${f.supabaseCode})` : ''
+        return `• ${t}: ${f.message}${db}`
+      })
+    if (specific.length > 0) {
+      const kinds = new Set(eventFailures.map((f) => f.kind))
+      const hints: string[] = []
+      for (const k of HINT_PRIORITY) {
+        if (kinds.has(k)) {
+          const line = KIND_HINT_NB[k]
+          if (line) hints.push(line)
+          if (hints.length >= 2) break
+        }
+      }
+      detailParts.push(`Kunne ikke lagre ${eventFailures.length} hendelse(r):\n${specific.join('\n')}`)
+      if (hints.length > 0) detailParts.push(hints.join(' '))
+      detailParts.push('Åpne «Rediger» på hendelsen og fyll inn manglende felt.')
+      return `${head} ${detailParts.join('\n\n')}`
+    }
     const kinds = new Set(eventFailures.map((f) => f.kind))
     const hints: string[] = []
     for (const k of HINT_PRIORITY) {

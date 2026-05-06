@@ -286,6 +286,13 @@ export interface EventMetadata {
   tankestromNotes?: string[]
   /** Tekstfallback for eksterne kalendere uten støtte for chip-UI. */
   tankestromDescriptionFallback?: string
+  /** Precision for events that are tied to date but not exact clock. */
+  timePrecision?: 'timed' | 'date_only' | 'start_only' | 'end_only'
+  /** UI label when exact clock is unknown. */
+  displayTimeLabel?: string
+  /** Source markers for date-only fallback persistence. */
+  startTimeSource?: string
+  endTimeSource?: string
   /** Free-form metadata reserved for future automation features. */
   [key: string]: unknown;
 }

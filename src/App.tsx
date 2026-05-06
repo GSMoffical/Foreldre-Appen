@@ -62,6 +62,7 @@ function App() {
     setShowListView,
     visibleEvents,
     allDayEventsForDay,
+    unspecifiedEventsForDay,
     layoutItems,
     backgroundLayoutItems,
     gaps,
@@ -415,6 +416,7 @@ function App() {
               taskCountByDate={taskCountByDate}
               dayTasks={filteredTasksByDate[selectedDate] ?? []}
               allDayEvents={allDayEventsForDay}
+              unspecifiedEvents={unspecifiedEventsForDay}
             />
           )}
           </div>

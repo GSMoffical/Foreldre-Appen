@@ -92,6 +92,9 @@ import { normalizePersistedPersonId, requiresPersonForImport } from '../../lib/t
 const TANKESTROM_IMPORT_PERSIST_DEBUG =
   import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
 const MISSING_ENDTIME_REVIEW_MESSAGE = 'Sluttid ikke oppgitt – rediger før import.'
+const DATE_ONLY_FALLBACK_START = '09:00'
+const DATE_ONLY_FALLBACK_END = '09:30'
+const DATE_ONLY_LABEL = 'Tid ikke avklart'
 
 function logTankestromImportPersist(payload: Record<string, unknown>): void {
   if (!TANKESTROM_IMPORT_PERSIST_DEBUG) return
@@ -253,9 +256,12 @@ function buildEmbeddedChildEventDraft(
   segment: EmbeddedScheduleSegment,
   timeOpts?: { childProposalId?: string }
 ): TankestromEventDraft {
-  const exportTimes = resolveEmbeddedScheduleSegmentTimesForCalendarExport(segment, timeOpts)
-  const start = normalizeTimeInput(exportTimes.start)
-  const end = normalizeTimeInput(exportTimes.end)
+  const segmentHasConcreteTimes = Boolean((segment.start ?? '').trim() || (segment.end ?? '').trim())
+  const exportTimes = segmentHasConcreteTimes
+    ? resolveEmbeddedScheduleSegmentTimesForCalendarExport(segment, timeOpts)
+    : { start: '', end: '' }
+  const start = segmentHasConcreteTimes ? normalizeTimeInput(exportTimes.start) : ''
+  const end = segmentHasConcreteTimes ? normalizeTimeInput(exportTimes.end) : ''
   const calendarTitle = embeddedScheduleChildCalendarExportTitle(segment, parentDraft.title)
   if (import.meta.env.DEV && calendarTitle.trim() !== segment.title.trim()) {
     console.debug('[tankestrom calendar export title]', {
@@ -331,11 +337,14 @@ function buildDetachedEmbeddedChildProposal(
   origIndex: number
 ): PortalEventProposal {
   const proposalId = makeEmbeddedChildProposalId(parent.proposalId, origIndex)
-  const exportTimes = resolveEmbeddedScheduleSegmentTimesForCalendarExport(segment, {
-    childProposalId: proposalId,
-  })
-  const start = normalizeTimeInput(exportTimes.start)
-  const end = normalizeTimeInput(exportTimes.end)
+  const segmentHasConcreteTimes = Boolean((segment.start ?? '').trim() || (segment.end ?? '').trim())
+  const exportTimes = segmentHasConcreteTimes
+    ? resolveEmbeddedScheduleSegmentTimesForCalendarExport(segment, {
+        childProposalId: proposalId,
+      })
+    : { start: '', end: '' }
+  const start = segmentHasConcreteTimes ? normalizeTimeInput(exportTimes.start) : ''
+  const end = segmentHasConcreteTimes ? normalizeTimeInput(exportTimes.end) : ''
   const baseMeta =
     parent.event.metadata && typeof parent.event.metadata === 'object' && !Array.isArray(parent.event.metadata)
       ? { ...(parent.event.metadata as Record<string, unknown>) }
@@ -701,21 +710,24 @@ export function validateTankestromDraft(
   const parsed = new Date(`${dateStr}T12:00:00`)
   if (Number.isNaN(parsed.getTime())) return 'Ugyldig dato.'
 
-  if (!d.start.trim()) {
-    return 'Starttid ikke oppgitt. Rediger forslaget og legg inn starttid før import.'
-  }
+  const missingStart = !d.start.trim()
+  const missingEnd = !d.end.trim()
+  const dateOnly = missingStart && missingEnd
+  if (!dateOnly && missingStart) return 'Starttid ikke oppgitt. Rediger forslaget og legg inn starttid før import.'
   const startNorm = normalizeTimeInput(d.start)
-  if (!isHm24(startNorm)) return 'Starttid må være gyldig klokkeslett (HH:mm, 24 t).'
+  if (!dateOnly && !isHm24(startNorm)) return 'Starttid må være gyldig klokkeslett (HH:mm, 24 t).'
 
-  if (!d.end.trim()) {
+  if (!dateOnly && !d.end.trim()) {
     return MISSING_ENDTIME_REVIEW_MESSAGE
   }
   const endNorm = normalizeTimeInput(d.end)
-  if (!isHm24(endNorm)) return 'Sluttid må være gyldig klokkeslett (HH:mm, 24 t).'
+  if (!dateOnly && !isHm24(endNorm)) return 'Sluttid må være gyldig klokkeslett (HH:mm, 24 t).'
 
-  const startMin = parseTime(startNorm)
-  const endMin = parseTime(endNorm)
-  if (endMin <= startMin) return 'Sluttid må være senere enn starttid.'
+  if (!dateOnly) {
+    const startMin = parseTime(startNorm)
+    const endMin = parseTime(endNorm)
+    if (endMin <= startMin) return 'Sluttid må være senere enn starttid.'
+  }
 
   if (requiresPersonForImport(d)) {
     if (!d.personId.trim() || !validPersonIds.has(d.personId)) return 'Velg person før import.'
@@ -747,6 +759,14 @@ export function validateTankestromTaskDraft(d: TankestromTaskDraft): string | nu
 
 export type TankestromFieldErrorKey = 'title' | 'date' | 'start' | 'end' | 'personId'
 export type TankestromTaskFieldErrorKey = 'title' | 'date' | 'dueTime'
+export type ImportValidationError = {
+  proposalId: string
+  childId?: string
+  title: string
+  date?: string
+  field: 'title' | 'date' | 'start' | 'end' | 'personId' | 'parent' | 'database' | 'unknown'
+  message: string
+}
 
 /** Felt-spesifikke meldinger for inline validering (samme regler som validateTankestromDraft). */
 export function getTankestromDraftFieldErrors(
@@ -761,23 +781,26 @@ export function getTankestromDraftFieldErrors(
     const parsed = new Date(`${dateStr}T12:00:00`)
     if (Number.isNaN(parsed.getTime())) out.date = 'Ugyldig dato.'
   }
-  if (!d.start.trim()) {
+  const missingStart = !d.start.trim()
+  const missingEnd = !d.end.trim()
+  const dateOnly = missingStart && missingEnd
+  if (!dateOnly && !d.start.trim()) {
     out.start = 'Starttid ikke oppgitt. Rediger forslaget og legg inn starttid før import.'
   } else {
     const startNorm = normalizeTimeInput(d.start)
-    if (!isHm24(startNorm)) out.start = 'Ugyldig tid (HH:mm, 24 t).'
+    if (!dateOnly && !isHm24(startNorm)) out.start = 'Ugyldig tid (HH:mm, 24 t).'
   }
 
-  if (!d.end.trim()) {
+  if (!dateOnly && !d.end.trim()) {
     out.end = MISSING_ENDTIME_REVIEW_MESSAGE
   } else {
     const endNorm = normalizeTimeInput(d.end)
-    if (!isHm24(endNorm)) out.end = 'Ugyldig tid (HH:mm, 24 t).'
+    if (!dateOnly && !isHm24(endNorm)) out.end = 'Ugyldig tid (HH:mm, 24 t).'
   }
 
   const startNorm = normalizeTimeInput(d.start)
   const endNorm = normalizeTimeInput(d.end)
-  if (isHm24(startNorm) && isHm24(endNorm) && parseTime(endNorm) <= parseTime(startNorm)) {
+  if (!dateOnly && isHm24(startNorm) && isHm24(endNorm) && parseTime(endNorm) <= parseTime(startNorm)) {
     out.end = 'Slutt må være etter start.'
   }
   if (requiresPersonForImport(d)) {
@@ -821,6 +844,24 @@ export function getTankestromTaskFieldErrors(
 function validateUnifiedDraft(d: TankestromImportDraft, validPersonIds: Set<string>): string | null {
   if (d.importKind === 'event') return validateTankestromDraft(d.event, validPersonIds)
   return validateTankestromTaskDraft(d.task)
+}
+
+function preflightEventValidationErrors(
+  proposalId: string,
+  childId: string | undefined,
+  d: TankestromEventDraft,
+  validPersonIds: Set<string>
+): ImportValidationError[] {
+  const errs = getTankestromDraftFieldErrors(d, validPersonIds)
+  const out: ImportValidationError[] = []
+  const title = d.title.trim() || 'Uten tittel'
+  const date = d.date.trim() || undefined
+  if (errs.title) out.push({ proposalId, childId, title, date, field: 'title', message: errs.title })
+  if (errs.date) out.push({ proposalId, childId, title, date, field: 'date', message: errs.date })
+  if (errs.start) out.push({ proposalId, childId, title, date, field: 'start', message: errs.start })
+  if (errs.end) out.push({ proposalId, childId, title, date, field: 'end', message: errs.end })
+  if (errs.personId) out.push({ proposalId, childId, title, date, field: 'personId', message: errs.personId })
+  return out
 }
 
 function bulkApplyTaskPersonFields(
@@ -868,6 +909,46 @@ function sanitizeEmbeddedChildCalendarExportMetadata(metadata: Record<string, un
   delete metadata.multiDayAllDay
   delete metadata.__anchorDate
   metadata.isAllDay = false
+}
+
+function draftIsDateOnly(draft: Pick<TankestromEventDraft, 'start' | 'end'>): boolean {
+  return !draft.start.trim() && !draft.end.trim()
+}
+
+function applyDateOnlyMetadata(metadata: Record<string, unknown>, isDateOnly: boolean): void {
+  if (!isDateOnly) {
+    metadata.timePrecision = 'timed'
+    if (metadata.displayTimeLabel === DATE_ONLY_LABEL) delete metadata.displayTimeLabel
+    if (metadata.requiresManualTimeReview === true) metadata.requiresManualTimeReview = false
+    return
+  }
+  metadata.timePrecision = 'date_only'
+  metadata.displayTimeLabel = DATE_ONLY_LABEL
+  metadata.requiresManualTimeReview = true
+  metadata.startTimeSource = 'missing'
+  metadata.endTimeSource = 'missing'
+}
+
+function buildPersistTimes(draft: Pick<TankestromEventDraft, 'start' | 'end'>): { start: string; end: string } {
+  if (!draftIsDateOnly(draft)) {
+    return {
+      start: normalizeTimeInput(draft.start),
+      end: normalizeTimeInput(draft.end),
+    }
+  }
+  return {
+    start: DATE_ONLY_FALLBACK_START,
+    end: DATE_ONLY_FALLBACK_END,
+  }
+}
+
+function buildPersistNotes(draft: Pick<TankestromEventDraft, 'notes' | 'start' | 'end'>): string | undefined {
+  const base = draft.notes.trim()
+  if (!draftIsDateOnly(draft)) return base || undefined
+  const marker = 'Tidspunkt ikke avklart. Oppdater hendelsen når tidspunkt er kjent.'
+  if (!base) return `(tid ikke avklart)\n${marker}`
+  if (base.includes(marker)) return base
+  return `${base}\n\n(tid ikke avklart)\n${marker}`
 }
 
 function buildEventDraftFromProposal(
@@ -2636,6 +2717,10 @@ export function useTankestromImport({
         extras?: Pick<
           TankestromImportPersistFailureRecord,
           | 'taskPersistContext'
+          | 'childId'
+          | 'title'
+          | 'date'
+          | 'field'
           | 'supabaseCode'
           | 'supabaseMessage'
           | 'supabaseDetails'
@@ -2645,6 +2730,19 @@ export function useTankestromImport({
         failed += 1
         failedIds.add(proposalId)
         failureRecords.push({ proposalId, proposalSurfaceType: surface, operation, kind, message, ...extras })
+        console.error('[Tankestrom import persist failure]', {
+          proposalId,
+          childId: extras?.childId,
+          title: extras?.title,
+          mode: operation,
+          validationErrors: extras?.field ? [{ field: extras.field, message }] : undefined,
+          supabaseError: {
+            code: extras?.supabaseCode,
+            message: extras?.supabaseMessage,
+            details: extras?.supabaseDetails,
+            hint: extras?.supabaseHint,
+          },
+        })
         logTankestromImportPersist({
           tankestromImportPersistSuccess: false,
           tankestromImportPersistFailure: true,
@@ -2696,6 +2794,18 @@ export function useTankestromImport({
             personId: raw.personId,
             location: raw.location.trim(),
             notes: raw.notes.trim(),
+          }
+          const preflightErrors = preflightEventValidationErrors(id, id, draftEv, validPersonIds)
+          if (preflightErrors.length > 0) {
+            for (const v of preflightErrors) {
+              recordFailure(id, 'event', 'createEvent', 'validation', v.message, {
+                childId: v.childId,
+                title: v.title,
+                date: v.date,
+                field: v.field,
+              })
+            }
+            continue
           }
           const integration = {
             proposalId: item.proposalId,
@@ -2751,12 +2861,12 @@ export function useTankestromImport({
             id
           )
           attachTankestromDetailsToMetadata(metadata, detachedDetails)
+          applyDateOnlyMetadata(metadata, draftIsDateOnly(draftEv))
           const input: Omit<Event, 'id'> = {
+            ...buildPersistTimes(draftEv),
             personId: normalizePersistedPersonId(draftEv.personId),
             title: draftEv.title,
-            start: draftEv.start,
-            end: draftEv.end,
-            notes: draftEv.notes.length > 0 ? draftEv.notes : undefined,
+            notes: buildPersistNotes(draftEv),
             location: draftEv.location.length > 0 ? draftEv.location : undefined,
             reminderMinutes: draftEv.reminderMinutes,
             recurrenceGroupId: undefined,
@@ -2782,8 +2892,18 @@ export function useTankestromImport({
             await createEvent(draftEv.date, input)
             recordSuccess(id, 'event', 'createEvent')
           } catch (e) {
-            const { kind, message } = classifyTankestromPersistThrownError(e, 'createEvent')
-            recordFailure(id, 'event', 'createEvent', kind, message)
+            const { kind, message, supabaseCode, supabaseMessage, supabaseDetails, supabaseHint } =
+              classifyTankestromPersistThrownError(e, 'createEvent')
+            recordFailure(id, 'event', 'createEvent', kind, message, {
+              childId: id,
+              title: draftEv.title,
+              date: draftEv.date,
+              field: 'database',
+              supabaseCode,
+              supabaseMessage,
+              supabaseDetails,
+              supabaseHint,
+            })
           }
           continue
         }
@@ -2791,6 +2911,21 @@ export function useTankestromImport({
         const item = bundle.items.find((p) => p.proposalId === id)
         const unified = draftByProposalId[id]
         if (!item || !unified) continue
+        if (item.kind === 'event') {
+          const meta =
+            item.event.metadata && typeof item.event.metadata === 'object' && !Array.isArray(item.event.metadata)
+              ? (item.event.metadata as Record<string, unknown>)
+              : null
+          const isParentContainer =
+            meta?.isArrangementParent === true &&
+            meta?.exportAsCalendarEvent === false &&
+            Array.isArray(meta?.embeddedSchedule) &&
+            (meta?.embeddedSchedule as unknown[]).length > 0
+          if (isParentContainer) {
+            // Parent brukes kun som container/source for child-events, ikke egen kalenderrad.
+            continue
+          }
+        }
 
         if (unified.importKind === 'task') {
           const t = unified.task
@@ -3085,6 +3220,7 @@ export function useTankestromImport({
             else delete metadata.transport
           }
           mergeEventParticipantsIntoMetadata(metadata, draft, validPersonIds)
+          applyDateOnlyMetadata(metadata, draftIsDateOnly(draft))
           const proposalDetails = readTankestromScheduleDetailsFromMetadata(
             proposalMeta as EventMetadata
           )
@@ -3114,9 +3250,21 @@ export function useTankestromImport({
           const updates: Partial<Event> = {
             metadata,
             personId: normalizePersistedPersonId(draft.personId),
+            ...buildPersistTimes(draft),
           }
-          if (draft.notes.length > 0) updates.notes = draft.notes
+          updates.notes = buildPersistNotes(draft)
           if (draft.location.length > 0) updates.location = draft.location
+          const updatePreflight = preflightEventValidationErrors(id, undefined, draft, validPersonIds)
+          if (updatePreflight.length > 0) {
+            for (const v of updatePreflight) {
+              recordFailure(id, 'event', 'editEventPrecheck', 'validation', v.message, {
+                title: v.title,
+                date: v.date,
+                field: v.field,
+              })
+            }
+            continue
+          }
 
           try {
             await editEvent(anchorDate, existingEvent, updates)
@@ -3143,8 +3291,17 @@ export function useTankestromImport({
               logEvent('manualReviewItemImported', { proposalId: id, kind: 'event' })
             }
           } catch (e) {
-            const { kind, message } = classifyTankestromPersistThrownError(e, 'editEvent')
-            recordFailure(id, 'event', 'editEvent', kind, message)
+            const { kind, message, supabaseCode, supabaseMessage, supabaseDetails, supabaseHint } =
+              classifyTankestromPersistThrownError(e, 'editEvent')
+            recordFailure(id, 'event', 'editEvent', kind, message, {
+              title: draft.title,
+              date: draft.date,
+              field: 'database',
+              supabaseCode,
+              supabaseMessage,
+              supabaseDetails,
+              supabaseHint,
+            })
           }
           continue
         }
@@ -3239,6 +3396,24 @@ export function useTankestromImport({
                 location: slice.location.trim(),
                 notes: slice.notes.trim(),
               }
+              const childPreflight = preflightEventValidationErrors(
+                childProposalId,
+                childProposalId,
+                draftEv,
+                validPersonIds
+              )
+              if (childPreflight.length > 0) {
+                allSegmentCreatesOk = false
+                for (const v of childPreflight) {
+                  recordFailure(childProposalId, 'event', 'createEvent', 'validation', v.message, {
+                    childId: childProposalId,
+                    title: v.title,
+                    date: v.date,
+                    field: v.field,
+                  })
+                }
+                continue
+              }
 
               let baseMeta: Record<string, unknown> = { ...templateEvMeta }
               delete baseMeta.embeddedSchedule
@@ -3275,6 +3450,7 @@ export function useTankestromImport({
               }
               mergeEventParticipantsIntoMetadata(metadata, draftEv, validPersonIds)
               sanitizeEmbeddedChildCalendarExportMetadata(metadata)
+              applyDateOnlyMetadata(metadata, draftIsDateOnly(draftEv))
               const scheduleDetails = structuredDetailsFromSegment(
                 row.segment,
                 normalizeEmbeddedScheduleParentDisplayTitle(draft.title.trim()).title,
@@ -3284,11 +3460,10 @@ export function useTankestromImport({
               attachTankestromDetailsToMetadata(metadata, scheduleDetails)
 
               const input: Omit<Event, 'id'> = {
+                ...buildPersistTimes(draftEv),
                 personId: normalizePersistedPersonId(draftEv.personId),
                 title: draftEv.title,
-                start: draftEv.start,
-                end: draftEv.end,
-                notes: draftEv.notes.length > 0 ? draftEv.notes : undefined,
+                notes: buildPersistNotes(draftEv),
                 location: draftEv.location.length > 0 ? draftEv.location : undefined,
                 reminderMinutes: draftEv.reminderMinutes,
                 recurrenceGroupId: undefined,
@@ -3322,8 +3497,18 @@ export function useTankestromImport({
                 })
               } catch (e) {
                 allSegmentCreatesOk = false
-                const { kind, message } = classifyTankestromPersistThrownError(e, 'createEvent')
-                recordFailure(childProposalId, 'event', 'createEvent', kind, message)
+                const { kind, message, supabaseCode, supabaseMessage, supabaseDetails, supabaseHint } =
+                  classifyTankestromPersistThrownError(e, 'createEvent')
+                recordFailure(childProposalId, 'event', 'createEvent', kind, message, {
+                  childId: childProposalId,
+                  title: draftEv.title,
+                  date: draftEv.date,
+                  field: 'database',
+                  supabaseCode,
+                  supabaseMessage,
+                  supabaseDetails,
+                  supabaseHint,
+                })
               }
             }
 
@@ -3398,6 +3583,7 @@ export function useTankestromImport({
           else delete metadata.transport
         }
         mergeEventParticipantsIntoMetadata(metadata, draft, validPersonIds)
+        applyDateOnlyMetadata(metadata, draftIsDateOnly(draft))
         if (item.kind === 'event') {
           const details = readTankestromScheduleDetailsFromMetadata(item.event.metadata as EventMetadata)
           attachTankestromDetailsToMetadata(metadata, details)
@@ -3407,15 +3593,25 @@ export function useTankestromImport({
             ? normalizeEmbeddedScheduleParentDisplayTitle(draft.title.trim()).title
             : draft.title.trim()
         const input: Omit<Event, 'id'> = {
+          ...buildPersistTimes(draft),
           personId: normalizePersistedPersonId(draft.personId),
           title: calendarTitle,
-          start: draft.start,
-          end: draft.end,
-          notes: draft.notes.length > 0 ? draft.notes : undefined,
+          notes: buildPersistNotes(draft),
           location: draft.location.length > 0 ? draft.location : undefined,
           reminderMinutes: draft.reminderMinutes,
           recurrenceGroupId,
           metadata,
+        }
+        const preflight = preflightEventValidationErrors(id, undefined, draft, validPersonIds)
+        if (preflight.length > 0) {
+          for (const v of preflight) {
+            recordFailure(id, 'event', 'createEvent', 'validation', v.message, {
+              title: v.title,
+              date: v.date,
+              field: v.field,
+            })
+          }
+          continue
         }
         try {
           await createEvent(draft.date, input)
@@ -3424,8 +3620,17 @@ export function useTankestromImport({
             logEvent('manualReviewItemImported', { proposalId: id, kind: 'event' })
           }
         } catch (e) {
-          const { kind, message } = classifyTankestromPersistThrownError(e, 'createEvent')
-          recordFailure(id, 'event', 'createEvent', kind, message)
+          const { kind, message, supabaseCode, supabaseMessage, supabaseDetails, supabaseHint } =
+            classifyTankestromPersistThrownError(e, 'createEvent')
+          recordFailure(id, 'event', 'createEvent', kind, message, {
+            title: draft.title,
+            date: draft.date,
+            field: 'database',
+            supabaseCode,
+            supabaseMessage,
+            supabaseDetails,
+            supabaseHint,
+          })
         }
       }
       const taskPersistFailures = failureRecords.filter(

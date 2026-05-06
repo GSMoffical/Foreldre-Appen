@@ -47,6 +47,7 @@ interface CalendarHomeTabProps {
   taskCountByDate: Record<string, number>
   dayTasks: Task[]
   allDayEvents: Event[]
+  unspecifiedEvents: Event[]
 }
 
 export function CalendarHomeTab({
@@ -78,6 +79,7 @@ export function CalendarHomeTab({
   taskCountByDate,
   dayTasks,
   allDayEvents,
+  unspecifiedEvents,
 }: CalendarHomeTabProps) {
   const [showTodayPanel, setShowTodayPanel] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -336,6 +338,33 @@ export function CalendarHomeTab({
             }}
           />
         )}
+        {!showListView && unspecifiedEvents.length > 0 && (
+          <div className="mt-1 rounded-xl border border-zinc-200 bg-zinc-50/70 px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+              Uspesifiserte hendelser
+            </p>
+            <ul className="mt-1.5 space-y-1">
+              {unspecifiedEvents.map((event) => (
+                <li key={event.id}>
+                  <button
+                    type="button"
+                    className="w-full text-left text-[12px] text-zinc-700 hover:text-zinc-900"
+                    onClick={() => {
+                      const anchorDate = (event.metadata as any)?.__anchorDate as string | undefined ?? selectedDate
+                      handleSelectEvent(event, anchorDate)
+                    }}
+                  >
+                    <span className="font-medium text-zinc-500">
+                      {(event.metadata?.displayTimeLabel as string | undefined) ?? 'Tid ikke avklart'}
+                    </span>
+                    <span className="mx-1 text-zinc-400">·</span>
+                    <span className="font-medium">{event.title}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div id="onb-timeline" className="mt-1 flex min-h-0 flex-1 flex-col overflow-hidden">
           {weekEventsLoading ? (
             <ScheduleLoadingSkeleton />
@@ -365,6 +394,8 @@ export function CalendarHomeTab({
               onDragReschedule={(eventId, times) => onDragReschedule(eventId, times)}
               dayTasks={dayTasks}
             />
+          ) : unspecifiedEvents.length > 0 ? (
+            <div className="flex-1" />
           ) : isDayFilteredEmpty ? (
             <EmptyState context="day" variant="filtered" />
           ) : (
