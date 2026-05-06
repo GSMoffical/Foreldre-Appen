@@ -5,6 +5,8 @@ import {
   embeddedScheduleChildCalendarExportTitle,
   embeddedScheduleChildReviewDisplayTitle,
   embeddedScheduleParentReviewDisplayTitle,
+  getParentCoreTitle,
+  normalizeArrangementChildTitle,
   normalizeEmbeddedScheduleParentDisplayTitle,
 } from '../tankestromCupEmbeddedScheduleMerge'
 
@@ -108,10 +110,24 @@ describe('normalizeEmbeddedScheduleParentDisplayTitle', () => {
       },
       'Vårcupen 2026'
     )
-    expect(cal).toBe('Vårcupen 2026 – søndag')
+    expect(cal).toBe('Vårcupen – søndag')
     expect(cal.toLowerCase()).not.toContain('usikker')
     expect(cal.toLowerCase()).not.toContain('betinget')
     expect(cal.toLowerCase()).not.toContain('juni')
+  })
+
+  it('lager parent core title uten årstall for child-titler', () => {
+    expect(getParentCoreTitle('Vårcupen 2026 – 12.–14. juni 2026')).toBe('Vårcupen')
+    expect(getParentCoreTitle('Håndballcup 2026 – 4.–6. september')).toBe('Håndballcup')
+  })
+
+  it('normaliserer rotete child-title til kort ukedagstittel', () => {
+    const out = normalizeArrangementChildTitle(
+      'Vårcupen 2026 – 12 – søndag · Vårcupen 2026 – søndag (usikker / betinget...)',
+      'Vårcupen 2026 – 12.–14. juni 2026',
+      { date: '2026-06-14', title: 'x' }
+    )
+    expect(out).toBe('Vårcupen – søndag')
   })
 })
 

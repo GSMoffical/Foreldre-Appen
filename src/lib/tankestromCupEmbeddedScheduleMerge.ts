@@ -90,28 +90,6 @@ export function stripEmbeddedScheduleReviewSummaryPhrases(t: string): string {
   return out
 }
 
-/** Samme traillere som i review-dialog for barn av parent-program. */
-const EMBEDDED_CHILD_SEGMENT_TITLE_TRAILERS: RegExp[] = [
-  /\s*[–—\-:]\s*informasjon for helgen\b.*$/i,
-  /\s*[–—\-:]\s*samlet info for helgen\b.*$/i,
-  /\s*[–—\-:]\s*praktisk info(?:rmation)?\b.*$/i,
-  /\s*[–—\-:]\s*(?:uke|helg)\s+\d+.*$/i,
-  /\s*[–—\-:]\s*(?:mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag)\b(?:\s+\d{1,2}\.?(?:\s+[a-zæøå]+)?(?:\s+\d{4})?)?\s*$/i,
-  /\s+[–—\-]\s*(?:fredag|lørdag|søndag)\s*$/i,
-]
-
-function stripEmbeddedChildSegmentTrailers(s: string): string {
-  let out = s.trim()
-  let prev = ''
-  while (out !== prev) {
-    prev = out
-    for (const p of EMBEDDED_CHILD_SEGMENT_TITLE_TRAILERS) {
-      out = out.replace(p, '').trim()
-    }
-  }
-  return out
-}
-
 function osloCalendarInstant(isoDate: string): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null
   const [y, m, d] = isoDate.split('-').map(Number)
@@ -183,22 +161,56 @@ export function embeddedScheduleParentReviewDisplayTitle(
   return suffix ? `${core} · ${suffix}` : core
 }
 
-function deriveShortDistinctSegmentActivity(parentCalendarCoreTitle: string, segmentTitle: string): string {
-  let t = stripEmbeddedScheduleReviewSummaryPhrases(segmentTitle.trim())
-  const pc = parentCalendarCoreTitle.trim()
-  if (pc.length >= 3) {
-    t = t.replace(new RegExp(`^${escapeRegexChars(pc)}\\s*[–—\\-:]\\s*`, 'iu'), '').trim()
+const CHILD_STATUS_WORDS = /\b(?:foreløpig|forelopig|usikker|betinget|mulig)\b/giu
+
+function childWeekday(isoDate: string): string {
+  return norwegianWeekdayLong(isoDate).toLocaleLowerCase('nb-NO')
+}
+
+export function getParentCoreTitle(parentTitle: string): string {
+  const normalized = normalizeEmbeddedScheduleParentDisplayTitle(parentTitle).title
+  let out = normalized
+    .replace(/\b(19|20)\d{2}\b/g, '')
+    .replace(/\b\d{1,2}\.\s*[–—-]\s*\d{1,2}\.\s+[a-zæøå]+(?:\s+\d{4})?\b/giu, '')
+    .replace(/\b\d{1,2}\.\s*(?:januar|februar|mars|april|mai|juni|juli|august|september|oktober|november|desember)(?:\s+\d{4})?\b/giu, '')
+    .replace(/\s*[–—-]\s*$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+  const core = semanticTitleCore(out)
+  if (core.length >= 3) out = core.charAt(0).toLocaleUpperCase('nb-NO') + core.slice(1)
+  return out || normalized
+}
+
+export function normalizeArrangementChildTitle(
+  title: string,
+  parentTitle: string,
+  segment: EmbeddedScheduleSegment
+): string {
+  const parentCore = getParentCoreTitle(parentTitle)
+  const wd = childWeekday(segment.date)
+  let out = title.trim()
+  const parentEsc = escapeRegexChars(parentTitle.trim())
+  const parentCoreEsc = escapeRegexChars(parentCore.trim())
+  if (parentEsc) out = out.replace(new RegExp(parentEsc, 'giu'), ' ')
+  if (parentCoreEsc) out = out.replace(new RegExp(parentCoreEsc, 'giu'), ' ')
+  out = out
+    .replace(CHILD_STATUS_WORDS, ' ')
+    .replace(/\b(19|20)\d{2}\b/g, ' ')
+    .replace(/\b(?:man|tir|ons|tor|fre|lør|lor|søn|son)\.?\s+\d{1,2}\.?\b/giu, ' ')
+    .replace(/\b(?:mandag|tirsdag|onsdag|torsdag|fredag|lørdag|sondag|søndag)\s+\d{1,2}\.?(?:\s+[a-zæøå]+)?(?:\s+\d{4})?\b/giu, ' ')
+    .replace(/\b\d{1,2}\.\s*(?:januar|februar|mars|april|mai|juni|juli|august|september|oktober|november|desember)(?:\s+\d{4})?\b/giu, ' ')
+    .replace(/\b\d{1,2}\b/g, ' ')
+    .replace(/\(\s*[/.\s…-]*\)/gu, ' ')
+    .replace(/\s*[·|]\s*/g, ' ')
+    .replace(/\s*[–—-]\s*/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+  const activity = semanticTitleCore(out)
+  const base = `${parentCore} – ${wd}`
+  if (!activity || activity === semanticTitleCore(wd) || activity === semanticTitleCore(parentCore)) {
+    return base
   }
-  t = stripEmbeddedChildSegmentTrailers(t)
-  t = t.trim()
-  if (!t || t.length < 2) return ''
-  const actCore = semanticTitleCore(t)
-  const pCore = semanticTitleCore(pc)
-  if (actCore.length < 2 || actCore === pCore) return ''
-  if (/^(samlet|helg|helgen|informasjon|oversikt|oppsummering|praktisk|info)\b/i.test(actCore)) return ''
-  if (/^(mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag)$/.test(actCore)) return ''
-  const display = actCore.charAt(0).toLocaleUpperCase('nb-NO') + actCore.slice(1)
-  return display.length > 44 ? `${display.slice(0, 41)}…` : display
+  return base
 }
 
 /**
@@ -209,7 +221,7 @@ export function embeddedScheduleChildReviewDisplayTitle(
   segmentTitle: string,
   segmentIsoDate: string
 ): string {
-  const core = parentCalendarCoreTitle.trim()
+  const core = getParentCoreTitle(parentCalendarCoreTitle.trim())
   const wd = norwegianWeekdayLong(segmentIsoDate)
   if (!core || core.length < 2) {
     return segmentTitleForDisplay(segmentTitle)
@@ -217,9 +229,10 @@ export function embeddedScheduleChildReviewDisplayTitle(
   if (!wd) {
     return segmentTitleForDisplay(segmentTitle)
   }
-  const activity = deriveShortDistinctSegmentActivity(core, segmentTitle)
-  const base = `${core} – ${wd}`
-  return activity ? `${base} · ${activity}` : base
+  return normalizeArrangementChildTitle(segmentTitle, core, {
+    date: segmentIsoDate,
+    title: segmentTitle,
+  })
 }
 
 /**
