@@ -2697,6 +2697,19 @@ export function useTankestromImport({
     if (schoolReview) return { ok: false, partial: false }
     if (!bundle || proposalItems.length === 0) return { ok: false, partial: false }
     const ids = [...selectedIds]
+    const selectedActions = ids.map((id) => ({
+      proposalId: id,
+      importKind: draftByProposalId[id]?.importKind ?? 'missing',
+      existingAction:
+        existingEventLinkByProposalId[id] ??
+        (existingEventMatchesByProposalId[id]?.candidate ? 'update_default' : 'new_default'),
+    }))
+    console.info('[Tankestrom import approve clicked]', {
+      selectedProposalIds: ids,
+      selectedCount: ids.length,
+      proposalsCount: proposalItems.length,
+      selectedActions,
+    })
     if (ids.length === 0) {
       setError('Velg minst ett forslag som skal importeres.')
       return { ok: false, partial: false }
@@ -2721,6 +2734,18 @@ export function useTankestromImport({
     try {
       const failureRecords: TankestromImportPersistFailureRecord[] = []
       const failedIds = new Set<string>()
+      const persistPlanPreview: Array<{
+        proposalId: string
+        childId?: string
+        mode: string
+        title: string
+        date: string
+        start: string
+        end: string
+        personId: string
+        validationErrors: string[]
+      }> = []
+      let attemptedPersistOps = 0
       const createdEvents: TankestromImportSuccess['createdEvents'] = []
       const updatedEvents: TankestromImportSuccess['updatedEvents'] = []
       const createdTasks: TankestromImportSuccess['createdTasks'] = []
@@ -2759,6 +2784,50 @@ export function useTankestromImport({
         })
         return found ? { event: found.event, anchorDate: found.anchorDate } : null
       }
+      for (const id of ids) {
+        const unified = draftByProposalId[id]
+        const item = bundle.items.find((p) => p.proposalId === id)
+        if (!unified || !item || unified.importKind !== 'event') {
+          if (unified?.importKind === 'task') {
+            persistPlanPreview.push({
+              proposalId: id,
+              mode: 'createTask',
+              title: unified.task.title.trim(),
+              date: unified.task.date.trim(),
+              start: '',
+              end: '',
+              personId: unified.task.childPersonId || unified.task.assignedToPersonId || '',
+              validationErrors: [],
+            })
+          }
+          continue
+        }
+        const ev = unified.event
+        const fieldErrors = getTankestromDraftFieldErrors(ev, validPersonIds)
+        const meta =
+          item.kind === 'event' && item.event.metadata && typeof item.event.metadata === 'object'
+            ? (item.event.metadata as Record<string, unknown>)
+            : null
+        const mode =
+          meta?.isArrangementParent === true && meta?.exportAsCalendarEvent === false
+            ? 'embedded_parent_container'
+            : existingEventLinkByProposalId[id] === 'update'
+              ? 'update'
+              : 'createEvent'
+        persistPlanPreview.push({
+          proposalId: id,
+          mode,
+          title: ev.title.trim(),
+          date: ev.date.trim(),
+          start: normalizeTimeInput(ev.start),
+          end: normalizeTimeInput(ev.end),
+          personId: ev.personId.trim(),
+          validationErrors: Object.values(fieldErrors).filter(Boolean),
+        })
+      }
+      console.info('[Tankestrom import persist plan]', {
+        planItems: persistPlanPreview,
+      })
 
       const recordFailure = (
         proposalId: string,
@@ -2941,6 +3010,7 @@ export function useTankestromImport({
             })
           }
           try {
+            attemptedPersistOps += 1
             await createEvent(draftEv.date, input)
             recordSuccess(id, 'event', 'createEvent')
             const persisted = findCreatedEventByProposalId(id)
@@ -2986,6 +3056,22 @@ export function useTankestromImport({
             item.event.metadata && typeof item.event.metadata === 'object' && !Array.isArray(item.event.metadata)
               ? (item.event.metadata as Record<string, unknown>)
               : null
+          const isParentContainerWithoutProgram =
+            meta?.isArrangementParent === true &&
+            meta?.exportAsCalendarEvent === false &&
+            (!Array.isArray(meta?.embeddedSchedule) ||
+              (meta?.embeddedSchedule as unknown[]).length === 0)
+          if (isParentContainerWithoutProgram) {
+            recordFailure(
+              id,
+              'event',
+              'createEvent',
+              'validation',
+              'Arrangementet har ingen importerbare underhendelser.',
+              { title: draftByProposalId[id]?.importKind === 'event' ? draftByProposalId[id]!.event.title : 'Arrangement', field: 'unknown' }
+            )
+            continue
+          }
           const isParentContainer =
             meta?.isArrangementParent === true &&
             meta?.exportAsCalendarEvent === false &&
@@ -3059,6 +3145,7 @@ export function useTankestromImport({
                 },
               })
             }
+            attemptedPersistOps += 1
             await createTask(taskInput)
             recordSuccess(id, 'task', 'createTask')
             createdTasks.push({ id, title: taskInput.title, date: taskInput.date })
@@ -3338,6 +3425,7 @@ export function useTankestromImport({
           }
 
           try {
+            attemptedPersistOps += 1
             await editEvent(anchorDate, existingEvent, updates)
             recordSuccess(id, 'event', 'editEvent')
             pushUpdatedEvent({
@@ -3421,19 +3509,14 @@ export function useTankestromImport({
             }
 
             if (segmentsToExport.length === 0) {
-              if (TANKESTROM_IMPORT_PERSIST_DEBUG) {
-                console.debug('[tankestrom embedded schedule export]', {
-                  embeddedScheduleExportPolicyUsed,
-                  embeddedScheduleChildEventsBuiltForExport: [],
-                  embeddedScheduleParentExportSuppressedAsSingleAllDay: true,
-                  embeddedScheduleParentExportIntercepted: true,
-                  reason: 'all_segments_detached_or_filtered',
-                })
-              }
-              recordSuccess(id, 'event', 'createEvent')
-              if (item.originalSourceType === MANUAL_REVIEW_SOURCE_TYPE) {
-                logEvent('manualReviewItemImported', { proposalId: id, kind: 'event' })
-              }
+              recordFailure(
+                id,
+                'event',
+                'createEvent',
+                'validation',
+                'Arrangementet har program, men ingen kalenderhendelser ble bygget fra programmet.',
+                { title: draft.title, date: draft.date, field: 'unknown' }
+              )
               continue
             }
 
@@ -3566,6 +3649,7 @@ export function useTankestromImport({
               }
 
               try {
+                attemptedPersistOps += 1
                 await createEvent(draftEv.date, input)
                 recordSuccess(childProposalId, 'event', 'createEvent')
                 const persisted = findCreatedEventByProposalId(childProposalId)
@@ -3710,6 +3794,7 @@ export function useTankestromImport({
           continue
         }
         try {
+          attemptedPersistOps += 1
           await createEvent(draft.date, input)
           recordSuccess(id, 'event', 'createEvent')
           const persisted = findCreatedEventByProposalId(id)
@@ -3824,6 +3909,30 @@ export function useTankestromImport({
         }
         return { ok: false, partial: false, failureMessage: userFacingFailure }
       }
+      if (attemptedPersistOps === 0 && createdEvents.length === 0 && updatedEvents.length === 0 && createdTasks.length === 0) {
+        const message =
+          ids.length > 0
+            ? 'Ingen kalenderhendelser eller gjøremål kunne bygges fra valget. Åpne Rediger og sjekk dato, tid og type.'
+            : 'Importen ga ingen resultat. Ingen hendelser ble lagret.'
+        console.error('[Tankestrom import fatal error]', {
+          message,
+          selectedProposalIds: ids,
+          selectedRowsByParent: Object.fromEntries(
+            Object.entries(embeddedScheduleReviewRowsByParentId).map(([pid, rows]) => [
+              pid,
+              rows.filter((r) => selectedIds.has(makeEmbeddedChildProposalId(pid, r.origIndex))).length,
+            ])
+          ),
+        })
+        setError(message)
+        return { ok: false, partial: false, failureMessage: message }
+      }
+      console.info('[Tankestrom import result]', {
+        createdEvents,
+        updatedEvents,
+        createdTasks,
+        failures: failureRecords,
+      })
       logTankestromImportPersist({
         tankestromImportFailureSummaryBuilt: true,
         tankestromImportFailedProposalIds: [],
@@ -3840,6 +3949,11 @@ export function useTankestromImport({
           arrangementTitle: selectedArrangementTitle,
         },
       }
+    } catch (error) {
+      console.error('[Tankestrom import fatal error]', error)
+      const message = error instanceof Error ? error.message : 'Importen feilet uventet. Prøv igjen.'
+      setError(message)
+      return { ok: false, partial: false, failureMessage: message }
     } finally {
       setSaveLoading(false)
     }
