@@ -110,4 +110,23 @@ describe('Tankestrom import classification (primary vs «Kanskje også relevant�
     expect(shouldPromoteEventItemToPrimary(item, ctx)).toBe(true)
     expect(proposalItemQualifiesSecondaryZone(item, ctx)).toBe(false)
   })
+
+  it('arrangement-child skal ikke havne i «Kanskje også relevant»', () => {
+    const item = vaarcupenLikeEvent(0.45)
+    item.event.metadata = {
+      ...item.event.metadata,
+      isArrangementChild: true,
+      parentArrangementStableKey: 'tg-arr-vaarcupen-2026-06',
+      arrangementBlockGroupId: 'grp-vaar-1',
+    }
+    const ctx = buildImportClassificationContext({
+      inputMode: 'file',
+      provenanceSourceType: 'uploaded_file',
+      sourceLength: 7000,
+      calendarItemCount: 1,
+      secondaryCandidateCount: 0,
+    })
+    expect(shouldPromoteEventItemToPrimary(item, ctx)).toBe(true)
+    expect(proposalItemQualifiesSecondaryZone(item, ctx)).toBe(false)
+  })
 })

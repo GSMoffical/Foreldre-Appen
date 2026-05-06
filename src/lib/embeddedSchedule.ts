@@ -128,9 +128,28 @@ export function evaluateEmbeddedScheduleParentCardHeuristic(item: {
   }
 
   const matched: string[] = ['embeddedSchedule']
+  const explicitArrangementParent = (m as { isArrangementParent?: unknown }).isArrangementParent === true
+  const distinctScheduleDates = new Set(
+    sched
+      .map((x) => {
+        if (!x || typeof x !== 'object') return ''
+        const d = (x as Record<string, unknown>).date
+        return typeof d === 'string' ? d.trim() : ''
+      })
+      .filter((d) => DATE_KEY.test(d))
+  ).size
   const isAllDay = (m as { isAllDay?: boolean }).isAllDay === true
   const multiDayAllDay = (m as { multiDayAllDay?: boolean }).multiDayAllDay === true
   const allDayClock = isEmbeddedScheduleParentAllDayClockRange(item.event.start, item.event.end)
+
+  if (explicitArrangementParent) {
+    matched.push('isArrangementParent')
+    return { ok: true, reason: 'isArrangementParent', matchedFields: matched }
+  }
+  if (distinctScheduleDates >= 2) {
+    matched.push('embeddedScheduleMultiDay')
+    return { ok: true, reason: 'embeddedScheduleMultiDay', matchedFields: matched }
+  }
 
   if (isAllDay) {
     matched.push('isAllDay')
@@ -149,7 +168,13 @@ export function evaluateEmbeddedScheduleParentCardHeuristic(item: {
     ok: false,
     reason: 'not_all_day_container_signal',
     matchedFields: matched,
-    expectedButMissing: ['isAllDay', 'multiDayAllDay', 'startEnd00:00-23:59'],
+    expectedButMissing: [
+      'isArrangementParent',
+      'embeddedSchedule(>=2 datoer)',
+      'isAllDay',
+      'multiDayAllDay',
+      'startEnd00:00-23:59',
+    ],
   }
 }
 

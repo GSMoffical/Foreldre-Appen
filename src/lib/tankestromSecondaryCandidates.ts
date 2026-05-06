@@ -28,6 +28,18 @@ function titleFromItem(item: PortalProposalItem): string {
   return ''
 }
 
+function isArrangementChildLikeEvent(item: PortalEventProposal): boolean {
+  const meta =
+    item.event.metadata && typeof item.event.metadata === 'object' && !Array.isArray(item.event.metadata)
+      ? (item.event.metadata as Record<string, unknown>)
+      : null
+  if (!meta) return false
+  if (meta.isArrangementChild === true) return true
+  const parentStable = meta.parentArrangementStableKey
+  if (typeof parentStable === 'string' && parentStable.trim().length > 0) return true
+  return false
+}
+
 export type ImportClassificationContext = {
   isExplicitUserImport: boolean
   isLongDocumentMode: boolean
@@ -91,6 +103,7 @@ export function shouldPromoteEventItemToPrimary(
   ctx: ImportClassificationContext
 ): boolean {
   if (item.kind !== 'event') return false
+  if (isArrangementChildLikeEvent(item)) return true
   const title = titleFromItem(item)
   if (title.length < 1) return false
   if (!hasConcreteDateOrDateRangeForEvent(item)) return false
@@ -134,6 +147,7 @@ export function proposalItemQualifiesSecondaryZone(
 ): boolean {
   if (item.kind === 'school_profile') return false
   if (item.kind === 'event' && isEmbeddedScheduleParentProposalItem(item)) return false
+  if (item.kind === 'event' && isArrangementChildLikeEvent(item)) return false
   if (item.kind === 'event' && ctx && shouldPromoteEventItemToPrimary(item, ctx)) return false
   if (item.confidence < SECONDARY_ZONE_CONF_MIN || item.confidence >= SECONDARY_ZONE_CONF_MAX) return false
   const t = titleFromItem(item)

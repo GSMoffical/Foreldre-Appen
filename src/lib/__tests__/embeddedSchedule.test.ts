@@ -73,6 +73,40 @@ describe('evaluateEmbeddedScheduleParentCardHeuristic', () => {
     expect(h.reason).toBe('allDayClockRange')
   })
 
+  it('godtar legacy-flagget isArrangementParent', () => {
+    const item = {
+      ...baseEvent,
+      event: {
+        ...baseEvent.event,
+        metadata: {
+          ...baseEvent.event.metadata,
+          isArrangementParent: true,
+        } as EventMetadata,
+      },
+    }
+    const h = evaluateEmbeddedScheduleParentCardHeuristic(item)
+    expect(h.ok).toBe(true)
+    expect(h.reason).toBe('isArrangementParent')
+  })
+
+  it('godtar embeddedSchedule med minst to datoer uten heldagsflagg', () => {
+    const item = {
+      ...baseEvent,
+      event: {
+        ...baseEvent.event,
+        metadata: {
+          embeddedSchedule: [
+            { date: '2026-06-12', title: 'Fredag' },
+            { date: '2026-06-13', title: 'Lørdag' },
+          ],
+        } as EventMetadata,
+      },
+    }
+    const h = evaluateEmbeddedScheduleParentCardHeuristic(item)
+    expect(h.ok).toBe(true)
+    expect(h.reason).toBe('embeddedScheduleMultiDay')
+  })
+
   it('avviser innebygd program med vanlig klokkeslett og uten heldagssignal', () => {
     const h = evaluateEmbeddedScheduleParentCardHeuristic(baseEvent)
     expect(h.ok).toBe(false)

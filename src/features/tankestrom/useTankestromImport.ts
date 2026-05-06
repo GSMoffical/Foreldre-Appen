@@ -83,6 +83,7 @@ import { normalizePersistedPersonId, requiresPersonForImport } from '../../lib/t
 
 const TANKESTROM_IMPORT_PERSIST_DEBUG =
   import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+const MISSING_ENDTIME_REVIEW_MESSAGE = 'Sluttid ikke oppgitt – rediger før import.'
 
 function logTankestromImportPersist(payload: Record<string, unknown>): void {
   if (!TANKESTROM_IMPORT_PERSIST_DEBUG) return
@@ -649,7 +650,7 @@ export function validateTankestromDraft(
   if (!isHm24(startNorm)) return 'Starttid må være gyldig klokkeslett (HH:mm, 24 t).'
 
   if (!d.end.trim()) {
-    return 'Sluttid ikke oppgitt. Rediger forslaget og legg inn sluttid før import.'
+    return MISSING_ENDTIME_REVIEW_MESSAGE
   }
   const endNorm = normalizeTimeInput(d.end)
   if (!isHm24(endNorm)) return 'Sluttid må være gyldig klokkeslett (HH:mm, 24 t).'
@@ -710,7 +711,7 @@ export function getTankestromDraftFieldErrors(
   }
 
   if (!d.end.trim()) {
-    out.end = 'Sluttid ikke oppgitt. Rediger forslaget og legg inn sluttid før import.'
+    out.end = MISSING_ENDTIME_REVIEW_MESSAGE
   } else {
     const endNorm = normalizeTimeInput(d.end)
     if (!isHm24(endNorm)) out.end = 'Ugyldig tid (HH:mm, 24 t).'
@@ -881,11 +882,28 @@ function buildEventDraftFromProposal(
     isEmbeddedScheduleParentProposalItem(p)
       ? normalizeEmbeddedScheduleParentDisplayTitle(ev.title.trim()).title
       : ev.title
+  const endTimeSource =
+    typeof meta.endTimeSource === 'string' ? meta.endTimeSource.trim().toLowerCase() : ''
+  const isFlightImport = String(travelImportType ?? '').trim().toLowerCase() === 'flight'
+  const canKeepComputedEnd =
+    endTimeSource === 'computed_from_duration' || endTimeSource === 'explicit_arrival_time'
+  const shouldForceManualEnd = isFlightImport && endTimeSource === 'fallback_duration' && !canKeepComputedEnd
+  const draftEnd = shouldForceManualEnd ? '' : ev.end
+  if (shouldForceManualEnd) {
+    meta.endTimeSource = 'missing_or_unreadable'
+    meta.requiresManualTimeReview = true
+    meta.inferredEndTime = false
+    if (ev.metadata && typeof ev.metadata === 'object' && !Array.isArray(ev.metadata)) {
+      ;(ev.metadata as Record<string, unknown>).endTimeSource = 'missing_or_unreadable'
+      ;(ev.metadata as Record<string, unknown>).requiresManualTimeReview = true
+      ;(ev.metadata as Record<string, unknown>).inferredEndTime = false
+    }
+  }
   return {
     title,
     date: ev.date,
     start: ev.start,
-    end: ev.end,
+    end: draftEnd,
     personId: pid,
     personMatchStatus,
     importSourceKind,

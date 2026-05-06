@@ -63,6 +63,7 @@ import type { UseEventControllerReturn } from '../calendar/hooks/useEventControl
 import {
   useTankestromImport,
   makeEmbeddedChildProposalId,
+  parseEmbeddedChildProposalId,
   filterSubjectUpdatesByLanguageTrack,
   getTankestromDraftFieldErrors,
   getTankestromTaskFieldErrors,
@@ -1986,6 +1987,7 @@ function TankestromEmbeddedSchedulePreview({
   parentTitleForPreviewLines,
   expanded,
   onToggleExpanded,
+  alwaysExpanded,
 }: {
   proposalId: string
   item: PortalEventProposal
@@ -1995,12 +1997,14 @@ function TankestromEmbeddedSchedulePreview({
   parentTitleForPreviewLines?: string
   expanded: boolean
   onToggleExpanded: () => void
+  alwaysExpanded?: boolean
 }) {
   const flat =
     segmentsOverride && segmentsOverride.length > 0 ? segmentsOverride : flattenEmbeddedScheduleForPreview(item)
   if (flat.length === 0) return null
 
-  const visible = expanded ? flat : flat.slice(0, EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX)
+  const effectiveExpanded = alwaysExpanded ? true : expanded
+  const visible = effectiveExpanded ? flat : flat.slice(0, EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX)
   const remainder = flat.length > EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX ? flat.length - EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX : 0
   const previewParentTitle =
     parentTitleForPreviewLines?.trim() ||
@@ -2028,16 +2032,16 @@ function TankestromEmbeddedSchedulePreview({
           </li>
         ))}
       </ul>
-      {!expanded && remainder > 0 ? (
+      {!effectiveExpanded && remainder > 0 ? (
         <p className="mt-1 text-[10px] font-medium text-zinc-500">+{remainder} til</p>
       ) : null}
-      {flat.length > EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX ? (
+      {!alwaysExpanded && flat.length > EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX ? (
         <button
           type="button"
           onClick={onToggleExpanded}
           className="mt-1 text-left text-[10px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:decoration-brandNavy touch-manipulation sm:text-[11px]"
         >
-          {expanded ? 'Skjul program' : 'Vis hele programmet'}
+          {effectiveExpanded ? 'Skjul program' : 'Vis hele programmet'}
         </button>
       ) : null}
     </div>
@@ -2458,6 +2462,21 @@ export function TankestromImportDialog({
     }
     return n
   }, [selectedIds, draftByProposalId])
+  const selectedEmbeddedProgramSummary = useMemo(() => {
+    let parentCount = 0
+    let childEventCount = 0
+    const seenParents = new Set<string>()
+    for (const id of selectedIds) {
+      const parsed = parseEmbeddedChildProposalId(id)
+      if (parsed) {
+        childEventCount += 1
+        seenParents.add(parsed.parentProposalId)
+        continue
+      }
+    }
+    parentCount = seenParents.size
+    return { parentCount, childEventCount }
+  }, [selectedIds])
 
   const resolvedOverlayChildName = useMemo(
     () => people.find((p) => p.id === schoolProfileChildId)?.name ?? '',
@@ -3319,8 +3338,15 @@ export function TankestromImportDialog({
                   const showSourceExpandToggle = sourceCtx && shouldOfferSourceExpand(fullSourceDoc, sourceCtx)
                   const sourceExpanded = expandedSourceIds.has(pid)
                   const detailsExpanded = expandedDetailIds.has(pid)
+                  const embeddedScheduleLen =
+                    item.kind === 'event' && Array.isArray(item.event.metadata?.embeddedSchedule)
+                      ? item.event.metadata.embeddedSchedule.length
+                      : 0
                   const embeddedScheduleParentCard =
-                    !detachedFromParentLabel && isEmbeddedScheduleParentReviewCard(item, u.importKind)
+                    !detachedFromParentLabel &&
+                    item.kind === 'event' &&
+                    u.importKind === 'event' &&
+                    (isEmbeddedScheduleParentReviewCard(item, u.importKind) || embeddedScheduleLen >= 2)
                   const eventFieldErrors =
                     u.importKind === 'event' && checked
                       ? getTankestromDraftFieldErrors(u.event, validPersonIds)
@@ -3363,14 +3389,27 @@ export function TankestromImportDialog({
                     return hm.test(ts) && hm.test(te) ? formatTimeRange(ts, te) : ts && te ? `${ts}–${te}` : '—'
                   })()
 
-                  const embeddedScheduleLen =
-                    item.kind === 'event' && Array.isArray(item.event.metadata?.embeddedSchedule)
-                      ? item.event.metadata.embeddedSchedule.length
-                      : 0
                   const programPointsCount =
                     embeddedScheduleParentCard && embeddedScheduleReviewRowsByParentId[pid]
                       ? embeddedScheduleReviewRowsByParentId[pid]!.length
                       : embeddedScheduleLen
+                  const selectedProgramPointsCount =
+                    embeddedScheduleParentCard && embeddedScheduleReviewRowsByParentId[pid]
+                      ? embeddedScheduleReviewRowsByParentId[pid]!.filter((r) =>
+                          selectedIds.has(makeEmbeddedChildProposalId(pid, r.origIndex))
+                        ).length
+                      : 0
+                  const programImportCount = selectedProgramPointsCount > 0 ? selectedProgramPointsCount : programPointsCount
+                  const parentMeta =
+                    item.kind === 'event' && item.event.metadata && typeof item.event.metadata === 'object'
+                      ? (item.event.metadata as Record<string, unknown>)
+                      : null
+                  const childSourceTag =
+                    parentMeta?.isArrangementParent === true
+                      ? 'legacy'
+                      : embeddedScheduleLen > 0
+                        ? 'embedded'
+                        : 'fallback'
                   const embeddedEndDateMaxFromProgram = (() => {
                     if (!embeddedScheduleParentCard || item.kind !== 'event') return ''
                     const rows = embeddedScheduleReviewRowsByParentId[pid] ?? []
@@ -3656,6 +3695,16 @@ export function TankestromImportDialog({
                               {embeddedParentReviewSummary.text}
                             </p>
                           ) : null}
+                          {embeddedScheduleParentCard ? (
+                            <p className="mt-1 text-[10px] font-medium leading-snug text-brandNavy sm:text-[11px]">
+                              Importerer {programImportCount} kalenderhendelser fra programmet
+                            </p>
+                          ) : null}
+                          {import.meta.env.DEV && embeddedScheduleParentCard ? (
+                            <p className="mt-1 rounded border border-dashed border-teal-200 bg-teal-50/70 px-2 py-1 font-mono text-[10px] leading-snug text-teal-900">
+                              embeddedScheduleCount={programPointsCount} · childSource={childSourceTag}
+                            </p>
+                          ) : null}
                           {showExistingEventMatchBanner && existingMatchCandidate ? (
                             <div
                               className={`mx-3 mt-2 rounded-xl border px-2.5 py-2 sm:px-3 ${
@@ -3760,6 +3809,7 @@ export function TankestromImportDialog({
                               parentTitleForPreviewLines={parentCalendarExportCore}
                               expanded={expandedProgramPreviewIds.has(pid)}
                               onToggleExpanded={() => toggleProgramPreviewExpanded(pid)}
+                              alwaysExpanded
                             />
                           ) : null}
                           {embeddedScheduleParentCard && showExistingEventMatchBanner ? (
@@ -4298,14 +4348,6 @@ export function TankestromImportDialog({
                                 </button>
                               </div>
                             </div>
-                          ) : null}
-                          {item.kind === 'event' &&
-                          Array.isArray(item.event.metadata?.embeddedSchedule) &&
-                          item.event.metadata.embeddedSchedule.length > 0 &&
-                          !embeddedScheduleParentCard ? (
-                            <p className="mt-0.5 text-[10px] font-medium text-brandNavy sm:text-[11px]">
-                              Program: {item.event.metadata.embeddedSchedule.length} punkter (vises i hendelsesdetaljer)
-                            </p>
                           ) : null}
                           {!editorOpen && notesPrev ? (
                             <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-zinc-500 sm:text-[11px]">
@@ -5024,9 +5066,13 @@ export function TankestromImportDialog({
             >
               {schoolWeekOverlayProposal
                 ? selectedIds.size > 0
-                  ? `Lagre overlay og importer (${selectedIds.size})`
+                  ? selectedEmbeddedProgramSummary.childEventCount > 0
+                    ? `Lagre overlay og importer (${selectedEmbeddedProgramSummary.parentCount} arrangement / ${selectedEmbeddedProgramSummary.childEventCount} hendelser)`
+                    : `Lagre overlay og importer (${selectedIds.size})`
                   : 'Lagre uke-overlay'
-                : `Importer valgte (${selectedIds.size})`}
+                : selectedEmbeddedProgramSummary.childEventCount > 0
+                  ? `Importer valgte (${selectedEmbeddedProgramSummary.parentCount} arrangement / ${selectedEmbeddedProgramSummary.childEventCount} hendelser)`
+                  : `Importer valgte (${selectedIds.size})`}
             </Button>
           )}
         </div>

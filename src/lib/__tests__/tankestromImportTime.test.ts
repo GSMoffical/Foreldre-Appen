@@ -116,10 +116,10 @@ describe('validateTankestromDraft tid', () => {
   it('blokkerer import med tydelig melding når sluttid mangler', () => {
     const d = { ...base, end: '' }
     expect(validateTankestromDraft(d, new Set(['p1']))).toBe(
-      'Sluttid ikke oppgitt. Rediger forslaget og legg inn sluttid før import.'
+      'Sluttid ikke oppgitt – rediger før import.'
     )
     const err = getTankestromDraftFieldErrors(d, new Set(['p1']))
-    expect(err.end).toBe('Sluttid ikke oppgitt. Rediger forslaget og legg inn sluttid før import.')
+    expect(err.end).toBe('Sluttid ikke oppgitt – rediger før import.')
   })
 
   it('blokkerer import når starttid mangler', () => {
