@@ -77,6 +77,7 @@ import {
 import { cardSection, typSectionCap } from '../../lib/ui'
 import { Button } from '../../components/ui/Button'
 import { Input, Textarea } from '../../components/ui/Input'
+import { TankestromScheduleDetails } from '../../components/TankestromScheduleDetails'
 import { SchoolProfileFields } from '../../components/SchoolProfileFields'
 import { logEvent } from '../../lib/appLogger'
 import { formatTimeRange } from '../../lib/time'
@@ -4252,43 +4253,16 @@ export function TankestromImportDialog({
                                             ) : null}
                                           </dl>
                                           <div className="space-y-3">
-                                            {childNotesPresentation?.mode === 'structured' &&
-                                            childNotesPresentation.highlights.length > 0 ? (
-                                              <div>
-                                                <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[10px]">
-                                                  Høydepunkter
-                                                </p>
-                                                <ul className="mt-1.5 list-disc space-y-1.5 pl-4 marker:text-zinc-400 sm:space-y-2 sm:pl-[1.125rem]">
-                                                  {childNotesPresentation.highlights.map((h, i) => (
-                                                    <li
-                                                      key={`${h.sortMinutes}-${i}`}
-                                                      className="pl-0.5 text-[11px] leading-snug sm:text-[12px]"
-                                                    >
-                                                      <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                                                        <span className="inline-flex shrink-0 rounded-md bg-orange-50 px-2 py-0.5 text-[11px] font-bold tabular-nums text-orange-900 ring-1 ring-orange-200/90 sm:text-[12px]">
-                                                          {h.displayTime}
-                                                        </span>
-                                                        <span className="min-w-0 font-medium text-zinc-800">{h.label}</span>
-                                                      </span>
-                                                    </li>
-                                                  ))}
-                                                </ul>
-                                              </div>
-                                            ) : null}
-                                            {childNotesPresentation?.mode === 'structured' &&
-                                            childNotesPresentation.noteLines.length > 0 ? (
-                                              <div>
-                                                <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[10px]">
-                                                  Notater
-                                                </p>
-                                                <ul className="mt-1.5 list-disc space-y-1 pl-4 text-[11px] leading-snug text-zinc-800 sm:text-[12px]">
-                                                  {childNotesPresentation.noteLines.map((n, i) => (
-                                                    <li key={i} className="break-words pl-0.5">
-                                                      {n}
-                                                    </li>
-                                                  ))}
-                                                </ul>
-                                              </div>
+                                            {childNotesPresentation?.mode === 'structured' ? (
+                                              <TankestromScheduleDetails
+                                                highlights={childNotesPresentation.highlights.map((h) => ({
+                                                  time: h.displayTime,
+                                                  label: h.label,
+                                                  type: 'other',
+                                                }))}
+                                                notes={childNotesPresentation.noteLines}
+                                                compact
+                                              />
                                             ) : null}
                                             {childNotesPresentation?.mode === 'plain' ? (
                                               <div>

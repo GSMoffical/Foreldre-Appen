@@ -12,6 +12,8 @@ import {
 import { formatTimeRange, durationMinutes } from '../lib/time'
 import { useFamily } from '../context/FamilyContext'
 import { getParticipantPeople } from '../lib/eventParticipants'
+import { TankestromScheduleDetails } from './TankestromScheduleDetails'
+import { readTankestromScheduleDetailsFromMetadata } from '../lib/tankestromScheduleDetails'
 
 interface EventDetailSheetProps {
   event: Event | null
@@ -113,6 +115,10 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
     const parsed = parseEmbeddedScheduleFromMetadata(event.metadata)
     return groupEmbeddedScheduleByDate(parsed)
   }, [event.metadata])
+  const tankestromDetails = useMemo(
+    () => readTankestromScheduleDetailsFromMetadata(event.metadata),
+    [event.metadata]
+  )
 
   useEffect(() => {
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -275,6 +281,14 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
             <p className="mt-2 text-body-sm text-zinc-600">
               <span className="font-medium">Notater:</span> {event.notes}
             </p>
+          )}
+          {(tankestromDetails.highlights.length > 0 || tankestromDetails.notes.length > 0) && (
+            <div className="mt-4">
+              <TankestromScheduleDetails
+                highlights={tankestromDetails.highlights}
+                notes={tankestromDetails.notes}
+              />
+            </div>
           )}
 
           {scheduleGroups.length > 0 && (

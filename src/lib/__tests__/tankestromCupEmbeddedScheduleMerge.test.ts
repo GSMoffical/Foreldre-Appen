@@ -97,6 +97,22 @@ describe('normalizeEmbeddedScheduleParentDisplayTitle', () => {
     expect(cal.toLowerCase()).not.toContain('samlet info')
     expect(cal.toLowerCase()).toContain('fredag')
   })
+
+  it('child eksport: fjerner dato/status i segmenttittel defensivt', () => {
+    const cal = embeddedScheduleChildCalendarExportTitle(
+      {
+        date: '2026-06-14',
+        start: '09:20',
+        end: '10:40',
+        title: 'Vårcupen 2026 – søndag · Søndag 14. juni 2026 (usikker / betinget)',
+      },
+      'Vårcupen 2026'
+    )
+    expect(cal).toBe('Vårcupen 2026 – søndag')
+    expect(cal.toLowerCase()).not.toContain('usikker')
+    expect(cal.toLowerCase()).not.toContain('betinget')
+    expect(cal.toLowerCase()).not.toContain('juni')
+  })
 })
 
 describe('applyCupWeekendEmbeddedScheduleMerge', () => {

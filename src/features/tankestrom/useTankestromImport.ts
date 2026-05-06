@@ -6,6 +6,7 @@ import type {
   EventMetadata,
   Person,
   SchoolWeekOverlay,
+  TankestromScheduleHighlight,
   Task,
   WeekdayMonFri,
 } from '../../types'
@@ -21,10 +22,17 @@ import {
   embeddedScheduleChildCalendarExportTitle,
   normalizeEmbeddedScheduleParentDisplayTitle,
 } from '../../lib/tankestromCupEmbeddedScheduleMerge'
+import { normalizeCalendarEventTitle } from '../../lib/tankestromTitleNormalization'
 import { dedupeNearDuplicateCalendarProposals } from '../../lib/tankestromImportDedupe'
 import { foldLegacyArrangementChildSegments } from '../../lib/tankestromLegacyArrangementSegments'
 import { redistributeEnrichSubjectUpdatesForDay } from '../../lib/schoolWeekOverlayEnrichRouting'
 import { resolveEmbeddedScheduleSegmentTimesForCalendarExport } from '../../lib/tankestromEmbeddedChildNotesPresentation'
+import { presentEmbeddedChildNotesForReview } from '../../lib/tankestromEmbeddedChildNotesPresentation'
+import {
+  buildTankestromScheduleDescriptionFallback,
+  dedupeNotesAgainstHighlights,
+  readTankestromScheduleDetailsFromMetadata,
+} from '../../lib/tankestromScheduleDetails'
 import type {
   PortalEventProposal,
   PortalImportProposalBundle,
@@ -265,6 +273,56 @@ function buildEmbeddedChildEventDraft(
     end,
     notes: segment.notes?.trim() ? segment.notes.trim() : parentDraft.notes,
   }
+}
+
+function highlightTypeFromLabel(label: string): TankestromScheduleHighlight['type'] {
+  const s = label.toLocaleLowerCase('nb-NO')
+  if (s.includes('kamp') || s.includes('match')) return 'match'
+  if (s.includes('oppmøte') || s.includes('møte')) return 'meeting'
+  if (s.includes('frist') || s.includes('deadline')) return 'deadline'
+  if (s.includes('notat') || s.includes('husk')) return 'note'
+  return 'other'
+}
+
+function structuredDetailsFromSegment(
+  segment: EmbeddedScheduleSegment,
+  parentCardTitle: string,
+  displayTitle: string,
+  childProposalId: string
+): { highlights: TankestromScheduleHighlight[]; notes: string[] } {
+  const p = presentEmbeddedChildNotesForReview({
+    seg: segment,
+    parentCardTitle,
+    displayTitle,
+    childProposalId,
+  })
+  if (!p) return { highlights: [], notes: [] }
+  if (p.mode === 'plain') return { highlights: [], notes: [] }
+  const highlights = p.highlights.map((h) => ({
+    time: h.displayTime.slice(0, 5),
+    label: h.label,
+    type: highlightTypeFromLabel(h.label),
+  }))
+  const notes = dedupeNotesAgainstHighlights(p.noteLines, highlights)
+  return { highlights, notes }
+}
+
+function attachTankestromDetailsToMetadata(
+  metadata: Record<string, unknown>,
+  details: { highlights: TankestromScheduleHighlight[]; notes: string[] }
+): void {
+  if (details.highlights.length === 0 && details.notes.length === 0) {
+    delete metadata.tankestromHighlights
+    delete metadata.tankestromNotes
+    delete metadata.tankestromDescriptionFallback
+    return
+  }
+  metadata.tankestromHighlights = details.highlights
+  metadata.tankestromNotes = details.notes
+  metadata.tankestromDescriptionFallback = buildTankestromScheduleDescriptionFallback(
+    details.highlights,
+    details.notes
+  )
 }
 
 function buildDetachedEmbeddedChildProposal(
@@ -880,8 +938,11 @@ function buildEventDraftFromProposal(
 
   const title =
     isEmbeddedScheduleParentProposalItem(p)
-      ? normalizeEmbeddedScheduleParentDisplayTitle(ev.title.trim()).title
-      : ev.title
+      ? normalizeCalendarEventTitle(normalizeEmbeddedScheduleParentDisplayTitle(ev.title.trim()).title, {
+          start: ev.start,
+          end: ev.end,
+        })
+      : normalizeCalendarEventTitle(ev.title, { start: ev.start, end: ev.end })
   const endTimeSource =
     typeof meta.endTimeSource === 'string' ? meta.endTimeSource.trim().toLowerCase() : ''
   const isFlightImport = String(travelImportType ?? '').trim().toLowerCase() === 'flight'
@@ -2674,6 +2735,22 @@ export function useTankestromImport({
           }
           mergeEventParticipantsIntoMetadata(metadata, draftEv, validPersonIds)
           sanitizeEmbeddedChildCalendarExportMetadata(metadata)
+          const parentCoreTitle = normalizeEmbeddedScheduleParentDisplayTitle(
+            parentItem.event.title.trim()
+          ).title
+          const detachedDetails = structuredDetailsFromSegment(
+            {
+              date: draftEv.date,
+              start: draftEv.start,
+              end: draftEv.end,
+              title: draftEv.title,
+              notes: draftEv.notes || undefined,
+            },
+            parentCoreTitle,
+            draftEv.title,
+            id
+          )
+          attachTankestromDetailsToMetadata(metadata, detachedDetails)
           const input: Omit<Event, 'id'> = {
             personId: normalizePersistedPersonId(draftEv.personId),
             title: draftEv.title,
@@ -3008,6 +3085,10 @@ export function useTankestromImport({
             else delete metadata.transport
           }
           mergeEventParticipantsIntoMetadata(metadata, draft, validPersonIds)
+          const proposalDetails = readTankestromScheduleDetailsFromMetadata(
+            proposalMeta as EventMetadata
+          )
+          attachTankestromDetailsToMetadata(metadata, proposalDetails)
 
           const incomingStableForPatch = readArrangementStableKey(ev.metadata)
           if (incomingStableForPatch && !readArrangementStableKey(baseMeta)) {
@@ -3194,6 +3275,13 @@ export function useTankestromImport({
               }
               mergeEventParticipantsIntoMetadata(metadata, draftEv, validPersonIds)
               sanitizeEmbeddedChildCalendarExportMetadata(metadata)
+              const scheduleDetails = structuredDetailsFromSegment(
+                row.segment,
+                normalizeEmbeddedScheduleParentDisplayTitle(draft.title.trim()).title,
+                draftEv.title,
+                childProposalId
+              )
+              attachTankestromDetailsToMetadata(metadata, scheduleDetails)
 
               const input: Omit<Event, 'id'> = {
                 personId: normalizePersistedPersonId(draftEv.personId),
@@ -3310,6 +3398,10 @@ export function useTankestromImport({
           else delete metadata.transport
         }
         mergeEventParticipantsIntoMetadata(metadata, draft, validPersonIds)
+        if (item.kind === 'event') {
+          const details = readTankestromScheduleDetailsFromMetadata(item.event.metadata as EventMetadata)
+          attachTankestromDetailsToMetadata(metadata, details)
+        }
         const calendarTitle =
           item.kind === 'event' && isEmbeddedScheduleParentCalendarItem(item)
             ? normalizeEmbeddedScheduleParentDisplayTitle(draft.title.trim()).title

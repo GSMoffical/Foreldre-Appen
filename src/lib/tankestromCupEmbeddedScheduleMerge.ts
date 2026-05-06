@@ -2,6 +2,7 @@ import type { EmbeddedScheduleSegment } from '../types'
 import type { PortalEventProposal, PortalProposalItem, PortalTaskProposal } from '../features/tankestrom/types'
 import { addCalendarDaysOslo } from './osloCalendar'
 import { semanticTitleCore } from './tankestromImportDedupe'
+import { normalizeCalendarEventTitle } from './tankestromTitleNormalization'
 
 /**
  * Konservativ klient-side merge: mange helge-eventforslag fra cup/turnering → ett parent-event
@@ -229,7 +230,10 @@ export function embeddedScheduleChildCalendarExportTitle(
   parentEventTitle: string
 ): string {
   const parentCore = normalizeEmbeddedScheduleParentDisplayTitle(parentEventTitle.trim()).title
-  return embeddedScheduleChildReviewDisplayTitle(parentCore, segment.title, segment.date)
+  return normalizeCalendarEventTitle(
+    embeddedScheduleChildReviewDisplayTitle(parentCore, segment.title, segment.date),
+    { start: segment.start, end: segment.end }
+  )
 }
 
 function segmentTitleForDisplay(rawTitle: string): string {
