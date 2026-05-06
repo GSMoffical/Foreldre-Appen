@@ -213,6 +213,14 @@ export interface EmbeddedScheduleSegment {
   isConditional?: boolean;
 }
 
+export type TankestromScheduleHighlightType = 'match' | 'meeting' | 'deadline' | 'note' | 'other'
+
+export interface TankestromScheduleHighlight {
+  time: string
+  label: string
+  type?: TankestromScheduleHighlightType
+}
+
 export interface EventMetadata {
   transport?: TransportInfo;
   /** Participant person ids for multi-person activities.
@@ -272,6 +280,12 @@ export interface EventMetadata {
     confidence?: string;
     signals?: string[];
   };
+  /** Tankestrøm: strukturerte highlights for visning i import + kalenderdetaljer. */
+  tankestromHighlights?: TankestromScheduleHighlight[]
+  /** Tankestrøm: strukturerte notatlinjer, deduplisert mot highlights. */
+  tankestromNotes?: string[]
+  /** Tekstfallback for eksterne kalendere uten støtte for chip-UI. */
+  tankestromDescriptionFallback?: string
   /** Free-form metadata reserved for future automation features. */
   [key: string]: unknown;
 }

@@ -55,6 +55,10 @@ export function stripEmbeddedChildSectionPrefixesFromLine(line: string): { text:
 function cleanHighlightLabel(label: string): string {
   if (label.trim() === '—') return '—'
   let { text } = stripEmbeddedChildSectionPrefixesFromLine(label)
+  text = text.replace(/^[,;:.!?()\-\s]+|[,;:.!?()\-\s]+$/g, '').trim()
+  if (/^kl\.?$/i.test(text)) return '—'
+  if (!/[a-zæøåA-ZÆØÅ0-9]/.test(text)) return '—'
+  if (/^kamper$/i.test(text)) return 'Kamp'
   if (!text) return '—'
   return text
 }
@@ -365,6 +369,14 @@ function cleanSlotBetweenTimes(
   return t.replace(/\s+/g, ' ').trim()
 }
 
+function normalizeActivityFallbackLabel(raw: string): string {
+  let t = cleanHighlightLabel(raw)
+  if (t === '—') return t
+  // Vanlig cup-tekst: «Kamper kl. 09:20 og kl. 15:10» -> «Kamp».
+  if (/^kamper$/i.test(t)) return 'Kamp'
+  return t
+}
+
 /**
  * Flere klokkeslett på én linje: én highlight per tid, etikett fra tekst **mellom** tidene
  * (unngår «09:20 Kamper kl. 15:10» på begge).
@@ -384,6 +396,10 @@ function inlineTimeHighlights(line: string): {
     matches.push({ start: m.index, end: m.index + m[0].length, h: m[1]!, m: m[2]! })
   }
   if (matches.length === 0) return { list: [], remainder: trimmed, ambiguousAllEmpty: false }
+
+  const firstBeforeRaw = trimmed.slice(0, matches[0]!.start)
+  const firstBefore = cleanSlotBetweenTimes(firstBeforeRaw, 'before', false).replace(/\bkl\.?\s*$/i, '').trim()
+  const activityFallback = normalizeActivityFallbackLabel(firstBefore)
 
   const list: InternalHighlight[] = []
   for (let i = 0; i < matches.length; i++) {
@@ -409,18 +425,15 @@ function inlineTimeHighlights(line: string): {
     } else {
       label = '—'
     }
-
-    if (i > 0 && label !== '—') {
-      const prevLab = list[list.length - 1]!.label
-      if (normalizeNotesDedupeKey(label) === normalizeNotesDedupeKey(prevLab)) {
-        label = '—'
-      }
+    label = cleanHighlightLabel(label)
+    if (label === '—' && activityFallback !== '—') {
+      label = activityFallback
     }
 
     const [sh, sm] = [start.slice(0, 2), start.slice(3, 5)]
     list.push({
       timeStart: start,
-      label: cleanHighlightLabel(label),
+      label,
       displayTime: start,
       sortMinutes: hmToSortMinutes(sh, sm),
       _source: 'note',
@@ -446,7 +459,12 @@ function inlineTimeHighlights(line: string): {
     .replace(/\s+/g, ' ')
     .trim()
 
-  return { list, remainder, ambiguousAllEmpty }
+  // Hvis hele linjen var tidsoppramsing for samme aktivitet, ikke behold duplikat i notater.
+  const onlyScheduleSentence =
+    list.length >= 2 &&
+    activityFallback !== '—' &&
+    normalizeNotesDedupeKey(remainder).length <= normalizeNotesDedupeKey(activityFallback).length + 3
+  return { list, remainder: onlyScheduleSentence ? '' : remainder, ambiguousAllEmpty }
 }
 
 function countConcreteTimesInLine(line: string): number {

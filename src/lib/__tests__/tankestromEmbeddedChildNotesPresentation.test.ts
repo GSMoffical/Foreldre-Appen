@@ -220,9 +220,9 @@ describe('presentEmbeddedChildNotesForReview', () => {
     expect(p.highlights).toHaveLength(2)
     const byTime = [...p.highlights].sort((a, b) => a.timeStart.localeCompare(b.timeStart))
     expect(byTime[0]!.timeStart).toBe('09:20')
-    expect(normalizeLabel(byTime[0]!.label)).toContain('kamper')
+    expect(normalizeLabel(byTime[0]!.label)).toBe('kamp')
     expect(byTime[1]!.timeStart).toBe('15:10')
-    expect(byTime[1]!.label.trim()).toBe('—')
+    expect(normalizeLabel(byTime[1]!.label)).toBe('kamp')
   })
 
   it('tolker «Kamp kl. 09:20, neste kl. 15:10» med riktige etiketter per tid', () => {
@@ -243,6 +243,32 @@ describe('presentEmbeddedChildNotesForReview', () => {
     const h15 = p.highlights.find((h) => h.timeStart === '15:10')
     expect(normalizeLabel(h09?.label ?? '')).toContain('kamp')
     expect(normalizeLabel(h15?.label ?? '')).toContain('neste')
+  })
+
+  it('bruker aktivitet som fallback-label og fjerner ikke-setningsduplikat fra notater', () => {
+    const seg: EmbeddedScheduleSegment = {
+      date: '2026-06-13',
+      title: 'Vårcupen 2026 – lørdag',
+      notes: [
+        'Kamper kl. 09:20 og kl. 15:10',
+        'Oppmøte 45 minutter før hver kamp',
+        'Det er meldt ustabilt vær denne helgen.',
+      ].join('\n'),
+    }
+    const p = presentEmbeddedChildNotesForReview({
+      seg,
+      displayTitle: 'Vårcupen 2026 – lørdag',
+      childProposalId: 'test-vaarcup-kl',
+    })
+    expect(p?.mode).toBe('structured')
+    if (p?.mode !== 'structured') return
+    const byTime = [...p.highlights].sort((a, b) => a.timeStart.localeCompare(b.timeStart))
+    expect(byTime.map((h) => h.timeStart)).toEqual(['09:20', '15:10'])
+    expect(normalizeLabel(byTime[0]!.label)).toBe('kamp')
+    expect(normalizeLabel(byTime[1]!.label)).toBe('kamp')
+    expect(p.noteLines.some((l) => /kamper kl\./i.test(l))).toBe(false)
+    expect(p.noteLines.some((l) => /oppmøte 45/i.test(l))).toBe(true)
+    expect(p.noteLines.some((l) => /ustabilt vær/i.test(l))).toBe(true)
   })
 
   it('ved bare flere klokkeslett uten tekst faller linjen til notat (trygt)', () => {
