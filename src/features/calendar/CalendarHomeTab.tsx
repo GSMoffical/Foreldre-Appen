@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { FamilyFilterBar } from '../../components/FamilyFilterBar'
 import { SearchBar } from '../../components/SearchBar'
 import { WeekStrip } from '../../components/WeekStrip'
@@ -80,9 +80,16 @@ export function CalendarHomeTab({
   dayTasks,
   allDayEvents,
 }: CalendarHomeTabProps) {
-  const [showTodayPanel, setShowTodayPanel] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const { people } = useFamily()
+
+  const selectedDateLabel = useMemo(() => {
+    const d = new Date(selectedDate + 'T12:00:00')
+    const day = d.getDate()
+    const month = d.toLocaleDateString('nb-NO', { month: 'long' })
+    const dayName = d.toLocaleDateString('nb-NO', { weekday: 'long' })
+    return { day, month, dayName }
+  }, [selectedDate])
 
   const openTasksWithPerson = useMemo(() =>
     dayTasks
@@ -105,10 +112,7 @@ export function CalendarHomeTab({
   )
 
   const todayKey = todayKeyOslo()
-  const todayDayData = weekLayoutData.find((d) => d.date === todayKey)
-  const todayEvents = todayDayData?.events ?? []
-  const todayOpenTasks = selectedDate === todayKey ? dayTasks.filter((t) => !t.completedAt) : []
-  const todayHasData = todayEvents.length > 0 || todayOpenTasks.length > 0
+  const isViewingToday = selectedDate === todayKey
 
   return (
     <div className="relative flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden">
@@ -142,12 +146,22 @@ export function CalendarHomeTab({
           </div>
         </div>
 
-        {/* Date headline */}
-        {periodContextLabel && (
-          <p className="px-4 pb-1 font-display text-[22px] font-bold leading-tight text-neutral-600">
-            {periodContextLabel}
-          </p>
-        )}
+        {/* ── Date headline ── */}
+        <div className="flex items-center gap-2.5 px-4 pb-1 pt-0">
+          <span className="font-display text-[24px] font-bold capitalize leading-tight text-neutral-700">
+            {selectedDateLabel.day}. {selectedDateLabel.month}
+          </span>
+          {isViewingToday && (
+            <span className="rounded-full bg-primary-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-white">
+              I dag
+            </span>
+          )}
+          {periodContextLabel && (
+            <span className="ml-auto text-[11px] font-medium text-neutral-400">
+              {periodContextLabel}
+            </span>
+          )}
+        </div>
 
         {/* Family filter */}
         <FamilyFilterBar
@@ -156,7 +170,7 @@ export function CalendarHomeTab({
           mePersonId={mePersonId}
         />
 
-        {/* Controls row */}
+        {/* ── Controls row ── */}
         {searchOpen ? (
           <div className="flex items-center px-3 pb-1.5 pt-0.5">
             <SearchBar
@@ -169,10 +183,11 @@ export function CalendarHomeTab({
           </div>
         ) : (
           <div className="flex items-center gap-1.5 px-3 pb-1.5 pt-0.5">
+            {/* Week nav */}
             <button
               type="button"
               onClick={() => handleChangeWeek(-1)}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-400 shadow-card transition hover:bg-neutral-50 active:bg-neutral-200 touch-manipulation"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-400 shadow-card transition hover:bg-neutral-50 active:scale-95 touch-manipulation"
               aria-label="Forrige uke"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
@@ -184,26 +199,32 @@ export function CalendarHomeTab({
               type="button"
               onClick={handleJumpToToday}
               aria-label="Hopp til i dag"
-              className="shrink-0 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-neutral-500 shadow-card transition hover:bg-neutral-50 active:bg-neutral-200 touch-manipulation"
+              className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold transition active:scale-95 touch-manipulation ${
+                isViewingToday
+                  ? 'bg-primary-600 text-white shadow-[0_2px_8px_rgba(29,90,63,0.3)]'
+                  : 'border border-neutral-200 bg-white text-neutral-500 shadow-card hover:bg-neutral-50'
+              }`}
             >
               I dag
             </button>
             <button
               type="button"
               onClick={() => handleChangeWeek(1)}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-400 shadow-card transition hover:bg-neutral-50 active:bg-neutral-200 touch-manipulation"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-400 shadow-card transition hover:bg-neutral-50 active:scale-95 touch-manipulation"
               aria-label="Neste uke"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
               </svg>
             </button>
+
+            {/* Add actions */}
             <div className="ml-auto flex shrink-0 items-center gap-2">
               <button
                 id="onb-add-task"
                 type="button"
                 onClick={() => openAddTask()}
-                className="shrink-0 rounded-full border border-neutral-300 bg-white px-3 py-1 text-[11px] font-semibold text-neutral-500 shadow-card transition hover:bg-neutral-50 active:scale-95 focus:outline-none touch-manipulation"
+                className="shrink-0 rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-neutral-600 shadow-card transition hover:border-primary-300 hover:text-primary-700 active:scale-95 focus:outline-none touch-manipulation"
               >
                 + Gjøremål
               </button>
@@ -211,7 +232,7 @@ export function CalendarHomeTab({
                 id="onb-add-event"
                 type="button"
                 onClick={() => openAddEvent()}
-                className="shrink-0 rounded-full bg-primary-600 px-3.5 py-1 text-[11px] font-semibold text-white shadow-card transition hover:bg-primary-700 active:scale-95 active:shadow-press focus:outline-none touch-manipulation"
+                className="shrink-0 rounded-full bg-primary-600 px-3.5 py-1.5 text-[11px] font-bold text-white shadow-[0_2px_8px_rgba(29,90,63,0.3)] transition hover:bg-primary-700 active:scale-95 focus:outline-none touch-manipulation"
               >
                 + Hendelse
               </button>
@@ -228,69 +249,6 @@ export function CalendarHomeTab({
           />
         </div>
         <CalendarDayNote date={selectedDate} />
-        {todayHasData && (
-          <div className="px-3 pb-1">
-            <button
-              type="button"
-              onClick={() => setShowTodayPanel((v) => !v)}
-              className="flex w-full items-center gap-2 rounded-xl px-1 py-1.5 text-left transition hover:bg-neutral-50"
-            >
-              <span className="text-caption font-semibold uppercase tracking-wider text-neutral-400">I dag</span>
-              <span className="min-w-0 flex-1 truncate text-caption text-neutral-400">
-                {todayEvents.length > 0 && `${todayEvents.length} ${todayEvents.length === 1 ? 'hendelse' : 'hendelser'}`}
-                {todayEvents.length > 0 && todayOpenTasks.length > 0 && ' · '}
-                {todayOpenTasks.length > 0 && (
-                  <span className="text-accent-sun-main">{todayOpenTasks.length} gjøremål</span>
-                )}
-              </span>
-              <motion.svg
-                animate={{ rotate: showTodayPanel ? 180 : 0 }}
-                transition={springSnappy}
-                className="h-3 w-3 shrink-0 text-neutral-300"
-                fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-              </motion.svg>
-            </button>
-            <AnimatePresence>
-              {showTodayPanel && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.18 }}
-                  className="overflow-hidden"
-                >
-                  <div className="space-y-2 px-1 pb-2 pt-0.5">
-                    {todayEvents.length > 0 && (
-                      <div className="space-y-1">
-                        {todayEvents.map((e) => (
-                          <div key={e.id} className="flex items-center gap-2">
-                            <span className="shrink-0 tabular-nums text-caption text-neutral-400">{e.start}–{e.end}</span>
-                            <span className="min-w-0 truncate text-label font-medium text-neutral-600">{e.title}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {todayOpenTasks.length > 0 && (
-                      <div className="space-y-1">
-                        {todayOpenTasks.map((t) => (
-                          <div key={t.id} className="flex items-center gap-2">
-                            <span className="h-1.5 w-1.5 shrink-0 rounded-sm bg-accent-sun-main" />
-                            {t.dueTime && (
-                              <span className="shrink-0 tabular-nums text-caption font-semibold text-accent-sun-main">{t.dueTime}</span>
-                            )}
-                            <span className="min-w-0 truncate text-label font-medium text-neutral-600">{t.title}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
         {openTasksWithPerson.length > 0 && (
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-3 pb-1.5 pt-0.5">
             <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-neutral-400" aria-hidden>Gjøremål</span>
