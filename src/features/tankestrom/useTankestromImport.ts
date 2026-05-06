@@ -1,9 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ChildSchoolProfile, EmbeddedScheduleSegment, Event, Person, SchoolWeekOverlay, Task, WeekdayMonFri } from '../../types'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type {
+  ChildSchoolProfile,
+  EmbeddedScheduleSegment,
+  Event,
+  EventMetadata,
+  Person,
+  SchoolWeekOverlay,
+  Task,
+  WeekdayMonFri,
+} from '../../types'
 import {
   evaluateEmbeddedScheduleParentCardHeuristic,
   flattenEmbeddedScheduleOrdered,
   isEmbeddedScheduleParentProposalItem,
+  parseEmbeddedScheduleFromMetadata,
 } from '../../lib/embeddedSchedule'
 import { filterSubjectUpdatesByLanguageTrack } from '../../lib/schoolWeekOverlayFilters'
 import {
@@ -38,11 +48,14 @@ import { parseTime } from '../../lib/time'
 import { getISOWeek, getISOWeekYear } from '../../lib/isoWeek'
 import {
   findConservativeExistingEventMatch,
+  getIncomingArrangementRange,
   readArrangementBlockGroupId,
   readArrangementCoreTitle,
   readArrangementStableKey,
   type ExistingEventMatchResult,
 } from '../../lib/tankestromExistingEventMatch'
+import { addCalendarDaysOslo } from '../../lib/osloCalendar'
+import { getEventParticipantIds } from '../../lib/schedule'
 import { cleanupParallelClusterDayRowsAfterEmbeddedParentUpdate } from '../../lib/tankestromExistingEventClusterCleanup'
 import {
   aggregatePersistFailureKinds,
@@ -1239,6 +1252,8 @@ export interface UseTankestromImportOptions {
   editEvent?: TankestromEditEventFn
   /** Eksisterende forgrunnshendelser for konservativ match i review. */
   getAnchoredForegroundEventsForMatching?: () => { event: Event; anchorDate: string }[]
+  /** Prefetch kalenderhendelser for import-datoer ±7 dager (slik at matching ser hele kalenderen). */
+  prefetchEventsForDateRange?: (startDate: string, endDate: string) => void | Promise<void>
   /** Slett overflødige dag-rader etter oppdatering av programforelder (valgfritt). */
   deleteEvent?: (date: string, eventId: string) => Promise<void>
   /** Kreves for lagring av timeplan-import (skoleprofil). */
@@ -1255,6 +1270,7 @@ export function useTankestromImport({
   createTask,
   editEvent,
   getAnchoredForegroundEventsForMatching,
+  prefetchEventsForDateRange,
   deleteEvent,
   updatePerson,
 }: UseTankestromImportOptions) {
@@ -1432,8 +1448,8 @@ export function useTankestromImport({
   }, [bundle?.schoolWeekOverlayProposal, schoolProfileChildId, people, updatePerson])
 
   const existingEventMatchesByProposalId = useMemo((): Record<string, ExistingEventMatchResult> => {
-    if (step !== 'review' || !bundle || !getAnchoredForegroundEventsForMatching) return {}
-    const anchored = getAnchoredForegroundEventsForMatching()
+    if (step !== 'review' || !bundle) return {}
+    const anchored = getAnchoredForegroundEventsForMatching?.() ?? []
     const out: Record<string, ExistingEventMatchResult> = {}
     for (const item of primaryCalendarProposalItems) {
       if (item.kind !== 'event') continue
@@ -1463,6 +1479,112 @@ export function useTankestromImport({
     draftByProposalId,
     getAnchoredForegroundEventsForMatching,
     embeddedScheduleReviewRowsByParentId,
+  ])
+
+  const prefetchImportMatchRangeRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!open || step === 'pick') {
+      prefetchImportMatchRangeRef.current = null
+    }
+  }, [open, step])
+
+  useEffect(() => {
+    if (step !== 'review' || !bundle || !prefetchEventsForDateRange) return
+    const dates: string[] = []
+    for (const item of primaryCalendarProposalItems) {
+      if (item.kind !== 'event') continue
+      const draftWrap = draftByProposalId[item.proposalId]
+      if (!draftWrap || draftWrap.importKind !== 'event') continue
+      const range = proposalImportDateRangeForMatch(
+        item,
+        draftWrap.event,
+        embeddedScheduleReviewRowsByParentId[item.proposalId]
+      )
+      if (range) {
+        const inc = getIncomingArrangementRange(item, range.start, range.end)
+        dates.push(inc.start, inc.end)
+      }
+      const meta = item.event.metadata
+      if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
+        for (const seg of parseEmbeddedScheduleFromMetadata(meta as EventMetadata)) {
+          dates.push(seg.date)
+        }
+      }
+    }
+    const valid = dates.filter((d) => DATE_KEY_RE.test(d))
+    if (valid.length === 0) return
+    const sorted = [...new Set(valid)].sort()
+    const from = addCalendarDaysOslo(sorted[0]!, -7)
+    const to = addCalendarDaysOslo(sorted[sorted.length - 1]!, 7)
+    const key = `${from}|${to}`
+    if (prefetchImportMatchRangeRef.current === key) return
+    prefetchImportMatchRangeRef.current = key
+    void prefetchEventsForDateRange(from, to)
+  }, [
+    step,
+    bundle,
+    prefetchEventsForDateRange,
+    primaryCalendarProposalItems,
+    draftByProposalId,
+    embeddedScheduleReviewRowsByParentId,
+  ])
+
+  useLayoutEffect(() => {
+    if (step !== 'review' || !bundle) return
+    const proposals = primaryCalendarProposalItems
+      .filter((p): p is PortalEventProposal => p.kind === 'event')
+      .map((p) => ({
+        proposalId: p.proposalId,
+        title: p.event?.title,
+        personId: p.event?.personId,
+        start: p.event?.start,
+        end: p.event?.end,
+        metadata: {
+          arrangementStableKey: p.event?.metadata?.arrangementStableKey,
+          arrangementCoreTitle: p.event?.metadata?.arrangementCoreTitle,
+          embeddedSchedule: p.event?.metadata?.embeddedSchedule,
+          updateIntent: p.event?.metadata?.updateIntent,
+        },
+      }))
+    const anchored = getAnchoredForegroundEventsForMatching?.() ?? []
+    const existingEventsLoaded = anchored.map(({ event: e }) => ({
+      id: e.id,
+      title: e.title,
+      personId: e.personId,
+      participants: getEventParticipantIds(e),
+      start: e.start,
+      end: e.end,
+      metadata: {
+        arrangementStableKey: e.metadata?.arrangementStableKey,
+        arrangementCoreTitle: e.metadata?.arrangementCoreTitle,
+      },
+    }))
+    const matchesByProposalId = Object.fromEntries(
+      Object.entries(existingEventMatchesByProposalId).map(([proposalId, match]) => [
+        proposalId,
+        {
+          matchStatus: match?.matchStatus,
+          eventId: match?.candidate?.event.id,
+          eventTitle: match?.candidate?.event.title,
+          score: match?.score,
+          reasons: match?.reasons,
+          defaultAction: match?.defaultAction,
+          rejectReason: match?.rejectReason,
+          importMatchTrace: match?.importMatchTrace,
+        },
+      ])
+    )
+    console.info('[Tankestrom import match debug]', {
+      proposals,
+      existingEventsLoaded,
+      matchesByProposalId,
+    })
+  }, [
+    step,
+    bundle,
+    primaryCalendarProposalItems,
+    existingEventMatchesByProposalId,
+    getAnchoredForegroundEventsForMatching,
   ])
 
   useEffect(() => {

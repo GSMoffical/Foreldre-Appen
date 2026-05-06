@@ -197,7 +197,8 @@ function sourceKindMatchBoost(proposal: PortalEventProposal): number {
   return 0
 }
 
-function getIncomingArrangementRange(
+/** Utvider import-spenn med programdatoer (for prefetch / logging). */
+export function getIncomingArrangementRange(
   proposal: PortalEventProposal,
   importStart: string,
   importEnd: string
@@ -397,6 +398,26 @@ function buildHeuristicMatchReasons(opts: {
   return reasons
 }
 
+export type ExistingEventMatchCandidateDiag = {
+  incomingTitle: string
+  incomingPersonId: string
+  incomingStableKey: string | undefined
+  incomingDateRange: string
+  existingTitle: string
+  existingPersonId: PersonId | null
+  existingDateRange: string
+  score: number
+  reasons: string[]
+  rejectedReason: string | null
+}
+
+export type ExistingEventImportMatchTrace = {
+  anchoredInputCount: number
+  diagnosticRowCount: number
+  bestScoreSeen: number
+  topRejectedReason: string | null
+}
+
 export type ExistingEventMatchResult = {
   candidate: AnchoredExistingEvent | null
   score: number
@@ -407,6 +428,28 @@ export type ExistingEventMatchResult = {
   matchStatus?: ExistingEventMatchStatus
   reasons?: string[]
   defaultAction?: 'update' | 'create'
+  importMatchTrace?: ExistingEventImportMatchTrace
+}
+
+function attachImportMatchTrace(
+  result: ExistingEventMatchResult,
+  anchoredLen: number,
+  diags: readonly ExistingEventMatchCandidateDiag[]
+): ExistingEventMatchResult {
+  const sorted = [...diags].sort((a, b) => b.score - a.score)
+  const top = sorted[0]
+  const bestScoreSeen = Math.max(result.score, top?.score ?? 0)
+  const topRejectedReason =
+    top?.rejectedReason ?? (result.rejected ? (result.rejectReason ?? null) : null)
+  return {
+    ...result,
+    importMatchTrace: {
+      anchoredInputCount: anchoredLen,
+      diagnosticRowCount: diags.length,
+      bestScoreSeen,
+      topRejectedReason,
+    },
+  }
 }
 
 const SUGGEST_MIN_SCORE = 78
@@ -443,7 +486,11 @@ export function findConservativeExistingEventMatch(
         existingEventCandidateScore: 0,
         reason: 'not_event_proposal',
       })
-    return { candidate: null, score: 0, rejected: true, rejectReason: 'not_event', defaultAction: 'create' }
+    return attachImportMatchTrace(
+      { candidate: null, score: 0, rejected: true, rejectReason: 'not_event', defaultAction: 'create' },
+      anchoredExisting.length,
+      []
+    )
   }
 
   const incomingStableKey = readArrangementStableKey(proposal.event.metadata)
@@ -456,19 +503,7 @@ export function findConservativeExistingEventMatch(
   const incomingRangeLogged = getIncomingArrangementRange(proposal, importStartDate, importEndDate)
   const incomingDateRangeStr = `${incomingRangeLogged.start}–${incomingRangeLogged.end}`
 
-  type MatchCandidateDiag = {
-    incomingTitle: string
-    incomingPersonId: string
-    incomingStableKey: string | undefined
-    incomingDateRange: string
-    existingTitle: string
-    existingPersonId: PersonId | null
-    existingDateRange: string
-    score: number
-    reasons: string[]
-    rejectedReason: string | null
-  }
-  const matchCandidateDiags: MatchCandidateDiag[] = []
+  const matchCandidateDiags: ExistingEventMatchCandidateDiag[] = []
 
   if (incomingStableKey) {
     for (const anchor of anchoredExisting) {
@@ -490,20 +525,24 @@ export function findConservativeExistingEventMatch(
           arrangementStableKey: incomingStableKey,
         })
       }
-      return {
-        candidate: anchor,
-        score: 100,
-        rejected: false,
-        matchStatus: 'exact',
-        defaultAction: 'update',
-        reasons: [
-          'Samme arrangementsnøkkel',
-          importPersonId.trim()
-            ? 'Samme barn/person'
-            : 'Person er ikke satt på importforslag — nøkkel og dato stemmer',
-          'Dato overlapper, ligger i programmet eller er nær',
-        ],
-      }
+      return attachImportMatchTrace(
+        {
+          candidate: anchor,
+          score: 100,
+          rejected: false,
+          matchStatus: 'exact',
+          defaultAction: 'update',
+          reasons: [
+            'Samme arrangementsnøkkel',
+            importPersonId.trim()
+              ? 'Samme barn/person'
+              : 'Person er ikke satt på importforslag — nøkkel og dato stemmer',
+            'Dato overlapper, ligger i programmet eller er nær',
+          ],
+        },
+        anchoredExisting.length,
+        matchCandidateDiags
+      )
     }
   }
 
@@ -514,7 +553,17 @@ export function findConservativeExistingEventMatch(
         existingEventCandidateScore: 0,
         reason: 'import_not_container_like',
       })
-    return { candidate: null, score: 0, rejected: true, rejectReason: 'import_not_container', defaultAction: 'create' }
+    return attachImportMatchTrace(
+      {
+        candidate: null,
+        score: 0,
+        rejected: true,
+        rejectReason: 'import_not_container',
+        defaultAction: 'create',
+      },
+      anchoredExisting.length,
+      matchCandidateDiags
+    )
   }
 
   let best: {
@@ -736,7 +785,11 @@ export function findConservativeExistingEventMatch(
         overlapPersonAnchors,
       })
     }
-    return { candidate: null, score: 0, rejected: true, rejectReason: 'no_candidate', defaultAction: 'create' }
+    return attachImportMatchTrace(
+      { candidate: null, score: 0, rejected: true, rejectReason: 'no_candidate', defaultAction: 'create' },
+      anchoredExisting.length,
+      matchCandidateDiags
+    )
   }
 
   const existingStableOnBest = readArrangementStableKey(best.anchor.event.metadata)
@@ -764,7 +817,17 @@ export function findConservativeExistingEventMatch(
         learnMin,
         canBackfillStable,
       })
-    return { candidate: null, score: best.score, rejected: true, rejectReason: 'below_threshold', defaultAction: 'create' }
+    return attachImportMatchTrace(
+      {
+        candidate: null,
+        score: best.score,
+        rejected: true,
+        rejectReason: 'below_threshold',
+        defaultAction: 'create',
+      },
+      anchoredExisting.length,
+      matchCandidateDiags
+    )
   }
 
   const learnedStableKey = canBackfillStable && best.score >= learnMin
@@ -818,15 +881,19 @@ export function findConservativeExistingEventMatch(
     })
   }
 
-  return {
-    candidate: best.anchor,
-    score: best.score,
-    rejected: false,
-    matchStatus,
-    defaultAction: 'update',
-    reasons,
-    ...(learnedStableKey ? { learnedStableKey: true } : {}),
-  }
+  return attachImportMatchTrace(
+    {
+      candidate: best.anchor,
+      score: best.score,
+      rejected: false,
+      matchStatus,
+      defaultAction: 'update',
+      reasons,
+      ...(learnedStableKey ? { learnedStableKey: true } : {}),
+    },
+    anchoredExisting.length,
+    matchCandidateDiags
+  )
 }
 
 /** Alias for tester og fremtidig API. */
