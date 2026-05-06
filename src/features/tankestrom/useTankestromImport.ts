@@ -22,6 +22,7 @@ import {
   normalizeEmbeddedScheduleParentDisplayTitle,
 } from '../../lib/tankestromCupEmbeddedScheduleMerge'
 import { dedupeNearDuplicateCalendarProposals } from '../../lib/tankestromImportDedupe'
+import { foldLegacyArrangementChildSegments } from '../../lib/tankestromLegacyArrangementSegments'
 import { redistributeEnrichSubjectUpdatesForDay } from '../../lib/schoolWeekOverlayEnrichRouting'
 import { resolveEmbeddedScheduleSegmentTimesForCalendarExport } from '../../lib/tankestromEmbeddedChildNotesPresentation'
 import type {
@@ -2162,7 +2163,8 @@ export function useTankestromImport({
         setSchoolProfileChildId(importChildId)
         const defaultPersonId = people[0]?.id ?? ''
         const sourceHint = humanImportSourceLabelForBundle(b)
-        const items = applyCupWeekendEmbeddedScheduleMerge(dedupeNearDuplicateCalendarProposals(b.items), {
+        const withLegacySegments = foldLegacyArrangementChildSegments(b.items)
+        const items = applyCupWeekendEmbeddedScheduleMerge(dedupeNearDuplicateCalendarProposals(withLegacySegments), {
           sourceText: textInput,
         })
         setAnalyzedSourceLength(textInput.length)
@@ -2294,7 +2296,8 @@ export function useTankestromImport({
       setSchoolProfileChildId(importChildId)
       const defaultPersonId = people[0]?.id ?? ''
       const sourceHint = humanImportSourceLabelForBundle(merged)
-      const items = applyCupWeekendEmbeddedScheduleMerge(dedupeNearDuplicateCalendarProposals(merged.items), {
+      const withLegacySegments = foldLegacyArrangementChildSegments(merged.items)
+      const items = applyCupWeekendEmbeddedScheduleMerge(dedupeNearDuplicateCalendarProposals(withLegacySegments), {
         sourceText: undefined,
       })
       setAnalyzedSourceLength(analyzedBytesTotal)
