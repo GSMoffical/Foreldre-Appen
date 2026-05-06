@@ -211,7 +211,16 @@ function App() {
     const firstDate = firstEvent?.date
     const createdEventCount = success.createdEvents.length
     const createdTaskCount = success.createdTasks.length
+    const promisedEvents = success.promisedForegroundEventCount ?? 0
+    const calendarShortfall =
+      promisedEvents > 0 &&
+      createdEventCount === 0 &&
+      success.updatedEvents.length === 0 &&
+      createdTaskCount > 0
     const detail = (() => {
+      if (calendarShortfall) {
+        return `${promisedEvents} kalenderhendelse(r) ble ikke opprettet. ${createdTaskCount} gjøremål ble lagt til.`
+      }
       if (createdTaskCount > 0 && createdEventCount === 0) {
         const firstTask = success.createdTasks[0]
         return firstTask ? firstTask.title : `${createdTaskCount} gjøremål`
@@ -230,8 +239,9 @@ function App() {
       if (createdTaskCount > 0) return `${createdTaskCount} gjøremål`
       return 'Import fullført'
     })()
-    const title =
-      createdTaskCount > 0 && createdEventCount === 0
+    const title = calendarShortfall
+      ? 'Gjøremål importert, men kalenderhendelser mangler'
+      : createdTaskCount > 0 && createdEventCount === 0
         ? 'Gjøremål lagt til'
         : partial
           ? 'Delvis importert'
@@ -239,17 +249,18 @@ function App() {
 
     setTankestromToast({
       title,
-      detail: partial && createdEventCount > 0
-        ? `${createdEventCount} hendelser ble lagt til. ${failureMessage ? 'Noe kunne ikke lagres.' : ''}`.trim()
-        : detail,
-      variant: partial ? 'warning' : 'success',
+      detail:
+        partial && createdEventCount > 0
+          ? `${createdEventCount} hendelser ble lagt til. ${failureMessage ? 'Noe kunne ikke lagres.' : ''}`.trim()
+          : detail,
+      variant: partial || calendarShortfall ? 'warning' : 'success',
       firstDate,
       highlightEventIds: success.createdEvents.map((e) => e.id),
       undoEvents: success.createdTasks.length === 0
         ? success.createdEvents.map((e) => ({ id: e.id, date: e.date }))
         : undefined,
-      showErrors: partial ? failureMessage : undefined,
-      openTasks: createdTaskCount > 0 && createdEventCount === 0,
+      showErrors: partial || calendarShortfall ? failureMessage : undefined,
+      openTasks: createdTaskCount > 0 && createdEventCount === 0 && !calendarShortfall,
     })
     if (tankestromToastTimerRef.current != null) window.clearTimeout(tankestromToastTimerRef.current)
     tankestromToastTimerRef.current = window.setTimeout(() => {

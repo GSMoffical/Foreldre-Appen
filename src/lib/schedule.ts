@@ -36,7 +36,23 @@ function hasPositiveDuration(e: Event): boolean {
   return Number.isFinite(start) && Number.isFinite(end) && end > start
 }
 
+function isDateOnlyCalendarEvent(e: Event): boolean {
+  return e.metadata?.timePrecision === 'date_only'
+}
+
+function isStartOnlyCalendarEvent(e: Event): boolean {
+  return e.metadata?.timePrecision === 'start_only'
+}
+
 function isRenderableEvent(e: Event): boolean {
+  // Dato-uten-klokkeslett (Tankestrøm-import m.m.) skal vises under «Uspesifiserte hendelser».
+  if (isDateOnlyCalendarEvent(e)) return true
+  // Kun avreise kjent (f.eks. fly uten ankomst) — vis med start–start eller kort intervall i metadata.
+  if (isStartOnlyCalendarEvent(e)) {
+    const start = parseTime(e.start)
+    const end = parseTime(e.end)
+    return Number.isFinite(start) && Number.isFinite(end) && end >= start
+  }
   // Timed foreground blocks without person (f.eks. dokumentimport) skal fortsatt vises.
   return hasPositiveDuration(e)
 }
@@ -49,7 +65,12 @@ export function calculateVisibleEvents(
   const valid = events.filter(isRenderableEvent)
   if (selectedPersonIds.length === 0) return valid
   const set = new Set(selectedPersonIds)
-  return valid.filter((e) => getEventParticipantIds(e).some((id) => set.has(id)))
+  return valid.filter((e) => {
+    const participants = getEventParticipantIds(e)
+    // Hendelser uten knytning til person (personId / deltakere tomme) skal ikke skjules når filter er på.
+    if (participants.length === 0) return true
+    return participants.some((id) => set.has(id))
+  })
 }
 
 /** Merge overlapping [start, end] intervals (minutes from midnight). */

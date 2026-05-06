@@ -358,12 +358,12 @@ export function useScheduleState() {
 
   /** Load events for an arbitrary date range (e.g. full month in month view) into cache. */
   const prefetchEventsForDateRange = useCallback(
-    async (startDate: string, endDate: string) => {
-      if (!user) return
+    async (startDate: string, endDate: string): Promise<Record<string, Event[]> | undefined> => {
+      if (!user) return undefined
       const { byDate, error } = await fetchEventsForDateRangeFromCalendar(startDate, endDate)
       if (error) {
         setScheduleError(formatScheduleLoadError(error))
-        return
+        return undefined
       }
       setScheduleError(null)
       setUserEventsByDate((prev) => {
@@ -373,6 +373,7 @@ export function useScheduleState() {
         }
         return next
       })
+      return byDate
     },
     [user]
   )

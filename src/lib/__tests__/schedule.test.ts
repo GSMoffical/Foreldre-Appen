@@ -27,6 +27,51 @@ describe('calculateVisibleEvents', () => {
     expect(result).toHaveLength(2)
     expect(result.every((e) => e.personId === 'emma')).toBe(true)
   })
+
+  it('viser hendelser uten person (personId null) selv når filter er aktivt', () => {
+    const withUnassigned: Event[] = [
+      ...events,
+      {
+        id: 'u',
+        personId: null,
+        title: 'Uten person',
+        start: '14:00',
+        end: '15:00',
+      },
+    ]
+    const result = calculateVisibleEvents(withUnassigned, ['emma'])
+    expect(result.some((e) => e.id === 'u')).toBe(true)
+  })
+
+  it('viser date_only-hendelser (timePrecision) selv uten varighet i klokkeslett', () => {
+    const dateOnly: Event[] = [
+      {
+        id: 'd',
+        personId: 'emma',
+        title: 'Tid ikke avklart',
+        start: '09:00',
+        end: '09:00',
+        metadata: { timePrecision: 'date_only' as const },
+      },
+    ]
+    const result = calculateVisibleEvents(dateOnly, ['emma'])
+    expect(result).toHaveLength(1)
+  })
+
+  it('viser start_only-hendelser med start === end (fly uten sluttid)', () => {
+    const startOnly: Event[] = [
+      {
+        id: 'f',
+        personId: 'emma',
+        title: 'Fly',
+        start: '06:05',
+        end: '06:05',
+        metadata: { timePrecision: 'start_only' as const },
+      },
+    ]
+    const result = calculateVisibleEvents(startOnly, ['emma'])
+    expect(result).toHaveLength(1)
+  })
 })
 
 describe('calculateGaps', () => {

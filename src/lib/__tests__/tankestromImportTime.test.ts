@@ -136,4 +136,11 @@ describe('validateTankestromDraft tid', () => {
     expect(err.start).toBeUndefined()
     expect(err.end).toBeUndefined()
   })
+
+  it('tillater fly med start men uten slutt (ukjent ankomst)', () => {
+    const d = { ...base, travelImportType: 'flight', start: '06:05', end: '' }
+    expect(validateTankestromDraft(d, new Set(['p1']))).toBe(null)
+    const err = getTankestromDraftFieldErrors(d, new Set(['p1']))
+    expect(err.end).toBeUndefined()
+  })
 })

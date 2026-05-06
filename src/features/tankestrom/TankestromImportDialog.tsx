@@ -82,6 +82,7 @@ import { TankestromScheduleDetails } from '../../components/TankestromScheduleDe
 import { SchoolProfileFields } from '../../components/SchoolProfileFields'
 import { logEvent } from '../../lib/appLogger'
 import { formatTimeRange } from '../../lib/time'
+import { TANKESTROM_FLIGHT_MISSING_END_LABEL } from '../../lib/tankestromFlightImportEnd'
 import { taskIntentBadgeClassName, taskIntentLabelNb } from '../../lib/taskIntent'
 import {
   applyLessonConflictChoice,
@@ -2173,7 +2174,10 @@ export interface TankestromImportDialogProps {
   createTask: (input: Omit<Task, 'id'>) => Promise<void>
   editEvent?: UseEventControllerReturn['editEvent']
   getAnchoredForegroundEventsForMatching?: () => { event: Event; anchorDate: string }[]
-  prefetchEventsForDateRange?: (startDate: string, endDate: string) => void | Promise<void>
+  prefetchEventsForDateRange?: (
+    startDate: string,
+    endDate: string
+  ) => void | Promise<void | Record<string, Event[]>>
   deleteEvent?: (date: string, eventId: string) => Promise<void>
   updatePerson?: (
     id: string,
@@ -3450,6 +3454,12 @@ export function TankestromImportDialog({
                     const ts = u.event.start.length > 5 ? u.event.start.slice(0, 5) : u.event.start
                     const te = u.event.end.length > 5 ? u.event.end.slice(0, 5) : u.event.end
                     const hm = /^([01]\d|2[0-3]):[0-5]\d$/
+                    const flightMissingEnd =
+                      String(u.event.travelImportType ?? '').trim().toLowerCase() === 'flight' &&
+                      Boolean(ts.trim()) &&
+                      hm.test(ts) &&
+                      !te.trim()
+                    if (flightMissingEnd) return `${ts} · ${TANKESTROM_FLIGHT_MISSING_END_LABEL}`
                     return hm.test(ts) && hm.test(te) ? formatTimeRange(ts, te) : ts && te ? `${ts}–${te}` : '—'
                   })()
 
