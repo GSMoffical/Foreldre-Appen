@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { useReducedMotion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { AppShell } from './components/AppShell'
 import { MobileFrame } from './components/MobileFrame'
 import { BottomNav } from './components/BottomNav'
@@ -37,6 +37,7 @@ import { DebugOverlay } from './components/DebugOverlay'
 import { loadOnboarding, resetOnboarding } from './lib/onboarding'
 import { FamilySetupScreen, isFamilySetupSkipped } from './components/FamilySetupScreen'
 import { TankestromImportDialog } from './features/tankestrom/TankestromImportDialog'
+import type { TankestromImportSuccess } from './features/tankestrom/useTankestromImport'
 
 /** Set to true to re-enable the onboarding tour. */
 const ENABLE_ONBOARDING = false
@@ -120,6 +121,18 @@ function App() {
   const [hideFamilyBanner, setHideFamilyBanner] = useState(false)
   const [notifyToast, setNotifyToast] = useState<string | null>(null)
   const notifyToastTimerRef = useRef<number | null>(null)
+  const [tankestromToast, setTankestromToast] = useState<{
+    title: string
+    detail: string
+    variant: 'success' | 'warning'
+    firstDate?: string
+    highlightEventIds: string[]
+    undoEvents?: Array<{ id: string; date: string }>
+    showErrors?: string
+    openTasks?: boolean
+  } | null>(null)
+  const tankestromToastTimerRef = useRef<number | null>(null)
+  const [recentImportedEventIds, setRecentImportedEventIds] = useState<Set<string>>(new Set())
   const { saveFeedback, showSaveFeedback, showSavingFeedback, showSaveError } = useSaveFeedback(hapticsEnabled)
   const { tasksByDate, addTask, patchTask, removeTask, prefetchTasksForRange } = useTasksState(selectedDate)
 
@@ -170,6 +183,107 @@ function App() {
     showSaveFeedback,
     showSaveError,
   })
+
+  const dismissTankestromToast = useCallback(() => {
+    if (tankestromToastTimerRef.current != null) {
+      window.clearTimeout(tankestromToastTimerRef.current)
+      tankestromToastTimerRef.current = null
+    }
+    setTankestromToast(null)
+  }, [])
+
+  const openTankestromToast = useCallback((payload: {
+    success: TankestromImportSuccess
+    partial: boolean
+    failureMessage?: string
+  }) => {
+    const { success, partial, failureMessage } = payload
+    const firstEvent = [...success.createdEvents, ...success.updatedEvents]
+      .sort((a, b) => a.date.localeCompare(b.date))[0]
+    const firstDate = firstEvent?.date
+    const createdEventCount = success.createdEvents.length
+    const createdTaskCount = success.createdTasks.length
+    const detail = (() => {
+      if (createdTaskCount > 0 && createdEventCount === 0) {
+        const firstTask = success.createdTasks[0]
+        return firstTask ? firstTask.title : `${createdTaskCount} gjøremål`
+      }
+      if (success.arrangementTitle && createdEventCount > 1) {
+        return `${success.arrangementTitle} · ${createdEventCount} hendelser`
+      }
+      if (createdEventCount === 1 && firstEvent) {
+        return `${new Date(`${firstEvent.date}T12:00:00`).toLocaleDateString('nb-NO', {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'long',
+        })} · ${(firstEvent.start ?? '').trim() && (firstEvent.end ?? '').trim() ? `${firstEvent.start}–${firstEvent.end}` : 'Tid ikke avklart'}`
+      }
+      if (createdEventCount > 1) return `${createdEventCount} hendelser`
+      if (createdTaskCount > 0) return `${createdTaskCount} gjøremål`
+      return 'Import fullført'
+    })()
+    const title =
+      createdTaskCount > 0 && createdEventCount === 0
+        ? 'Gjøremål lagt til'
+        : partial
+          ? 'Delvis importert'
+          : 'Importert til kalenderen'
+
+    setTankestromToast({
+      title,
+      detail: partial && createdEventCount > 0
+        ? `${createdEventCount} hendelser ble lagt til. ${failureMessage ? 'Noe kunne ikke lagres.' : ''}`.trim()
+        : detail,
+      variant: partial ? 'warning' : 'success',
+      firstDate,
+      highlightEventIds: success.createdEvents.map((e) => e.id),
+      undoEvents: success.createdTasks.length === 0
+        ? success.createdEvents.map((e) => ({ id: e.id, date: e.date }))
+        : undefined,
+      showErrors: partial ? failureMessage : undefined,
+      openTasks: createdTaskCount > 0 && createdEventCount === 0,
+    })
+    if (tankestromToastTimerRef.current != null) window.clearTimeout(tankestromToastTimerRef.current)
+    tankestromToastTimerRef.current = window.setTimeout(() => {
+      setTankestromToast(null)
+      tankestromToastTimerRef.current = null
+    }, 6000)
+  }, [])
+
+  const jumpToImportedCalendar = useCallback(() => {
+    if (!tankestromToast) return
+    setTankestromImportOpen(false)
+    if (tankestromToast.openTasks) {
+      setNavTab('logistics')
+      dismissTankestromToast()
+      return
+    }
+    if (tankestromToast.firstDate) {
+      setSelectedDate(tankestromToast.firstDate)
+    }
+    setNavTab('today')
+    setShowListView(false)
+    setLastCalendarTab('today')
+    if (tankestromToast.highlightEventIds.length > 0) {
+      const ids = new Set(tankestromToast.highlightEventIds)
+      setRecentImportedEventIds(ids)
+      window.setTimeout(() => setRecentImportedEventIds(new Set()), 2800)
+    }
+    dismissTankestromToast()
+  }, [tankestromToast, dismissTankestromToast, setSelectedDate, setShowListView])
+
+  const undoTankestromImport = useCallback(async () => {
+    if (!tankestromToast?.undoEvents || tankestromToast.undoEvents.length === 0) return
+    for (const ev of tankestromToast.undoEvents) {
+      try {
+        await deleteEvent(ev.date, ev.id)
+      } catch {
+        // ignore partial undo failures
+      }
+    }
+    dismissTankestromToast()
+    setNotifyToast('Import angret')
+  }, [tankestromToast, deleteEvent, dismissTankestromToast])
   const [showTour, setShowTour] = useState(false)
   useEffect(() => {
     if (!ENABLE_ONBOARDING) return
@@ -178,6 +292,12 @@ function App() {
       return () => clearTimeout(t)
     }
   }, [user])
+  useEffect(() => {
+    return () => {
+      if (notifyToastTimerRef.current != null) window.clearTimeout(notifyToastTimerRef.current)
+      if (tankestromToastTimerRef.current != null) window.clearTimeout(tankestromToastTimerRef.current)
+    }
+  }, [])
 
   const [familySetupDismissed, setFamilySetupDismissed] = useState(false)
   const [tankestromImportOpen, setTankestromImportOpen] = useState(false)
@@ -417,6 +537,7 @@ function App() {
               dayTasks={filteredTasksByDate[selectedDate] ?? []}
               allDayEvents={allDayEventsForDay}
               unspecifiedEvents={unspecifiedEventsForDay}
+              highlightedEventIds={recentImportedEventIds}
             />
           )}
           </div>
@@ -433,6 +554,73 @@ function App() {
               </div>
             </div>
           )}
+          <AnimatePresence>
+            {tankestromToast && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 12 }}
+                transition={{ duration: 0.22 }}
+                role="status"
+                aria-live="polite"
+                className="fixed inset-x-0 z-[55] flex justify-center px-3"
+                style={{ bottom: 'calc(132px + env(safe-area-inset-bottom, 0px))' }}
+              >
+                <div
+                  className={`w-full max-w-[390px] rounded-2xl border px-3 py-2.5 shadow-planner ${
+                    tankestromToast.variant === 'warning'
+                      ? 'border-amber-300 bg-amber-50'
+                      : 'border-brandTeal/30 bg-white'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold text-zinc-900">{tankestromToast.title}</p>
+                      <p className="mt-0.5 text-[12px] text-zinc-600">{tankestromToast.detail}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={dismissTankestromToast}
+                      className="rounded-md px-1 text-zinc-500 hover:bg-zinc-100"
+                      aria-label="Lukk importbekreftelse"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={jumpToImportedCalendar}
+                      className="rounded-full bg-brandTeal px-3 py-1.5 text-[11px] font-semibold text-white"
+                    >
+                      {tankestromToast.openTasks ? 'Åpne gjøremål' : 'Se i kalenderen'}
+                    </button>
+                    {tankestromToast.undoEvents && tankestromToast.undoEvents.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => void undoTankestromImport()}
+                        className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-zinc-700"
+                      >
+                        Angre
+                      </button>
+                    )}
+                    {tankestromToast.showErrors && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTankestromImportOpen(true)
+                          dismissTankestromToast()
+                        }}
+                        className="rounded-full border border-amber-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-amber-900"
+                      >
+                        Vis feil
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <BottomNav
             active={effectiveNav}
@@ -464,6 +652,7 @@ function App() {
         prefetchEventsForDateRange={prefetchEventsForDateRange}
         deleteEvent={deleteEvent}
         updatePerson={updatePerson}
+        onImportFinished={openTankestromToast}
       />
       <CalendarOverlays
         selectedEvent={selectedEvent}

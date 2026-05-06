@@ -25,6 +25,7 @@ interface TimelineGridProps {
   onDragReschedule?: (eventId: string, payload: DragReschedulePayload) => void | Promise<void>
   variant?: 'day' | 'week'
   dayTasks?: Task[]
+  highlightedEventIds?: Set<string>
 }
 
 function nowTimeString(): string {
@@ -44,6 +45,7 @@ export function TimelineGrid({
   onDragReschedule,
   variant = 'day',
   dayTasks,
+  highlightedEventIds,
 }: TimelineGridProps) {
   const totalHeight = timelineTotalHeight(pixelsPerHour)
   const isToday = (() => {
@@ -118,6 +120,7 @@ export function TimelineGrid({
           onSelect={() => onSelectEvent(item.block)}
           onDragReschedule={onDragReschedule}
           pixelsPerHour={pixelsPerHour}
+          isHighlighted={highlightedEventIds?.has(item.block.id) === true}
         />
       ))}
 

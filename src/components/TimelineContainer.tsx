@@ -18,6 +18,7 @@ interface TimelineContainerProps {
   onSelectBackgroundEvent?: (event: Event) => void
   onDragReschedule?: (eventId: string, payload: DragReschedulePayload) => void | Promise<void>
   dayTasks?: Task[]
+  highlightedEventIds?: Set<string>
 }
 
 const DAY_START_MIN = TIMELINE_START_HOUR * 60
@@ -38,6 +39,7 @@ export function TimelineContainer({
   onSelectBackgroundEvent,
   onDragReschedule,
   dayTasks,
+  highlightedEventIds,
 }: TimelineContainerProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const reducedMotion = useReducedMotion() ?? false
@@ -90,6 +92,7 @@ export function TimelineContainer({
             onSelectBackgroundEvent={onSelectBackgroundEvent}
             onDragReschedule={onDragReschedule}
             dayTasks={dayTasks}
+            highlightedEventIds={highlightedEventIds}
           />
         </motion.div>
       </div>

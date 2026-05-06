@@ -114,6 +114,20 @@ export interface TankestromPendingFile {
   statusDetail?: string
 }
 
+export type TankestromImportSuccess = {
+  createdEvents: Array<{ id: string; title: string; date: string; start?: string | null; end?: string | null }>
+  updatedEvents: Array<{ id: string; title: string; date: string; start?: string | null; end?: string | null }>
+  createdTasks: Array<{ id: string; title: string; date: string }>
+  arrangementTitle?: string
+}
+
+export type TankestromImportResult = {
+  ok: boolean
+  partial: boolean
+  success?: TankestromImportSuccess
+  failureMessage?: string
+}
+
 function newPendingFileId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
@@ -2679,25 +2693,25 @@ export function useTankestromImport({
     })
   }, [])
 
-  const approveSelected = useCallback(async (): Promise<boolean> => {
-    if (schoolReview) return false
-    if (!bundle || proposalItems.length === 0) return false
+  const approveSelected = useCallback(async (): Promise<TankestromImportResult> => {
+    if (schoolReview) return { ok: false, partial: false }
+    if (!bundle || proposalItems.length === 0) return { ok: false, partial: false }
     const ids = [...selectedIds]
     if (ids.length === 0) {
       setError('Velg minst ett forslag som skal importeres.')
-      return false
+      return { ok: false, partial: false }
     }
 
     for (const id of ids) {
       const draft = draftByProposalId[id]
       if (!draft) {
         setError('Mangler redigeringsdata for et valgt forslag. Prøv å analysere på nytt.')
-        return false
+        return { ok: false, partial: false }
       }
       const err = validateUnifiedDraft(draft, validPersonIds)
       if (err) {
         setError(err)
-        return false
+        return { ok: false, partial: false }
       }
     }
 
@@ -2707,6 +2721,44 @@ export function useTankestromImport({
     try {
       const failureRecords: TankestromImportPersistFailureRecord[] = []
       const failedIds = new Set<string>()
+      const createdEvents: TankestromImportSuccess['createdEvents'] = []
+      const updatedEvents: TankestromImportSuccess['updatedEvents'] = []
+      const createdTasks: TankestromImportSuccess['createdTasks'] = []
+      const createdEventKeys = new Set<string>()
+      const updatedEventKeys = new Set<string>()
+      const firstSelectedEventItem = ids
+        .map((sid) => bundle.items.find((it) => it.proposalId === sid))
+        .find((it): it is PortalProposalItem & { kind: 'event' } => Boolean(it && it.kind === 'event'))
+      const selectedArrangementTitle =
+        firstSelectedEventItem?.kind === 'event'
+          ? normalizeEmbeddedScheduleParentDisplayTitle(firstSelectedEventItem.event.title).title
+          : undefined
+
+      const pushCreatedEvent = (row: { id: string; title: string; date: string; start?: string | null; end?: string | null }) => {
+        const key = `${row.id}|${row.date}`
+        if (createdEventKeys.has(key)) return
+        createdEventKeys.add(key)
+        createdEvents.push(row)
+      }
+      const pushUpdatedEvent = (row: { id: string; title: string; date: string; start?: string | null; end?: string | null }) => {
+        const key = `${row.id}|${row.date}`
+        if (updatedEventKeys.has(key)) return
+        updatedEventKeys.add(key)
+        updatedEvents.push(row)
+      }
+      const findCreatedEventByProposalId = (proposalId: string) => {
+        if (!getAnchoredForegroundEventsForMatching) return null
+        const anchors = getAnchoredForegroundEventsForMatching()
+        const found = anchors.find((a) => {
+          const m = a.event.metadata
+          if (!m || typeof m !== 'object' || Array.isArray(m)) return false
+          const integration = (m as Record<string, unknown>).integration
+          if (!integration || typeof integration !== 'object' || Array.isArray(integration)) return false
+          const pid = (integration as Record<string, unknown>).proposalId
+          return typeof pid === 'string' && pid === proposalId
+        })
+        return found ? { event: found.event, anchorDate: found.anchorDate } : null
+      }
 
       const recordFailure = (
         proposalId: string,
@@ -2891,6 +2943,24 @@ export function useTankestromImport({
           try {
             await createEvent(draftEv.date, input)
             recordSuccess(id, 'event', 'createEvent')
+            const persisted = findCreatedEventByProposalId(id)
+            if (persisted) {
+              pushCreatedEvent({
+                id: persisted.event.id,
+                title: persisted.event.title,
+                date: persisted.anchorDate,
+                start: persisted.event.start,
+                end: persisted.event.end,
+              })
+            } else {
+              pushCreatedEvent({
+                id,
+                title: draftEv.title,
+                date: draftEv.date,
+                start: draftEv.start || null,
+                end: draftEv.end || null,
+              })
+            }
           } catch (e) {
             const { kind, message, supabaseCode, supabaseMessage, supabaseDetails, supabaseHint } =
               classifyTankestromPersistThrownError(e, 'createEvent')
@@ -2991,6 +3061,7 @@ export function useTankestromImport({
             }
             await createTask(taskInput)
             recordSuccess(id, 'task', 'createTask')
+            createdTasks.push({ id, title: taskInput.title, date: taskInput.date })
             if (item.originalSourceType === MANUAL_REVIEW_SOURCE_TYPE) {
               logEvent('manualReviewItemImported', { proposalId: id, kind: 'task' })
             }
@@ -3269,6 +3340,13 @@ export function useTankestromImport({
           try {
             await editEvent(anchorDate, existingEvent, updates)
             recordSuccess(id, 'event', 'editEvent')
+            pushUpdatedEvent({
+              id: existingEvent.id,
+              title: existingEvent.title,
+              date: anchorDate,
+              start: existingEvent.start,
+              end: existingEvent.end,
+            })
             if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
               console.debug('[tankestrom approve selected]', {
                 tankestromApproveSelectedEditEventChosen: true,
@@ -3490,6 +3568,24 @@ export function useTankestromImport({
               try {
                 await createEvent(draftEv.date, input)
                 recordSuccess(childProposalId, 'event', 'createEvent')
+                const persisted = findCreatedEventByProposalId(childProposalId)
+                if (persisted) {
+                  pushCreatedEvent({
+                    id: persisted.event.id,
+                    title: persisted.event.title,
+                    date: persisted.anchorDate,
+                    start: persisted.event.start,
+                    end: persisted.event.end,
+                  })
+                } else {
+                  pushCreatedEvent({
+                    id: childProposalId,
+                    title: draftEv.title,
+                    date: draftEv.date,
+                    start: draftEv.start || null,
+                    end: draftEv.end || null,
+                  })
+                }
                 childEventsBuiltForExport.push({
                   proposalId: childProposalId,
                   date: draftEv.date,
@@ -3616,6 +3712,24 @@ export function useTankestromImport({
         try {
           await createEvent(draft.date, input)
           recordSuccess(id, 'event', 'createEvent')
+          const persisted = findCreatedEventByProposalId(id)
+          if (persisted) {
+            pushCreatedEvent({
+              id: persisted.event.id,
+              title: persisted.event.title,
+              date: persisted.anchorDate,
+              start: persisted.event.start,
+              end: persisted.event.end,
+            })
+          } else {
+            pushCreatedEvent({
+              id,
+              title: calendarTitle,
+              date: draft.date,
+              start: draft.start || null,
+              end: draft.end || null,
+            })
+          }
           if (item.originalSourceType === MANUAL_REVIEW_SOURCE_TYPE) {
             logEvent('manualReviewItemImported', { proposalId: id, kind: 'event' })
           }
@@ -3694,7 +3808,21 @@ export function useTankestromImport({
           tankestromImportUserFacingFailureMessageBuilt: userFacingFailure,
           tankestromImportTaskFailureUserMessageRefined: userFacingFailure,
         })
-        return false
+        const hasAnySuccess = createdEvents.length > 0 || updatedEvents.length > 0 || createdTasks.length > 0
+        if (hasAnySuccess) {
+          return {
+            ok: true,
+            partial: true,
+            failureMessage: userFacingFailure,
+            success: {
+              createdEvents,
+              updatedEvents,
+              createdTasks,
+              arrangementTitle: selectedArrangementTitle,
+            },
+          }
+        }
+        return { ok: false, partial: false, failureMessage: userFacingFailure }
       }
       logTankestromImportPersist({
         tankestromImportFailureSummaryBuilt: true,
@@ -3702,7 +3830,16 @@ export function useTankestromImport({
         tankestromImportSucceededProposalIds: ids,
         tankestromImportPersistBatchComplete: true,
       })
-      return true
+      return {
+        ok: true,
+        partial: false,
+        success: {
+          createdEvents,
+          updatedEvents,
+          createdTasks,
+          arrangementTitle: selectedArrangementTitle,
+        },
+      }
     } finally {
       setSaveLoading(false)
     }
@@ -3730,14 +3867,14 @@ export function useTankestromImport({
    * Lagrer uke-overlay (hvis den finnes), deretter importerer avkryssede hendelser/gjøremål.
    * Brukes i «general review» når overlay og items kan komme samtidig fra A-plan.
    */
-  const saveSchoolWeekOverlayThenCalendarSelection = useCallback(async (): Promise<boolean> => {
-    if (schoolReview) return false
+  const saveSchoolWeekOverlayThenCalendarSelection = useCallback(async (): Promise<TankestromImportResult> => {
+    if (schoolReview) return { ok: false, partial: false }
     const overlay = bundle?.schoolWeekOverlayProposal
     if (overlay) {
       const okOverlay = await saveSchoolWeekOverlay()
-      if (!okOverlay) return false
+      if (!okOverlay) return { ok: false, partial: false }
     }
-    if (selectedIds.size === 0) return true
+    if (selectedIds.size === 0) return { ok: true, partial: false, success: { createdEvents: [], updatedEvents: [], createdTasks: [] } }
     return approveSelected()
   }, [schoolReview, bundle?.schoolWeekOverlayProposal, saveSchoolWeekOverlay, selectedIds, approveSelected])
 

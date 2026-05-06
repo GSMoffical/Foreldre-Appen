@@ -13,6 +13,7 @@ interface ActivityBlockProps {
   pixelsPerHour?: number
   /** Stagger order when the day timeline first appears */
   staggerIndex?: number
+  isHighlighted?: boolean
 }
 
 const DRAG_THRESHOLD_PX = 4
@@ -24,6 +25,7 @@ export function ActivityBlock({
   onDragReschedule,
   pixelsPerHour = 80,
   staggerIndex = 0,
+  isHighlighted = false,
 }: ActivityBlockProps) {
   const { people } = useFamily()
   const reducedMotion = useReducedMotion() ?? false
@@ -203,7 +205,9 @@ export function ActivityBlock({
                 ? 'px-2 py-1'
                 : 'px-2.5 py-1.5'
               : 'px-3 py-2'
-      } ${isDragging ? 'z-50 cursor-grabbing opacity-90 shadow-card' : 'cursor-pointer'}`}
+      } ${isDragging ? 'z-50 cursor-grabbing opacity-90 shadow-card' : 'cursor-pointer'} ${
+        isHighlighted ? 'ring-2 ring-brandTeal/70 ring-offset-1' : ''
+      }`}
       style={{
         top: block.topPx + dragOffsetY,
         height: visualHeight,

@@ -48,6 +48,7 @@ interface CalendarHomeTabProps {
   dayTasks: Task[]
   allDayEvents: Event[]
   unspecifiedEvents: Event[]
+  highlightedEventIds?: Set<string>
 }
 
 export function CalendarHomeTab({
@@ -80,6 +81,7 @@ export function CalendarHomeTab({
   dayTasks,
   allDayEvents,
   unspecifiedEvents,
+  highlightedEventIds,
 }: CalendarHomeTabProps) {
   const [showTodayPanel, setShowTodayPanel] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -348,7 +350,9 @@ export function CalendarHomeTab({
                 <li key={event.id}>
                   <button
                     type="button"
-                    className="w-full text-left text-[12px] text-zinc-700 hover:text-zinc-900"
+                    className={`w-full text-left text-[12px] hover:text-zinc-900 ${
+                      highlightedEventIds?.has(event.id) ? 'rounded-md bg-brandTeal/10 px-1 py-0.5 text-zinc-900' : 'text-zinc-700'
+                    }`}
                     onClick={() => {
                       const anchorDate = (event.metadata as any)?.__anchorDate as string | undefined ?? selectedDate
                       handleSelectEvent(event, anchorDate)
@@ -393,6 +397,7 @@ export function CalendarHomeTab({
               onSelectBackgroundEvent={onSelectBackgroundEvent}
               onDragReschedule={(eventId, times) => onDragReschedule(eventId, times)}
               dayTasks={dayTasks}
+              highlightedEventIds={highlightedEventIds}
             />
           ) : unspecifiedEvents.length > 0 ? (
             <div className="flex-1" />

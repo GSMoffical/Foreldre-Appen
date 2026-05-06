@@ -73,6 +73,7 @@ import {
   scanNotesBodyForLanguage,
   taskIndicatesForeignLanguageMismatchWithTrack,
   type TankestromPendingFile,
+  type TankestromImportSuccess,
 } from './useTankestromImport'
 import { cardSection, typSectionCap } from '../../lib/ui'
 import { Button } from '../../components/ui/Button'
@@ -2178,6 +2179,7 @@ export interface TankestromImportDialogProps {
     id: string,
     updates: Partial<Pick<Person, 'name' | 'colorTint' | 'colorAccent' | 'memberKind' | 'school' | 'work'>>
   ) => Promise<void>
+  onImportFinished?: (payload: { success: TankestromImportSuccess; partial: boolean; failureMessage?: string }) => void
 }
 
 export function TankestromImportDialog({
@@ -2191,6 +2193,7 @@ export function TankestromImportDialog({
   prefetchEventsForDateRange,
   deleteEvent,
   updatePerson,
+  onImportFinished,
 }: TankestromImportDialogProps) {
   const {
     step,
@@ -2405,12 +2408,16 @@ export function TankestromImportDialog({
   }, [onClose])
 
   const handleApprove = useCallback(async () => {
-    const ok = await approveSelected()
-    if (ok) {
+    const result = await approveSelected()
+    if (result.ok && result.success) {
       logEvent('tankestrom_import_completed', { count: selectedIds.size })
-      onClose()
+      onImportFinished?.({
+        success: result.success,
+        partial: result.partial,
+        failureMessage: result.failureMessage,
+      })
     }
-  }, [approveSelected, onClose, selectedIds.size])
+  }, [approveSelected, selectedIds.size, onImportFinished])
 
   const handleSaveSchoolProfile = useCallback(async () => {
     const ok = await saveSchoolProfile()
@@ -2421,15 +2428,23 @@ export function TankestromImportDialog({
   }, [saveSchoolProfile, onClose, schoolProfileChildId])
 
   const handleSaveOverlayAndCalendar = useCallback(async () => {
-    const ok = await saveSchoolWeekOverlayThenCalendarSelection()
-    if (ok) {
+    const result = await saveSchoolWeekOverlayThenCalendarSelection()
+    if (result.ok) {
       if (bundle?.schoolWeekOverlayProposal) {
         logEvent('tankestrom_school_week_overlay_saved', { childId: schoolProfileChildId })
       }
       if (selectedIds.size > 0) {
         logEvent('tankestrom_import_completed', { count: selectedIds.size })
       }
-      onClose()
+      if (result.success) {
+        onImportFinished?.({
+          success: result.success,
+          partial: result.partial,
+          failureMessage: result.failureMessage,
+        })
+      } else {
+        onClose()
+      }
     }
   }, [
     saveSchoolWeekOverlayThenCalendarSelection,
@@ -2437,6 +2452,7 @@ export function TankestromImportDialog({
     schoolProfileChildId,
     selectedIds.size,
     onClose,
+    onImportFinished,
   ])
 
   const childrenList = useMemo(() => people.filter((p) => p.memberKind === 'child'), [people])
