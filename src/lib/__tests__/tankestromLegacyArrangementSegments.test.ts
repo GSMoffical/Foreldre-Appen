@@ -76,4 +76,47 @@ describe('foldLegacyArrangementChildSegments', () => {
     const patched = out[0] as PortalEventProposal
     expect((patched.event.metadata?.embeddedSchedule as any[])?.length).toBe(3)
   })
+
+  it('deduper parent embeddedSchedule + legacy child duplicates and merges details', () => {
+    const parent = ev('p1', 'Vårcupen 2026', '2026-06-12', '00:00', '23:59', {
+      isArrangementParent: true,
+      arrangementStableKey: 'cup-1',
+      arrangementBlockGroupId: 'grp-1',
+      embeddedSchedule: [
+        { date: '2026-06-12', title: 'Fredag', start: '17:45', end: '18:45', notes: 'Oppmøte ved bane A' },
+        { date: '2026-06-13', title: 'Lørdag', start: '08:35' },
+        { date: '2026-06-14', title: 'Søndag', notes: 'Foreløpig' },
+      ],
+    })
+    const friDup = ev('c1', 'Fredag', '2026-06-12', '17:45', '18:45', {
+      isArrangementChild: true,
+      parentArrangementStableKey: 'cup-1',
+      arrangementBlockGroupId: 'grp-1',
+    })
+    friDup.event.notes = 'Ta med drikkeflaske'
+    const lorDup = ev('c2', 'Lørdag', '2026-06-13', '08:35', '09:35', {
+      isArrangementChild: true,
+      parentArrangementStableKey: 'cup-1',
+      arrangementBlockGroupId: 'grp-1',
+    })
+    const sonDup = ev('c3', 'Søndag', '2026-06-14', '09:00', '10:00', {
+      isArrangementChild: true,
+      parentArrangementStableKey: 'cup-1',
+      arrangementBlockGroupId: 'grp-1',
+      isConditional: true,
+    })
+
+    const out = foldLegacyArrangementChildSegments([parent, friDup, lorDup, sonDup] as PortalProposalItem[])
+    expect(out).toHaveLength(1)
+    const patched = out[0] as PortalEventProposal
+    const sched = (patched.event.metadata?.embeddedSchedule as any[]) ?? []
+    expect(sched).toHaveLength(3)
+    expect((patched.event.metadata as any).embeddedScheduleRawCount).toBe(6)
+    expect((patched.event.metadata as any).embeddedScheduleDedupedCount).toBe(3)
+    expect((patched.event.metadata as any).childSegmentsFoldedCount).toBe(3)
+    expect((patched.event.metadata as any).childSource).toBe('legacy')
+    const fri = sched.find((s: any) => s.date === '2026-06-12')
+    expect(String(fri?.notes ?? '')).toContain('Oppmøte ved bane A')
+    expect(String(fri?.notes ?? '')).toContain('Ta med drikkeflaske')
+  })
 })

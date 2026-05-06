@@ -3406,11 +3406,25 @@ export function TankestromImportDialog({
                       ? (item.event.metadata as Record<string, unknown>)
                       : null
                   const childSourceTag =
-                    parentMeta?.isArrangementParent === true
-                      ? 'legacy'
-                      : embeddedScheduleLen > 0
-                        ? 'embedded'
-                        : 'fallback'
+                    typeof parentMeta?.childSource === 'string' && parentMeta.childSource.trim()
+                      ? parentMeta.childSource.trim()
+                      : parentMeta?.isArrangementParent === true
+                        ? 'legacy'
+                        : embeddedScheduleLen > 0
+                          ? 'embedded'
+                          : 'fallback'
+                  const embeddedScheduleRawCount =
+                    typeof parentMeta?.embeddedScheduleRawCount === 'number'
+                      ? parentMeta.embeddedScheduleRawCount
+                      : embeddedScheduleLen
+                  const embeddedScheduleDedupedCount =
+                    typeof parentMeta?.embeddedScheduleDedupedCount === 'number'
+                      ? parentMeta.embeddedScheduleDedupedCount
+                      : programPointsCount
+                  const childSegmentsFoldedCount =
+                    typeof parentMeta?.childSegmentsFoldedCount === 'number'
+                      ? parentMeta.childSegmentsFoldedCount
+                      : 0
                   const embeddedEndDateMaxFromProgram = (() => {
                     if (!embeddedScheduleParentCard || item.kind !== 'event') return ''
                     const rows = embeddedScheduleReviewRowsByParentId[pid] ?? []
@@ -3703,7 +3717,9 @@ export function TankestromImportDialog({
                           ) : null}
                           {import.meta.env.DEV && embeddedScheduleParentCard ? (
                             <p className="mt-1 rounded border border-dashed border-teal-200 bg-teal-50/70 px-2 py-1 font-mono text-[10px] leading-snug text-teal-900">
-                              embeddedScheduleCount={programPointsCount} · childSource={childSourceTag}
+                              embeddedScheduleRawCount={embeddedScheduleRawCount} · embeddedScheduleDedupedCount=
+                              {embeddedScheduleDedupedCount} · childSegmentsFoldedCount={childSegmentsFoldedCount} ·
+                              childSource={childSourceTag}
                             </p>
                           ) : null}
                           {showExistingEventMatchBanner && existingMatchCandidate ? (
