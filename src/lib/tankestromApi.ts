@@ -369,16 +369,20 @@ function parseEventPayload(raw: unknown): PortalEventPayload {
       : {}
   mergeTankestromEventTopLevelIntoMetadata(meta, raw)
 
+  const startSrcNorm =
+    typeof meta.startTimeSource === 'string' ? meta.startTimeSource.trim().toLowerCase() : ''
+  const endSrcNorm = typeof meta.endTimeSource === 'string' ? meta.endTimeSource.trim().toLowerCase() : ''
+  const computedSrc = 'computed_from_duration'
+
   if (startTime !== null && endTime !== null) {
     delete meta.requiresManualTimeReview
-    delete meta.startTimeSource
-    delete meta.endTimeSource
+    // Ikke slett startTimeSource/endTimeSource — f.eks. computed_from_duration for detaljvisning.
     delete meta.inferredEndTime
   } else {
-    if (startTime === null) {
+    if (startTime === null && startSrcNorm !== computedSrc) {
       meta.startTimeSource = 'missing_or_unreadable'
     }
-    if (endTime === null) {
+    if (endTime === null && endSrcNorm !== computedSrc) {
       meta.inferredEndTime = false
       meta.endTimeSource = 'missing_or_unreadable'
     }

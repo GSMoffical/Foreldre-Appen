@@ -409,8 +409,6 @@ function performFlightDepArrMerge(dep: PortalEventProposal, arr: PortalEventProp
   const endOk = newEnd.trim() ? normalizeImportTime(newEnd) : null
   if (startOk && endOk) {
     delete meta.requiresManualTimeReview
-    delete meta.startTimeSource
-    delete meta.endTimeSource
     delete meta.inferredEndTime
   }
 

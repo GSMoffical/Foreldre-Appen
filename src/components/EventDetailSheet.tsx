@@ -14,6 +14,12 @@ import { useFamily } from '../context/FamilyContext'
 import { getParticipantPeople } from '../lib/eventParticipants'
 import { TankestromScheduleDetails } from './TankestromScheduleDetails'
 import { readTankestromScheduleDetailsFromMetadata } from '../lib/tankestromScheduleDetails'
+import {
+  TANKESTROM_COMPUTED_END_HINT_NB,
+  TANKESTROM_COMPUTED_START_HINT_NB,
+  formatTankestromTimeComputationDevLine,
+  tankestromTimeSourceIsComputedFromDuration,
+} from '../lib/tankestromComputedTimePresentation'
 
 interface EventDetailSheetProps {
   event: Event | null
@@ -227,6 +233,19 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
             <>
               <p className="mt-2 text-body text-zinc-700">{formatTimeRange(event.start, event.end)}</p>
               <p className={sheetSubtitle}>Varighet: {durationStr}</p>
+              {tankestromTimeSourceIsComputedFromDuration(event.metadata?.endTimeSource) ? (
+                <p className="mt-1 text-[12px] leading-snug text-zinc-500">{TANKESTROM_COMPUTED_END_HINT_NB}</p>
+              ) : null}
+              {tankestromTimeSourceIsComputedFromDuration(event.metadata?.startTimeSource) ? (
+                <p className="mt-1 text-[12px] leading-snug text-zinc-500">{TANKESTROM_COMPUTED_START_HINT_NB}</p>
+              ) : null}
+              {(() => {
+                const tcLine = formatTankestromTimeComputationDevLine(event.metadata ?? undefined)
+                if (!tcLine) return null
+                return (
+                  <p className="mt-1 font-mono text-[11px] leading-snug text-zinc-400">{tcLine}</p>
+                )
+              })()}
             </>
           )}
           {showTransportSection && (

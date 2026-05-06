@@ -3,7 +3,10 @@ import type { PortalEventProposal, PortalProposalItem } from '../features/tankes
 import { normalizeImportTime } from './tankestromImportTime'
 import { parseEmbeddedScheduleFromMetadata } from './embeddedSchedule'
 import { semanticTitleCore } from './tankestromImportDedupe'
-import { getParentCoreTitle, normalizeArrangementChildTitle } from './tankestromCupEmbeddedScheduleMerge'
+import {
+  embeddedScheduleChildReviewDisplayTitle,
+  normalizeArrangementChildTitle,
+} from './tankestromCupEmbeddedScheduleMerge'
 
 function asRecord(x: unknown): Record<string, unknown> | null {
   return x && typeof x === 'object' && !Array.isArray(x) ? (x as Record<string, unknown>) : null
@@ -42,9 +45,15 @@ function embeddedSegmentKey(
   segment: EmbeddedScheduleSegment,
   parentArrangementStableKey: string,
   arrangementBlockGroupId: string,
-  parentCoreTitle: string
+  parentTitleForNormalize: string,
+  arrangementDateContextBlob: string
 ): string {
-  const normalizedChild = normalizeArrangementChildTitle(segment.title || '', parentCoreTitle, segment)
+  const normalizedChild = normalizeArrangementChildTitle(
+    segment.title || '',
+    parentTitleForNormalize,
+    segment,
+    arrangementDateContextBlob
+  )
   const isTentative = segment.isConditional || /\b(?:foreløpig|forelopig|usikker|betinget|mulig)\b/iu.test(segment.notes ?? '')
   const unclearTime = !normalizeSegTime(segment.start)
   return [
@@ -95,23 +104,34 @@ export function dedupeEmbeddedScheduleSegments(
   keys?: {
     parentArrangementStableKey?: string
     arrangementBlockGroupId?: string
+    /** Full foreldertittel for barn-normalisering (anbefalt). */
+    parentTitle?: string
+    /** @deprecated Bruk `parentTitle`. */
     parentCoreTitle?: string
+    /** Titler fra andre forslag i samme arrangement (for datotokens som 12–14). */
+    arrangementDateContextBlob?: string
   }
 ): EmbeddedScheduleSegment[] {
   const stable = (keys?.parentArrangementStableKey ?? '').trim()
   const group = (keys?.arrangementBlockGroupId ?? '').trim()
-  const parentCoreTitle = (keys?.parentCoreTitle ?? '').trim()
+  const parentTitleForNormalize = (keys?.parentTitle ?? keys?.parentCoreTitle ?? '').trim()
+  const dateCtx = (keys?.arrangementDateContextBlob ?? '').trim()
   const byKey = new Map<string, EmbeddedScheduleSegment>()
   for (const segment of segments) {
-    const k = embeddedSegmentKey(segment, stable, group, parentCoreTitle)
+    const k = embeddedSegmentKey(segment, stable, group, parentTitleForNormalize, dateCtx)
     const prev = byKey.get(k)
     if (!prev) {
       const looseMatchKey = [...byKey.keys()].find((existingKey) => {
         const ex = byKey.get(existingKey)
         if (!ex) return false
         if (ex.date !== segment.date) return false
-        const exNorm = normalizeArrangementChildTitle(ex.title || '', parentCoreTitle, ex)
-        const segNorm = normalizeArrangementChildTitle(segment.title || '', parentCoreTitle, segment)
+        const exNorm = normalizeArrangementChildTitle(ex.title || '', parentTitleForNormalize, ex, dateCtx)
+        const segNorm = normalizeArrangementChildTitle(
+          segment.title || '',
+          parentTitleForNormalize,
+          segment,
+          dateCtx
+        )
         if (semanticTitleCore(exNorm) !== semanticTitleCore(segNorm)) return false
         const a = normalizeSegTime(ex.start)
         const b = normalizeSegTime(segment.start)
@@ -202,18 +222,31 @@ export function foldLegacyArrangementChildSegments(items: PortalProposalItem[]):
     const fromParent = parseEmbeddedScheduleFromMetadata(pMeta)
     const fromChild = kids.map(normalizeChildSegmentFromEvent)
     const mergedRaw = [...fromParent, ...fromChild].filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s.date))
+    const arrangementDateContextBlob = [p.event.title.trim(), ...kids.map((k) => k.event.title.trim())]
+      .filter(Boolean)
+      .join('\n')
     const merged = dedupeEmbeddedScheduleSegments(mergedRaw, {
       parentArrangementStableKey: parentKeyStable(p),
       arrangementBlockGroupId: parentKeyGroup(p),
-      parentCoreTitle: getParentCoreTitle(p.event.title),
+      parentTitle: p.event.title,
+      arrangementDateContextBlob,
     })
     if (merged.length === 0) continue
+    const mergedNormalized = merged.map((seg) => ({
+      ...seg,
+      title: embeddedScheduleChildReviewDisplayTitle(
+        p.event.title,
+        seg.title,
+        seg.date,
+        arrangementDateContextBlob
+      ),
+    }))
     const withMeta: Record<string, unknown> = {
       ...pMeta,
       isArrangementParent: true,
-      embeddedSchedule: merged,
+      embeddedSchedule: mergedNormalized,
       embeddedScheduleRawCount: mergedRaw.length,
-      embeddedScheduleDedupedCount: merged.length,
+      embeddedScheduleDedupedCount: mergedNormalized.length,
       childSegmentsFoldedCount: kids.length,
       childSource: 'legacy',
     }

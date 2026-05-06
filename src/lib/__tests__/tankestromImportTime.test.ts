@@ -72,6 +72,58 @@ describe('parsePortalImportProposalBundle (event-tid)', () => {
     expect(meta?.requiresManualTimeReview).toBeUndefined()
   })
 
+  it('bevarer endTimeSource computed_from_duration når begge klokkeslett er satt', () => {
+    const bundle = parsePortalImportProposalBundle({
+      schemaVersion: '1.0.0',
+      provenance,
+      items: [
+        eventProposal({
+          date: '2025-06-10',
+          title: 'Med beregnet slutt',
+          personId: null,
+          start: '08:30',
+          end: '10:00',
+          metadata: {
+            endTimeSource: 'computed_from_duration',
+            travel: { durationMinutes: 90 },
+          },
+        }),
+      ],
+    })
+    const item = bundle.items[0]
+    expect(item.kind).toBe('event')
+    if (item.kind !== 'event') return
+    const meta = item.event.metadata as Record<string, unknown>
+    expect(meta.endTimeSource).toBe('computed_from_duration')
+    expect(meta.requiresManualTimeReview).toBeUndefined()
+  })
+
+  it('bevarer startTimeSource computed_from_duration og timeComputation', () => {
+    const bundle = parsePortalImportProposalBundle({
+      schemaVersion: '1.0.0',
+      provenance,
+      items: [
+        eventProposal({
+          date: '2025-06-10',
+          title: 'Med beregnet start',
+          personId: null,
+          start: '07:00',
+          end: '08:30',
+          metadata: {
+            startTimeSource: 'computed_from_duration',
+            timeComputation: { start: '07:00', durationMinutes: 90, end: '08:30' },
+          },
+        }),
+      ],
+    })
+    const item = bundle.items[0]
+    expect(item.kind).toBe('event')
+    if (item.kind !== 'event') return
+    const meta = item.event.metadata as Record<string, unknown>
+    expect(meta.startTimeSource).toBe('computed_from_duration')
+    expect(meta.timeComputation).toEqual({ start: '07:00', durationMinutes: 90, end: '08:30' })
+  })
+
   it('mangler sluttid: analyse lykkes, metadata flagger manuell review', () => {
     const bundle = parsePortalImportProposalBundle({
       schemaVersion: '1.0.0',

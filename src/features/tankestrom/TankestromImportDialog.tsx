@@ -3927,6 +3927,7 @@ export function TankestromImportDialog({
                                     parentProposalId: pid,
                                   })
                                 }
+                                const siblingTitlesBlob = rows.map((r) => r.segment.title.trim()).join('\n')
                                 return rows.map((row) => {
                                   const childId = makeEmbeddedChildProposalId(pid, row.origIndex)
                                   const childChecked = selectedIds.has(childId)
@@ -3935,12 +3936,14 @@ export function TankestromImportDialog({
                                       ? embeddedScheduleChildReviewDisplayTitle(
                                           parentCalendarCoreForChild,
                                           row.segment.title,
-                                          row.segment.date
+                                          row.segment.date,
+                                          siblingTitlesBlob
                                         )
                                       : normalizeEmbeddedScheduleParentDisplayTitle(row.segment.title).title
                                   const calendarExportChildTitle = embeddedScheduleChildCalendarExportTitle(
                                     row.segment,
-                                    cardTitleRaw
+                                    cardTitleRaw,
+                                    siblingTitlesBlob
                                   )
                                   const reviewListClock = embeddedScheduleChildReviewListTimeClock(row.segment)
                                   const derivedOppmote = tryDeriveOppmoteStartFromSegmentNotes(row.segment, {

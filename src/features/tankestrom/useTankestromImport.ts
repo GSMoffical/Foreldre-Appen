@@ -404,7 +404,7 @@ function resolveTankestromExistingEventPersistPlan(
 function buildEmbeddedChildEventDraft(
   parentDraft: TankestromEventDraft,
   segment: EmbeddedScheduleSegment,
-  timeOpts?: { childProposalId?: string }
+  timeOpts?: { childProposalId?: string; siblingTitlesBlob?: string }
 ): TankestromEventDraft {
   const segmentHasConcreteTimes = Boolean((segment.start ?? '').trim() || (segment.end ?? '').trim())
   const exportTimes = segmentHasConcreteTimes
@@ -412,7 +412,11 @@ function buildEmbeddedChildEventDraft(
     : { start: '', end: '' }
   const start = segmentHasConcreteTimes ? normalizeTimeInput(exportTimes.start) : ''
   const end = segmentHasConcreteTimes ? normalizeTimeInput(exportTimes.end) : ''
-  const calendarTitle = embeddedScheduleChildCalendarExportTitle(segment, parentDraft.title)
+  const calendarTitle = embeddedScheduleChildCalendarExportTitle(
+    segment,
+    parentDraft.title,
+    timeOpts?.siblingTitlesBlob
+  )
   if (import.meta.env.DEV && calendarTitle.trim() !== segment.title.trim()) {
     console.debug('[tankestrom calendar export title]', {
       calendarExportTitleNormalized: calendarTitle,
@@ -3254,7 +3258,11 @@ export function useTankestromImport({
               location: rawP.location.trim(),
               notes: rawP.notes.trim(),
             }
-            const slice = buildEmbeddedChildEventDraft(parentDraft, row.segment, { childProposalId: id })
+            const siblingTitlesBlob = rows.map((r) => r.segment.title.trim()).join('\n')
+            const slice = buildEmbeddedChildEventDraft(parentDraft, row.segment, {
+              childProposalId: id,
+              siblingTitlesBlob,
+            })
             let draftEv: TankestromEventDraft = {
               ...slice,
               title: slice.title.trim(),
@@ -3843,9 +3851,14 @@ export function useTankestromImport({
               included = rows
             }
             const parentTitleForSegments = normalizeEmbeddedScheduleParentDisplayTitle(draft.title.trim()).title
+            const siblingBlobEmbedded = included.map((r) => r.segment.title.trim()).join('\n')
             baseMeta.embeddedSchedule = included.map((r) => ({
               ...r.segment,
-              title: embeddedScheduleChildCalendarExportTitle(r.segment, parentTitleForSegments),
+              title: embeddedScheduleChildCalendarExportTitle(
+                r.segment,
+                parentTitleForSegments,
+                siblingBlobEmbedded
+              ),
             }))
             clusterCleanupProgramDates = included
               .map((r) => r.segment.date.trim())
@@ -4039,10 +4052,14 @@ export function useTankestromImport({
             const childEventsBuiltForExport: Array<{ proposalId: string; date: string; title: string }> = []
             let allSegmentCreatesOk = true
 
+            const siblingTitlesBlobForExport = segmentsToExport
+              .map((r) => r.segment.title.trim())
+              .join('\n')
             for (const row of segmentsToExport) {
               const childProposalId = makeEmbeddedChildProposalId(parentProposal.proposalId, row.origIndex)
               const slice = buildEmbeddedChildEventDraft(draft, row.segment, {
                 childProposalId,
+                siblingTitlesBlob: siblingTitlesBlobForExport,
               })
               const draftEv: TankestromEventDraft = {
                 ...slice,
@@ -4230,9 +4247,14 @@ export function useTankestromImport({
               selectedIds.has(makeEmbeddedChildProposalId(item.proposalId, r.origIndex))
             )
             const parentTitleForSegments = normalizeEmbeddedScheduleParentDisplayTitle(draft.title.trim()).title
+            const siblingBlobEmbedded = included.map((r) => r.segment.title.trim()).join('\n')
             baseMeta.embeddedSchedule = included.map((r) => ({
               ...r.segment,
-              title: embeddedScheduleChildCalendarExportTitle(r.segment, parentTitleForSegments),
+              title: embeddedScheduleChildCalendarExportTitle(
+                r.segment,
+                parentTitleForSegments,
+                siblingBlobEmbedded
+              ),
             }))
           }
         }

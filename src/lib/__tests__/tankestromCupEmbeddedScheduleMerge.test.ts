@@ -129,6 +129,34 @@ describe('normalizeEmbeddedScheduleParentDisplayTitle', () => {
     )
     expect(out).toBe('Vårcupen – søndag')
   })
+
+  it('fjerner gjentatt «12» på tvers av helgedager (Tankestrøm-lekkasje)', () => {
+    const parent = 'Vårcupen 2026 – 12.–14. juni 2026'
+    const ctx = [
+      'Vårcupen – 12 – fredag',
+      'Vårcupen – 12 – lørdag',
+      'Vårcupen – 12 – søndag',
+    ].join('\n')
+    expect(
+      normalizeArrangementChildTitle('Vårcupen – 12 – fredag', parent, { date: '2026-06-12', title: '' }, ctx)
+    ).toBe('Vårcupen – fredag')
+    expect(
+      normalizeArrangementChildTitle('Vårcupen – 12 – lørdag', parent, { date: '2026-06-13', title: '' }, ctx)
+    ).toBe('Vårcupen – lørdag')
+    expect(
+      normalizeArrangementChildTitle('Vårcupen – 12 – søndag', parent, { date: '2026-06-14', title: '' }, ctx)
+    ).toBe('Vårcupen – søndag')
+  })
+
+  it('beholder meningsbærende tall (G12, Cup 2)', () => {
+    const parent = 'Vårcupen 2026 – 12.–14. juni 2026'
+    expect(
+      normalizeArrangementChildTitle('Vårcupen G12 – fredag', parent, { date: '2026-06-12', title: '' })
+    ).toBe('Vårcupen – G12 – fredag')
+    expect(
+      normalizeArrangementChildTitle('Vårcupen Cup 2 – lørdag', parent, { date: '2026-06-13', title: '' })
+    ).toBe('Vårcupen – Cup 2 – lørdag')
+  })
 })
 
 describe('applyCupWeekendEmbeddedScheduleMerge', () => {

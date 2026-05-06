@@ -163,8 +163,185 @@ export function embeddedScheduleParentReviewDisplayTitle(
 
 const CHILD_STATUS_WORDS = /\b(?:foreløpig|forelopig|usikker|betinget|mulig)\b/giu
 
+/** Deling av programpunkttittel i «deler» (em-dash, bindestrek, prikk, pipe). */
+const CHILD_TITLE_SEGMENT_SEP = /\s*[–—\-·|]\s*/
+
+const NB_WEEKDAY_LONG = new Set([
+  'mandag',
+  'tirsdag',
+  'onsdag',
+  'torsdag',
+  'fredag',
+  'lørdag',
+  'søndag',
+])
+
 function childWeekday(isoDate: string): string {
   return norwegianWeekdayLong(isoDate).toLocaleLowerCase('nb-NO')
+}
+
+function parseIsoYmd(iso: string): { y: number; m: number; d: number } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (!m) return null
+  return { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) }
+}
+
+/** Dagnummer (og liknende) hentet fra forelders datoperiode — for å fjerne lekkasje i barn-titler. */
+function collectParentArrangementDayTokens(parentTitle: string): Set<number> {
+  const set = new Set<number>()
+  const s = parentTitle
+  const reRangeMonth =
+    /\b(\d{1,2})\s*[.–—]\s*(\d{1,2})\.\s*(?:januar|februar|mars|april|mai|juni|juli|august|september|oktober|november|desember)\b/giu
+  let rm: RegExpExecArray | null
+  while ((rm = reRangeMonth.exec(s)) !== null) {
+    set.add(Number(rm[1]))
+    set.add(Number(rm[2]))
+  }
+  const reRangeDots = /\b(\d{1,2})\.\s*[–—]\s*(\d{1,2})\.(?=\s|$|[a-zæøå])/giu
+  while ((rm = reRangeDots.exec(s)) !== null) {
+    set.add(Number(rm[1]))
+    set.add(Number(rm[2]))
+  }
+  const reSingle =
+    /\b(\d{1,2})\.\s*(?:januar|februar|mars|april|mai|juni|juli|august|september|oktober|november|desember)(?:\s+\d{4})?\b/giu
+  while ((rm = reSingle.exec(s)) !== null) {
+    set.add(Number(rm[1]))
+  }
+  const reLoose = /\b(\d{1,2})\s*[–—]\s*(\d{1,2})\b/gu
+  while ((rm = reLoose.exec(s)) !== null) {
+    set.add(Number(rm[1]))
+    set.add(Number(rm[2]))
+  }
+  return set
+}
+
+/**
+ * Når samme dagnummer står som egen «del» i flere søsken-titler (f.eks. alle dager «… – 12 – …»),
+ * er det nesten alltid lekkasje fra periode — ikke ukedagens dato.
+ */
+function collectRepeatedIsolatedDayPartsInContext(contextBlob: string): Set<number> {
+  const counts = new Map<number, number>()
+  for (const line of contextBlob.split('\n')) {
+    const parts = line
+      .split(CHILD_TITLE_SEGMENT_SEP)
+      .map((p) => p.trim())
+      .filter(Boolean)
+    for (const part of parts) {
+      if (!/^\d{1,2}$/.test(part)) continue
+      const n = Number(part)
+      if (n < 1 || n > 31) continue
+      counts.set(n, (counts.get(n) ?? 0) + 1)
+    }
+  }
+  const drop = new Set<number>()
+  for (const [n, c] of counts) {
+    if (c >= 2) drop.add(n)
+  }
+  return drop
+}
+
+function collectYearsFromParent(parentTitle: string): Set<number> {
+  const set = new Set<number>()
+  for (const x of parentTitle.matchAll(/\b(20[2-3]\d)\b/g)) {
+    set.add(Number(x[1]))
+  }
+  return set
+}
+
+function partLooksMeaningfulWithDigits(part: string): boolean {
+  const p = part.trim()
+  if (/[A-Za-zÆØÅæøå]\d|\d[A-Za-zÆØÅæøå]/u.test(p)) return true
+  if (/\b(?:kamp|runde|omgang|spill|cup)\s+\d{1,2}\b/iu.test(p)) return true
+  if (/\b(?:klasse|lag)\s+\d{1,2}\b/iu.test(p)) return true
+  return false
+}
+
+function partIsDateRangeFragment(part: string): boolean {
+  return /^\d{1,2}\s*[.–—]\s*\d{1,2}\.?$/.test(part.trim())
+}
+
+function partIsDayMonthFragment(part: string): boolean {
+  return /^\d{1,2}\.\s*(?:januar|februar|mars|april|mai|juni|juli|august|september|oktober|november|desember)(?:\s+\d{4})?$/iu.test(
+    part.trim()
+  )
+}
+
+function partIsOnlyArrangementYear(
+  part: string,
+  segmentYear: number,
+  parentYears: Set<number>
+): boolean {
+  const p = part.trim()
+  if (!/^\d{4}$/.test(p)) return false
+  const y = Number(p)
+  if (y < 2024 || y > 2035) return false
+  if (segmentYear >= 2024 && y === segmentYear) return true
+  return parentYears.has(y)
+}
+
+function partIsStandaloneCalendarDay(
+  part: string,
+  segmentDay: number,
+  parentDayTokens: Set<number>
+): boolean {
+  const p = part.trim()
+  if (!/^\d{1,2}$/.test(p)) return false
+  const n = Number(p)
+  if (n < 1 || n > 31) return false
+  if (segmentDay >= 1 && segmentDay <= 31 && n === segmentDay) return true
+  return parentDayTokens.has(n)
+}
+
+function normalizeNbWeekdayToken(part: string): string {
+  return part.toLocaleLowerCase('nb-NO').replace(/\.$/, '').trim()
+}
+
+function partIsNorwegianWeekday(part: string): boolean {
+  return NB_WEEKDAY_LONG.has(normalizeNbWeekdayToken(part))
+}
+
+function stripWeekdayDateTrail(part: string): string | null {
+  const p = part.trim()
+  const re =
+    /^(.+?)\s+\d{1,2}\.?\s*(?:januar|februar|mars|april|mai|juni|juli|august|september|oktober|november|desember)(?:\s+\d{4})?$/iu
+  const m = re.exec(p)
+  if (!m) return null
+  const head = m[1]!.trim()
+  if (!partIsNorwegianWeekday(head)) return null
+  return head.charAt(0).toLocaleUpperCase('nb-NO') + head.slice(1)
+}
+
+function filterChildTitleParts(
+  parts: string[],
+  segmentDay: number,
+  segmentYear: number,
+  parentDayTokens: Set<number>,
+  parentYears: Set<number>
+): string[] {
+  const out: string[] = []
+  for (const rawPart of parts) {
+    const part = rawPart.trim()
+    if (!part) continue
+    if (partIsNorwegianWeekday(part)) {
+      out.push(part.charAt(0).toLocaleUpperCase('nb-NO') + part.slice(1))
+      continue
+    }
+    const strippedWd = stripWeekdayDateTrail(part)
+    if (strippedWd) {
+      out.push(strippedWd)
+      continue
+    }
+    if (partLooksMeaningfulWithDigits(part)) {
+      out.push(part)
+      continue
+    }
+    if (partIsDateRangeFragment(part)) continue
+    if (partIsDayMonthFragment(part)) continue
+    if (partIsOnlyArrangementYear(part, segmentYear, parentYears)) continue
+    if (partIsStandaloneCalendarDay(part, segmentDay, parentDayTokens)) continue
+    out.push(part)
+  }
+  return out
 }
 
 export function getParentCoreTitle(parentTitle: string): string {
@@ -181,36 +358,87 @@ export function getParentCoreTitle(parentTitle: string): string {
   return out || normalized
 }
 
+/**
+ * Kort barn-tittel for flerdagersarrangement: fjern dato-tall som lekker fra forelder/periode,
+ * behold meningsbærende tall (G12, Cup 2, …). `parentTitleForStrip` bør være full forelder-tittel
+ * (inkl. år og datointervall) slik at 12/14/juni-tokens kan knyttes til parent.
+ */
 export function normalizeArrangementChildTitle(
   title: string,
-  parentTitle: string,
-  segment: EmbeddedScheduleSegment
+  parentTitleForStrip: string,
+  segment: EmbeddedScheduleSegment,
+  additionalDateContext?: string
 ): string {
-  const parentCore = getParentCoreTitle(parentTitle)
+  const parentCore = getParentCoreTitle(parentTitleForStrip)
   const wd = childWeekday(segment.date)
-  let out = title.trim()
-  const parentEsc = escapeRegexChars(parentTitle.trim())
-  const parentCoreEsc = escapeRegexChars(parentCore.trim())
-  if (parentEsc) out = out.replace(new RegExp(parentEsc, 'giu'), ' ')
-  if (parentCoreEsc) out = out.replace(new RegExp(parentCoreEsc, 'giu'), ' ')
+  const ymd = parseIsoYmd(segment.date)
+  const segmentDay = ymd?.d ?? -1
+  const segmentYear = ymd?.y ?? -1
+  const parentDayTokens = collectParentArrangementDayTokens(parentTitleForStrip)
+  const ctx = additionalDateContext?.trim()
+  if (ctx) {
+    for (const n of collectParentArrangementDayTokens(ctx)) parentDayTokens.add(n)
+    for (const n of collectRepeatedIsolatedDayPartsInContext(ctx)) parentDayTokens.add(n)
+  }
+  const parentYears = collectYearsFromParent(parentTitleForStrip)
+  if (ctx) {
+    for (const y of collectYearsFromParent(ctx)) parentYears.add(y)
+  }
+
+  let out = stripEmbeddedScheduleReviewSummaryPhrases(title.trim())
+  const stripVariants = new Set<string>()
+  const pt = parentTitleForStrip.trim()
+  if (pt) {
+    stripVariants.add(pt)
+    const npc = normalizeEmbeddedScheduleParentDisplayTitle(pt).title
+    if (npc) stripVariants.add(npc)
+  }
+  const coreFromInput = getParentCoreTitle(pt)
+  if (coreFromInput) stripVariants.add(coreFromInput)
+  if (parentCore) stripVariants.add(parentCore)
+
+  for (const variant of stripVariants) {
+    const esc = escapeRegexChars(variant.trim())
+    if (esc) out = out.replace(new RegExp(esc, 'giu'), ' ')
+  }
+
   out = out
     .replace(CHILD_STATUS_WORDS, ' ')
     .replace(/\b(19|20)\d{2}\b/g, ' ')
     .replace(/\b(?:man|tir|ons|tor|fre|lør|lor|søn|son)\.?\s+\d{1,2}\.?\b/giu, ' ')
-    .replace(/\b(?:mandag|tirsdag|onsdag|torsdag|fredag|lørdag|sondag|søndag)\s+\d{1,2}\.?(?:\s+[a-zæøå]+)?(?:\s+\d{4})?\b/giu, ' ')
+    .replace(/\b(?:mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag)\s+\d{1,2}\.?(?:\s+[a-zæøå]+)?(?:\s+\d{4})?\b/giu, ' ')
     .replace(/\b\d{1,2}\.\s*(?:januar|februar|mars|april|mai|juni|juli|august|september|oktober|november|desember)(?:\s+\d{4})?\b/giu, ' ')
-    .replace(/\b\d{1,2}\b/g, ' ')
     .replace(/\(\s*[/.\s…-]*\)/gu, ' ')
-    .replace(/\s*[·|]\s*/g, ' ')
-    .replace(/\s*[–—-]\s*/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim()
-  const activity = semanticTitleCore(out)
+
+  const splitParts = out
+    .split(CHILD_TITLE_SEGMENT_SEP)
+    .map((p) => p.trim())
+    .filter(Boolean)
+  const filtered = filterChildTitleParts(
+    splitParts,
+    segmentDay > 0 ? segmentDay : 0,
+    segmentYear > 0 ? segmentYear : 0,
+    parentDayTokens,
+    parentYears
+  )
+
+  const extras = filtered.filter((p) => !partIsNorwegianWeekday(p))
+
   const base = `${parentCore} – ${wd}`
-  if (!activity || activity === semanticTitleCore(wd) || activity === semanticTitleCore(parentCore)) {
+  if (extras.length === 0) return base
+
+  const extraJoined = extras.join(' – ').trim()
+  const extraCore = semanticTitleCore(extraJoined)
+  if (
+    !extraCore ||
+    extraCore === semanticTitleCore(wd) ||
+    extraCore === semanticTitleCore(parentCore)
+  ) {
     return base
   }
-  return base
+  return `${parentCore} – ${extraJoined} – ${wd}`
 }
 
 /**
@@ -219,9 +447,11 @@ export function normalizeArrangementChildTitle(
 export function embeddedScheduleChildReviewDisplayTitle(
   parentCalendarCoreTitle: string,
   segmentTitle: string,
-  segmentIsoDate: string
+  segmentIsoDate: string,
+  additionalDateContext?: string
 ): string {
-  const core = getParentCoreTitle(parentCalendarCoreTitle.trim())
+  const parentTrim = parentCalendarCoreTitle.trim()
+  const core = getParentCoreTitle(parentTrim)
   const wd = norwegianWeekdayLong(segmentIsoDate)
   if (!core || core.length < 2) {
     return segmentTitleForDisplay(segmentTitle)
@@ -229,10 +459,15 @@ export function embeddedScheduleChildReviewDisplayTitle(
   if (!wd) {
     return segmentTitleForDisplay(segmentTitle)
   }
-  return normalizeArrangementChildTitle(segmentTitle, core, {
-    date: segmentIsoDate,
-    title: segmentTitle,
-  })
+  return normalizeArrangementChildTitle(
+    segmentTitle,
+    parentTrim,
+    {
+      date: segmentIsoDate,
+      title: segmentTitle,
+    },
+    additionalDateContext
+  )
 }
 
 /**
@@ -240,11 +475,17 @@ export function embeddedScheduleChildReviewDisplayTitle(
  */
 export function embeddedScheduleChildCalendarExportTitle(
   segment: EmbeddedScheduleSegment,
-  parentEventTitle: string
+  parentEventTitle: string,
+  additionalDateContext?: string
 ): string {
   const parentCore = normalizeEmbeddedScheduleParentDisplayTitle(parentEventTitle.trim()).title
   return normalizeCalendarEventTitle(
-    embeddedScheduleChildReviewDisplayTitle(parentCore, segment.title, segment.date),
+    embeddedScheduleChildReviewDisplayTitle(
+      parentCore,
+      segment.title,
+      segment.date,
+      additionalDateContext
+    ),
     { start: segment.start, end: segment.end }
   )
 }
@@ -409,13 +650,23 @@ export function applyCupWeekendEmbeddedScheduleMerge(
 
     if (!CUP_OR_TOURNAMENT_HINT.test(clusterText)) continue
 
-    const segments = buildSegments(group)
-    if (segments.length < MIN_EVENTS_IN_CLUSTER) continue
-    if (segments.length > MAX_SEGMENTS) continue
+    const segmentsRaw = buildSegments(group)
+    if (segmentsRaw.length < MIN_EVENTS_IN_CLUSTER) continue
+    if (segmentsRaw.length > MAX_SEGMENTS) continue
 
     const dateMin = distinctDates[0]!
     const dateMax = distinctDates[distinctDates.length - 1]!
     const { title: parentTitle, wasDayLikeTitle: parentWasDayLikeTitle } = pickParentTitle(group, dateMin, dateMax)
+    const arrangementDateContextBlob = group.map((g) => g.event.title.trim()).join('\n')
+    const segments = segmentsRaw.map((seg) => ({
+      ...seg,
+      title: embeddedScheduleChildReviewDisplayTitle(
+        parentTitle,
+        seg.title,
+        seg.date,
+        arrangementDateContextBlob
+      ),
+    }))
     const confidence = Math.max(...group.map((g) => g.confidence))
     const template = group.sort((a, b) => b.confidence - a.confidence)[0]!
     const blockGroupId = newId()

@@ -293,6 +293,11 @@ export interface EventMetadata {
   /** Source markers for date-only fallback persistence. */
   startTimeSource?: string
   endTimeSource?: string
+  /**
+   * Tankestrøm: valgfri forklaring av tidsberegning (f.eks. start + varighet = slutt).
+   * Struktur er kilde-definert; UI leser `expression`, `summary`, eller start/duration/end.
+   */
+  timeComputation?: Record<string, unknown>
   /** Free-form metadata reserved for future automation features. */
   [key: string]: unknown;
 }
