@@ -198,6 +198,14 @@ function App() {
     failureMessage?: string
   }) => {
     const { success, partial, failureMessage } = payload
+    if (
+      success.createdEvents.length === 0 &&
+      success.updatedEvents.length === 0 &&
+      success.createdTasks.length === 0
+    ) {
+      console.warn('[Tankestrom import toast skipped: empty success payload]')
+      return
+    }
     const firstEvent = [...success.createdEvents, ...success.updatedEvents]
       .sort((a, b) => a.date.localeCompare(b.date))[0]
     const firstDate = firstEvent?.date

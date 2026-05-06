@@ -68,6 +68,7 @@ import { getEventParticipantIds } from '../../lib/schedule'
 import { cleanupParallelClusterDayRowsAfterEmbeddedParentUpdate } from '../../lib/tankestromExistingEventClusterCleanup'
 import {
   aggregatePersistFailureKinds,
+  buildTankestromImportFailureBulletBlock,
   buildTankestromImportFailureUserMessage,
   buildTankestromTaskPersistPayloadFingerprint,
   buildTaskPersistFailureSupabaseDebugPayload,
@@ -121,11 +122,87 @@ export type TankestromImportSuccess = {
   arrangementTitle?: string
 }
 
+export type TankestromImportTerminalStatus = 'success' | 'partial_success' | 'failed' | 'noop_bug'
+
+export type TankestromImportAttemptDebug = {
+  selectedProposalIds: string[]
+  selectedActions: Array<{
+    proposalId: string
+    importKind: string
+    existingAction: string
+  }>
+  persistPlan: Array<{
+    proposalId: string
+    childId?: string
+    mode: string
+    title: string
+    date: string
+    start: string
+    end: string
+    personId: string
+    validationErrors: string[]
+  }>
+  persistPlanLength: number
+  attemptedPersistOps: number
+  createdEventsCount: number
+  updatedEventsCount: number
+  createdTasksCount: number
+  failuresCount: number
+  noopReason?: string
+}
+
+export type TankestromImportLastAttempt =
+  | { status: 'running'; id: string; startedAt: string }
+  | {
+      status: 'success'
+      id: string
+      startedAt: string
+      debug: TankestromImportAttemptDebug
+      createdEvents: TankestromImportSuccess['createdEvents']
+      updatedEvents: TankestromImportSuccess['updatedEvents']
+      createdTasks: TankestromImportSuccess['createdTasks']
+    }
+  | {
+      status: 'partial_success'
+      id: string
+      startedAt: string
+      debug: TankestromImportAttemptDebug
+      createdEvents: TankestromImportSuccess['createdEvents']
+      updatedEvents: TankestromImportSuccess['updatedEvents']
+      createdTasks: TankestromImportSuccess['createdTasks']
+      failures: TankestromImportPersistFailureRecord[]
+    }
+  | {
+      status: 'failed'
+      id: string
+      startedAt: string
+      debug: TankestromImportAttemptDebug
+      failures: TankestromImportPersistFailureRecord[]
+    }
+  | {
+      status: 'noop_bug'
+      id: string
+      startedAt: string
+      debug: TankestromImportAttemptDebug
+    }
+
 export type TankestromImportResult = {
   ok: boolean
   partial: boolean
   success?: TankestromImportSuccess
   failureMessage?: string
+  importAttemptId?: string
+  terminalStatus?: TankestromImportTerminalStatus
+}
+
+function preflightImportFailureRecord(message: string): TankestromImportPersistFailureRecord {
+  return {
+    proposalId: '__preflight__',
+    proposalSurfaceType: 'event',
+    operation: 'createEvent',
+    kind: 'validation',
+    message,
+  }
 }
 
 function newPendingFileId(): string {
@@ -1486,6 +1563,7 @@ export function useTankestromImport({
   }, [bundle, inputMode, analyzedSourceLength, textInput])
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [lastImportAttempt, setLastImportAttempt] = useState<TankestromImportLastAttempt | null>(null)
   /** Kandidater i «Kanskje også relevant» som brukeren har skjult. */
   const [secondaryDismissedCandidateIds, setSecondaryDismissedCandidateIds] = useState<Set<string>>(
     () => new Set()
@@ -1561,6 +1639,10 @@ export function useTankestromImport({
   const [saveLoading, setSaveLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [analyzeWarning, setAnalyzeWarning] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) setLastImportAttempt(null)
+  }, [open])
 
   /** Gjenstående program-rader per forelder (løsnede er fjernet fra listen). */
   const [embeddedScheduleReviewRowsByParentId, setEmbeddedScheduleReviewRowsByParentId] = useState<
@@ -2694,8 +2776,48 @@ export function useTankestromImport({
   }, [])
 
   const approveSelected = useCallback(async (): Promise<TankestromImportResult> => {
-    if (schoolReview) return { ok: false, partial: false }
-    if (!bundle || proposalItems.length === 0) return { ok: false, partial: false }
+    const importAttemptId = newPendingFileId()
+    const nowIso = () => new Date().toISOString()
+
+    const failEarly = (message: string): TankestromImportResult => {
+      const idsEarly = [...selectedIds]
+      const selectedActionsEarly = idsEarly.map((id) => ({
+        proposalId: id,
+        importKind: draftByProposalId[id]?.importKind ?? 'missing',
+        existingAction:
+          existingEventLinkByProposalId[id] ??
+          (existingEventMatchesByProposalId[id]?.candidate ? 'update_default' : 'new_default'),
+      }))
+      setLastImportAttempt({
+        status: 'failed',
+        id: importAttemptId,
+        startedAt: nowIso(),
+        debug: {
+          selectedProposalIds: idsEarly,
+          selectedActions: selectedActionsEarly,
+          persistPlan: [],
+          persistPlanLength: 0,
+          attemptedPersistOps: 0,
+          createdEventsCount: 0,
+          updatedEventsCount: 0,
+          createdTasksCount: 0,
+          failuresCount: 1,
+          noopReason: 'preflight',
+        },
+        failures: [preflightImportFailureRecord(message)],
+      })
+      setError(message)
+      return { ok: false, partial: false, failureMessage: message, importAttemptId, terminalStatus: 'failed' }
+    }
+
+    if (schoolReview) {
+      return failEarly(
+        'Fullfør eller lukk skoleprofil-importen før du legger hendelser og gjøremål i kalenderen.'
+      )
+    }
+    if (!bundle || proposalItems.length === 0) {
+      return failEarly('Ingen importpakke å lagre. Analyser dokumentet på nytt.')
+    }
     const ids = [...selectedIds]
     const selectedActions = ids.map((id) => ({
       proposalId: id,
@@ -2705,29 +2827,34 @@ export function useTankestromImport({
         (existingEventMatchesByProposalId[id]?.candidate ? 'update_default' : 'new_default'),
     }))
     console.info('[Tankestrom import approve clicked]', {
+      importAttemptId,
       selectedProposalIds: ids,
       selectedCount: ids.length,
       proposalsCount: proposalItems.length,
       selectedActions,
     })
     if (ids.length === 0) {
-      setError('Velg minst ett forslag som skal importeres.')
-      return { ok: false, partial: false }
+      return failEarly('Velg minst ett forslag som skal importeres.')
     }
 
     for (const id of ids) {
       const draft = draftByProposalId[id]
       if (!draft) {
-        setError('Mangler redigeringsdata for et valgt forslag. Prøv å analysere på nytt.')
-        return { ok: false, partial: false }
+        return failEarly('Mangler redigeringsdata for et valgt forslag. Prøv å analysere på nytt.')
       }
       const err = validateUnifiedDraft(draft, validPersonIds)
       if (err) {
-        setError(err)
-        return { ok: false, partial: false }
+        return failEarly(err)
       }
     }
 
+    const attemptStartedAt = nowIso()
+    setLastImportAttempt({ status: 'running', id: importAttemptId, startedAt: attemptStartedAt })
+    console.info('[Tankestrom import attempt started]', {
+      importAttemptId,
+      selectedProposalIds: ids,
+      selectedCount: ids.length,
+    })
     setError(null)
     setSaveLoading(true)
     let failed = 0
@@ -2758,6 +2885,19 @@ export function useTankestromImport({
         firstSelectedEventItem?.kind === 'event'
           ? normalizeEmbeddedScheduleParentDisplayTitle(firstSelectedEventItem.event.title).title
           : undefined
+
+      const buildDebug = (noopReason?: string): TankestromImportAttemptDebug => ({
+        selectedProposalIds: [...ids],
+        selectedActions: selectedActions.map((a) => ({ ...a })),
+        persistPlan: persistPlanPreview,
+        persistPlanLength: persistPlanPreview.length,
+        attemptedPersistOps,
+        createdEventsCount: createdEvents.length,
+        updatedEventsCount: updatedEvents.length,
+        createdTasksCount: createdTasks.length,
+        failuresCount: failureRecords.length,
+        noopReason,
+      })
 
       const pushCreatedEvent = (row: { id: string; title: string; date: string; start?: string | null; end?: string | null }) => {
         const key = `${row.id}|${row.date}`
@@ -3883,40 +4023,78 @@ export function useTankestromImport({
         })
       }
       if (failed > 0) {
+        const bullets = buildTankestromImportFailureBulletBlock(failureRecords)
         const userFacingFailure = buildTankestromImportFailureUserMessage(failureRecords, ids.length)
-        setError(userFacingFailure)
+        const composed = `Kunne ikke importere:\n${bullets}\n\n${userFacingFailure}`
+        setError(composed)
         logTankestromImportPersist({
           tankestromImportFailureSummaryBuilt: true,
           tankestromImportFailedProposalIds: [...failedIds],
           tankestromImportSucceededProposalIds: ids.filter((i) => !failedIds.has(i)),
           tankestromImportFailureKindCounts: aggregatePersistFailureKinds(failureRecords),
-          tankestromImportUserFacingFailureMessageBuilt: userFacingFailure,
-          tankestromImportTaskFailureUserMessageRefined: userFacingFailure,
+          tankestromImportUserFacingFailureMessageBuilt: composed,
+          tankestromImportTaskFailureUserMessageRefined: composed,
         })
         const hasAnySuccess = createdEvents.length > 0 || updatedEvents.length > 0 || createdTasks.length > 0
         if (hasAnySuccess) {
+          setLastImportAttempt({
+            status: 'partial_success',
+            id: importAttemptId,
+            startedAt: attemptStartedAt,
+            debug: buildDebug(),
+            createdEvents,
+            updatedEvents,
+            createdTasks,
+            failures: failureRecords,
+          })
           return {
             ok: true,
             partial: true,
-            failureMessage: userFacingFailure,
+            failureMessage: composed,
             success: {
               createdEvents,
               updatedEvents,
               createdTasks,
               arrangementTitle: selectedArrangementTitle,
             },
+            importAttemptId,
+            terminalStatus: 'partial_success',
           }
         }
-        return { ok: false, partial: false, failureMessage: userFacingFailure }
+        setLastImportAttempt({
+          status: 'failed',
+          id: importAttemptId,
+          startedAt: attemptStartedAt,
+          debug: buildDebug(),
+          failures: failureRecords,
+        })
+        return {
+          ok: false,
+          partial: false,
+          failureMessage: composed,
+          importAttemptId,
+          terminalStatus: 'failed',
+        }
       }
-      if (attemptedPersistOps === 0 && createdEvents.length === 0 && updatedEvents.length === 0 && createdTasks.length === 0) {
-        const message =
+      if (
+        attemptedPersistOps === 0 &&
+        createdEvents.length === 0 &&
+        updatedEvents.length === 0 &&
+        createdTasks.length === 0
+      ) {
+        const noopMessage = 'Importen ga ingen resultat. Ingen hendelser eller gjøremål ble lagret.'
+        const noopHint =
           ids.length > 0
-            ? 'Ingen kalenderhendelser eller gjøremål kunne bygges fra valget. Åpne Rediger og sjekk dato, tid og type.'
-            : 'Importen ga ingen resultat. Ingen hendelser ble lagret.'
-        console.error('[Tankestrom import fatal error]', {
-          message,
+            ? '\n\nIngen kalenderhendelser eller gjøremål kunne bygges fra valget. Åpne Rediger og sjekk dato, tid og type.'
+            : ''
+        const fullNoop = noopMessage + noopHint
+        console.error('[Tankestrom import noop_bug]', {
+          importAttemptId,
+          message: fullNoop,
           selectedProposalIds: ids,
+          selectedActions,
+          persistPlan: persistPlanPreview,
+          attemptedPersistOps,
           selectedRowsByParent: Object.fromEntries(
             Object.entries(embeddedScheduleReviewRowsByParentId).map(([pid, rows]) => [
               pid,
@@ -3924,9 +4102,52 @@ export function useTankestromImport({
             ])
           ),
         })
-        setError(message)
-        return { ok: false, partial: false, failureMessage: message }
+        setLastImportAttempt({
+          status: 'noop_bug',
+          id: importAttemptId,
+          startedAt: attemptStartedAt,
+          debug: buildDebug('zero_persist_ops'),
+        })
+        setError(fullNoop)
+        return {
+          ok: false,
+          partial: false,
+          failureMessage: fullNoop,
+          importAttemptId,
+          terminalStatus: 'noop_bug',
+        }
       }
+
+      const hasEmptyOutcome =
+        createdEvents.length === 0 &&
+        updatedEvents.length === 0 &&
+        createdTasks.length === 0 &&
+        failureRecords.length === 0
+
+      if (hasEmptyOutcome && attemptedPersistOps > 0) {
+        const noopMessage = 'Importen ga ingen resultat. Ingen hendelser eller gjøremål ble lagret.'
+        console.error('[Tankestrom import noop_bug]', {
+          importAttemptId,
+          reason: 'persist_ops_without_tracked_outcome',
+          attemptedPersistOps,
+          selectedProposalIds: ids,
+        })
+        setLastImportAttempt({
+          status: 'noop_bug',
+          id: importAttemptId,
+          startedAt: attemptStartedAt,
+          debug: buildDebug('persist_ops_without_tracked_outcome'),
+        })
+        setError(noopMessage)
+        return {
+          ok: false,
+          partial: false,
+          failureMessage: noopMessage,
+          importAttemptId,
+          terminalStatus: 'noop_bug',
+        }
+      }
+
       console.info('[Tankestrom import result]', {
         createdEvents,
         updatedEvents,
@@ -3939,6 +4160,15 @@ export function useTankestromImport({
         tankestromImportSucceededProposalIds: ids,
         tankestromImportPersistBatchComplete: true,
       })
+      setLastImportAttempt({
+        status: 'success',
+        id: importAttemptId,
+        startedAt: attemptStartedAt,
+        debug: buildDebug(),
+        createdEvents,
+        updatedEvents,
+        createdTasks,
+      })
       return {
         ok: true,
         partial: false,
@@ -3948,12 +4178,38 @@ export function useTankestromImport({
           createdTasks,
           arrangementTitle: selectedArrangementTitle,
         },
+        importAttemptId,
+        terminalStatus: 'success',
       }
     } catch (error) {
       console.error('[Tankestrom import fatal error]', error)
       const message = error instanceof Error ? error.message : 'Importen feilet uventet. Prøv igjen.'
       setError(message)
-      return { ok: false, partial: false, failureMessage: message }
+      setLastImportAttempt({
+        status: 'failed',
+        id: importAttemptId,
+        startedAt: attemptStartedAt,
+        debug: {
+          selectedProposalIds: [...ids],
+          selectedActions: selectedActions.map((a) => ({ ...a })),
+          persistPlan: [],
+          persistPlanLength: 0,
+          attemptedPersistOps: 0,
+          createdEventsCount: 0,
+          updatedEventsCount: 0,
+          createdTasksCount: 0,
+          failuresCount: 1,
+          noopReason: 'fatal_exception',
+        },
+        failures: [preflightImportFailureRecord(message)],
+      })
+      return {
+        ok: false,
+        partial: false,
+        failureMessage: message,
+        importAttemptId,
+        terminalStatus: 'failed',
+      }
     } finally {
       setSaveLoading(false)
     }
@@ -3988,7 +4244,7 @@ export function useTankestromImport({
       const okOverlay = await saveSchoolWeekOverlay()
       if (!okOverlay) return { ok: false, partial: false }
     }
-    if (selectedIds.size === 0) return { ok: true, partial: false, success: { createdEvents: [], updatedEvents: [], createdTasks: [] } }
+    if (selectedIds.size === 0) return { ok: true, partial: false }
     return approveSelected()
   }, [schoolReview, bundle?.schoolWeekOverlayProposal, saveSchoolWeekOverlay, selectedIds, approveSelected])
 
@@ -4107,6 +4363,7 @@ export function useTankestromImport({
     analyzeLoading,
     saveLoading,
     error,
+    lastImportAttempt,
     analyzeWarning,
     runAnalyze,
     reanalyzeFromSameInput,

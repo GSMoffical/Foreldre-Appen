@@ -2224,6 +2224,7 @@ export function TankestromImportDialog({
     analyzeLoading,
     saveLoading,
     error,
+    lastImportAttempt,
     runAnalyze,
     reanalyzeFromSameInput,
     addManualReviewTask,
@@ -2258,6 +2259,7 @@ export function TankestromImportDialog({
   const validPersonIds = useMemo(() => new Set(people.map((p) => p.id)), [people])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importDebugOpen, setImportDebugOpen] = useState(false)
   const [fileDropActive, setFileDropActive] = useState(false)
   const [bulkPersonPick, setBulkPersonPick] = useState<Set<string>>(() => new Set())
 
@@ -2409,15 +2411,22 @@ export function TankestromImportDialog({
 
   const handleApprove = useCallback(async () => {
     const result = await approveSelected()
-    if (result.ok && result.success) {
+    const success = result.success
+    const createdAny =
+      Boolean(success) &&
+      ((success!.createdEvents?.length ?? 0) > 0 ||
+        (success!.updatedEvents?.length ?? 0) > 0 ||
+        (success!.createdTasks?.length ?? 0) > 0)
+    if (result.ok && success && createdAny) {
       logEvent('tankestrom_import_completed', { count: selectedIds.size })
       onImportFinished?.({
-        success: result.success,
+        success,
         partial: result.partial,
         failureMessage: result.failureMessage,
       })
+      onClose()
     }
-  }, [approveSelected, selectedIds.size, onImportFinished])
+  }, [approveSelected, selectedIds.size, onImportFinished, onClose])
 
   const handleSaveSchoolProfile = useCallback(async () => {
     const ok = await saveSchoolProfile()
@@ -2429,22 +2438,30 @@ export function TankestromImportDialog({
 
   const handleSaveOverlayAndCalendar = useCallback(async () => {
     const result = await saveSchoolWeekOverlayThenCalendarSelection()
-    if (result.ok) {
-      if (bundle?.schoolWeekOverlayProposal) {
-        logEvent('tankestrom_school_week_overlay_saved', { childId: schoolProfileChildId })
-      }
+    if (!result.ok) return
+    if (bundle?.schoolWeekOverlayProposal) {
+      logEvent('tankestrom_school_week_overlay_saved', { childId: schoolProfileChildId })
+    }
+    const success = result.success
+    const createdAny =
+      Boolean(success) &&
+      ((success!.createdEvents?.length ?? 0) > 0 ||
+        (success!.updatedEvents?.length ?? 0) > 0 ||
+        (success!.createdTasks?.length ?? 0) > 0)
+    if (createdAny && success) {
       if (selectedIds.size > 0) {
         logEvent('tankestrom_import_completed', { count: selectedIds.size })
       }
-      if (result.success) {
-        onImportFinished?.({
-          success: result.success,
-          partial: result.partial,
-          failureMessage: result.failureMessage,
-        })
-      } else {
-        onClose()
-      }
+      onImportFinished?.({
+        success,
+        partial: result.partial,
+        failureMessage: result.failureMessage,
+      })
+      onClose()
+      return
+    }
+    if (selectedIds.size === 0) {
+      onClose()
     }
   }, [
     saveSchoolWeekOverlayThenCalendarSelection,
@@ -2479,21 +2496,50 @@ export function TankestromImportDialog({
     }
     return n
   }, [selectedIds, draftByProposalId])
-  const selectedEmbeddedProgramSummary = useMemo(() => {
-    let parentCount = 0
-    let childEventCount = 0
+  /** Samme utvalg som import/persist: oppgaver, innebygde barn, frittstående hendelser (ikke program-forelder uten egen rad). */
+  const importSelectionSummaryText = useMemo(() => {
+    let taskCount = 0
+    let embeddedChildCount = 0
     const seenParents = new Set<string>()
+    let standaloneEventCount = 0
     for (const id of selectedIds) {
+      const draft = draftByProposalId[id]
+      if (draft?.importKind === 'task') {
+        taskCount += 1
+        continue
+      }
       const parsed = parseEmbeddedChildProposalId(id)
       if (parsed) {
-        childEventCount += 1
+        embeddedChildCount += 1
         seenParents.add(parsed.parentProposalId)
         continue
       }
+      const item = primaryCalendarProposalItems.find((i) => i.proposalId === id)
+      if (!item || item.kind !== 'event') continue
+      const meta =
+        item.event.metadata && typeof item.event.metadata === 'object' && !Array.isArray(item.event.metadata)
+          ? (item.event.metadata as Record<string, unknown>)
+          : null
+      const isNonExportParent =
+        meta?.isArrangementParent === true && meta?.exportAsCalendarEvent === false
+      if (isNonExportParent) continue
+      standaloneEventCount += 1
     }
-    parentCount = seenParents.size
-    return { parentCount, childEventCount }
-  }, [selectedIds])
+    const parentCount = seenParents.size
+    const parts: string[] = []
+    if (parentCount > 0 && embeddedChildCount > 0) {
+      parts.push(`${parentCount} arrangement / ${embeddedChildCount} hendelser`)
+    } else if (embeddedChildCount > 0) {
+      parts.push(`${embeddedChildCount} hendelser`)
+    }
+    if (standaloneEventCount > 0) {
+      parts.push(`${standaloneEventCount} hendelse${standaloneEventCount === 1 ? '' : 'r'}`)
+    }
+    if (taskCount > 0) {
+      parts.push(`${taskCount} gjøremål`)
+    }
+    return parts.length > 0 ? parts.join(' / ') : String(selectedIds.size)
+  }, [selectedIds, draftByProposalId, primaryCalendarProposalItems])
 
   const resolvedOverlayChildName = useMemo(
     () => people.find((p) => p.id === schoolProfileChildId)?.name ?? '',
@@ -5006,14 +5052,63 @@ export function TankestromImportDialog({
                   røde feltmerknader over.
                 </p>
               )}
-              {error && (
-                <p className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-[13px] text-rose-800">
-                  {error}
-                </p>
-              )}
             </div>
           )}
         </div>
+
+        {step === 'review' && error ? (
+          <div
+            className="shrink-0 space-y-2 border-t border-rose-100 bg-rose-50 px-4 py-3"
+            role="alert"
+          >
+            <p className="text-[13px] font-semibold text-rose-950">Importen ble ikke gjennomført</p>
+            {lastImportAttempt?.status === 'noop_bug' ? (
+              <p className="text-[12px] text-rose-900/90">
+                Det ble ikke opprettet noen hendelser eller gjøremål.
+              </p>
+            ) : null}
+            <p className="whitespace-pre-wrap text-[12px] leading-snug text-rose-900">{error}</p>
+            {lastImportAttempt &&
+            (lastImportAttempt.status === 'failed' ||
+              lastImportAttempt.status === 'noop_bug' ||
+              lastImportAttempt.status === 'partial_success') ? (
+              <div className="border-t border-rose-100/80 pt-2">
+                <button
+                  type="button"
+                  className="text-[11px] font-semibold text-rose-900 underline decoration-rose-300 underline-offset-2 hover:text-rose-950"
+                  onClick={() => setImportDebugOpen((v) => !v)}
+                >
+                  {importDebugOpen ? 'Skjul tekniske detaljer' : 'Vis tekniske detaljer'}
+                </button>
+                {importDebugOpen ? (
+                  <div className="mt-2 max-h-40 overflow-y-auto rounded-md border border-rose-100 bg-white/90 p-2 font-mono text-[10px] leading-relaxed text-zinc-800">
+                    <p className="mb-1 font-sans text-[10px] font-semibold text-zinc-600">Import debug</p>
+                    <ul className="list-inside list-disc space-y-0.5">
+                      <li>importAttemptId: {lastImportAttempt.id}</li>
+                      <li>status: {lastImportAttempt.status}</li>
+                      <li>
+                        selectedProposalIds ({lastImportAttempt.debug.selectedProposalIds.length}):{' '}
+                        {lastImportAttempt.debug.selectedProposalIds.join(', ') || '—'}
+                      </li>
+                      <li>persistPlan.length: {lastImportAttempt.debug.persistPlanLength}</li>
+                      <li>attemptedPersistOps: {lastImportAttempt.debug.attemptedPersistOps}</li>
+                      <li>createdEvents: {lastImportAttempt.debug.createdEventsCount}</li>
+                      <li>updatedEvents: {lastImportAttempt.debug.updatedEventsCount}</li>
+                      <li>createdTasks: {lastImportAttempt.debug.createdTasksCount}</li>
+                      <li>failures: {lastImportAttempt.debug.failuresCount}</li>
+                      <li>noopReason: {lastImportAttempt.debug.noopReason ?? '—'}</li>
+                    </ul>
+                    {lastImportAttempt.status === 'failed' || lastImportAttempt.status === 'partial_success' ? (
+                      <pre className="mt-2 whitespace-pre-wrap break-all text-[9px] text-zinc-600">
+                        {JSON.stringify(lastImportAttempt.failures, null, 2)}
+                      </pre>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="flex shrink-0 gap-2 border-t border-zinc-100 px-4 py-3">
           <Button type="button" variant="secondary" fullWidth={false} className="flex-1" onClick={handleClose}>
@@ -5073,13 +5168,9 @@ export function TankestromImportDialog({
             >
               {schoolWeekOverlayProposal
                 ? selectedIds.size > 0
-                  ? selectedEmbeddedProgramSummary.childEventCount > 0
-                    ? `Lagre overlay og importer (${selectedEmbeddedProgramSummary.parentCount} arrangement / ${selectedEmbeddedProgramSummary.childEventCount} hendelser)`
-                    : `Lagre overlay og importer (${selectedIds.size})`
+                  ? `Lagre overlay og importer (${importSelectionSummaryText})`
                   : 'Lagre uke-overlay'
-                : selectedEmbeddedProgramSummary.childEventCount > 0
-                  ? `Importer valgte (${selectedEmbeddedProgramSummary.parentCount} arrangement / ${selectedEmbeddedProgramSummary.childEventCount} hendelser)`
-                  : `Importer valgte (${selectedIds.size})`}
+                : `Importer valgte (${importSelectionSummaryText})`}
             </Button>
           )}
         </div>

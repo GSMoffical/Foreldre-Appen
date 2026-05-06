@@ -2,6 +2,8 @@
 
 /** TODO: remove build fingerprint after deploy verification (see vite.config.ts define) */
 declare const __APP_BUILD_FINGERPRINT__: string
+declare const __APP_VERSION__: string
+declare const __GIT_SHA__: string
 
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string

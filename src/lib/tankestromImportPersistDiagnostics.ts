@@ -332,6 +332,24 @@ function summarizeTaskFailuresForUser(taskFailures: TankestromImportPersistFailu
   return parts.join(' ')
 }
 
+/** Korte bullet-linjer for synlig feilpanel (én feil per rad). */
+export function buildTankestromImportFailureBulletBlock(
+  failures: TankestromImportPersistFailureRecord[],
+  max = 12
+): string {
+  return failures
+    .slice(0, max)
+    .map((f) => {
+      const t =
+        (f.title ?? '').trim() ||
+        (f.taskPersistContext?.title ?? '').trim() ||
+        'Uten tittel'
+      const db = f.supabaseCode ? ` (database: ${f.supabaseCode})` : ''
+      return `• ${t}: ${f.message}${db}`
+    })
+    .join('\n')
+}
+
 /** Kompakt brukermelding (mobilvennlig), med konkret oppgave-kontekst når tilgjengelig. */
 export function buildTankestromImportFailureUserMessage(
   failures: TankestromImportPersistFailureRecord[],
