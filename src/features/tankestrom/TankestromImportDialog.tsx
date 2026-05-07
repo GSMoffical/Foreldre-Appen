@@ -84,6 +84,11 @@ import { SchoolProfileFields } from '../../components/SchoolProfileFields'
 import { logEvent } from '../../lib/appLogger'
 import { formatTimeRange } from '../../lib/time'
 import { TANKESTROM_FLIGHT_MISSING_END_LABEL } from '../../lib/tankestromFlightImportEnd'
+import {
+  buildTankestromScheduleDescriptionFallback,
+  normalizeTankestromScheduleDetails,
+  readTankestromScheduleDetailsFromMetadata,
+} from '../../lib/tankestromScheduleDetails'
 import { taskIntentBadgeClassName, taskIntentLabelNb } from '../../lib/taskIntent'
 import {
   applyLessonConflictChoice,
@@ -1766,6 +1771,37 @@ type EmbeddedChildReviewEditBuffer = {
   end: string
   notes: string
   personId: string
+  highlights: Array<{ time: string; label: string }>
+  noteLines: string[]
+  bringItems: string[]
+  editAsText: boolean
+}
+
+function embeddedSegmentMetadataShape(seg: EmbeddedScheduleSegment) {
+  return {
+    tankestromHighlights: seg.tankestromHighlights,
+    tankestromNotes: seg.tankestromNotes,
+    bringItems: seg.bringItems,
+    packingItems: seg.packingItems,
+    timeWindow: seg.timeWindow,
+  }
+}
+
+function embeddedSegmentHasStructuredDetails(seg: EmbeddedScheduleSegment): boolean {
+  return (
+    (Array.isArray(seg.tankestromHighlights) && seg.tankestromHighlights.length > 0) ||
+    (Array.isArray(seg.tankestromNotes) && seg.tankestromNotes.length > 0) ||
+    (Array.isArray(seg.bringItems) && seg.bringItems.length > 0) ||
+    (Array.isArray(seg.packingItems) && seg.packingItems.length > 0) ||
+    Boolean(seg.timeWindow)
+  )
+}
+
+function autoGrowTextarea(node: HTMLTextAreaElement | null): void {
+  if (!node) return
+  node.style.height = 'auto'
+  const next = Math.min(320, Math.max(96, node.scrollHeight))
+  node.style.height = `${next}px`
 }
 
 /**
@@ -3993,6 +4029,9 @@ export function TankestromImportDialog({
                                     displayTitle,
                                     childProposalId: childId,
                                   })
+                                  const structuredFromSegment = readTankestromScheduleDetailsFromMetadata(
+                                    embeddedSegmentMetadataShape(row.segment)
+                                  )
                                   const detailPanelTitle = embeddedScheduleChildDetailTitleForPanel(
                                     row.segment,
                                     parentCalendarCoreForChild,
@@ -4082,6 +4121,17 @@ export function TankestromImportDialog({
                                                   personFromChild = ev.personId
                                                 }
                                               }
+                                              const normalizedFromSegment = normalizeTankestromScheduleDetails({
+                                                highlights: structuredFromSegment.highlights,
+                                                notes:
+                                                  structuredFromSegment.notes.length > 0
+                                                    ? structuredFromSegment.notes
+                                                    : row.segment.notes
+                                                      ? [row.segment.notes]
+                                                      : [],
+                                                bringItems: structuredFromSegment.bringItems,
+                                                titleContext: [displayTitle, cardTitleRaw],
+                                              })
                                               setEmbeddedChildReviewEditors((prev) => ({
                                                 ...prev,
                                                 [childId]: {
@@ -4105,6 +4155,13 @@ export function TankestromImportDialog({
                                                       : '',
                                                   notes: row.segment.notes ?? '',
                                                   personId: personFromChild,
+                                                  highlights: normalizedFromSegment.highlights.map((h) => ({
+                                                    time: h.time,
+                                                    label: h.label,
+                                                  })),
+                                                  noteLines: normalizedFromSegment.notes,
+                                                  bringItems: normalizedFromSegment.bringItems,
+                                                  editAsText: !embeddedSegmentHasStructuredDetails(row.segment),
                                                 },
                                               }))
                                             }}
@@ -4230,21 +4287,250 @@ export function TankestromImportDialog({
                                                 ))}
                                             </select>
                                           </div>
-                                          <Textarea
-                                            id={`ts-emb-${childId}-notes`}
-                                            label="Notater"
-                                            value={embEdit.notes}
-                                            onChange={(e) =>
-                                              setEmbeddedChildReviewEditors((p) => {
-                                                const cur = p[childId]
-                                                if (!cur) return p
-                                                return { ...p, [childId]: { ...cur, notes: e.target.value } }
-                                              })
-                                            }
-                                            disabled={!checked}
-                                            rows={3}
-                                            className="min-h-[4.5rem] text-[12px] sm:text-[13px]"
-                                          />
+                                          {embeddedSegmentHasStructuredDetails(row.segment) && !embEdit.editAsText ? (
+                                            <div className="space-y-3">
+                                              <div className="space-y-1.5">
+                                                <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[10px]">
+                                                  Høydepunkter
+                                                </p>
+                                                {embEdit.highlights.map((h, index) => (
+                                                  <div key={`h-${index}`} className="grid grid-cols-[86px_1fr_auto] gap-1.5">
+                                                    <Input
+                                                      id={`ts-emb-${childId}-h-time-${index}`}
+                                                      label=""
+                                                      type="time"
+                                                      step={60}
+                                                      value={h.time}
+                                                      onChange={(e) =>
+                                                        setEmbeddedChildReviewEditors((p) => {
+                                                          const cur = p[childId]
+                                                          if (!cur) return p
+                                                          const next = [...cur.highlights]
+                                                          next[index] = { ...next[index]!, time: e.target.value }
+                                                          return { ...p, [childId]: { ...cur, highlights: next } }
+                                                        })
+                                                      }
+                                                      disabled={!checked}
+                                                      className="text-[12px] tabular-nums"
+                                                    />
+                                                    <Input
+                                                      id={`ts-emb-${childId}-h-label-${index}`}
+                                                      label=""
+                                                      value={h.label}
+                                                      onChange={(e) =>
+                                                        setEmbeddedChildReviewEditors((p) => {
+                                                          const cur = p[childId]
+                                                          if (!cur) return p
+                                                          const next = [...cur.highlights]
+                                                          next[index] = { ...next[index]!, label: e.target.value }
+                                                          return { ...p, [childId]: { ...cur, highlights: next } }
+                                                        })
+                                                      }
+                                                      disabled={!checked}
+                                                      className="text-[12px]"
+                                                    />
+                                                    <button
+                                                      type="button"
+                                                      disabled={!checked}
+                                                      onClick={() =>
+                                                        setEmbeddedChildReviewEditors((p) => {
+                                                          const cur = p[childId]
+                                                          if (!cur) return p
+                                                          return {
+                                                            ...p,
+                                                            [childId]: {
+                                                              ...cur,
+                                                              highlights: cur.highlights.filter((_, i) => i !== index),
+                                                            },
+                                                          }
+                                                        })
+                                                      }
+                                                      className="rounded-md border border-zinc-300 px-2 text-[10px] font-semibold text-zinc-600 hover:bg-zinc-50"
+                                                    >
+                                                      Slett
+                                                    </button>
+                                                  </div>
+                                                ))}
+                                                <button
+                                                  type="button"
+                                                  disabled={!checked}
+                                                  onClick={() =>
+                                                    setEmbeddedChildReviewEditors((p) => {
+                                                      const cur = p[childId]
+                                                      if (!cur) return p
+                                                      return {
+                                                        ...p,
+                                                        [childId]: {
+                                                          ...cur,
+                                                          highlights: [...cur.highlights, { time: '', label: '' }],
+                                                        },
+                                                      }
+                                                    })
+                                                  }
+                                                  className="text-[10px] font-semibold text-brandNavy underline underline-offset-2"
+                                                >
+                                                  + Legg til høydepunkt
+                                                </button>
+                                              </div>
+                                              {(embEdit.bringItems.length > 0 || embeddedSegmentHasStructuredDetails(row.segment)) && (
+                                                <div className="space-y-1.5">
+                                                  <p className="text-[9px] font-semibold uppercase tracking-wide text-red-600 sm:text-[10px]">
+                                                    Husk / ta med
+                                                  </p>
+                                                  {embEdit.bringItems.map((line, index) => (
+                                                    <div key={`b-${index}`} className="grid grid-cols-[1fr_auto] gap-1.5">
+                                                      <Input
+                                                        id={`ts-emb-${childId}-bring-${index}`}
+                                                        label=""
+                                                        value={line}
+                                                        onChange={(e) =>
+                                                          setEmbeddedChildReviewEditors((p) => {
+                                                            const cur = p[childId]
+                                                            if (!cur) return p
+                                                            const next = [...cur.bringItems]
+                                                            next[index] = e.target.value
+                                                            return { ...p, [childId]: { ...cur, bringItems: next } }
+                                                          })
+                                                        }
+                                                        disabled={!checked}
+                                                        className="text-[12px]"
+                                                      />
+                                                      <button
+                                                        type="button"
+                                                        disabled={!checked}
+                                                        onClick={() =>
+                                                          setEmbeddedChildReviewEditors((p) => {
+                                                            const cur = p[childId]
+                                                            if (!cur) return p
+                                                            return {
+                                                              ...p,
+                                                              [childId]: {
+                                                                ...cur,
+                                                                bringItems: cur.bringItems.filter((_, i) => i !== index),
+                                                              },
+                                                            }
+                                                          })
+                                                        }
+                                                        className="rounded-md border border-zinc-300 px-2 text-[10px] font-semibold text-zinc-600 hover:bg-zinc-50"
+                                                      >
+                                                        Slett
+                                                      </button>
+                                                    </div>
+                                                  ))}
+                                                  <button
+                                                    type="button"
+                                                    disabled={!checked}
+                                                    onClick={() =>
+                                                      setEmbeddedChildReviewEditors((p) => {
+                                                        const cur = p[childId]
+                                                        if (!cur) return p
+                                                        return {
+                                                          ...p,
+                                                          [childId]: { ...cur, bringItems: [...cur.bringItems, ''] },
+                                                        }
+                                                      })
+                                                    }
+                                                    className="text-[10px] font-semibold text-brandNavy underline underline-offset-2"
+                                                  >
+                                                    + Legg til huskepunkt
+                                                  </button>
+                                                </div>
+                                              )}
+                                              <div className="space-y-1.5">
+                                                <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[10px]">
+                                                  Notater
+                                                </p>
+                                                {embEdit.noteLines.map((line, index) => (
+                                                  <div key={`n-${index}`} className="grid grid-cols-[1fr_auto] gap-1.5">
+                                                    <Input
+                                                      id={`ts-emb-${childId}-note-${index}`}
+                                                      label=""
+                                                      value={line}
+                                                      onChange={(e) =>
+                                                        setEmbeddedChildReviewEditors((p) => {
+                                                          const cur = p[childId]
+                                                          if (!cur) return p
+                                                          const next = [...cur.noteLines]
+                                                          next[index] = e.target.value
+                                                          return { ...p, [childId]: { ...cur, noteLines: next } }
+                                                        })
+                                                      }
+                                                      disabled={!checked}
+                                                      className="text-[12px]"
+                                                    />
+                                                    <button
+                                                      type="button"
+                                                      disabled={!checked}
+                                                      onClick={() =>
+                                                        setEmbeddedChildReviewEditors((p) => {
+                                                          const cur = p[childId]
+                                                          if (!cur) return p
+                                                          return {
+                                                            ...p,
+                                                            [childId]: {
+                                                              ...cur,
+                                                              noteLines: cur.noteLines.filter((_, i) => i !== index),
+                                                            },
+                                                          }
+                                                        })
+                                                      }
+                                                      className="rounded-md border border-zinc-300 px-2 text-[10px] font-semibold text-zinc-600 hover:bg-zinc-50"
+                                                    >
+                                                      Slett
+                                                    </button>
+                                                  </div>
+                                                ))}
+                                                <button
+                                                  type="button"
+                                                  disabled={!checked}
+                                                  onClick={() =>
+                                                    setEmbeddedChildReviewEditors((p) => {
+                                                      const cur = p[childId]
+                                                      if (!cur) return p
+                                                      return {
+                                                        ...p,
+                                                        [childId]: { ...cur, noteLines: [...cur.noteLines, ''] },
+                                                      }
+                                                    })
+                                                  }
+                                                  className="text-[10px] font-semibold text-brandNavy underline underline-offset-2"
+                                                >
+                                                  + Legg til notat
+                                                </button>
+                                              </div>
+                                              <button
+                                                type="button"
+                                                disabled={!checked}
+                                                onClick={() =>
+                                                  setEmbeddedChildReviewEditors((p) => {
+                                                    const cur = p[childId]
+                                                    if (!cur) return p
+                                                    return { ...p, [childId]: { ...cur, editAsText: true } }
+                                                  })
+                                                }
+                                                className="text-[10px] font-medium text-zinc-500 underline underline-offset-2"
+                                              >
+                                                Rediger som tekst
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            <Textarea
+                                              id={`ts-emb-${childId}-notes`}
+                                              label="Notater"
+                                              value={embEdit.notes}
+                                              onChange={(e) =>
+                                                setEmbeddedChildReviewEditors((p) => {
+                                                  const cur = p[childId]
+                                                  if (!cur) return p
+                                                  return { ...p, [childId]: { ...cur, notes: e.target.value } }
+                                                })
+                                              }
+                                              disabled={!checked}
+                                              rows={3}
+                                              className="min-h-[96px] max-h-[320px] overflow-y-auto resize-y text-[12px] sm:text-[13px]"
+                                              onInput={(e) => autoGrowTextarea(e.currentTarget)}
+                                            />
+                                          )}
                                           <div className="flex flex-wrap gap-2 pt-0.5">
                                             <button
                                               type="button"
@@ -4256,14 +4542,62 @@ export function TankestromImportDialog({
                                                 const eN = normalizeTimeInput(buf.end)
                                                 const rawTitle = buf.title.trim() || 'Uten tittel'
                                                 const cleanedTitle = cleanManualTitle(rawTitle) || 'Uten tittel'
+                                                const normalizedStructured = normalizeTankestromScheduleDetails({
+                                                  highlights: buf.highlights
+                                                    .map((h) => ({
+                                                      time: (h.time ?? '').trim().slice(0, 5),
+                                                      label: (h.label ?? '').trim(),
+                                                      type: 'other' as const,
+                                                    }))
+                                                    .filter((h) => h.time && h.label),
+                                                  notes: buf.editAsText
+                                                    ? buf.notes
+                                                        .split('\n')
+                                                        .map((line) => line.trim())
+                                                        .filter(Boolean)
+                                                    : buf.noteLines.map((line) => line.trim()).filter(Boolean),
+                                                  bringItems: buf.editAsText
+                                                    ? []
+                                                    : buf.bringItems.map((line) => line.trim()).filter(Boolean),
+                                                  titleContext: [cleanedTitle, cardTitleRaw],
+                                                })
+                                                const fallbackNotes = [
+                                                  ...normalizedStructured.notes,
+                                                  ...normalizedStructured.bringItems.map((line) => `Ta med: ${line}`),
+                                                ]
+                                                const descriptionFallback = buildTankestromScheduleDescriptionFallback(
+                                                  normalizedStructured.highlights,
+                                                  fallbackNotes
+                                                )
                                                 const patch: Partial<EmbeddedScheduleSegment> = {
                                                   title: cleanedTitle,
                                                   titleOverride: cleanedTitle,
                                                   userEditedTitle: true,
                                                   date: buf.date,
-                                                  notes: buf.notes.trim() ? buf.notes.trim() : undefined,
+                                                  notes: buf.editAsText
+                                                    ? buf.notes.trim()
+                                                      ? buf.notes.trim()
+                                                      : undefined
+                                                    : undefined,
                                                   start: buf.start.trim() && HM24.test(sN) ? sN : undefined,
                                                   end: buf.end.trim() && HM24.test(eN) ? eN : undefined,
+                                                  tankestromHighlights:
+                                                    normalizedStructured.highlights.length > 0
+                                                      ? normalizedStructured.highlights
+                                                      : undefined,
+                                                  tankestromNotes:
+                                                    normalizedStructured.notes.length > 0
+                                                      ? normalizedStructured.notes
+                                                      : undefined,
+                                                  bringItems:
+                                                    normalizedStructured.bringItems.length > 0
+                                                      ? normalizedStructured.bringItems
+                                                      : undefined,
+                                                  packingItems:
+                                                    normalizedStructured.bringItems.length > 0
+                                                      ? normalizedStructured.bringItems
+                                                      : undefined,
+                                                  tankestromDescriptionFallback: descriptionFallback || undefined,
                                                 }
                                                 const oldTitle = row.segment.title
                                                 const savedOk = updateEmbeddedScheduleSegment(pid, row.origIndex, patch, {
@@ -4368,7 +4702,21 @@ export function TankestromImportDialog({
                                             ) : null}
                                           </dl>
                                           <div className="space-y-3">
-                                            {childNotesPresentation?.mode === 'structured' ? (
+                                            {structuredFromSegment.highlights.length > 0 ||
+                                            structuredFromSegment.notes.length > 0 ||
+                                            structuredFromSegment.bringItems.length > 0 ? (
+                                              <TankestromScheduleDetails
+                                                highlights={structuredFromSegment.highlights}
+                                                notes={structuredFromSegment.notes}
+                                                bringItems={structuredFromSegment.bringItems}
+                                                titleContext={[detailPanelTitle, cardTitleRaw]}
+                                                compact
+                                              />
+                                            ) : null}
+                                            {structuredFromSegment.highlights.length === 0 &&
+                                            structuredFromSegment.notes.length === 0 &&
+                                            structuredFromSegment.bringItems.length === 0 &&
+                                            childNotesPresentation?.mode === 'structured' ? (
                                               <TankestromScheduleDetails
                                                 highlights={childNotesPresentation.highlights.map((h) => ({
                                                   time: h.displayTime,
@@ -4376,6 +4724,7 @@ export function TankestromImportDialog({
                                                   type: 'other',
                                                 }))}
                                                 notes={childNotesPresentation.noteLines}
+                                                titleContext={[detailPanelTitle, cardTitleRaw]}
                                                 compact
                                               />
                                             ) : null}

@@ -55,7 +55,13 @@ function hasTankestromStructuredDetails(event: Event): boolean {
   if (!md) return false
   const highlights = Array.isArray(md.tankestromHighlights) ? md.tankestromHighlights : []
   const notes = Array.isArray(md.tankestromNotes) ? md.tankestromNotes : []
-  return highlights.length > 0 || notes.length > 0
+  const bringItems = Array.isArray((md as Record<string, unknown>).bringItems)
+    ? ((md as Record<string, unknown>).bringItems as unknown[])
+    : []
+  const packingItems = Array.isArray((md as Record<string, unknown>).packingItems)
+    ? ((md as Record<string, unknown>).packingItems as unknown[])
+    : []
+  return highlights.length > 0 || notes.length > 0 || bringItems.length > 0 || packingItems.length > 0
 }
 
 function shouldShowPlainDescription(event: Event): boolean {
@@ -153,6 +159,27 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
     () => readTankestromScheduleDetailsFromMetadata(event.metadata),
     [event.metadata]
   )
+  useEffect(() => {
+    if (!(import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true')) return
+    console.info('[Tankestrom schedule details debug]', {
+      rawMetadataDetails: {
+        highlights: event.metadata?.highlights,
+        scheduleHighlights: event.metadata?.scheduleHighlights,
+        notesList: event.metadata?.notesList,
+        bringItems: (event.metadata as Record<string, unknown> | undefined)?.bringItems,
+        packingItems: (event.metadata as Record<string, unknown> | undefined)?.packingItems,
+        tankestromHighlights: event.metadata?.tankestromHighlights,
+        tankestromNotes: event.metadata?.tankestromNotes,
+        tankestromDescriptionFallback: event.metadata?.tankestromDescriptionFallback,
+      },
+      normalizedDetails: tankestromDetails,
+      renderedHighlights: tankestromDetails.highlights,
+      renderedBringItems: [],
+      renderedNotes: tankestromDetails.notes,
+      removedFragments: [],
+      removedDuplicateHighlights: 0,
+    })
+  }, [event.metadata, tankestromDetails])
 
   useEffect(() => {
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -344,6 +371,8 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
               <TankestromScheduleDetails
                 highlights={tankestromDetails.highlights}
                 notes={tankestromDetails.notes}
+                bringItems={tankestromDetails.bringItems}
+                titleContext={[event.title]}
               />
             </div>
           )}

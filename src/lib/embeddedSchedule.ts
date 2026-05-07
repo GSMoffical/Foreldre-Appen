@@ -38,6 +38,35 @@ export function parseEmbeddedScheduleFromMetadata(
       if (e) seg.end = e
     }
     if (typeof o.notes === 'string' && o.notes.trim()) seg.notes = o.notes.trim()
+    if (Array.isArray(o.tankestromHighlights)) {
+      seg.tankestromHighlights = o.tankestromHighlights
+        .filter((x) => x && typeof x === 'object')
+        .map((x) => ({ ...(x as Record<string, unknown>) })) as EmbeddedScheduleSegment['tankestromHighlights']
+    }
+    if (Array.isArray(o.tankestromNotes)) {
+      seg.tankestromNotes = o.tankestromNotes
+        .filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+        .map((x) => x.trim())
+    }
+    if (Array.isArray(o.bringItems)) {
+      seg.bringItems = o.bringItems
+        .filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+        .map((x) => x.trim())
+    }
+    if (Array.isArray(o.packingItems)) {
+      seg.packingItems = o.packingItems
+        .filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+        .map((x) => x.trim())
+    }
+    if (typeof o.tankestromDescriptionFallback === 'string' && o.tankestromDescriptionFallback.trim()) {
+      seg.tankestromDescriptionFallback = o.tankestromDescriptionFallback.trim()
+    }
+    if (
+      typeof o.timeWindow === 'string' ||
+      (o.timeWindow && typeof o.timeWindow === 'object' && !Array.isArray(o.timeWindow))
+    ) {
+      seg.timeWindow = o.timeWindow as EmbeddedScheduleSegment['timeWindow']
+    }
     if (typeof o.kind === 'string' && o.kind.trim()) seg.kind = o.kind.trim()
     if (o.isConditional === true) seg.isConditional = true
     if (o.userEditedTitle === true) seg.userEditedTitle = true

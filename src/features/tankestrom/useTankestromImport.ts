@@ -671,6 +671,26 @@ function attachTankestromDetailsToMetadata(
     details.highlights,
     details.notes
   )
+  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+    console.info('[Tankestrom schedule details debug]', {
+      rawMetadataDetails: {
+        highlights: metadata.highlights,
+        scheduleHighlights: metadata.scheduleHighlights,
+        notesList: metadata.notesList,
+        bringItems: metadata.bringItems,
+        packingItems: metadata.packingItems,
+        tankestromHighlights: metadata.tankestromHighlights,
+        tankestromNotes: metadata.tankestromNotes,
+        tankestromDescriptionFallback: metadata.tankestromDescriptionFallback,
+      },
+      normalizedDetails: details,
+      renderedHighlights: [],
+      renderedBringItems: Array.isArray(metadata.bringItems) ? metadata.bringItems : [],
+      renderedNotes: details.notes,
+      removedFragments: [],
+      removedDuplicateHighlights: 0,
+    })
+  }
 }
 
 function buildDetachedEmbeddedChildProposal(
@@ -3411,6 +3431,29 @@ export function useTankestromImport({
           timePrecision: metaRec?.timePrecision,
           metadata: input.metadata,
         })
+        if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+          console.info('[Tankestrom schedule details debug]', {
+            rawMetadataDetails: {
+              highlights: metaRec?.highlights,
+              scheduleHighlights: metaRec?.scheduleHighlights,
+              notesList: metaRec?.notesList,
+              bringItems: metaRec?.bringItems,
+              packingItems: metaRec?.packingItems,
+              tankestromHighlights: metaRec?.tankestromHighlights,
+              tankestromNotes: metaRec?.tankestromNotes,
+              tankestromDescriptionFallback: metaRec?.tankestromDescriptionFallback,
+            },
+            normalizedDetails: {
+              highlights: metaRec?.tankestromHighlights ?? [],
+              notes: metaRec?.tankestromNotes ?? [],
+            },
+            renderedHighlights: [],
+            renderedBringItems: Array.isArray(metaRec?.bringItems) ? metaRec?.bringItems : [],
+            renderedNotes: Array.isArray(metaRec?.tankestromNotes) ? metaRec?.tankestromNotes : [],
+            removedFragments: [],
+            removedDuplicateHighlights: 0,
+          })
+        }
         try {
           await createEvent(dateKey, input)
           batchPersistFingerprints.add(fp)

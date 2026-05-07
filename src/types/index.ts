@@ -214,6 +214,17 @@ export interface EmbeddedScheduleSegment {
   /** Eksplisitt manuell tittel (samme som `title` etter lagring); valgfri duplikat for klarhet. */
   titleOverride?: string;
   notes?: string;
+  /** Structured highlights for this child segment (same shape as event metadata). */
+  tankestromHighlights?: TankestromScheduleHighlight[]
+  /** Structured notes for this child segment. */
+  tankestromNotes?: string[]
+  /** Bring/packing items for this child segment. */
+  bringItems?: string[]
+  packingItems?: string[]
+  /** Optional time window (e.g. tentative slot) for this segment. */
+  timeWindow?: string | { start?: string; end?: string; tentative?: boolean; label?: string }
+  /** Text fallback for external export; not primary internal rendering source. */
+  tankestromDescriptionFallback?: string
   /** Valgfri maskinlesbar tag (f.eks. «meet», «match») for senere import/UI. */
   kind?: string;
   /** True når punktet er usikkert eller avhengig av f.eks. tidligere kamper (sluttspill). */
