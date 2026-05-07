@@ -236,6 +236,24 @@ export function dedupeTimelineEventsById(events: Event[]): Event[] {
   return out
 }
 
+function isHm(value: unknown): value is string {
+  return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value.trim().slice(0, 5))
+}
+
+function timeWindowLabel(metadata: Event['metadata']): string | null {
+  const tw = metadata?.timeWindow
+  if (!tw) return null
+  if (typeof tw === 'string' && tw.trim()) return tw.trim()
+  if (typeof tw !== 'object' || Array.isArray(tw)) return 'Tidspunkt ikke endelig'
+  const rec = tw as Record<string, unknown>
+  const startRaw = rec.start ?? rec.from ?? rec.earliest
+  const endRaw = rec.end ?? rec.to ?? rec.latest
+  const start = isHm(startRaw) ? startRaw.slice(0, 5) : ''
+  const end = isHm(endRaw) ? endRaw.slice(0, 5) : ''
+  if (start && end) return `Mellom ${start} og ${end}`
+  return 'Tidspunkt ikke endelig'
+}
+
 /**
  * Tidslabel for kalenderkort: respekterer `timePrecision` og falske sluttider (layout/fallback).
  */
@@ -243,6 +261,9 @@ export function formatCalendarEventTimeLabel(event: Pick<Event, 'start' | 'end' 
   const m = event.metadata
   const precision = m?.timePrecision
   const endSrc = m?.endTimeSource
+  const twLabel = timeWindowLabel(m)
+
+  if (twLabel) return twLabel
 
   if (precision === 'date_only') {
     return (m?.displayTimeLabel && m.displayTimeLabel.trim()) || 'Tid ikke avklart'

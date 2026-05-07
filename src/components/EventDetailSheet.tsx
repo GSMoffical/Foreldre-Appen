@@ -140,6 +140,10 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
     event.metadata?.endTimeSource === 'layout_only' ||
     event.metadata?.endTimeSource === 'missing_or_unreadable' ||
     event.metadata?.endTimeSource === 'fallback_duration'
+  const attendanceTime =
+    typeof event.metadata?.attendanceTime === 'string' ? event.metadata.attendanceTime.trim() : ''
+  const endTimeIsComputed =
+    event.metadata?.endTimeSource === 'computed_from_duration_and_aftertime'
 
   const scheduleGroups = useMemo(() => {
     const parsed = parseEmbeddedScheduleFromMetadata(event.metadata)
@@ -255,6 +259,12 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
           ) : (
             <>
               <p className="mt-2 text-body text-zinc-700">{formatCalendarEventTimeLabel(event)}</p>
+              {endTimeIsComputed ? (
+                <p className="mt-1 text-[12px] leading-snug text-zinc-500">Sluttid er beregnet</p>
+              ) : null}
+              {attendanceTime ? (
+                <p className="mt-1 text-[12px] leading-snug text-zinc-600">Oppmøte {attendanceTime}</p>
+              ) : null}
               {!hideSyntheticDuration ? <p className={sheetSubtitle}>Varighet: {durationStr}</p> : null}
               {tankestromTimeSourceIsComputedFromDuration(event.metadata?.endTimeSource) ? (
                 <p className="mt-1 text-[12px] leading-snug text-zinc-500">{TANKESTROM_COMPUTED_END_HINT_NB}</p>

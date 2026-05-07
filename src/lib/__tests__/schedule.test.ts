@@ -77,6 +77,34 @@ describe('calculateVisibleEvents', () => {
     expect(formatCalendarEventTimeLabel(ev)).toBe('08:35 · Sluttid ikke oppgitt')
   })
 
+  it('formatCalendarEventTimeLabel: timeWindow overstyrer fast startvisning', () => {
+    const ev: Event = {
+      id: 'tw',
+      personId: 'emma',
+      title: 'Cup',
+      start: '10:00',
+      end: '10:30',
+      metadata: {
+        timeWindow: { start: '10:00', end: '12:00' },
+      },
+    }
+    expect(formatCalendarEventTimeLabel(ev)).toBe('Mellom 10:00 og 12:00')
+  })
+
+  it('formatCalendarEventTimeLabel: ufullstendig timeWindow blir forelopig-label', () => {
+    const ev: Event = {
+      id: 'tw2',
+      personId: 'emma',
+      title: 'Cup',
+      start: '10:00',
+      end: '10:30',
+      metadata: {
+        timeWindow: { start: '10:00' },
+      },
+    }
+    expect(formatCalendarEventTimeLabel(ev)).toBe('Tidspunkt ikke endelig')
+  })
+
   it('dedupeTimelineEventsById beholder første rad per id', () => {
     const a = makeEvent('dup', 'emma', '08:00', '09:00')
     const b = { ...a, title: 'Annen tittel' }
