@@ -45,16 +45,17 @@ export function parseEmbeddedScheduleFromMetadata(
           const time = typeof x.time === 'string' ? x.time.trim().slice(0, 5) : ''
           const label = typeof x.label === 'string' ? x.label.trim() : ''
           const typeRaw = typeof x.type === 'string' ? x.type : ''
-          const type =
+          if (!time || !label) return null
+          if (
             typeRaw === 'match' ||
             typeRaw === 'meeting' ||
             typeRaw === 'deadline' ||
             typeRaw === 'note' ||
             typeRaw === 'other'
-              ? typeRaw
-              : undefined
-          if (!time || !label) return null
-          return { time, label, type }
+          ) {
+            return { time, label, type: typeRaw as 'match' | 'meeting' | 'deadline' | 'note' | 'other' }
+          }
+          return { time, label }
         })
         .filter((x): x is NonNullable<typeof x> => !!x)
     }
