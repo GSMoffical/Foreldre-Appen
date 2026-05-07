@@ -151,14 +151,14 @@ describe('normalizeEmbeddedScheduleParentDisplayTitle', () => {
     ).toBe('Vårcupen – søndag')
   })
 
-  it('beholder meningsbærende tall (G12, Cup 2)', () => {
+  it('auto-title er defensiv og stabil: parent + ukedag', () => {
     const parent = 'Vårcupen 2026 – 12.–14. juni 2026'
     expect(
       normalizeArrangementChildTitle('Vårcupen G12 – fredag', parent, { date: '2026-06-12', title: '' })
-    ).toBe('Vårcupen – G12 – fredag')
+    ).toBe('Vårcupen – fredag')
     expect(
       normalizeArrangementChildTitle('Vårcupen Cup 2 – lørdag', parent, { date: '2026-06-13', title: '' })
-    ).toBe('Vårcupen – Cup 2 – lørdag')
+    ).toBe('Vårcupen – lørdag')
   })
 
   it('regresjon: Tankestrøm «12 – . –»-rot i segmenttittel → kun kjerne + ukedag', () => {
@@ -194,13 +194,13 @@ describe('normalizeEmbeddedScheduleParentDisplayTitle', () => {
     ).toBe('Vårcupen – søndag')
   })
 
-  it('beholder Kamp 2 / Runde 3 som meningsbærende', () => {
+  it('fjerner kamp/runde-fragmenter fra auto-titler', () => {
     const parent = 'Serie 2026 – uke 12'
-    expect(normalizeArrangementChildTitle('Kamp 2 – søndag', parent, { date: '2026-03-22', title: '' })).toMatch(
-      /Kamp 2/i
+    expect(normalizeArrangementChildTitle('Kamp 2 – søndag', parent, { date: '2026-03-22', title: '' })).toBe(
+      'Serie – søndag'
     )
-    expect(normalizeArrangementChildTitle('Runde 3 – lørdag', parent, { date: '2026-03-21', title: '' })).toMatch(
-      /Runde 3/i
+    expect(normalizeArrangementChildTitle('Runde 3 – lørdag', parent, { date: '2026-03-21', title: '' })).toBe(
+      'Serie – lørdag'
     )
   })
 

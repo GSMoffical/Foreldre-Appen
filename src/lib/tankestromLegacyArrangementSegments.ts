@@ -243,10 +243,20 @@ export function foldLegacyArrangementChildSegments(items: PortalProposalItem[]):
       arrangementDateContextBlob,
     })
     if (merged.length === 0) continue
+    const childTitlesBefore = merged.map((seg) => seg.title)
     const mergedNormalized = merged.map((seg) => ({
       ...seg,
       title: embeddedScheduleChildTitleForReview(p.event.title, seg, arrangementDateContextBlob),
     }))
+    const childTitlesAfter = mergedNormalized.map((seg) => seg.title)
+    if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+      console.info('[Tankestrom arrangement child title builder debug]', {
+        parentProposalId: p.proposalId,
+        parentTitle: p.event.title,
+        childTitlesBefore,
+        childTitlesAfter,
+      })
+    }
     const withMeta: Record<string, unknown> = {
       ...pMeta,
       isArrangementParent: true,

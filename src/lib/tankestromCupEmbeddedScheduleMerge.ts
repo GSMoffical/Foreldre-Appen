@@ -525,21 +525,11 @@ export function normalizeArrangementChildTitle(
   )
   const filtered = collapseRedundantChildParts(filteredRaw, parentCore)
 
-  const extras = filtered.filter((p) => !partIsNorwegianWeekday(p))
-
   const base = `${parentCore} – ${wd}`
-  if (extras.length === 0) return base
-
-  const extraJoined = extras.join(' – ').trim()
-  const extraCore = semanticTitleCore(extraJoined)
-  if (
-    !extraCore ||
-    extraCore === semanticTitleCore(wd) ||
-    extraCore === semanticTitleCore(parentCore)
-  ) {
-    return base
-  }
-  return `${parentCore} – ${extraJoined} – ${wd}`
+  // Defensiv policy: auto-title skal være stabil og kort.
+  // Ikke bygg inn ekstra fragmenter som ofte er lekkede dato-/status-/duplikatdeler.
+  void filtered
+  return base
 }
 
 /**

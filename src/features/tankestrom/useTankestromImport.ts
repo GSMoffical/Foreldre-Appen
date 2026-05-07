@@ -24,7 +24,10 @@ import {
 } from '../../lib/tankestromCupEmbeddedScheduleMerge'
 import { normalizeCalendarEventTitle } from '../../lib/tankestromTitleNormalization'
 import { dedupeNearDuplicateCalendarProposals } from '../../lib/tankestromImportDedupe'
-import { foldLegacyArrangementChildSegments } from '../../lib/tankestromLegacyArrangementSegments'
+import {
+  dedupeEmbeddedScheduleSegments,
+  foldLegacyArrangementChildSegments,
+} from '../../lib/tankestromLegacyArrangementSegments'
 import { redistributeEnrichSubjectUpdatesForDay } from '../../lib/schoolWeekOverlayEnrichRouting'
 import type { EmbeddedScheduleChildExportTimePolicy } from '../../lib/tankestromEmbeddedChildNotesPresentation'
 import {
@@ -113,6 +116,110 @@ const DATE_ONLY_LABEL = 'Tid ikke avklart'
 function logTankestromImportPersist(payload: Record<string, unknown>): void {
   if (!TANKESTROM_IMPORT_PERSIST_DEBUG) return
   console.debug('[tankestrom import persist]', payload)
+}
+
+function summarizeArrangementItemsForDebug(items: PortalProposalItem[]): Array<Record<string, unknown>> {
+  return items
+    .filter((i): i is PortalEventProposal => i.kind === 'event')
+    .map((i) => {
+      const meta =
+        i.event.metadata && typeof i.event.metadata === 'object' && !Array.isArray(i.event.metadata)
+          ? (i.event.metadata as Record<string, unknown>)
+          : {}
+      const embedded = Array.isArray(meta.embeddedSchedule) ? meta.embeddedSchedule : []
+      return {
+        proposalId: i.proposalId,
+        title: i.event.title,
+        date: i.event.date,
+        start: i.event.start,
+        end: i.event.end,
+        isArrangementParent: meta.isArrangementParent === true,
+        isArrangementChild: meta.isArrangementChild === true,
+        exportAsCalendarEvent: meta.exportAsCalendarEvent,
+        parentArrangementStableKey: meta.parentArrangementStableKey,
+        arrangementBlockGroupId: meta.arrangementBlockGroupId,
+        embeddedScheduleCount: embedded.length,
+      }
+    })
+}
+
+function extractArrangementChildTitlesForDebug(items: PortalProposalItem[]): string[] {
+  const out: string[] = []
+  for (const it of items) {
+    if (it.kind !== 'event') continue
+    const meta =
+      it.event.metadata && typeof it.event.metadata === 'object' && !Array.isArray(it.event.metadata)
+        ? (it.event.metadata as Record<string, unknown>)
+        : {}
+    const isLegacyChild = meta.isArrangementChild === true || typeof meta.parentArrangementStableKey === 'string'
+    if (isLegacyChild && it.event.title.trim()) out.push(it.event.title.trim())
+    const embedded = Array.isArray(meta.embeddedSchedule) ? meta.embeddedSchedule : []
+    for (const seg of embedded) {
+      if (!seg || typeof seg !== 'object') continue
+      const title = typeof (seg as Record<string, unknown>).title === 'string'
+        ? String((seg as Record<string, unknown>).title).trim()
+        : ''
+      if (title) out.push(title)
+    }
+  }
+  return out
+}
+
+function countEmbeddedScheduleRowsForDebug(items: PortalProposalItem[]): number {
+  let n = 0
+  for (const it of items) {
+    if (it.kind !== 'event') continue
+    const meta =
+      it.event.metadata && typeof it.event.metadata === 'object' && !Array.isArray(it.event.metadata)
+        ? (it.event.metadata as Record<string, unknown>)
+        : null
+    const embedded = Array.isArray(meta?.embeddedSchedule) ? meta!.embeddedSchedule as unknown[] : []
+    n += embedded.length
+  }
+  return n
+}
+
+function applyDefensiveArrangementNormalization(items: PortalProposalItem[]): PortalProposalItem[] {
+  return items.map((it) => {
+    if (it.kind !== 'event') return it
+    const meta =
+      it.event.metadata && typeof it.event.metadata === 'object' && !Array.isArray(it.event.metadata)
+        ? ({ ...(it.event.metadata as Record<string, unknown>) } as Record<string, unknown>)
+        : null
+    if (!meta || !Array.isArray(meta.embeddedSchedule)) return it
+
+    const parsed = parseEmbeddedScheduleFromMetadata(meta as EventMetadata)
+    if (parsed.length === 0) return it
+    const contextBlob = [it.event.title.trim(), ...parsed.map((s) => s.title.trim())]
+      .filter(Boolean)
+      .join('\n')
+    const deduped = dedupeEmbeddedScheduleSegments(parsed, {
+      parentArrangementStableKey:
+        typeof meta.arrangementStableKey === 'string' ? meta.arrangementStableKey : undefined,
+      arrangementBlockGroupId:
+        typeof meta.arrangementBlockGroupId === 'string' ? meta.arrangementBlockGroupId : undefined,
+      parentTitle: it.event.title,
+      arrangementDateContextBlob: contextBlob,
+    }).map((seg) => ({
+      ...seg,
+      title: embeddedScheduleChildCalendarExportTitle(seg, it.event.title, contextBlob),
+    }))
+
+    meta.embeddedSchedule = deduped
+    meta.embeddedScheduleRawCount =
+      typeof meta.embeddedScheduleRawCount === 'number'
+        ? Math.max(meta.embeddedScheduleRawCount, parsed.length)
+        : parsed.length
+    meta.embeddedScheduleDedupedCount = deduped.length
+
+    return {
+      ...it,
+      event: {
+        ...it.event,
+        metadata: meta,
+      },
+    }
+  })
 }
 
 type Step = 'pick' | 'review'
@@ -1807,6 +1914,14 @@ export function useTankestromImport({
     () => new Set()
   )
   const secondaryShownLogKeyRef = useRef('')
+  const lastArrangementNormalizationDebugRef = useRef<{
+    rawItems: Array<Record<string, unknown>>
+    afterLegacyFold: Array<Record<string, unknown>>
+    embeddedScheduleRawCount: number
+    embeddedScheduleDedupedCount: number
+    childTitlesBefore: string[]
+    childTitlesAfter: string[]
+  } | null>(null)
 
   const primaryCalendarProposalItems = useMemo((): PortalProposalItem[] => {
     return calendarProposalItems.filter((it) => {
@@ -2657,9 +2772,34 @@ export function useTankestromImport({
         const defaultPersonId = people[0]?.id ?? ''
         const sourceHint = humanImportSourceLabelForBundle(b)
         const withLegacySegments = foldLegacyArrangementChildSegments(b.items)
-        const items = applyCupWeekendEmbeddedScheduleMerge(dedupeNearDuplicateCalendarProposals(withLegacySegments), {
+        const itemsPreDefensive = applyCupWeekendEmbeddedScheduleMerge(
+          dedupeNearDuplicateCalendarProposals(withLegacySegments),
+          {
           sourceText: textInput,
-        })
+          }
+        )
+        const items = applyDefensiveArrangementNormalization(itemsPreDefensive)
+        {
+          const debugPayload = {
+            rawItems: summarizeArrangementItemsForDebug(b.items),
+            afterLegacyFold: summarizeArrangementItemsForDebug(withLegacySegments),
+            embeddedScheduleRawCount: countEmbeddedScheduleRowsForDebug(withLegacySegments),
+            embeddedScheduleDedupedCount: countEmbeddedScheduleRowsForDebug(items),
+            childTitlesBefore: extractArrangementChildTitlesForDebug(withLegacySegments),
+            childTitlesAfter: extractArrangementChildTitlesForDebug(items),
+            persistPlanEventCount: 0,
+            createEventAttempts: 0,
+          }
+          lastArrangementNormalizationDebugRef.current = {
+            rawItems: debugPayload.rawItems,
+            afterLegacyFold: debugPayload.afterLegacyFold,
+            embeddedScheduleRawCount: debugPayload.embeddedScheduleRawCount,
+            embeddedScheduleDedupedCount: debugPayload.embeddedScheduleDedupedCount,
+            childTitlesBefore: debugPayload.childTitlesBefore,
+            childTitlesAfter: debugPayload.childTitlesAfter,
+          }
+          console.info('[Tankestrom arrangement normalization debug]', debugPayload)
+        }
         setAnalyzedSourceLength(textInput.length)
         const classificationCtx = buildImportClassificationContext({
           inputMode: 'text',
@@ -2790,9 +2930,34 @@ export function useTankestromImport({
       const defaultPersonId = people[0]?.id ?? ''
       const sourceHint = humanImportSourceLabelForBundle(merged)
       const withLegacySegments = foldLegacyArrangementChildSegments(merged.items)
-      const items = applyCupWeekendEmbeddedScheduleMerge(dedupeNearDuplicateCalendarProposals(withLegacySegments), {
+      const itemsPreDefensive = applyCupWeekendEmbeddedScheduleMerge(
+        dedupeNearDuplicateCalendarProposals(withLegacySegments),
+        {
         sourceText: undefined,
-      })
+        }
+      )
+      const items = applyDefensiveArrangementNormalization(itemsPreDefensive)
+      {
+        const debugPayload = {
+          rawItems: summarizeArrangementItemsForDebug(merged.items),
+          afterLegacyFold: summarizeArrangementItemsForDebug(withLegacySegments),
+          embeddedScheduleRawCount: countEmbeddedScheduleRowsForDebug(withLegacySegments),
+          embeddedScheduleDedupedCount: countEmbeddedScheduleRowsForDebug(items),
+          childTitlesBefore: extractArrangementChildTitlesForDebug(withLegacySegments),
+          childTitlesAfter: extractArrangementChildTitlesForDebug(items),
+          persistPlanEventCount: 0,
+          createEventAttempts: 0,
+        }
+        lastArrangementNormalizationDebugRef.current = {
+          rawItems: debugPayload.rawItems,
+          afterLegacyFold: debugPayload.afterLegacyFold,
+          embeddedScheduleRawCount: debugPayload.embeddedScheduleRawCount,
+          embeddedScheduleDedupedCount: debugPayload.embeddedScheduleDedupedCount,
+          childTitlesBefore: debugPayload.childTitlesBefore,
+          childTitlesAfter: debugPayload.childTitlesAfter,
+        }
+        console.info('[Tankestrom arrangement normalization debug]', debugPayload)
+      }
       setAnalyzedSourceLength(analyzedBytesTotal)
       const classificationCtx = buildImportClassificationContext({
         inputMode: 'file',
@@ -3366,6 +3531,17 @@ export function useTankestromImport({
       console.info('[Tankestrom import persist plan events]', {
         eventPlanItems: persistPlanPreview.filter((p) => p.planSurface === 'event'),
         taskPlanItems: persistPlanPreview.filter((p) => p.planSurface === 'task'),
+      })
+      console.info('[Tankestrom arrangement normalization debug]', {
+        rawItems: lastArrangementNormalizationDebugRef.current?.rawItems ?? [],
+        afterLegacyFold: lastArrangementNormalizationDebugRef.current?.afterLegacyFold ?? [],
+        embeddedScheduleRawCount: lastArrangementNormalizationDebugRef.current?.embeddedScheduleRawCount ?? 0,
+        embeddedScheduleDedupedCount:
+          lastArrangementNormalizationDebugRef.current?.embeddedScheduleDedupedCount ?? 0,
+        childTitlesBefore: lastArrangementNormalizationDebugRef.current?.childTitlesBefore ?? [],
+        childTitlesAfter: lastArrangementNormalizationDebugRef.current?.childTitlesAfter ?? [],
+        persistPlanEventCount: persistPlanPreview.filter((p) => p.planSurface === 'event').length,
+        createEventAttempts: attemptedPersistOps,
       })
 
       const recordFailure = (
@@ -4581,6 +4757,18 @@ export function useTankestromImport({
           })
         }
       }
+      console.info('[Tankestrom arrangement normalization debug]', {
+        rawItems: lastArrangementNormalizationDebugRef.current?.rawItems ?? [],
+        afterLegacyFold: lastArrangementNormalizationDebugRef.current?.afterLegacyFold ?? [],
+        embeddedScheduleRawCount: lastArrangementNormalizationDebugRef.current?.embeddedScheduleRawCount ?? 0,
+        embeddedScheduleDedupedCount:
+          lastArrangementNormalizationDebugRef.current?.embeddedScheduleDedupedCount ?? 0,
+        childTitlesBefore: lastArrangementNormalizationDebugRef.current?.childTitlesBefore ?? [],
+        childTitlesAfter: lastArrangementNormalizationDebugRef.current?.childTitlesAfter ?? [],
+        persistPlanEventCount: persistPlanPreview.filter((p) => p.planSurface === 'event').length,
+        createEventAttempts: attemptedPersistOps,
+      })
+
       const taskPersistFailures = failureRecords.filter(
         (f) => f.proposalSurfaceType === 'task' && f.operation === 'createTask'
       )
