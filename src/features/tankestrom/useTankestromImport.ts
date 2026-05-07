@@ -1248,13 +1248,37 @@ function buildPersistTimes(draft: TankestromEventDraft): { start: string; end: s
   }
 }
 
-function buildPersistNotes(draft: Pick<TankestromEventDraft, 'notes' | 'start' | 'end'>): string | undefined {
+function stripGeneratedTankestromFallbackNotes(
+  notes: string,
+  metadata?: Record<string, unknown>
+): string {
+  if (!metadata) return notes
+  const hasStructured =
+    (Array.isArray(metadata.tankestromHighlights) && metadata.tankestromHighlights.length > 0) ||
+    (Array.isArray(metadata.tankestromNotes) && metadata.tankestromNotes.length > 0)
+  if (!hasStructured) return notes
+  const normalized = notes.replace(/\s+/g, ' ').trim()
+  const looksGeneratedFallback =
+    normalized.includes('Høydepunkter:') ||
+    normalized.includes('Notater:') ||
+    normalized.includes('Dagens innhold')
+  return looksGeneratedFallback ? '' : notes
+}
+
+function buildPersistNotes(
+  draft: Pick<TankestromEventDraft, 'notes' | 'start' | 'end'>,
+  metadata?: Record<string, unknown>
+): string | undefined {
   const base = draft.notes.trim()
-  if (!draftIsDateOnly(draft)) return base || undefined
+  if (!draftIsDateOnly(draft)) {
+    const cleaned = stripGeneratedTankestromFallbackNotes(base, metadata).trim()
+    return cleaned || undefined
+  }
   const marker = 'Tidspunkt ikke avklart. Oppdater hendelsen når tidspunkt er kjent.'
-  if (!base) return `(tid ikke avklart)\n${marker}`
-  if (base.includes(marker)) return base
-  return `${base}\n\n(tid ikke avklart)\n${marker}`
+  const cleanedBase = stripGeneratedTankestromFallbackNotes(base, metadata).trim()
+  if (!cleanedBase) return `(tid ikke avklart)\n${marker}`
+  if (cleanedBase.includes(marker)) return cleanedBase
+  return `${cleanedBase}\n\n(tid ikke avklart)\n${marker}`
 }
 
 export function buildEventDraftFromProposal(
@@ -3571,7 +3595,7 @@ export function useTankestromImport({
               ...buildPersistTimes(draftEv),
               personId: normalizePersistedPersonId(draftEv.personId),
               title: draftEv.title,
-              notes: buildPersistNotes(draftEv),
+              notes: buildPersistNotes(draftEv, metadataNd),
               location: draftEv.location.length > 0 ? draftEv.location : undefined,
               reminderMinutes: draftEv.reminderMinutes,
               recurrenceGroupId: undefined,
@@ -3701,7 +3725,7 @@ export function useTankestromImport({
             ...buildPersistTimes(draftEv),
             personId: normalizePersistedPersonId(draftEv.personId),
             title: draftEv.title,
-            notes: buildPersistNotes(draftEv),
+            notes: buildPersistNotes(draftEv, metadata),
             location: draftEv.location.length > 0 ? draftEv.location : undefined,
             reminderMinutes: draftEv.reminderMinutes,
             recurrenceGroupId: undefined,
@@ -4112,7 +4136,7 @@ export function useTankestromImport({
             personId: normalizePersistedPersonId(draft.personId),
             ...buildPersistTimes(draft),
           }
-          updates.notes = buildPersistNotes(draft)
+          updates.notes = buildPersistNotes(draft, metadata)
           if (draft.location.length > 0) updates.location = draft.location
           const updatePreflight = preflightEventValidationErrors(id, undefined, draft, validPersonIds)
           if (updatePreflight.length > 0) {
@@ -4344,7 +4368,7 @@ export function useTankestromImport({
                 ...buildPersistTimes(draftEv),
                 personId: normalizePersistedPersonId(draftEv.personId),
                 title: draftEv.title,
-                notes: buildPersistNotes(draftEv),
+                notes: buildPersistNotes(draftEv, metadata),
                 location: draftEv.location.length > 0 ? draftEv.location : undefined,
                 reminderMinutes: draftEv.reminderMinutes,
                 recurrenceGroupId: undefined,
@@ -4509,7 +4533,7 @@ export function useTankestromImport({
           ...buildPersistTimes(draft),
           personId: normalizePersistedPersonId(draft.personId),
           title: calendarTitle,
-          notes: buildPersistNotes(draft),
+          notes: buildPersistNotes(draft, metadata),
           location: draft.location.length > 0 ? draft.location : undefined,
           reminderMinutes: draft.reminderMinutes,
           recurrenceGroupId,

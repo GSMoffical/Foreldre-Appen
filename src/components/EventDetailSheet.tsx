@@ -50,6 +50,22 @@ function segmentTimeLabel(s: EmbeddedScheduleSegment): string | null {
   return null
 }
 
+function hasTankestromStructuredDetails(event: Event): boolean {
+  const md = event.metadata
+  if (!md) return false
+  const highlights = Array.isArray(md.tankestromHighlights) ? md.tankestromHighlights : []
+  const notes = Array.isArray(md.tankestromNotes) ? md.tankestromNotes : []
+  return highlights.length > 0 || notes.length > 0
+}
+
+function shouldShowPlainDescription(event: Event): boolean {
+  const hasNotes = Boolean(event.notes?.trim())
+  if (!hasNotes) return false
+  // First-pass policy: structured Tankestrom details are authoritative in internal UI.
+  if (hasTankestromStructuredDetails(event)) return false
+  return true
+}
+
 export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDuplicate, onMove, mePersonId, onQuickAssignTransport }: EventDetailSheetProps) {
   const [deleting, setDeleting] = useState(false)
   const [showSeriesChoice, setShowSeriesChoice] = useState<'edit' | 'delete' | null>(null)
@@ -308,7 +324,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
               <span className="font-medium">Sted:</span> {event.location}
             </p>
           )}
-          {event.notes && (
+          {shouldShowPlainDescription(event) && (
             <p className="mt-2 text-body-sm text-zinc-600">
               <span className="font-medium">Notater:</span> {event.notes}
             </p>
