@@ -83,6 +83,31 @@ export function parseEmbeddedScheduleFromMetadata(
     ) {
       seg.timeWindow = o.timeWindow as EmbeddedScheduleSegment['timeWindow']
     }
+    if (Array.isArray(o.tankestromTimeWindowSummaries)) {
+      seg.tankestromTimeWindowSummaries = o.tankestromTimeWindowSummaries
+        .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
+        .map((x) => {
+          const timeRange = typeof x.timeRange === 'string' ? x.timeRange.trim() : ''
+          const label = typeof x.label === 'string' ? x.label.trim() : ''
+          if (!timeRange || !label) return null
+          return {
+            timeRange,
+            label,
+            tentative: x.tentative === true,
+          }
+        })
+        .filter((x): x is NonNullable<typeof x> => !!x)
+    }
+    if (Array.isArray(o.timeWindowCandidates)) {
+      seg.timeWindowCandidates = o.timeWindowCandidates
+        .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
+        .map((x) => ({
+          start: typeof x.start === 'string' ? x.start : undefined,
+          end: typeof x.end === 'string' ? x.end : undefined,
+          label: typeof x.label === 'string' ? x.label : undefined,
+          tentative: x.tentative === true,
+        }))
+    }
     if (typeof o.kind === 'string' && o.kind.trim()) seg.kind = o.kind.trim()
     if (o.isConditional === true) seg.isConditional = true
     if (o.userEditedTitle === true) seg.userEditedTitle = true

@@ -52,6 +52,7 @@ import type {
   ChildSchoolDayPlan,
   ChildSchoolProfile,
   Event,
+  EventMetadata,
   NorwegianGradeBand,
   Person,
   SchoolContext,
@@ -1777,13 +1778,15 @@ type EmbeddedChildReviewEditBuffer = {
   editAsText: boolean
 }
 
-function embeddedSegmentMetadataShape(seg: EmbeddedScheduleSegment) {
+function embeddedSegmentMetadataShape(seg: EmbeddedScheduleSegment): EventMetadata {
   return {
     tankestromHighlights: seg.tankestromHighlights,
     tankestromNotes: seg.tankestromNotes,
     bringItems: seg.bringItems,
     packingItems: seg.packingItems,
     timeWindow: seg.timeWindow,
+    tankestromTimeWindowSummaries: seg.tankestromTimeWindowSummaries,
+    timeWindowCandidates: seg.timeWindowCandidates,
   }
 }
 
@@ -4029,15 +4032,16 @@ export function TankestromImportDialog({
                                     displayTitle,
                                     childProposalId: childId,
                                   })
-                                  const structuredFromSegment = readTankestromScheduleDetailsFromMetadata(
-                                    embeddedSegmentMetadataShape(row.segment)
-                                  )
                                   const detailPanelTitle = embeddedScheduleChildDetailTitleForPanel(
                                     row.segment,
                                     parentCalendarCoreForChild,
                                     cardTitleRaw,
                                     displayTitle,
                                     childId
+                                  )
+                                  const structuredFromSegment = readTankestromScheduleDetailsFromMetadata(
+                                    embeddedSegmentMetadataShape(row.segment),
+                                    [detailPanelTitle, cardTitleRaw, displayTitle]
                                   )
                                   const detailPanelId = `delprogram-child-detail-${childId}`
                                   const detailTriggerId = `delprogram-child-trigger-${childId}`
@@ -4703,6 +4707,7 @@ export function TankestromImportDialog({
                                           </dl>
                                           <div className="space-y-3">
                                             {structuredFromSegment.highlights.length > 0 ||
+                                            structuredFromSegment.timeWindowSummaries.length > 0 ||
                                             structuredFromSegment.notes.length > 0 ||
                                             structuredFromSegment.bringItems.length > 0 ? (
                                               <TankestromScheduleDetails
@@ -4711,9 +4716,13 @@ export function TankestromImportDialog({
                                                 bringItems={structuredFromSegment.bringItems}
                                                 titleContext={[detailPanelTitle, cardTitleRaw]}
                                                 compact
+                                                precomputedTimeWindowSummaries={
+                                                  structuredFromSegment.timeWindowSummaries
+                                                }
                                               />
                                             ) : null}
                                             {structuredFromSegment.highlights.length === 0 &&
+                                            structuredFromSegment.timeWindowSummaries.length === 0 &&
                                             structuredFromSegment.notes.length === 0 &&
                                             structuredFromSegment.bringItems.length === 0 &&
                                             childNotesPresentation?.mode === 'structured' ? (

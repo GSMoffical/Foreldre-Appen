@@ -37,7 +37,9 @@ import {
 import {
   buildTankestromScheduleDescriptionFallback,
   dedupeNotesAgainstHighlights,
+  normalizeTankestromScheduleDetails,
   readTankestromScheduleDetailsFromMetadata,
+  type NormalizedTankestromScheduleDetails,
 } from '../../lib/tankestromScheduleDetails'
 import type {
   PortalEventProposal,
@@ -637,36 +639,91 @@ function structuredDetailsFromSegment(
   parentCardTitle: string,
   displayTitle: string,
   childProposalId: string
-): { highlights: TankestromScheduleHighlight[]; notes: string[] } {
+): NormalizedTankestromScheduleDetails {
+  const bring = [...(segment.bringItems ?? []), ...(segment.packingItems ?? [])]
+  const tw =
+    segment.timeWindow && typeof segment.timeWindow === 'object' && !Array.isArray(segment.timeWindow)
+      ? [
+          {
+            start: (segment.timeWindow as { start?: string }).start,
+            end: (segment.timeWindow as { end?: string }).end,
+            label: (segment.timeWindow as { label?: string }).label,
+            tentative: (segment.timeWindow as { tentative?: boolean }).tentative,
+          },
+        ]
+      : undefined
+
   const p = presentEmbeddedChildNotesForReview({
     seg: segment,
     parentCardTitle,
     displayTitle,
     childProposalId,
   })
-  if (!p) return { highlights: [], notes: [] }
-  if (p.mode === 'plain') return { highlights: [], notes: [] }
+  if (!p) {
+    return normalizeTankestromScheduleDetails({
+      highlights: [],
+      notes: segment.notes?.trim() ? [segment.notes.trim()] : [],
+      bringItems: bring,
+      titleContext: [displayTitle, parentCardTitle],
+      timeWindowCandidates: tw,
+    })
+  }
+  if (p.mode === 'plain') {
+    return normalizeTankestromScheduleDetails({
+      highlights: [],
+      notes: segment.notes?.trim() ? [segment.notes.trim()] : [],
+      bringItems: bring,
+      titleContext: [displayTitle, parentCardTitle],
+      timeWindowCandidates: tw,
+    })
+  }
   const highlights = p.highlights.map((h) => ({
     time: h.displayTime.slice(0, 5),
     label: h.label,
     type: highlightTypeFromLabel(h.label),
   }))
   const notes = dedupeNotesAgainstHighlights(p.noteLines, highlights)
-  return { highlights, notes }
+  return normalizeTankestromScheduleDetails({
+    highlights,
+    notes,
+    bringItems: bring,
+    titleContext: [displayTitle, parentCardTitle],
+    timeWindowCandidates: tw,
+  })
 }
 
 function attachTankestromDetailsToMetadata(
   metadata: Record<string, unknown>,
-  details: { highlights: TankestromScheduleHighlight[]; notes: string[] }
+  details: NormalizedTankestromScheduleDetails
 ): void {
-  if (details.highlights.length === 0 && details.notes.length === 0) {
+  const empty =
+    details.highlights.length === 0 &&
+    details.notes.length === 0 &&
+    details.bringItems.length === 0 &&
+    details.timeWindowSummaries.length === 0
+  if (empty) {
     delete metadata.tankestromHighlights
     delete metadata.tankestromNotes
     delete metadata.tankestromDescriptionFallback
+    delete metadata.tankestromTimeWindowSummaries
+    delete metadata.bringItems
+    delete metadata.packingItems
     return
   }
   metadata.tankestromHighlights = details.highlights
   metadata.tankestromNotes = details.notes
+  if (details.bringItems.length > 0) {
+    metadata.bringItems = details.bringItems
+    metadata.packingItems = details.bringItems
+  } else {
+    delete metadata.bringItems
+    delete metadata.packingItems
+  }
+  if (details.timeWindowSummaries.length > 0) {
+    metadata.tankestromTimeWindowSummaries = details.timeWindowSummaries
+  } else {
+    delete metadata.tankestromTimeWindowSummaries
+  }
   metadata.tankestromDescriptionFallback = buildTankestromScheduleDescriptionFallback(
     details.highlights,
     details.notes
@@ -684,11 +741,11 @@ function attachTankestromDetailsToMetadata(
         tankestromDescriptionFallback: metadata.tankestromDescriptionFallback,
       },
       normalizedDetails: details,
-      renderedHighlights: [],
-      renderedBringItems: Array.isArray(metadata.bringItems) ? metadata.bringItems : [],
+      renderedHighlights: details.highlights,
+      renderedBringItems: details.bringItems,
       renderedNotes: details.notes,
-      removedFragments: [],
-      removedDuplicateHighlights: 0,
+      removedFragments: details.removedFragments,
+      removedDuplicateHighlights: details.removedDuplicateHighlights,
     })
   }
 }
@@ -4325,7 +4382,8 @@ export function useTankestromImport({
           mergeEventParticipantsIntoMetadata(metadata, draft, validPersonIds)
           applyEventTimingMetadataForPersist(metadata, draft)
           const proposalDetails = readTankestromScheduleDetailsFromMetadata(
-            proposalMeta as EventMetadata
+            proposalMeta as EventMetadata,
+            [draft.title]
           )
           attachTankestromDetailsToMetadata(metadata, proposalDetails)
 
@@ -4739,7 +4797,9 @@ export function useTankestromImport({
         mergeEventParticipantsIntoMetadata(metadata, draft, validPersonIds)
         applyEventTimingMetadataForPersist(metadata, draft)
         if (item.kind === 'event') {
-          const details = readTankestromScheduleDetailsFromMetadata(item.event.metadata as EventMetadata)
+          const details = readTankestromScheduleDetailsFromMetadata(item.event.metadata as EventMetadata, [
+            draft.title,
+          ])
           attachTankestromDetailsToMetadata(metadata, details)
         }
         metadata.tankestromImportRunId = bundle.provenance.importRunId

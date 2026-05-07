@@ -223,6 +223,9 @@ export interface EmbeddedScheduleSegment {
   packingItems?: string[]
   /** Optional time window (e.g. tentative slot) for this segment. */
   timeWindow?: string | { start?: string; end?: string; tentative?: boolean; label?: string }
+  /** Lagret sammenslått tidsvindu etter defensiv normalisering (valgfri). */
+  tankestromTimeWindowSummaries?: TankestromTimeWindowSummary[]
+  timeWindowCandidates?: Array<{ start?: string; end?: string; label?: string; tentative?: boolean }>
   /** Text fallback for external export; not primary internal rendering source. */
   tankestromDescriptionFallback?: string
   /** Valgfri maskinlesbar tag (f.eks. «meet», «match») for senere import/UI. */
@@ -237,6 +240,13 @@ export interface TankestromScheduleHighlight {
   time: string
   label: string
   type?: TankestromScheduleHighlightType
+}
+
+/** Én sammenslått tidslinje for rotete vinduer (f.eks. sluttspill mellom to klokkeslett). */
+export type TankestromTimeWindowSummary = {
+  timeRange: string
+  label: string
+  tentative?: boolean
 }
 
 export interface EventMetadata {
@@ -302,6 +312,10 @@ export interface EventMetadata {
   tankestromHighlights?: TankestromScheduleHighlight[]
   /** Tankestrøm: strukturerte notatlinjer, deduplisert mot highlights. */
   tankestromNotes?: string[]
+  /** Defensiv visning: sammenslåtte tidsvinduer (ikke rå chips for «og»-fragmenter). */
+  tankestromTimeWindowSummaries?: TankestromTimeWindowSummary[]
+  /** Kandidater fra kilde til tidsvindu (valgfri). */
+  timeWindowCandidates?: Array<{ start?: string; end?: string; label?: string; tentative?: boolean }>
   /** Tekstfallback for eksterne kalendere uten støtte for chip-UI. */
   tankestromDescriptionFallback?: string
   /** Precision for events that are tied to date but not exact clock. */

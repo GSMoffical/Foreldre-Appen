@@ -1,4 +1,4 @@
-import type { TankestromScheduleHighlight } from '../types'
+import type { TankestromScheduleHighlight, TankestromTimeWindowSummary } from '../types'
 import { normalizeTankestromScheduleDetails } from '../lib/tankestromScheduleDetails'
 
 type TankestromScheduleDetailsProps = {
@@ -7,6 +7,8 @@ type TankestromScheduleDetailsProps = {
   bringItems?: string[]
   titleContext?: string[]
   compact?: boolean
+  /** Når UI allerede har lest metadata (persistert vindu), ikke gjenberegn vindu på nytt. */
+  precomputedTimeWindowSummaries?: TankestromTimeWindowSummary[]
 }
 export function TankestromScheduleDetails({
   highlights,
@@ -14,14 +16,22 @@ export function TankestromScheduleDetails({
   bringItems = [],
   titleContext = [],
   compact = false,
+  precomputedTimeWindowSummaries,
 }: TankestromScheduleDetailsProps) {
   const normalized = normalizeTankestromScheduleDetails({
     highlights,
     notes,
     bringItems,
     titleContext,
+    precomputedTimeWindowSummaries,
   })
-  if (normalized.highlights.length === 0 && normalized.notes.length === 0 && normalized.bringItems.length === 0) {
+  const hasHighlightSection =
+    normalized.timeWindowSummaries.length > 0 || normalized.highlights.length > 0
+  if (
+    !hasHighlightSection &&
+    normalized.notes.length === 0 &&
+    normalized.bringItems.length === 0
+  ) {
     return null
   }
   if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
@@ -37,10 +47,25 @@ export function TankestromScheduleDetails({
   }
   return (
     <div className={compact ? 'space-y-2' : 'space-y-3'}>
-      {normalized.highlights.length > 0 ? (
+      {hasHighlightSection ? (
         <div>
           <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[10px]">Høydepunkter</p>
           <ul className="mt-1.5 list-disc space-y-1.5 pl-4 marker:text-zinc-400 sm:space-y-2 sm:pl-[1.125rem]">
+            {normalized.timeWindowSummaries.map((s, i) => (
+              <li key={`tw-${s.timeRange}-${i}`} className="pl-0.5 text-[11px] leading-snug sm:text-[12px]">
+                <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-orange-50 px-2 py-0.5 text-[11px] font-bold tabular-nums text-orange-900 ring-1 ring-orange-200/90 sm:text-[12px]">
+                    {s.timeRange}
+                    {s.tentative ? (
+                      <span className="text-[9px] font-semibold uppercase tracking-wide text-orange-700/90 sm:text-[10px]">
+                        Foreløpig
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="min-w-0 font-medium text-zinc-800">{s.label}</span>
+                </span>
+              </li>
+            ))}
             {normalized.highlights.map((h, i) => (
               <li key={`${h.time}-${h.label}-${i}`} className="pl-0.5 text-[11px] leading-snug sm:text-[12px]">
                 <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5">

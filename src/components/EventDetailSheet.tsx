@@ -156,8 +156,8 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
     return groupEmbeddedScheduleByDate(parsed)
   }, [event.metadata])
   const tankestromDetails = useMemo(
-    () => readTankestromScheduleDetailsFromMetadata(event.metadata),
-    [event.metadata]
+    () => readTankestromScheduleDetailsFromMetadata(event.metadata, [event.title]),
+    [event.metadata, event.title]
   )
   useEffect(() => {
     if (!(import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true')) return
@@ -366,13 +366,17 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
               <span className="font-medium">Notater:</span> {event.notes}
             </p>
           )}
-          {(tankestromDetails.highlights.length > 0 || tankestromDetails.notes.length > 0) && (
+          {(tankestromDetails.highlights.length > 0 ||
+            tankestromDetails.timeWindowSummaries.length > 0 ||
+            tankestromDetails.notes.length > 0 ||
+            tankestromDetails.bringItems.length > 0) && (
             <div className="mt-4">
               <TankestromScheduleDetails
                 highlights={tankestromDetails.highlights}
                 notes={tankestromDetails.notes}
                 bringItems={tankestromDetails.bringItems}
                 titleContext={[event.title]}
+                precomputedTimeWindowSummaries={tankestromDetails.timeWindowSummaries}
               />
             </div>
           )}
