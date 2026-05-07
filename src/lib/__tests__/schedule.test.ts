@@ -4,6 +4,8 @@ import {
   calculateGaps,
   formatGapLabel,
   buildDaySummary,
+  formatCalendarEventTimeLabel,
+  dedupeTimelineEventsById,
 } from '../schedule'
 import type { Event } from '../../types'
 
@@ -56,6 +58,29 @@ describe('calculateVisibleEvents', () => {
     ]
     const result = calculateVisibleEvents(dateOnly, ['emma'])
     expect(result).toHaveLength(1)
+  })
+
+  it('formatCalendarEventTimeLabel: start_only viser eksplisitt manglende slutt', () => {
+    const ev: Event = {
+      id: 'x',
+      personId: 'emma',
+      title: 'Cup',
+      start: '08:35',
+      end: '09:35',
+      metadata: {
+        timePrecision: 'start_only',
+        displayTimeLabel: 'Sluttid ikke oppgitt',
+        endTimeSource: 'missing_or_unreadable',
+        layoutEndOnly: true,
+      },
+    }
+    expect(formatCalendarEventTimeLabel(ev)).toBe('08:35 · Sluttid ikke oppgitt')
+  })
+
+  it('dedupeTimelineEventsById beholder første rad per id', () => {
+    const a = makeEvent('dup', 'emma', '08:00', '09:00')
+    const b = { ...a, title: 'Annen tittel' }
+    expect(dedupeTimelineEventsById([a, b])).toEqual([a])
   })
 
   it('viser start_only-hendelser med start === end (fly uten sluttid)', () => {

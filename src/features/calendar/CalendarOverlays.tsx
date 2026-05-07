@@ -1,9 +1,11 @@
+import { useMemo } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { AddEventSheet, REPEAT_INTERVAL_DAYS } from '../../components/AddEventSheet'
 import { EditEventSheet } from '../../components/EditEventSheet'
 import { EventDetailSheet } from '../../components/EventDetailSheet'
 import { BackgroundDetailSheet } from '../../components/BackgroundDetailSheet'
 import { AddTaskSheet } from '../tasks/components/AddTaskSheet'
+import { TaskDetailSheet } from '../tasks/components/TaskDetailSheet'
 import type { Event, Task } from '../../types'
 import type { UseEventControllerReturn } from './hooks/useEventController'
 import type { UseTaskControllerReturn } from '../tasks/hooks/useTaskController'
@@ -35,6 +37,8 @@ interface CalendarOverlaysProps {
   editingTask: Task | null
   setEditingTask: (value: Task | null) => void
   taskController: UseTaskControllerReturn
+  selectedTaskId: string | null
+  setSelectedTaskId: (value: string | null) => void
 }
 
 export function CalendarOverlays({
@@ -63,7 +67,14 @@ export function CalendarOverlays({
   editingTask,
   setEditingTask,
   taskController,
+  selectedTaskId,
+  setSelectedTaskId,
 }: CalendarOverlaysProps) {
+  const detailTask = useMemo(
+    () => (selectedTaskId ? dayTasks?.find((t) => t.id === selectedTaskId) ?? null : null),
+    [selectedTaskId, dayTasks]
+  )
+
   return (
     <AnimatePresence>
       {selectedEvent && (
@@ -212,6 +223,21 @@ export function CalendarOverlays({
             }
           }}
           onClose={() => setEditingTask(null)}
+        />
+      )}
+      {detailTask && (
+        <TaskDetailSheet
+          key={`task-detail-${detailTask.id}`}
+          task={detailTask}
+          onClose={() => setSelectedTaskId(null)}
+          onEdit={() => {
+            const t = detailTask
+            setSelectedTaskId(null)
+            setEditingTask(t)
+          }}
+          onMarkComplete={(t) => taskController.markTaskDone(t)}
+          onReopen={(t) => taskController.undoTaskComplete(t)}
+          onDelete={(t) => taskController.deleteTask(t)}
         />
       )}
     </AnimatePresence>

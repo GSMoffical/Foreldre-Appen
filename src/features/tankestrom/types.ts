@@ -3,6 +3,7 @@
  * Portalen støtter kind: "event", "task" (gjøremål) og "school_profile" (fast timeplan → skoleprofil).
  */
 
+import type { EmbeddedScheduleChildExportTimePolicy } from '../../lib/tankestromEmbeddedChildNotesPresentation'
 import type {
   ChildSchoolProfile,
   SchoolWeekOverlayDayAction,
@@ -159,6 +160,11 @@ export interface TankestromEventDraft {
   includeRecurrence: boolean
   dropoffBy: string
   pickupBy: string
+  /** Satt ved bygging fra embedded program — styrer timePrecision ved persist. */
+  embeddedScheduleExport?: {
+    usesSyntheticLayoutEnd: boolean
+    policy: EmbeddedScheduleChildExportTimePolicy
+  }
 }
 
 /** Utkast for gjøremål (Task) før import. */

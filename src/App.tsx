@@ -112,6 +112,7 @@ function App() {
   const [editingEvent, setEditingEvent] = useState<{ event: Event; date: string; scope: 'this' | 'all' } | null>(null)
   const [isAddingTask, setIsAddingTask] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [selectedBackgroundEvent, setSelectedBackgroundEvent] = useState<{ event: Event; date: string } | null>(null)
   const [navTab, setNavTab] = useState<NavTab>('today')
   const [lastCalendarTab, setLastCalendarTab] = useState<'today' | 'week' | 'month'>('today')
@@ -158,6 +159,17 @@ function App() {
       ])
     )
   }, [tasksByDate, selectedPersonIds])
+
+  const calendarDayTasks = filteredTasksByDate[selectedDate] ?? []
+  useEffect(() => {
+    setSelectedTaskId(null)
+  }, [selectedDate])
+  useEffect(() => {
+    if (!selectedTaskId) return
+    if (!calendarDayTasks.some((t) => t.id === selectedTaskId)) {
+      setSelectedTaskId(null)
+    }
+  }, [selectedTaskId, calendarDayTasks])
 
   const hasHighlightedTaskOnDate = useCallback(
     (date: string): boolean =>
@@ -501,7 +513,11 @@ function App() {
               openAddTask={openAddTask}
               onCompleteTask={(task) => { void taskController.markTaskDone(task).catch(() => {}) }}
               onUndoCompleteTask={(task) => { void taskController.undoTaskComplete(task).catch(() => {}) }}
-              onEditTask={(task) => { setIsAddingTask(false); setEditingTask(task) }}
+              onEditTask={(task) => {
+                setIsAddingTask(false)
+                setSelectedTaskId(null)
+                setEditingTask(task)
+              }}
               onDeleteTask={(task) => { void taskController.deleteTask(task).catch(() => {}) }}
               onNotifyTask={hasLinkedPartner ? (task) => {
                 if (!checkAndRecordNotify(task.id)) return
@@ -553,7 +569,8 @@ function App() {
               }}
               openAddTask={openAddTask}
               taskCountByDate={taskCountByDate}
-              dayTasks={filteredTasksByDate[selectedDate] ?? []}
+              dayTasks={calendarDayTasks}
+              onSelectTask={(task) => setSelectedTaskId(task.id)}
               allDayEvents={allDayEventsForDay}
               unspecifiedEvents={unspecifiedEventsForDay}
               highlightedEventIds={recentImportedEventIds}
@@ -699,6 +716,8 @@ function App() {
         editingTask={editingTask}
         setEditingTask={setEditingTask}
         taskController={taskController}
+        selectedTaskId={selectedTaskId}
+        setSelectedTaskId={setSelectedTaskId}
       />
     </AppShell>
   )

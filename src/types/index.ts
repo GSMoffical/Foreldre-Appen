@@ -206,6 +206,13 @@ export interface EmbeddedScheduleSegment {
   start?: string;
   end?: string;
   title: string;
+  /**
+   * Når bruker har lagret egen tittel i import-review: ikke kjør auto title-builder (parent/ukedag/dato).
+   * `title` og ev. `titleOverride` er da autoritative etter `cleanManualTitle`.
+   */
+  userEditedTitle?: boolean;
+  /** Eksplisitt manuell tittel (samme som `title` etter lagring); valgfri duplikat for klarhet. */
+  titleOverride?: string;
   notes?: string;
   /** Valgfri maskinlesbar tag (f.eks. «meet», «match») for senere import/UI. */
   kind?: string;
@@ -290,6 +297,12 @@ export interface EventMetadata {
   timePrecision?: 'timed' | 'date_only' | 'start_only' | 'end_only'
   /** UI label when exact clock is unknown. */
   displayTimeLabel?: string
+  /** True when DB `end` exists only for timeline layout (start_only / ukjent slutt). */
+  layoutEndOnly?: boolean
+  /** Idempotent import / dedupe: kjør som skiller importerte rader. */
+  tankestromImportRunId?: string
+  tankestromSourceProposalId?: string
+  tankestromChildId?: string
   /** Source markers for date-only fallback persistence. */
   startTimeSource?: string
   endTimeSource?: string

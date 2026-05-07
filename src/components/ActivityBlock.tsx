@@ -2,7 +2,8 @@ import { useRef, useCallback, useState, useEffect, useLayoutEffect } from 'react
 import { motion, useAnimation, useReducedMotion } from 'framer-motion'
 import type { DragReschedulePayload, EventLayoutBlock, PersonId } from '../types'
 import { useFamily } from '../context/FamilyContext'
-import { formatTimeRange, shiftTime } from '../lib/time'
+import { formatCalendarEventTimeLabel } from '../lib/schedule'
+import { shiftTime } from '../lib/time'
 import { getEventParticipantIds } from '../lib/schedule'
 import { blockEntranceDelay, springSnappy } from '../lib/motion'
 
@@ -232,7 +233,7 @@ export function ActivityBlock({
       }}
       onContextMenu={(e) => e.preventDefault()}
       whileTap={isDragging ? undefined : { scale: 0.98 }}
-      aria-label={`${primaryPerson.name}, ${block.title}, ${formatTimeRange(block.start, block.end)}`}
+      aria-label={`${primaryPerson.name}, ${block.title}, ${formatCalendarEventTimeLabel(block)}`}
     >
       {/* Segmented left stripe showing all participants */}
       {participants.length > 0 && (
@@ -322,7 +323,7 @@ export function ActivityBlock({
               {block.title}
             </span>
             <span className="shrink-0 text-right text-[10px] font-medium tabular-nums leading-none text-zinc-600">
-              {formatTimeRange(block.start, block.end)}
+              {formatCalendarEventTimeLabel(block)}
               {participants.length > 1 ? ` ·${participants.length}` : ''}
             </span>
           </span>
@@ -332,7 +333,7 @@ export function ActivityBlock({
               {block.title}
             </span>
             <span className="mt-0.5 min-w-0 max-w-full truncate whitespace-nowrap text-caption tabular-nums text-zinc-500">
-              {formatTimeRange(block.start, block.end)}
+              {formatCalendarEventTimeLabel(block)}
             </span>
           </>
         ) : (
@@ -347,7 +348,7 @@ export function ActivityBlock({
               {block.title}
             </span>
             <span className="mt-0.5 min-w-0 max-w-full truncate whitespace-nowrap text-caption tabular-nums text-zinc-500">
-              {formatTimeRange(block.start, block.end)}
+              {formatCalendarEventTimeLabel(block)}
             </span>
           </>
         )}

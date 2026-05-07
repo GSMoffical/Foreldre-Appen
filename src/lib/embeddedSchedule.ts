@@ -40,6 +40,10 @@ export function parseEmbeddedScheduleFromMetadata(
     if (typeof o.notes === 'string' && o.notes.trim()) seg.notes = o.notes.trim()
     if (typeof o.kind === 'string' && o.kind.trim()) seg.kind = o.kind.trim()
     if (o.isConditional === true) seg.isConditional = true
+    if (o.userEditedTitle === true) seg.userEditedTitle = true
+    if (typeof o.titleOverride === 'string' && o.titleOverride.trim()) {
+      seg.titleOverride = o.titleOverride.trim()
+    }
     out.push(seg)
   }
   return out

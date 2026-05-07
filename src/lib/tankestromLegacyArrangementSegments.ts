@@ -4,7 +4,8 @@ import { normalizeImportTime } from './tankestromImportTime'
 import { parseEmbeddedScheduleFromMetadata } from './embeddedSchedule'
 import { semanticTitleCore } from './tankestromImportDedupe'
 import {
-  embeddedScheduleChildReviewDisplayTitle,
+  cleanManualTitle,
+  embeddedScheduleChildTitleForReview,
   normalizeArrangementChildTitle,
 } from './tankestromCupEmbeddedScheduleMerge'
 
@@ -82,9 +83,19 @@ function mergeUniqueLines(a?: string, b?: string): string | undefined {
 }
 
 function mergeSegmentDetails(a: EmbeddedScheduleSegment, b: EmbeddedScheduleSegment): EmbeddedScheduleSegment {
+  const userA = !!a.userEditedTitle
+  const userB = !!b.userEditedTitle
   const merged: EmbeddedScheduleSegment = {
     date: a.date || b.date,
-    title: a.title?.trim() || b.title?.trim() || 'Program',
+    title: '',
+  }
+  if (userA || userB) {
+    const pick = userA ? a : b
+    merged.title = cleanManualTitle(pick.titleOverride ?? pick.title) || 'Program'
+    merged.userEditedTitle = true
+    merged.titleOverride = merged.title
+  } else {
+    merged.title = a.title?.trim() || b.title?.trim() || 'Program'
   }
   const aStart = normalizeSegTime(a.start)
   const bStart = normalizeSegTime(b.start)
@@ -234,12 +245,7 @@ export function foldLegacyArrangementChildSegments(items: PortalProposalItem[]):
     if (merged.length === 0) continue
     const mergedNormalized = merged.map((seg) => ({
       ...seg,
-      title: embeddedScheduleChildReviewDisplayTitle(
-        p.event.title,
-        seg.title,
-        seg.date,
-        arrangementDateContextBlob
-      ),
+      title: embeddedScheduleChildTitleForReview(p.event.title, seg, arrangementDateContextBlob),
     }))
     const withMeta: Record<string, unknown> = {
       ...pMeta,

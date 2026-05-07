@@ -46,6 +46,7 @@ interface CalendarHomeTabProps {
   openAddTask: () => void
   taskCountByDate: Record<string, number>
   dayTasks: Task[]
+  onSelectTask: (task: Task) => void
   allDayEvents: Event[]
   unspecifiedEvents: Event[]
   highlightedEventIds?: Set<string>
@@ -79,6 +80,7 @@ export function CalendarHomeTab({
   openAddTask,
   taskCountByDate,
   dayTasks,
+  onSelectTask,
   allDayEvents,
   unspecifiedEvents,
   highlightedEventIds,
@@ -87,14 +89,20 @@ export function CalendarHomeTab({
   const [searchOpen, setSearchOpen] = useState(false)
   const { people } = useFamily()
 
-  const openTasksWithPerson = useMemo(() =>
-    dayTasks
-      .filter((t) => !t.completedAt)
-      .sort((a, b) => (a.dueTime ?? '99:99').localeCompare(b.dueTime ?? '99:99'))
-      .map((t) => ({
-        task: t,
-        person: people.find((p) => p.id === (t.childPersonId ?? t.assignedToPersonId)),
-      })),
+  const calendarTasksWithPerson = useMemo(
+    () =>
+      dayTasks
+        .slice()
+        .sort((a, b) => {
+          const ac = a.completedAt ? 1 : 0
+          const bc = b.completedAt ? 1 : 0
+          if (ac !== bc) return ac - bc
+          return (a.dueTime ?? '99:99').localeCompare(b.dueTime ?? '99:99')
+        })
+        .map((t) => ({
+          task: t,
+          person: people.find((p) => p.id === (t.childPersonId ?? t.assignedToPersonId)),
+        })),
     [dayTasks, people]
   )
 
@@ -296,13 +304,28 @@ export function CalendarHomeTab({
             </AnimatePresence>
           </div>
         )}
-        {openTasksWithPerson.length > 0 && (
+        {calendarTasksWithPerson.length > 0 && (
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-3 pb-1.5 pt-0.5">
             <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-zinc-400" aria-hidden>Gjøremål</span>
-            {openTasksWithPerson.map(({ task, person }) => (
-              <div
+            {calendarTasksWithPerson.map(({ task, person }) => (
+              <button
                 key={task.id}
-                className="flex shrink-0 items-center gap-1.5 rounded-pill border px-2.5 py-1 text-caption font-medium"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSelectTask(task)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    onSelectTask(task)
+                  }
+                }}
+                aria-label={`Åpne gjøremål: ${task.title}`}
+                className={`flex shrink-0 cursor-pointer items-center gap-1.5 rounded-pill border px-2.5 py-1 text-caption font-medium transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:ring-offset-1 touch-manipulation ${
+                  task.completedAt ? 'opacity-75' : ''
+                }`}
                 style={person ? {
                   backgroundColor: person.colorTint,
                   borderColor: person.colorAccent,
@@ -325,8 +348,8 @@ export function CalendarHomeTab({
                     {task.dueTime}
                   </span>
                 )}
-                <span className="max-w-[110px] truncate">{task.title}</span>
-              </div>
+                <span className={`max-w-[110px] truncate ${task.completedAt ? 'line-through' : ''}`}>{task.title}</span>
+              </button>
             ))}
           </div>
         )}
@@ -397,6 +420,7 @@ export function CalendarHomeTab({
               onSelectBackgroundEvent={onSelectBackgroundEvent}
               onDragReschedule={(eventId, times) => onDragReschedule(eventId, times)}
               dayTasks={dayTasks}
+              onSelectTask={onSelectTask}
               highlightedEventIds={highlightedEventIds}
             />
           ) : unspecifiedEvents.length > 0 ? (

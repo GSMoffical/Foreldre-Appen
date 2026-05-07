@@ -9,6 +9,7 @@ import {
   tankestromConditionalAccessibleHintNb,
   tankestromConditionalBadgeLabelNb,
 } from '../lib/tankestromConditionalCopy'
+import { formatCalendarEventTimeLabel } from '../lib/schedule'
 import { formatTimeRange, durationMinutes } from '../lib/time'
 import { useFamily } from '../context/FamilyContext'
 import { getParticipantPeople } from '../lib/eventParticipants'
@@ -117,6 +118,12 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
   const duration = durationMinutes(event.start, event.end)
   const durationStr =
     duration < 60 ? `${duration} min` : `${Math.floor(duration / 60)} t ${duration % 60} min`
+  const hideSyntheticDuration =
+    event.metadata?.timePrecision === 'start_only' ||
+    event.metadata?.layoutEndOnly === true ||
+    event.metadata?.endTimeSource === 'layout_only' ||
+    event.metadata?.endTimeSource === 'missing_or_unreadable' ||
+    event.metadata?.endTimeSource === 'fallback_duration'
 
   const scheduleGroups = useMemo(() => {
     const parsed = parseEmbeddedScheduleFromMetadata(event.metadata)
@@ -231,8 +238,8 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
             </p>
           ) : (
             <>
-              <p className="mt-2 text-body text-zinc-700">{formatTimeRange(event.start, event.end)}</p>
-              <p className={sheetSubtitle}>Varighet: {durationStr}</p>
+              <p className="mt-2 text-body text-zinc-700">{formatCalendarEventTimeLabel(event)}</p>
+              {!hideSyntheticDuration ? <p className={sheetSubtitle}>Varighet: {durationStr}</p> : null}
               {tankestromTimeSourceIsComputedFromDuration(event.metadata?.endTimeSource) ? (
                 <p className="mt-1 text-[12px] leading-snug text-zinc-500">{TANKESTROM_COMPUTED_END_HINT_NB}</p>
               ) : null}

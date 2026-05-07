@@ -169,6 +169,8 @@ export function resolveEmbeddedScheduleSegmentTimesForCalendarExport(
   embeddedScheduleChildExportDurationSuppressed: boolean
   embeddedScheduleChildExportSyntheticTimeSkipped: boolean
   embeddedScheduleChildExportTimeNormalized: boolean
+  /** True når `end` kun er en layout-/plassholder (f.eks. start+60), ikke faktisk kjent slutt fra kilden. */
+  usesSyntheticLayoutEnd: boolean
 } {
   const dbg = import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
   const log = (payload: Record<string, unknown>) => {
@@ -187,6 +189,7 @@ export function resolveEmbeddedScheduleSegmentTimesForCalendarExport(
       embeddedScheduleChildExportDurationSuppressed: true,
       embeddedScheduleChildExportSyntheticTimeSkipped: false,
       embeddedScheduleChildExportTimeNormalized: true,
+      usesSyntheticLayoutEnd: true,
     }
     log({
       ...out,
@@ -208,6 +211,7 @@ export function resolveEmbeddedScheduleSegmentTimesForCalendarExport(
       embeddedScheduleChildExportDurationSuppressed: false,
       embeddedScheduleChildExportSyntheticTimeSkipped: true,
       embeddedScheduleChildExportTimeNormalized: true,
+      usesSyntheticLayoutEnd: true,
     }
     log({ ...out, ...opts })
     return out
@@ -248,6 +252,7 @@ export function resolveEmbeddedScheduleSegmentTimesForCalendarExport(
       embeddedScheduleChildExportSyntheticTimeSkipped: false,
       embeddedScheduleChildExportTimeNormalized:
         durationSuppressed || broadWindowRejected || !parts.end || Boolean(adjusted.end && !endHm),
+      usesSyntheticLayoutEnd: true,
     }
     log({ ...out, segmentRawEnd: seg.end ?? null, ...opts })
     return out
@@ -264,6 +269,7 @@ export function resolveEmbeddedScheduleSegmentTimesForCalendarExport(
     embeddedScheduleChildExportTimeNormalized:
       normalizeHmFive(parts.start) !== start ||
       (parts.end != null && normalizeHmFive(parts.end) !== end),
+    usesSyntheticLayoutEnd: false,
   }
   log({ ...out, ...opts })
   return out

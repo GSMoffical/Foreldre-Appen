@@ -6,6 +6,8 @@
 import type { Event, PersonId, DaySummary, GapInfo, WeekDayMeta } from '../types'
 import {
   parseTime,
+  formatTime,
+  formatTimeRange,
   TIMELINE_START_HOUR,
   TIMELINE_END_HOUR,
   PIXELS_PER_HOUR,
@@ -217,4 +219,50 @@ export function getNowMinutes(): number {
 export function isToday(date: string): boolean {
   const today = todayKeyOslo()
   return date === today
+}
+
+export const CALENDAR_SLUTTID_IKKE_OPPGITT_NB = 'Sluttid ikke oppgitt'
+export const CALENDAR_STARTTID_IKKE_OPPGITT_NB = 'Starttid ikke oppgitt'
+
+/** Én rad per `id` (f.eks. etter import som ved en feil la inn duplikater i cache). */
+export function dedupeTimelineEventsById(events: Event[]): Event[] {
+  const seen = new Set<string>()
+  const out: Event[] = []
+  for (const e of events) {
+    if (seen.has(e.id)) continue
+    seen.add(e.id)
+    out.push(e)
+  }
+  return out
+}
+
+/**
+ * Tidslabel for kalenderkort: respekterer `timePrecision` og falske sluttider (layout/fallback).
+ */
+export function formatCalendarEventTimeLabel(event: Pick<Event, 'start' | 'end' | 'metadata'>): string {
+  const m = event.metadata
+  const precision = m?.timePrecision
+  const endSrc = m?.endTimeSource
+
+  if (precision === 'date_only') {
+    return (m?.displayTimeLabel && m.displayTimeLabel.trim()) || 'Tid ikke avklart'
+  }
+
+  if (precision === 'start_only') {
+    const rest = (m?.displayTimeLabel && m.displayTimeLabel.trim()) || CALENDAR_SLUTTID_IKKE_OPPGITT_NB
+    return `${formatTime(event.start)} · ${rest}`
+  }
+
+  if (precision === 'end_only') {
+    return `Innen ${formatTime(event.end)} · ${
+      (m?.displayTimeLabel && m.displayTimeLabel.trim()) || CALENDAR_STARTTID_IKKE_OPPGITT_NB
+    }`
+  }
+
+  if (endSrc === 'missing_or_unreadable' || endSrc === 'layout_only' || endSrc === 'fallback_duration') {
+    const rest = (m?.displayTimeLabel && m.displayTimeLabel.trim()) || CALENDAR_SLUTTID_IKKE_OPPGITT_NB
+    return `${formatTime(event.start)} · ${rest}`
+  }
+
+  return formatTimeRange(event.start, event.end)
 }

@@ -335,6 +335,7 @@ describe('resolveEmbeddedScheduleSegmentTimesForCalendarExport', () => {
     expect(t.end).toBe('18:45')
     expect(t.embeddedScheduleChildExportTimePolicyUsed).toBe('derived_meeting_conservative_end')
     expect(t.embeddedScheduleChildExportDerivedMeetingTimeApplied).toBe(true)
+    expect(t.usesSyntheticLayoutEnd).toBe(true)
   })
 
   it('undertrykker for bredt segment-vindu og bruker start + 60 min', () => {
@@ -349,6 +350,7 @@ describe('resolveEmbeddedScheduleSegmentTimesForCalendarExport', () => {
     expect(t.start).toBe('08:00')
     expect(t.end).toBe('09:00')
     expect(t.embeddedScheduleChildExportTimePolicyUsed).toBe('broad_window_rejected_conservative_end')
+    expect(t.usesSyntheticLayoutEnd).toBe(true)
   })
 
   it('bevarer kort segment-vindu når det er plausibelt', () => {
@@ -363,6 +365,7 @@ describe('resolveEmbeddedScheduleSegmentTimesForCalendarExport', () => {
     expect(t.start).toBe('16:00')
     expect(t.end).toBe('17:00')
     expect(t.embeddedScheduleChildExportTimePolicyUsed).toBe('segment_pair_sanitized')
+    expect(t.usesSyntheticLayoutEnd).toBe(false)
   })
 
   it('faller tilbake til standard-slot når segment-start er syntetisk', () => {
@@ -378,6 +381,7 @@ describe('resolveEmbeddedScheduleSegmentTimesForCalendarExport', () => {
     expect(t.end).toBe('10:00')
     expect(t.embeddedScheduleChildExportSyntheticTimeSkipped).toBe(true)
     expect(t.embeddedScheduleChildExportTimePolicyUsed).toBe('no_safe_segment_clock_default_slot')
+    expect(t.usesSyntheticLayoutEnd).toBe(true)
   })
 })
 

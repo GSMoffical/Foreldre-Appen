@@ -25,6 +25,17 @@ function debugEnabled(): boolean {
   return import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
 }
 
+const ZERO_WIDTH_CHARS = /[\u200B-\u200D\uFEFF]/g
+
+/** Kun trim / whitespace / usynlige tegn — ingen parent, ukedag eller dato. */
+export function cleanManualTitle(raw: string): string {
+  return raw.replace(ZERO_WIDTH_CHARS, '').replace(/\s+/g, ' ').trim()
+}
+
+export type EmbeddedScheduleChildTitleDebugContext = {
+  childId?: string
+}
+
 function newId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `ts-emb-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
@@ -176,6 +187,29 @@ const NB_WEEKDAY_LONG = new Set([
   'søndag',
 ])
 
+const NB_MONTH_LONG = new Set([
+  'januar',
+  'februar',
+  'mars',
+  'april',
+  'mai',
+  'juni',
+  'juli',
+  'august',
+  'september',
+  'oktober',
+  'november',
+  'desember',
+])
+
+function partIsPunctuationOrNoiseOnly(part: string): boolean {
+  return /^[.\u2026…·|/\\,:;]+$/u.test(part.trim()) || part.trim() === '–' || part.trim() === '-'
+}
+
+function partIsNorwegianMonthNameOnly(part: string): boolean {
+  return NB_MONTH_LONG.has(part.trim().toLocaleLowerCase('nb-NO'))
+}
+
 function childWeekday(isoDate: string): string {
   return norwegianWeekdayLong(isoDate).toLocaleLowerCase('nb-NO')
 }
@@ -322,6 +356,8 @@ function filterChildTitleParts(
   for (const rawPart of parts) {
     const part = rawPart.trim()
     if (!part) continue
+    if (partIsPunctuationOrNoiseOnly(part)) continue
+    if (partIsNorwegianMonthNameOnly(part)) continue
     if (partIsNorwegianWeekday(part)) {
       out.push(part.charAt(0).toLocaleUpperCase('nb-NO') + part.slice(1))
       continue
@@ -344,6 +380,24 @@ function filterChildTitleParts(
   return out
 }
 
+/** Fjerner dupliserte arrangementsnavn-deler og tomme «ledd» etter splitting. */
+function collapseRedundantChildParts(parts: string[], parentCore: string): string[] {
+  const coreKey = semanticTitleCore(parentCore).toLocaleLowerCase('nb-NO')
+  const out: string[] = []
+  for (const raw of parts) {
+    const p = raw.trim()
+    if (!p || partIsPunctuationOrNoiseOnly(p)) continue
+    const pKey = semanticTitleCore(p).toLocaleLowerCase('nb-NO')
+    if (pKey && pKey === coreKey) continue
+    if (out.length > 0) {
+      const prevKey = semanticTitleCore(out[out.length - 1]!).toLocaleLowerCase('nb-NO')
+      if (pKey && prevKey === pKey) continue
+    }
+    out.push(p)
+  }
+  return out
+}
+
 export function getParentCoreTitle(parentTitle: string): string {
   const normalized = normalizeEmbeddedScheduleParentDisplayTitle(parentTitle).title
   let out = normalized
@@ -358,6 +412,49 @@ export function getParentCoreTitle(parentTitle: string): string {
   return out || normalized
 }
 
+/** Ekstraher kjernenavn for arrangement (uten år/dato); `metadata` er reservert for senere felt. */
+export function getArrangementCoreTitle(parentTitle: string, _metadata?: Record<string, unknown>): string {
+  void _metadata
+  return getParentCoreTitle(parentTitle)
+}
+
+export interface BuildArrangementChildDisplayTitleInput {
+  /** Full foreldertittel (kalender/rå) — brukes til token-strip og dagnummer-kontekst */
+  parentTitle: string
+  /** Valgfri forhåndsutledet kjerne (samme som getArrangementCoreTitle) */
+  parentCoreTitle?: string
+  segmentTitle: string
+  segmentDate: string
+  segmentMetadata?: Record<string, unknown>
+  siblingTitlesBlob?: string
+}
+
+/**
+ * Én inngang for visning, review-redigering og persist av barn-tittel i flerdagersprogram.
+ */
+export function buildArrangementChildDisplayTitle(input: BuildArrangementChildDisplayTitleInput): string {
+  void input.segmentMetadata
+  const segment: EmbeddedScheduleSegment = {
+    date: input.segmentDate,
+    title: input.segmentTitle,
+  }
+  const out = normalizeArrangementChildTitle(
+    input.segmentTitle,
+    input.parentTitle.trim(),
+    segment,
+    input.siblingTitlesBlob
+  )
+  if (import.meta.env.DEV) {
+    console.info('[Tankestrom child title normalize]', {
+      parentTitle: input.parentTitle,
+      segmentTitleRaw: input.segmentTitle,
+      segmentDate: input.segmentDate,
+      outputTitle: out,
+    })
+  }
+  return out
+}
+
 /**
  * Kort barn-tittel for flerdagersarrangement: fjern dato-tall som lekker fra forelder/periode,
  * behold meningsbærende tall (G12, Cup 2, …). `parentTitleForStrip` bør være full forelder-tittel
@@ -369,6 +466,9 @@ export function normalizeArrangementChildTitle(
   segment: EmbeddedScheduleSegment,
   additionalDateContext?: string
 ): string {
+  if (segment.userEditedTitle) {
+    return cleanManualTitle(segment.titleOverride ?? title)
+  }
   const parentCore = getParentCoreTitle(parentTitleForStrip)
   const wd = childWeekday(segment.date)
   const ymd = parseIsoYmd(segment.date)
@@ -416,13 +516,14 @@ export function normalizeArrangementChildTitle(
     .split(CHILD_TITLE_SEGMENT_SEP)
     .map((p) => p.trim())
     .filter(Boolean)
-  const filtered = filterChildTitleParts(
+  const filteredRaw = filterChildTitleParts(
     splitParts,
     segmentDay > 0 ? segmentDay : 0,
     segmentYear > 0 ? segmentYear : 0,
     parentDayTokens,
     parentYears
   )
+  const filtered = collapseRedundantChildParts(filteredRaw, parentCore)
 
   const extras = filtered.filter((p) => !partIsNorwegianWeekday(p))
 
@@ -443,14 +544,15 @@ export function normalizeArrangementChildTitle(
 
 /**
  * Kort, dagsspesifikk tittel for delprogram i review (og samme logikk for kalender-eksport).
+ * @param parentEventTitleFull Full foreldertittel (før normalize) slik at datoperiode (12.–14. juni) kan brukes til å rydde barn-titler.
  */
 export function embeddedScheduleChildReviewDisplayTitle(
-  parentCalendarCoreTitle: string,
+  parentEventTitleFull: string,
   segmentTitle: string,
   segmentIsoDate: string,
   additionalDateContext?: string
 ): string {
-  const parentTrim = parentCalendarCoreTitle.trim()
+  const parentTrim = parentEventTitleFull.trim()
   const core = getParentCoreTitle(parentTrim)
   const wd = norwegianWeekdayLong(segmentIsoDate)
   if (!core || core.length < 2) {
@@ -459,15 +561,53 @@ export function embeddedScheduleChildReviewDisplayTitle(
   if (!wd) {
     return segmentTitleForDisplay(segmentTitle)
   }
-  return normalizeArrangementChildTitle(
+  return buildArrangementChildDisplayTitle({
+    parentTitle: parentTrim,
+    parentCoreTitle: core,
     segmentTitle,
-    parentTrim,
-    {
-      date: segmentIsoDate,
-      title: segmentTitle,
-    },
+    segmentDate: segmentIsoDate,
+    siblingTitlesBlob: additionalDateContext,
+  })
+}
+
+/**
+ * Én inngang for review/preview: manuell tittel (userEditedTitle) er autoritativ, ellers auto-normalisering.
+ */
+export function embeddedScheduleChildTitleForReview(
+  parentEventTitleFull: string,
+  segment: EmbeddedScheduleSegment,
+  additionalDateContext?: string,
+  debug?: EmbeddedScheduleChildTitleDebugContext
+): string {
+  if (segment.userEditedTitle) {
+    const rendered = cleanManualTitle(segment.titleOverride ?? segment.title)
+    if (import.meta.env.DEV && debug?.childId) {
+      console.info('[Tankestrom child title render]', {
+        childId: debug.childId,
+        rawTitle: segment.title,
+        titleOverride: segment.titleOverride,
+        userEditedTitle: true,
+        renderedTitle: rendered,
+      })
+    }
+    return rendered || 'Uten tittel'
+  }
+  const rendered = embeddedScheduleChildReviewDisplayTitle(
+    parentEventTitleFull,
+    segment.title,
+    segment.date,
     additionalDateContext
   )
+  if (import.meta.env.DEV && debug?.childId) {
+    console.info('[Tankestrom child title render]', {
+      childId: debug.childId,
+      rawTitle: segment.title,
+      titleOverride: segment.titleOverride,
+      userEditedTitle: false,
+      renderedTitle: rendered,
+    })
+  }
+  return rendered
 }
 
 /**
@@ -478,10 +618,12 @@ export function embeddedScheduleChildCalendarExportTitle(
   parentEventTitle: string,
   additionalDateContext?: string
 ): string {
-  const parentCore = normalizeEmbeddedScheduleParentDisplayTitle(parentEventTitle.trim()).title
+  if (segment.userEditedTitle) {
+    return cleanManualTitle(segment.titleOverride ?? segment.title)
+  }
   return normalizeCalendarEventTitle(
     embeddedScheduleChildReviewDisplayTitle(
-      parentCore,
+      parentEventTitle.trim(),
       segment.title,
       segment.date,
       additionalDateContext
@@ -660,12 +802,7 @@ export function applyCupWeekendEmbeddedScheduleMerge(
     const arrangementDateContextBlob = group.map((g) => g.event.title.trim()).join('\n')
     const segments = segmentsRaw.map((seg) => ({
       ...seg,
-      title: embeddedScheduleChildReviewDisplayTitle(
-        parentTitle,
-        seg.title,
-        seg.date,
-        arrangementDateContextBlob
-      ),
+      title: embeddedScheduleChildTitleForReview(parentTitle, seg, arrangementDateContextBlob),
     }))
     const confidence = Math.max(...group.map((g) => g.confidence))
     const template = group.sort((a, b) => b.confidence - a.confidence)[0]!

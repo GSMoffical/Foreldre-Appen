@@ -18,6 +18,7 @@ interface TimelineContainerProps {
   onSelectBackgroundEvent?: (event: Event) => void
   onDragReschedule?: (eventId: string, payload: DragReschedulePayload) => void | Promise<void>
   dayTasks?: Task[]
+  onSelectTask?: (task: Task) => void
   highlightedEventIds?: Set<string>
 }
 
@@ -39,6 +40,7 @@ export function TimelineContainer({
   onSelectBackgroundEvent,
   onDragReschedule,
   dayTasks,
+  onSelectTask,
   highlightedEventIds,
 }: TimelineContainerProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -92,6 +94,7 @@ export function TimelineContainer({
             onSelectBackgroundEvent={onSelectBackgroundEvent}
             onDragReschedule={onDragReschedule}
             dayTasks={dayTasks}
+            onSelectTask={onSelectTask}
             highlightedEventIds={highlightedEventIds}
           />
         </motion.div>

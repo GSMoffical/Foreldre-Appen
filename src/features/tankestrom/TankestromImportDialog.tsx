@@ -21,8 +21,9 @@ import {
   parseEmbeddedScheduleFromMetadata,
 } from '../../lib/embeddedSchedule'
 import {
+  cleanManualTitle,
   embeddedScheduleChildCalendarExportTitle,
-  embeddedScheduleChildReviewDisplayTitle,
+  embeddedScheduleChildTitleForReview,
   embeddedScheduleParentReviewDisplayTitle,
   normalizeEmbeddedScheduleParentDisplayTitle,
 } from '../../lib/tankestromCupEmbeddedScheduleMerge'
@@ -1810,6 +1811,7 @@ function embeddedScheduleChildDateShort(isoDate: string): string {
 function embeddedScheduleChildDetailTitleForPanel(
   seg: EmbeddedScheduleSegment,
   parentCalendarCore: string | undefined,
+  parentEventTitleFull: string | undefined,
   displayTitle: string,
   childProposalId: string
 ): string {
@@ -1828,7 +1830,8 @@ function embeddedScheduleChildDetailTitleForPanel(
   if (!sameBlob && !childIsOnlyParentPrefix) return dt
 
   const datePart = embeddedScheduleChildDateShort(seg.date)
-  const fromSeg = embeddedScheduleChildReviewDisplayTitle(pt, seg.title, seg.date)
+  const parentForChildTitle = (parentEventTitleFull ?? pt).trim()
+  const fromSeg = embeddedScheduleChildTitleForReview(parentForChildTitle, seg)
   const logRefined = (refinedTitle: string) => {
     if (refinedTitle === dt) return
     if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
@@ -1906,9 +1909,9 @@ function flattenEmbeddedScheduleForPreview(item: PortalEventProposal): EmbeddedS
 }
 
 /** Kompakt én-linjes program (preview-liste); bruker normalisert tittel og skjuler syntetiske tider. */
-function formatEmbeddedSchedulePreviewLine(seg: EmbeddedScheduleSegment, parentCalendarCore?: string): string {
-  const displayTitle = parentCalendarCore?.trim()
-    ? embeddedScheduleChildReviewDisplayTitle(parentCalendarCore.trim(), seg.title, seg.date)
+function formatEmbeddedSchedulePreviewLine(seg: EmbeddedScheduleSegment, parentEventTitleFull?: string): string {
+  const displayTitle = parentEventTitleFull?.trim()
+    ? embeddedScheduleChildTitleForReview(parentEventTitleFull.trim(), seg)
     : normalizeEmbeddedScheduleParentDisplayTitle(seg.title).title
   const { clock } = embeddedScheduleChildTimeDisplay(seg)
   let dayAbbr = ''
@@ -1996,7 +1999,7 @@ function TankestromEmbeddedSchedulePreview({
   item: PortalEventProposal
   /** Når satt (f.eks. gjenværende rader etter løsning), brukes den i stedet for metadata på item. */
   segmentsOverride?: EmbeddedScheduleSegment[]
-  /** Kalender-/kjernetittel for parent (samme som `calendarExportTitleNormalized`, ikke review-linje med dato). */
+  /** Rå foreldertittel (samme som kalenderforslag) — brukes til barn-tittel-normalisering i programlisten. */
   parentTitleForPreviewLines?: string
   expanded: boolean
   onToggleExpanded: () => void
@@ -2009,9 +2012,7 @@ function TankestromEmbeddedSchedulePreview({
   const effectiveExpanded = alwaysExpanded ? true : expanded
   const visible = effectiveExpanded ? flat : flat.slice(0, EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX)
   const remainder = flat.length > EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX ? flat.length - EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX : 0
-  const previewParentTitle =
-    parentTitleForPreviewLines?.trim() ||
-    normalizeEmbeddedScheduleParentDisplayTitle(item.event.title.trim()).title
+  const previewParentTitle = parentTitleForPreviewLines?.trim() || item.event.title.trim()
 
   if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
     console.debug('[tankestrom review embedded schedule preview]', {
@@ -3896,7 +3897,7 @@ export function TankestromImportDialog({
                               proposalId={pid}
                               item={item}
                               segmentsOverride={embeddedScheduleReviewRowsByParentId[pid]?.map((r) => r.segment)}
-                              parentTitleForPreviewLines={parentCalendarExportCore}
+                              parentTitleForPreviewLines={cardTitleRaw}
                               expanded={expandedProgramPreviewIds.has(pid)}
                               onToggleExpanded={() => toggleProgramPreviewExpanded(pid)}
                               alwaysExpanded
@@ -3933,12 +3934,7 @@ export function TankestromImportDialog({
                                   const childChecked = selectedIds.has(childId)
                                   const displayTitle =
                                     parentCalendarCoreForChild && parentCalendarCoreForChild.trim()
-                                      ? embeddedScheduleChildReviewDisplayTitle(
-                                          parentCalendarCoreForChild,
-                                          row.segment.title,
-                                          row.segment.date,
-                                          siblingTitlesBlob
-                                        )
+                                      ? embeddedScheduleChildTitleForReview(cardTitleRaw, row.segment, siblingTitlesBlob)
                                       : normalizeEmbeddedScheduleParentDisplayTitle(row.segment.title).title
                                   const calendarExportChildTitle = embeddedScheduleChildCalendarExportTitle(
                                     row.segment,
@@ -4000,6 +3996,7 @@ export function TankestromImportDialog({
                                   const detailPanelTitle = embeddedScheduleChildDetailTitleForPanel(
                                     row.segment,
                                     parentCalendarCoreForChild,
+                                    cardTitleRaw,
                                     displayTitle,
                                     childId
                                   )
@@ -4088,7 +4085,15 @@ export function TankestromImportDialog({
                                               setEmbeddedChildReviewEditors((prev) => ({
                                                 ...prev,
                                                 [childId]: {
-                                                  title: row.segment.title,
+                                                  title:
+                                                    parentCalendarCoreForChild && parentCalendarCoreForChild.trim()
+                                                      ? embeddedScheduleChildTitleForReview(
+                                                          cardTitleRaw,
+                                                          row.segment,
+                                                          siblingTitlesBlob,
+                                                          { childId }
+                                                        )
+                                                      : row.segment.title,
                                                   date: row.segment.date,
                                                   start:
                                                     row.segment.start && row.segment.start.length >= 5
@@ -4249,16 +4254,34 @@ export function TankestromImportDialog({
                                                 if (!buf) return
                                                 const sN = normalizeTimeInput(buf.start)
                                                 const eN = normalizeTimeInput(buf.end)
+                                                const rawTitle = buf.title.trim() || 'Uten tittel'
+                                                const cleanedTitle = cleanManualTitle(rawTitle) || 'Uten tittel'
                                                 const patch: Partial<EmbeddedScheduleSegment> = {
-                                                  title: buf.title.trim() || 'Uten tittel',
+                                                  title: cleanedTitle,
+                                                  titleOverride: cleanedTitle,
+                                                  userEditedTitle: true,
                                                   date: buf.date,
                                                   notes: buf.notes.trim() ? buf.notes.trim() : undefined,
                                                   start: buf.start.trim() && HM24.test(sN) ? sN : undefined,
                                                   end: buf.end.trim() && HM24.test(eN) ? eN : undefined,
                                                 }
-                                                updateEmbeddedScheduleSegment(pid, row.origIndex, patch, {
+                                                const oldTitle = row.segment.title
+                                                const savedOk = updateEmbeddedScheduleSegment(pid, row.origIndex, patch, {
                                                   personId: buf.personId,
                                                 })
+                                                if (!savedOk) {
+                                                  window.alert('Kunne ikke lagre programpunktet. Lukk dialogen og prøv igjen.')
+                                                  return
+                                                }
+                                                if (import.meta.env.DEV) {
+                                                  console.info('[Tankestrom child title save]', {
+                                                    childId,
+                                                    oldTitle,
+                                                    newTitle: cleanedTitle,
+                                                    titleOverride: cleanedTitle,
+                                                    userEditedTitle: true,
+                                                  })
+                                                }
                                                 if (
                                                   import.meta.env.DEV ||
                                                   import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'

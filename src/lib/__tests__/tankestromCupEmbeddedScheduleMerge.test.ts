@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { PortalEventProposal, PortalProposalItem, PortalTaskProposal } from '../../features/tankestrom/types'
+import type { EmbeddedScheduleSegment } from '../../types'
 import {
   applyCupWeekendEmbeddedScheduleMerge,
+  buildArrangementChildDisplayTitle,
   embeddedScheduleChildCalendarExportTitle,
   embeddedScheduleChildReviewDisplayTitle,
+  embeddedScheduleChildTitleForReview,
   embeddedScheduleParentReviewDisplayTitle,
   getParentCoreTitle,
   normalizeArrangementChildTitle,
@@ -156,6 +159,71 @@ describe('normalizeEmbeddedScheduleParentDisplayTitle', () => {
     expect(
       normalizeArrangementChildTitle('Vårcupen Cup 2 – lørdag', parent, { date: '2026-06-13', title: '' })
     ).toBe('Vårcupen – Cup 2 – lørdag')
+  })
+
+  it('regresjon: Tankestrøm «12 – . –»-rot i segmenttittel → kun kjerne + ukedag', () => {
+    const parentTitle = 'Vårcupen 2026 – 12.–14. juni 2026'
+    const blob = [
+      'Vårcupen – 12 – . – Vårcupen – fredag',
+      'Vårcupen – 12 – . – Vårcupen – lørdag',
+      'Vårcupen – 12 – . – Vårcupen – søndag',
+    ].join('\n')
+    expect(
+      buildArrangementChildDisplayTitle({
+        parentTitle,
+        segmentTitle: 'Vårcupen – 12 – . – Vårcupen – fredag',
+        segmentDate: '2026-06-12',
+        siblingTitlesBlob: blob,
+      })
+    ).toBe('Vårcupen – fredag')
+    expect(
+      buildArrangementChildDisplayTitle({
+        parentTitle,
+        segmentTitle: 'Vårcupen – 12 – . – Vårcupen – lørdag',
+        segmentDate: '2026-06-13',
+        siblingTitlesBlob: blob,
+      })
+    ).toBe('Vårcupen – lørdag')
+    expect(
+      buildArrangementChildDisplayTitle({
+        parentTitle,
+        segmentTitle: 'Vårcupen – 12 – . – Vårcupen – søndag',
+        segmentDate: '2026-06-14',
+        siblingTitlesBlob: blob,
+      })
+    ).toBe('Vårcupen – søndag')
+  })
+
+  it('beholder Kamp 2 / Runde 3 som meningsbærende', () => {
+    const parent = 'Serie 2026 – uke 12'
+    expect(normalizeArrangementChildTitle('Kamp 2 – søndag', parent, { date: '2026-03-22', title: '' })).toMatch(
+      /Kamp 2/i
+    )
+    expect(normalizeArrangementChildTitle('Runde 3 – lørdag', parent, { date: '2026-03-21', title: '' })).toMatch(
+      /Runde 3/i
+    )
+  })
+
+  it('manuell barn-tittel (userEditedTitle) bygges ikke om med parent/ukedag/dato', () => {
+    const parent = 'Vårcupen 2026 – 12.–14. juni 2026'
+    const seg: EmbeddedScheduleSegment = {
+      date: '2026-06-12',
+      title: 'Vårcupen dag 1',
+      userEditedTitle: true,
+      titleOverride: 'Vårcupen dag 1',
+    }
+    expect(embeddedScheduleChildTitleForReview(parent, seg, '')).toBe('Vårcupen dag 1')
+    expect(embeddedScheduleChildCalendarExportTitle(seg, parent)).toBe('Vårcupen dag 1')
+    expect(normalizeArrangementChildTitle('should-be-ignored', parent, seg)).toBe('Vårcupen dag 1')
+  })
+
+  it('uten manuell edit: auto-title normaliseres fortsatt', () => {
+    const parent = 'Vårcupen 2026 – 12.–14. juni 2026'
+    const seg: EmbeddedScheduleSegment = {
+      date: '2026-06-12',
+      title: 'Vårcupen – 12 – fredag',
+    }
+    expect(embeddedScheduleChildTitleForReview(parent, seg, '')).toBe('Vårcupen – fredag')
   })
 })
 

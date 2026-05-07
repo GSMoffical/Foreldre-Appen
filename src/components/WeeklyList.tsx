@@ -1,6 +1,6 @@
 import type { Event } from '../types'
 import type { WeekDayLayout } from '../hooks/useScheduleState'
-import { formatTimeRange } from '../lib/time'
+import { formatCalendarEventTimeLabel } from '../lib/schedule'
 import { useFamily } from '../context/FamilyContext'
 import { formatParticipantNamesLine, getParticipantPeople } from '../lib/eventParticipants'
 import { ParticipantAvatarStrip } from './ParticipantAvatarStrip'
@@ -109,7 +109,7 @@ export function WeeklyList({ weekLayoutData, onSelectEvent, onDeleteEvent, onAdd
                             </div>
                             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                               <span className="text-[12px] font-medium text-zinc-600">
-                                {formatTimeRange(e.start, e.end)}
+                                {formatCalendarEventTimeLabel(e)}
                               </span>
                               {namesLine !== 'Ukjent' && (
                                 <span className="text-[11px] font-medium text-zinc-500">· {namesLine}</span>

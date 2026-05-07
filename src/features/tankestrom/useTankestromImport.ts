@@ -26,8 +26,11 @@ import { normalizeCalendarEventTitle } from '../../lib/tankestromTitleNormalizat
 import { dedupeNearDuplicateCalendarProposals } from '../../lib/tankestromImportDedupe'
 import { foldLegacyArrangementChildSegments } from '../../lib/tankestromLegacyArrangementSegments'
 import { redistributeEnrichSubjectUpdatesForDay } from '../../lib/schoolWeekOverlayEnrichRouting'
-import { resolveEmbeddedScheduleSegmentTimesForCalendarExport } from '../../lib/tankestromEmbeddedChildNotesPresentation'
-import { presentEmbeddedChildNotesForReview } from '../../lib/tankestromEmbeddedChildNotesPresentation'
+import type { EmbeddedScheduleChildExportTimePolicy } from '../../lib/tankestromEmbeddedChildNotesPresentation'
+import {
+  presentEmbeddedChildNotesForReview,
+  resolveEmbeddedScheduleSegmentTimesForCalendarExport,
+} from '../../lib/tankestromEmbeddedChildNotesPresentation'
 import {
   buildTankestromScheduleDescriptionFallback,
   dedupeNotesAgainstHighlights,
@@ -64,7 +67,12 @@ import {
   type ExistingEventMatchResult,
 } from '../../lib/tankestromExistingEventMatch'
 import { addCalendarDaysOslo } from '../../lib/osloCalendar'
-import { getEventParticipantIds } from '../../lib/schedule'
+import {
+  buildTankestromIdempotentEventUpdate,
+  findTankestromPersistDuplicateInAnchors,
+  tankestromPersistFingerprint,
+} from '../../lib/tankestromCalendarPersistDup'
+import { CALENDAR_SLUTTID_IKKE_OPPGITT_NB, getEventParticipantIds } from '../../lib/schedule'
 import { cleanupParallelClusterDayRowsAfterEmbeddedParentUpdate } from '../../lib/tankestromExistingEventClusterCleanup'
 import {
   aggregatePersistFailureKinds,
@@ -258,6 +266,72 @@ function defaultChildPersonId(people: Person[], validPersonIds: Set<string>): st
 
 const EMBEDDED_CHILD_ID_PREFIX = 'ts-emb:'
 
+type TankestromPersistCreateResult =
+  | { kind: 'created' }
+  | { kind: 'updated'; eventId: string; anchorDate: string }
+  | { kind: 'skipped_duplicate_batch' }
+
+function applyTankestromPersistCreateOutcome(
+  pc: TankestromPersistCreateResult,
+  ctx: {
+    proposalId: string
+    recordSuccess: (proposalId: string, surface: 'event' | 'task', operation: TankestromImportPersistOperation) => void
+    pushCreatedEvent: (row: {
+      id: string
+      title: string
+      date: string
+      start?: string | null
+      end?: string | null
+    }) => void
+    pushUpdatedEvent: (row: {
+      id: string
+      title: string
+      date: string
+      start?: string | null
+      end?: string | null
+    }) => void
+    findCreatedEventByProposalId: (proposalId: string) => { event: Event; anchorDate: string } | null
+    fallbackTitle: string
+    fallbackDate: string
+    fallbackStart?: string | null
+    fallbackEnd?: string | null
+  }
+): void {
+  if (pc.kind === 'skipped_duplicate_batch') {
+    ctx.recordSuccess(ctx.proposalId, 'event', 'createEvent')
+    return
+  }
+  ctx.recordSuccess(ctx.proposalId, 'event', 'createEvent')
+  if (pc.kind === 'updated') {
+    ctx.pushUpdatedEvent({
+      id: pc.eventId,
+      title: ctx.fallbackTitle,
+      date: pc.anchorDate,
+      start: ctx.fallbackStart ?? null,
+      end: ctx.fallbackEnd ?? null,
+    })
+    return
+  }
+  const persisted = ctx.findCreatedEventByProposalId(ctx.proposalId)
+  if (persisted) {
+    ctx.pushCreatedEvent({
+      id: persisted.event.id,
+      title: persisted.event.title,
+      date: persisted.anchorDate,
+      start: persisted.event.start,
+      end: persisted.event.end,
+    })
+  } else {
+    ctx.pushCreatedEvent({
+      id: ctx.proposalId,
+      title: ctx.fallbackTitle,
+      date: ctx.fallbackDate,
+      start: ctx.fallbackStart ?? null,
+      end: ctx.fallbackEnd ?? null,
+    })
+  }
+}
+
 export type EmbeddedScheduleReviewRow = { origIndex: number; segment: EmbeddedScheduleSegment }
 
 export function makeEmbeddedChildProposalId(parentProposalId: string, origIndex: number): string {
@@ -409,9 +483,9 @@ function buildEmbeddedChildEventDraft(
   const segmentHasConcreteTimes = Boolean((segment.start ?? '').trim() || (segment.end ?? '').trim())
   const exportTimes = segmentHasConcreteTimes
     ? resolveEmbeddedScheduleSegmentTimesForCalendarExport(segment, timeOpts)
-    : { start: '', end: '' }
-  const start = segmentHasConcreteTimes ? normalizeTimeInput(exportTimes.start) : ''
-  const end = segmentHasConcreteTimes ? normalizeTimeInput(exportTimes.end) : ''
+    : null
+  const start = segmentHasConcreteTimes && exportTimes ? normalizeTimeInput(exportTimes.start) : ''
+  const end = segmentHasConcreteTimes && exportTimes ? normalizeTimeInput(exportTimes.end) : ''
   const calendarTitle = embeddedScheduleChildCalendarExportTitle(
     segment,
     parentDraft.title,
@@ -432,6 +506,13 @@ function buildEmbeddedChildEventDraft(
     start,
     end,
     notes: segment.notes?.trim() ? segment.notes.trim() : parentDraft.notes,
+    embeddedScheduleExport:
+      segmentHasConcreteTimes && exportTimes?.usesSyntheticLayoutEnd
+        ? {
+            usesSyntheticLayoutEnd: true,
+            policy: exportTimes.embeddedScheduleChildExportTimePolicyUsed,
+          }
+        : undefined,
   }
 }
 
@@ -496,9 +577,9 @@ function buildDetachedEmbeddedChildProposal(
     ? resolveEmbeddedScheduleSegmentTimesForCalendarExport(segment, {
         childProposalId: proposalId,
       })
-    : { start: '', end: '' }
-  const start = segmentHasConcreteTimes ? normalizeTimeInput(exportTimes.start) : ''
-  const end = segmentHasConcreteTimes ? normalizeTimeInput(exportTimes.end) : ''
+    : null
+  const start = segmentHasConcreteTimes && exportTimes ? normalizeTimeInput(exportTimes.start) : ''
+  const end = segmentHasConcreteTimes && exportTimes ? normalizeTimeInput(exportTimes.end) : ''
   const baseMeta =
     parent.event.metadata && typeof parent.event.metadata === 'object' && !Array.isArray(parent.event.metadata)
       ? { ...(parent.event.metadata as Record<string, unknown>) }
@@ -1102,9 +1183,52 @@ function applyFlightStartOnlyPersistMetadata(metadata: Record<string, unknown>, 
   metadata.displayTimeLabel = TANKESTROM_FLIGHT_MISSING_END_LABEL
 }
 
+function embeddedExportEndTimeSourceForPolicy(
+  policy: EmbeddedScheduleChildExportTimePolicy
+): 'missing_or_unreadable' | 'layout_only' | 'fallback_duration' {
+  if (policy === 'derived_meeting_conservative_end') return 'layout_only'
+  if (policy === 'no_safe_segment_clock_default_slot') return 'fallback_duration'
+  return 'missing_or_unreadable'
+}
+
+function applyEmbeddedScheduleExportTimeMetadata(
+  metadata: Record<string, unknown>,
+  draft: TankestromEventDraft
+): void {
+  const ex = draft.embeddedScheduleExport
+  if (!ex?.usesSyntheticLayoutEnd) return
+  metadata.timePrecision = 'start_only'
+  metadata.layoutEndOnly = true
+  metadata.endTimeSource = embeddedExportEndTimeSourceForPolicy(ex.policy)
+  metadata.displayTimeLabel = CALENDAR_SLUTTID_IKKE_OPPGITT_NB
+  metadata.requiresManualTimeReview = true
+}
+
 function applyEventTimingMetadataForPersist(metadata: Record<string, unknown>, draft: TankestromEventDraft): void {
   applyDateOnlyMetadata(metadata, draftIsDateOnly(draft))
   applyFlightStartOnlyPersistMetadata(metadata, draft)
+  applyEmbeddedScheduleExportTimeMetadata(metadata, draft)
+}
+
+function reconcileEmbeddedExportAfterDraftMerge(
+  draftEv: TankestromEventDraft,
+  segment: EmbeddedScheduleSegment,
+  childProposalId: string
+): TankestromEventDraft {
+  if (!draftEv.embeddedScheduleExport?.usesSyntheticLayoutEnd) return draftEv
+  const resolved = resolveEmbeddedScheduleSegmentTimesForCalendarExport(segment, { childProposalId })
+  if (!resolved.usesSyntheticLayoutEnd) {
+    const { embeddedScheduleExport: _e, ...rest } = draftEv
+    return rest as TankestromEventDraft
+  }
+  if (
+    normalizeTimeInput(draftEv.start) !== normalizeTimeInput(resolved.start) ||
+    normalizeTimeInput(draftEv.end) !== normalizeTimeInput(resolved.end)
+  ) {
+    const { embeddedScheduleExport: _e, ...rest } = draftEv
+    return rest as TankestromEventDraft
+  }
+  return draftEv
 }
 
 function buildPersistTimes(draft: TankestromEventDraft): { start: string; end: string } {
@@ -2233,20 +2357,22 @@ export function useTankestromImport({
       origIndex: number,
       segmentPatch: Partial<EmbeddedScheduleSegment>,
       opts?: { personId?: string }
-    ) => {
+    ): boolean => {
       let mergedSegment: EmbeddedScheduleSegment | undefined
       setEmbeddedScheduleReviewRowsByParentId((prev) => {
         const rows = prev[parentProposalId]
         if (!rows) return prev
-        const nextRows = rows.map((r) => {
-          if (r.origIndex !== origIndex) return r
-          mergedSegment = { ...r.segment, ...segmentPatch }
-          return { origIndex, segment: mergedSegment }
-        })
-        if (!mergedSegment) return prev
-        return { ...prev, [parentProposalId]: nextRows }
+        const row = rows.find((r) => r.origIndex === origIndex)
+        if (!row) return prev
+        mergedSegment = { ...row.segment, ...segmentPatch }
+        return {
+          ...prev,
+          [parentProposalId]: rows.map((r) =>
+            r.origIndex === origIndex ? { origIndex, segment: mergedSegment! } : r
+          ),
+        }
       })
-      if (!mergedSegment) return
+      if (!mergedSegment) return false
       const segmentForChild = mergedSegment
 
       setDraftByProposalId((prev) => {
@@ -2271,6 +2397,7 @@ export function useTankestromImport({
           [childId]: { importKind: 'event', event: { ...baseChild, personId, participantPersonIds } },
         }
       })
+      return true
     },
     [validPersonIds]
   )
@@ -3021,11 +3148,70 @@ export function useTankestromImport({
         return found ? { event: found.event, anchorDate: found.anchorDate } : null
       }
 
-      const persistCreateEvent = async (dateKey: string, input: Omit<Event, 'id'>, logProposalId: string) => {
+      const batchPersistFingerprints = new Set<string>()
+
+      const persistCreateEvent = async (
+        dateKey: string,
+        input: Omit<Event, 'id'>,
+        logProposalId: string
+      ): Promise<TankestromPersistCreateResult> => {
         const metaRec =
           input.metadata && typeof input.metadata === 'object' && !Array.isArray(input.metadata)
             ? (input.metadata as Record<string, unknown>)
             : undefined
+
+        const fp = tankestromPersistFingerprint({
+          date: dateKey,
+          start: input.start,
+          end: input.end,
+          title: input.title,
+          personId: input.personId ?? null,
+          metadata: input.metadata as EventMetadata | undefined,
+        })
+
+        if (batchPersistFingerprints.has(fp)) {
+          if (import.meta.env.DEV) {
+            console.info('[Tankestrom import persist skip duplicate batch]', { fp, proposalId: logProposalId })
+          }
+          return { kind: 'skipped_duplicate_batch' }
+        }
+
+        if (editEvent && getAnchoredForegroundEventsForMatching) {
+          const dup = findTankestromPersistDuplicateInAnchors(
+            getAnchoredForegroundEventsForMatching(),
+            {
+              date: dateKey,
+              start: input.start,
+              end: input.end,
+              title: input.title,
+              personId: input.personId ?? null,
+              metadata: input.metadata as EventMetadata | undefined,
+            },
+            logProposalId
+          )
+          if (dup) {
+            console.info('[Tankestrom create event attempt → idempotent update]', {
+              proposalId: logProposalId,
+              matchEventId: dup.event.id,
+              title: input.title,
+              date: dateKey,
+              start: input.start,
+              end: input.end,
+              timePrecision: metaRec?.timePrecision,
+            })
+            const updates = buildTankestromIdempotentEventUpdate(dup.event, input)
+            await editEvent(dup.anchorDate, dup.event, updates)
+            batchPersistFingerprints.add(fp)
+            if (import.meta.env.DEV) {
+              console.info('[Tankestrom import idempotent update ok]', {
+                proposalId: logProposalId,
+                eventId: dup.event.id,
+              })
+            }
+            return { kind: 'updated', eventId: dup.event.id, anchorDate: dup.anchorDate }
+          }
+        }
+
         console.info('[Tankestrom create event attempt]', {
           proposalId: logProposalId,
           title: input.title,
@@ -3038,6 +3224,7 @@ export function useTankestromImport({
         })
         try {
           await createEvent(dateKey, input)
+          batchPersistFingerprints.add(fp)
           const persisted = findCreatedEventByProposalId(logProposalId)
           if (persisted) {
             console.info('[Tankestrom create event success]', {
@@ -3061,6 +3248,7 @@ export function useTankestromImport({
               note: 'persisted_row_not_found_in_anchor_cache',
             })
           }
+          return { kind: 'created' }
         } catch (error) {
           console.error('[Tankestrom create event failure]', {
             proposalId: logProposalId,
@@ -3219,6 +3407,19 @@ export function useTankestromImport({
 
       for (const id of ids) {
         const parsedEmb = parseEmbeddedChildProposalId(id)
+        if (
+          parsedEmb &&
+          ids.includes(parsedEmb.parentProposalId) &&
+          !detachedEmbeddedChildIds.has(id)
+        ) {
+          if (import.meta.env.DEV) {
+            console.info('[Tankestrom import skip redundant embedded child row]', {
+              childProposalId: id,
+              parentProposalId: parsedEmb.parentProposalId,
+            })
+          }
+          continue
+        }
         if (parsedEmb) {
           if (!detachedEmbeddedChildIds.has(id)) {
             const parentProposalId = parsedEmb.parentProposalId
@@ -3289,6 +3490,7 @@ export function useTankestromImport({
                 reminderMinutes: ce.reminderMinutes,
               }
             }
+            draftEv = reconcileEmbeddedExportAfterDraftMerge(draftEv, row.segment, id)
             const preflightEmb = preflightEventValidationErrors(id, id, draftEv, validPersonIds)
             if (preflightEmb.length > 0) {
               for (const v of preflightEmb) {
@@ -3361,6 +3563,9 @@ export function useTankestromImport({
               id
             )
             attachTankestromDetailsToMetadata(metadataNd, scheduleDetailsNd)
+            metadataNd.tankestromImportRunId = bundle.provenance.importRunId
+            metadataNd.tankestromSourceProposalId = parentProposal.proposalId
+            metadataNd.tankestromChildId = id
 
             const inputNd: Omit<Event, 'id'> = {
               ...buildPersistTimes(draftEv),
@@ -3374,26 +3579,18 @@ export function useTankestromImport({
             }
             try {
               attemptedPersistOps += 1
-              await persistCreateEvent(draftEv.date, inputNd, id)
-              recordSuccess(id, 'event', 'createEvent')
-              const persistedNd = findCreatedEventByProposalId(id)
-              if (persistedNd) {
-                pushCreatedEvent({
-                  id: persistedNd.event.id,
-                  title: persistedNd.event.title,
-                  date: persistedNd.anchorDate,
-                  start: persistedNd.event.start,
-                  end: persistedNd.event.end,
-                })
-              } else {
-                pushCreatedEvent({
-                  id,
-                  title: draftEv.title,
-                  date: draftEv.date,
-                  start: draftEv.start || null,
-                  end: draftEv.end || null,
-                })
-              }
+              const pcNd = await persistCreateEvent(draftEv.date, inputNd, id)
+              applyTankestromPersistCreateOutcome(pcNd, {
+                proposalId: id,
+                recordSuccess,
+                pushCreatedEvent,
+                pushUpdatedEvent,
+                findCreatedEventByProposalId,
+                fallbackTitle: draftEv.title,
+                fallbackDate: draftEv.date,
+                fallbackStart: draftEv.start || null,
+                fallbackEnd: draftEv.end || null,
+              })
             } catch (e) {
               const { kind, message, supabaseCode, supabaseMessage, supabaseDetails, supabaseHint } =
                 classifyTankestromPersistThrownError(e, 'createEvent')
@@ -3496,6 +3693,9 @@ export function useTankestromImport({
             id
           )
           attachTankestromDetailsToMetadata(metadata, detachedDetails)
+          metadata.tankestromImportRunId = bundle.provenance.importRunId
+          metadata.tankestromSourceProposalId = parentItem.proposalId
+          metadata.tankestromChildId = id
           applyEventTimingMetadataForPersist(metadata, draftEv)
           const input: Omit<Event, 'id'> = {
             ...buildPersistTimes(draftEv),
@@ -3525,26 +3725,18 @@ export function useTankestromImport({
           }
           try {
             attemptedPersistOps += 1
-            await persistCreateEvent(draftEv.date, input, id)
-            recordSuccess(id, 'event', 'createEvent')
-            const persisted = findCreatedEventByProposalId(id)
-            if (persisted) {
-              pushCreatedEvent({
-                id: persisted.event.id,
-                title: persisted.event.title,
-                date: persisted.anchorDate,
-                start: persisted.event.start,
-                end: persisted.event.end,
-              })
-            } else {
-              pushCreatedEvent({
-                id,
-                title: draftEv.title,
-                date: draftEv.date,
-                start: draftEv.start || null,
-                end: draftEv.end || null,
-              })
-            }
+            const pcDetached = await persistCreateEvent(draftEv.date, input, id)
+            applyTankestromPersistCreateOutcome(pcDetached, {
+              proposalId: id,
+              recordSuccess,
+              pushCreatedEvent,
+              pushUpdatedEvent,
+              findCreatedEventByProposalId,
+              fallbackTitle: draftEv.title,
+              fallbackDate: draftEv.date,
+              fallbackStart: draftEv.start || null,
+              fallbackEnd: draftEv.end || null,
+            })
           } catch (e) {
             const { kind, message, supabaseCode, supabaseMessage, supabaseDetails, supabaseHint } =
               classifyTankestromPersistThrownError(e, 'createEvent')
@@ -3850,13 +4042,13 @@ export function useTankestromImport({
             if (included.length === 0 && rows.length > 0) {
               included = rows
             }
-            const parentTitleForSegments = normalizeEmbeddedScheduleParentDisplayTitle(draft.title.trim()).title
+            const parentTitleRaw = draft.title.trim()
             const siblingBlobEmbedded = included.map((r) => r.segment.title.trim()).join('\n')
             baseMeta.embeddedSchedule = included.map((r) => ({
               ...r.segment,
               title: embeddedScheduleChildCalendarExportTitle(
                 r.segment,
-                parentTitleForSegments,
+                parentTitleRaw,
                 siblingBlobEmbedded
               ),
             }))
@@ -3997,71 +4189,81 @@ export function useTankestromImport({
             })
           }
           const rows = embeddedScheduleReviewRowsByParentId[item.proposalId] ?? []
-          if (rows.length > 0) {
-            const included = rows.filter((r) =>
-              selectedIds.has(makeEmbeddedChildProposalId(item.proposalId, r.origIndex))
+          if (rows.length === 0) {
+            recordFailure(
+              id,
+              'event',
+              'createEvent',
+              'validation',
+              'Arrangementet mangler programlinjer som kan eksporteres til kalender.',
+              { title: draft.title, date: draft.date, field: 'unknown' }
             )
-            const baseSegments = included.length > 0 ? included : rows
-            const segmentsToExport = baseSegments.filter(
-              (r) => !detachedEmbeddedChildIds.has(makeEmbeddedChildProposalId(item.proposalId, r.origIndex))
+            continue
+          }
+          const included = rows.filter((r) =>
+            selectedIds.has(makeEmbeddedChildProposalId(item.proposalId, r.origIndex))
+          )
+          const baseSegments = included.length > 0 ? included : rows
+          const segmentsToExport = baseSegments.filter(
+            (r) => !detachedEmbeddedChildIds.has(makeEmbeddedChildProposalId(item.proposalId, r.origIndex))
+          )
+          const embeddedScheduleExportPolicyUsed =
+            included.length > 0 ? 'selected_child_rows' : 'fallback_all_rows_no_child_selection'
+
+          if (TANKESTROM_IMPORT_PERSIST_DEBUG) {
+            console.debug('[tankestrom embedded schedule export]', {
+              embeddedScheduleExportPolicyUsed,
+              embeddedScheduleParentExportIntercepted: true,
+              embeddedScheduleChildExportCount: segmentsToExport.length,
+              embeddedScheduleParentExportSuppressedAsSingleAllDay: segmentsToExport.length > 0,
+              parentProposalId: item.proposalId,
+            })
+          }
+
+          if (segmentsToExport.length === 0) {
+            recordFailure(
+              id,
+              'event',
+              'createEvent',
+              'validation',
+              'Arrangementet har program, men ingen kalenderhendelser ble bygget fra programmet.',
+              { title: draft.title, date: draft.date, field: 'unknown' }
             )
-            const embeddedScheduleExportPolicyUsed =
-              included.length > 0 ? 'selected_child_rows' : 'fallback_all_rows_no_child_selection'
+            continue
+          }
 
-            if (TANKESTROM_IMPORT_PERSIST_DEBUG) {
-              console.debug('[tankestrom embedded schedule export]', {
-                embeddedScheduleExportPolicyUsed,
-                embeddedScheduleParentExportIntercepted: true,
-                embeddedScheduleChildExportCount: segmentsToExport.length,
-                embeddedScheduleParentExportSuppressedAsSingleAllDay: segmentsToExport.length > 0,
-                parentProposalId: item.proposalId,
-              })
-            }
+          const parentProposal = item
+          let templateEvMeta: Record<string, unknown> = {}
+          if (parentProposal.kind === 'event') {
+            const ev = parentProposal.event
+            templateEvMeta =
+              ev.metadata && typeof ev.metadata === 'object' && !Array.isArray(ev.metadata)
+                ? { ...ev.metadata }
+                : {}
+          }
 
-            if (segmentsToExport.length === 0) {
-              recordFailure(
-                id,
-                'event',
-                'createEvent',
-                'validation',
-                'Arrangementet har program, men ingen kalenderhendelser ble bygget fra programmet.',
-                { title: draft.title, date: draft.date, field: 'unknown' }
-              )
-              continue
-            }
+          const parentIntegration = {
+            proposalId: parentProposal.proposalId,
+            importRunId: bundle.provenance.importRunId,
+            confidence: parentProposal.confidence,
+            originalSourceType: parentProposal.originalSourceType,
+            externalRef: parentProposal.externalRef,
+            sourceSystem: bundle.provenance.sourceSystem,
+          }
 
-            const parentProposal = item
-            let templateEvMeta: Record<string, unknown> = {}
-            if (parentProposal.kind === 'event') {
-              const ev = parentProposal.event
-              templateEvMeta =
-                ev.metadata && typeof ev.metadata === 'object' && !Array.isArray(ev.metadata)
-                  ? { ...ev.metadata }
-                  : {}
-            }
+          const childEventsBuiltForExport: Array<{ proposalId: string; date: string; title: string }> = []
+          let allSegmentCreatesOk = true
 
-            const parentIntegration = {
-              proposalId: parentProposal.proposalId,
-              importRunId: bundle.provenance.importRunId,
-              confidence: parentProposal.confidence,
-              originalSourceType: parentProposal.originalSourceType,
-              externalRef: parentProposal.externalRef,
-              sourceSystem: bundle.provenance.sourceSystem,
-            }
-
-            const childEventsBuiltForExport: Array<{ proposalId: string; date: string; title: string }> = []
-            let allSegmentCreatesOk = true
-
-            const siblingTitlesBlobForExport = segmentsToExport
-              .map((r) => r.segment.title.trim())
-              .join('\n')
-            for (const row of segmentsToExport) {
+          const siblingTitlesBlobForExport = segmentsToExport
+            .map((r) => r.segment.title.trim())
+            .join('\n')
+          for (const row of segmentsToExport) {
               const childProposalId = makeEmbeddedChildProposalId(parentProposal.proposalId, row.origIndex)
               const slice = buildEmbeddedChildEventDraft(draft, row.segment, {
                 childProposalId,
                 siblingTitlesBlob: siblingTitlesBlobForExport,
               })
-              const draftEv: TankestromEventDraft = {
+              let draftEv: TankestromEventDraft = {
                 ...slice,
                 title: slice.title.trim(),
                 date: slice.date.trim(),
@@ -4071,6 +4273,7 @@ export function useTankestromImport({
                 location: slice.location.trim(),
                 notes: slice.notes.trim(),
               }
+              draftEv = reconcileEmbeddedExportAfterDraftMerge(draftEv, row.segment, childProposalId)
               const childPreflight = preflightEventValidationErrors(
                 childProposalId,
                 childProposalId,
@@ -4133,6 +4336,9 @@ export function useTankestromImport({
                 childProposalId
               )
               attachTankestromDetailsToMetadata(metadata, scheduleDetails)
+              metadata.tankestromImportRunId = bundle.provenance.importRunId
+              metadata.tankestromSourceProposalId = parentProposal.proposalId
+              metadata.tankestromChildId = childProposalId
 
               const input: Omit<Event, 'id'> = {
                 ...buildPersistTimes(draftEv),
@@ -4164,26 +4370,18 @@ export function useTankestromImport({
 
               try {
                 attemptedPersistOps += 1
-                await persistCreateEvent(draftEv.date, input, childProposalId)
-                recordSuccess(childProposalId, 'event', 'createEvent')
-                const persisted = findCreatedEventByProposalId(childProposalId)
-                if (persisted) {
-                  pushCreatedEvent({
-                    id: persisted.event.id,
-                    title: persisted.event.title,
-                    date: persisted.anchorDate,
-                    start: persisted.event.start,
-                    end: persisted.event.end,
-                  })
-                } else {
-                  pushCreatedEvent({
-                    id: childProposalId,
-                    title: draftEv.title,
-                    date: draftEv.date,
-                    start: draftEv.start || null,
-                    end: draftEv.end || null,
-                  })
-                }
+                const pcSeg = await persistCreateEvent(draftEv.date, input, childProposalId)
+                applyTankestromPersistCreateOutcome(pcSeg, {
+                  proposalId: childProposalId,
+                  recordSuccess,
+                  pushCreatedEvent,
+                  pushUpdatedEvent,
+                  findCreatedEventByProposalId,
+                  fallbackTitle: draftEv.title,
+                  fallbackDate: draftEv.date,
+                  fallbackStart: draftEv.start || null,
+                  fallbackEnd: draftEv.end || null,
+                })
                 childEventsBuiltForExport.push({
                   proposalId: childProposalId,
                   date: draftEv.date,
@@ -4206,18 +4404,32 @@ export function useTankestromImport({
               }
             }
 
-            if (TANKESTROM_IMPORT_PERSIST_DEBUG) {
-              console.debug('[tankestrom embedded schedule export]', {
-                embeddedScheduleChildEventsBuiltForExport: childEventsBuiltForExport,
-                embeddedScheduleExportPolicyUsed,
-              })
-            }
+          if (TANKESTROM_IMPORT_PERSIST_DEBUG) {
+            console.debug('[tankestrom embedded schedule export]', {
+              embeddedScheduleChildEventsBuiltForExport: childEventsBuiltForExport,
+              embeddedScheduleExportPolicyUsed,
+            })
+          }
 
-            if (allSegmentCreatesOk) {
-              recordSuccess(id, 'event', 'createEvent')
-              if (item.originalSourceType === MANUAL_REVIEW_SOURCE_TYPE) {
-                logEvent('manualReviewItemImported', { proposalId: id, kind: 'event' })
-              }
+          if (allSegmentCreatesOk) {
+            recordSuccess(id, 'event', 'createEvent')
+            if (item.originalSourceType === MANUAL_REVIEW_SOURCE_TYPE) {
+              logEvent('manualReviewItemImported', { proposalId: id, kind: 'event' })
+            }
+          }
+          continue
+        }
+
+        if (item.kind === 'event' && isEmbeddedScheduleParentCalendarItem(item)) {
+          const skipParentMeta =
+            item.event.metadata && typeof item.event.metadata === 'object' && !Array.isArray(item.event.metadata)
+              ? (item.event.metadata as Record<string, unknown>)
+              : null
+          if (skipParentMeta?.isArrangementParent === true && skipParentMeta?.exportAsCalendarEvent === false) {
+            if (import.meta.env.DEV) {
+              console.info('[Tankestrom import skip arrangement parent as standalone calendar row]', {
+                proposalId: id,
+              })
             }
             continue
           }
@@ -4246,13 +4458,13 @@ export function useTankestromImport({
             const included = rows.filter((r) =>
               selectedIds.has(makeEmbeddedChildProposalId(item.proposalId, r.origIndex))
             )
-            const parentTitleForSegments = normalizeEmbeddedScheduleParentDisplayTitle(draft.title.trim()).title
+            const parentTitleRaw = draft.title.trim()
             const siblingBlobEmbedded = included.map((r) => r.segment.title.trim()).join('\n')
             baseMeta.embeddedSchedule = included.map((r) => ({
               ...r.segment,
               title: embeddedScheduleChildCalendarExportTitle(
                 r.segment,
-                parentTitleForSegments,
+                parentTitleRaw,
                 siblingBlobEmbedded
               ),
             }))
@@ -4287,6 +4499,8 @@ export function useTankestromImport({
           const details = readTankestromScheduleDetailsFromMetadata(item.event.metadata as EventMetadata)
           attachTankestromDetailsToMetadata(metadata, details)
         }
+        metadata.tankestromImportRunId = bundle.provenance.importRunId
+        metadata.tankestromSourceProposalId = item.proposalId
         const calendarTitle =
           item.kind === 'event' && isEmbeddedScheduleParentCalendarItem(item)
             ? normalizeEmbeddedScheduleParentDisplayTitle(draft.title.trim()).title
@@ -4314,26 +4528,18 @@ export function useTankestromImport({
         }
         try {
           attemptedPersistOps += 1
-          await persistCreateEvent(draft.date, input, id)
-          recordSuccess(id, 'event', 'createEvent')
-          const persisted = findCreatedEventByProposalId(id)
-          if (persisted) {
-            pushCreatedEvent({
-              id: persisted.event.id,
-              title: persisted.event.title,
-              date: persisted.anchorDate,
-              start: persisted.event.start,
-              end: persisted.event.end,
-            })
-          } else {
-            pushCreatedEvent({
-              id,
-              title: calendarTitle,
-              date: draft.date,
-              start: draft.start || null,
-              end: draft.end || null,
-            })
-          }
+          const pcRoot = await persistCreateEvent(draft.date, input, id)
+          applyTankestromPersistCreateOutcome(pcRoot, {
+            proposalId: id,
+            recordSuccess,
+            pushCreatedEvent,
+            pushUpdatedEvent,
+            findCreatedEventByProposalId,
+            fallbackTitle: calendarTitle,
+            fallbackDate: draft.date,
+            fallbackStart: draft.start || null,
+            fallbackEnd: draft.end || null,
+          })
           if (item.originalSourceType === MANUAL_REVIEW_SOURCE_TYPE) {
             logEvent('manualReviewItemImported', { proposalId: id, kind: 'event' })
           }

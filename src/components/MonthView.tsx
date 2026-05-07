@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { Event } from '../types'
 import { getISOWeek, getISOWeekYear } from '../lib/isoWeek'
-import { formatTimeRange } from '../lib/time'
+import { formatCalendarEventTimeLabel } from '../lib/schedule'
 import { useFamily } from '../context/FamilyContext'
 import { getParticipantPeople } from '../lib/eventParticipants'
 import { ParticipantAvatarStrip } from './ParticipantAvatarStrip'
@@ -408,7 +408,7 @@ export function MonthView({
                     <li key={ev.id} className="flex min-w-0 flex-col gap-0.5 border-t border-zinc-100 pt-2 first:border-t-0 first:pt-0">
                       <span className="truncate text-[13px] font-semibold text-zinc-900">{ev.title}</span>
                       <span className="text-[12px] tabular-nums text-zinc-500">
-                        {ev.metadata?.isAllDay ? 'Heldags' : formatTimeRange(ev.start, ev.end)}
+                        {ev.metadata?.isAllDay ? 'Heldags' : formatCalendarEventTimeLabel(ev)}
                       </span>
                     </li>
                   ))}
@@ -469,7 +469,7 @@ export function MonthView({
                                         </div>
                                         {!ev.metadata?.isAllDay && (
                                           <p className="mt-0.5 text-[11px] text-zinc-500">
-                                            {formatTimeRange(ev.start, ev.end)}
+                                            {formatCalendarEventTimeLabel(ev)}
                                           </p>
                                         )}
                                       </div>

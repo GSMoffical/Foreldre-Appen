@@ -11,6 +11,7 @@ import {
   calculateVisibleEvents,
   calculateGaps,
   buildDaySummary,
+  dedupeTimelineEventsById,
   getWeekIndicators,
   getNowMinutes,
   isToday,
@@ -539,7 +540,7 @@ export function useScheduleState() {
       const visible = calculateVisibleEvents(dayEvents, selectedPersonIds)
       const foreground = filterForegroundEvents(visible)
       const unspecified = foreground.filter((e) => isDateOnlyEvent(e))
-      const timed = filterTimedEvents(foreground).filter((e) => !isDateOnlyEvent(e))
+      const timed = dedupeTimelineEventsById(filterTimedEvents(foreground).filter((e) => !isDateOnlyEvent(e)))
       const allDay = filterAllDayEvents(foreground)
       const background = buildBackgroundEventsForDate(day.date, people, selectedPersonIds, dayEvents)
       const busyForGaps = [...timed, ...background]
@@ -590,10 +591,10 @@ export function useScheduleState() {
     [visibleStoredEvents]
   )
 
-  const foregroundTimedEvents = useMemo(
-    () => filterTimedEvents(foregroundEvents).filter((e) => !isDateOnlyEvent(e)),
-    [foregroundEvents]
-  )
+  const foregroundTimedEvents = useMemo(() => {
+    const timed = filterTimedEvents(foregroundEvents).filter((e) => !isDateOnlyEvent(e))
+    return dedupeTimelineEventsById(timed)
+  }, [foregroundEvents])
 
   const allDayEventsForDay = useMemo(
     () => filterAllDayEvents(foregroundEvents),
@@ -613,10 +614,30 @@ export function useScheduleState() {
     [foregroundTimedEvents, backgroundEvents]
   )
 
-  const layoutItems = useMemo(
-    () => layoutTimelineWithOverlapGroups(foregroundTimedEvents, pixelsPerHour),
-    [foregroundTimedEvents, pixelsPerHour]
-  )
+  const layoutItems = useMemo(() => {
+    const items = layoutTimelineWithOverlapGroups(foregroundTimedEvents, pixelsPerHour)
+    if (import.meta.env.DEV) {
+      const rendered = items.map((i) => i.block)
+      console.info('[Calendar event render debug]', {
+        date: selectedDate,
+        visiblePersonIds: selectedPersonIds,
+        events: rendered.map((e) => ({
+          id: e.id,
+          title: e.title,
+          start: e.start,
+          end: e.end,
+          personId: e.personId,
+          participantIds: getEventParticipantIds(e),
+          groupId: e.recurrenceGroupId,
+          source: (e.metadata as Record<string, unknown> | undefined)?.source,
+          importRunId: (e.metadata as Record<string, unknown> | undefined)?.tankestromImportRunId,
+          arrangementBlockGroupId: (e.metadata as Record<string, unknown> | undefined)?.arrangementBlockGroupId,
+          parentArrangementStableKey: (e.metadata as Record<string, unknown> | undefined)?.parentArrangementStableKey,
+        })),
+      })
+    }
+    return items
+  }, [foregroundTimedEvents, pixelsPerHour, selectedDate, selectedPersonIds])
 
   const backgroundLayoutItems = useMemo(
     () => normalizeBackgroundColumns(layoutTimelineWithOverlapGroups(backgroundEvents, pixelsPerHour), people),
