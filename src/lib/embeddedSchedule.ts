@@ -40,8 +40,23 @@ export function parseEmbeddedScheduleFromMetadata(
     if (typeof o.notes === 'string' && o.notes.trim()) seg.notes = o.notes.trim()
     if (Array.isArray(o.tankestromHighlights)) {
       seg.tankestromHighlights = o.tankestromHighlights
-        .filter((x) => x && typeof x === 'object')
-        .map((x) => ({ ...(x as Record<string, unknown>) })) as EmbeddedScheduleSegment['tankestromHighlights']
+        .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
+        .map((x) => {
+          const time = typeof x.time === 'string' ? x.time.trim().slice(0, 5) : ''
+          const label = typeof x.label === 'string' ? x.label.trim() : ''
+          const typeRaw = typeof x.type === 'string' ? x.type : ''
+          const type =
+            typeRaw === 'match' ||
+            typeRaw === 'meeting' ||
+            typeRaw === 'deadline' ||
+            typeRaw === 'note' ||
+            typeRaw === 'other'
+              ? typeRaw
+              : undefined
+          if (!time || !label) return null
+          return { time, label, type }
+        })
+        .filter((x): x is NonNullable<typeof x> => !!x)
     }
     if (Array.isArray(o.tankestromNotes)) {
       seg.tankestromNotes = o.tankestromNotes
