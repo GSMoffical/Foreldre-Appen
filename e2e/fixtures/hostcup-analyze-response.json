@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "1.0.0",
+  "provenance": {
+    "sourceSystem": "tankestrom",
+    "sourceType": "e2e_fixture",
+    "generatorVersion": "e2e-v1",
+    "generatedAt": "2026-05-08T20:00:00.000Z",
+    "importRunId": "e2e-hostcup-1"
+  },
+  "items": [
+    {
+      "proposalId": "9ea4dc6a-a6d3-45a7-b0df-1f4275e8a503",
+      "kind": "event",
+      "sourceId": "e2e",
+      "originalSourceType": "pasted_text",
+      "confidence": 0.96,
+      "event": {
+        "date": "2026-09-18",
+        "personId": "",
+        "title": "Høstcupen 2026 – 18.–20. september 2026",
+        "start": "00:00",
+        "end": "23:59",
+        "metadata": {
+          "isArrangementParent": true,
+          "exportAsCalendarEvent": false,
+          "endDate": "2026-09-20",
+          "embeddedSchedule": [
+            {
+              "date": "2026-09-18",
+              "title": "Fredag",
+              "start": "17:30",
+              "end": "19:00",
+              "tankestromHighlights": [
+                { "time": "17:30", "label": "Oppmøte", "type": "meeting" },
+                { "time": "18:15", "label": "Første kamp", "type": "match" }
+              ],
+              "bringItems": ["drikkeflaske", "matpakke", "ekstra t-skjorte"],
+              "notes": [
+                "Sjekk værmelding og kle dere etter været.",
+                "Foreldre hjelper med rydding etter siste kamp."
+              ]
+            },
+            {
+              "date": "2026-09-19",
+              "title": "Lørdag",
+              "start": "08:20",
+              "end": "16:00",
+              "tankestromHighlights": [
+                { "time": "08:20", "label": "Oppmøte før første kamp", "type": "meeting" },
+                { "time": "09:00", "label": "Første kamp", "type": "match" },
+                { "time": "13:55", "label": "Oppmøte før andre kamp", "type": "meeting" },
+                { "time": "14:40", "label": "Andre kamp", "type": "match" }
+              ],
+              "bringItems": ["drikkeflaske", "matpakke", "ekstra klær"],
+              "notes": [
+                "Laget spiser felles lunsj mellom kampene.",
+                "Foreldre hjelper med rydding etter siste kamp."
+              ]
+            },
+            {
+              "date": "2026-09-20",
+              "title": "Søndag",
+              "isConditional": true,
+              "notes": [
+                "Sluttspill avhenger av plassering etter lørdagens kamper.",
+                "Tidspunkt for eventuell kamp er ikke endelig avklart."
+              ],
+              "bringItems": ["drikkeflaske", "matpakke", "ekstra t-skjorte"],
+              "tankestromHighlights": []
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
