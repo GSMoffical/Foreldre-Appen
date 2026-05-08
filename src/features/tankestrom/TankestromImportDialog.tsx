@@ -4041,7 +4041,8 @@ export function TankestromImportDialog({
                                   )
                                   const structuredFromSegment = readTankestromScheduleDetailsFromMetadata(
                                     embeddedSegmentMetadataShape(row.segment),
-                                    [detailPanelTitle, cardTitleRaw, displayTitle]
+                                    [detailPanelTitle, cardTitleRaw, displayTitle],
+                                    { fallbackStartTime: row.segment.start }
                                   )
                                   const detailPanelId = `delprogram-child-detail-${childId}`
                                   const detailTriggerId = `delprogram-child-trigger-${childId}`

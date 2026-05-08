@@ -156,8 +156,11 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
     return groupEmbeddedScheduleByDate(parsed)
   }, [event.metadata])
   const tankestromDetails = useMemo(
-    () => readTankestromScheduleDetailsFromMetadata(event.metadata, [event.title]),
-    [event.metadata, event.title]
+    () =>
+      readTankestromScheduleDetailsFromMetadata(event.metadata, [event.title], {
+        fallbackStartTime: event.start,
+      }),
+    [event.metadata, event.title, event.start]
   )
   useEffect(() => {
     if (!(import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true')) return

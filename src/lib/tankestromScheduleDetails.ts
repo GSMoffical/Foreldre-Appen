@@ -249,6 +249,58 @@ function isTimeOnlyOrConnectorHighlight(label: string): boolean {
   return false
 }
 
+const HM = /^([01]\d|2[0-3]):([0-5]\d)$/
+
+function isHm(v: string | undefined): v is string {
+  return typeof v === 'string' && HM.test(v.trim().slice(0, 5))
+}
+
+function hmToMinutes(hm: string): number {
+  const [h, m] = hm.split(':').map((x) => parseInt(x, 10))
+  return h * 60 + m
+}
+
+function minutesToHm(total: number): string | null {
+  if (!Number.isFinite(total) || total < 0 || total > 23 * 60 + 59) return null
+  const h = Math.floor(total / 60)
+  const m = total % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+function firstHmInText(text: string): string | null {
+  const m = /\b([01]?\d|2[0-3]):([0-5]\d)\b/.exec(text)
+  if (!m) return null
+  return `${String(parseInt(m[1]!, 10)).padStart(2, '0')}:${m[2]!}`
+}
+
+function inferFallbackActivityLabel(notes: string[], titleContext: string[]): { label: string; type: TankestromScheduleHighlightType } | null {
+  const joined = [...notes, ...titleContext].join('\n')
+  const k = normalizeTextKey(joined)
+  if (!k) return null
+  if (/\b(kampstart|forste kamp|kamp)\b/.test(k)) {
+    return { label: /\bforste kamp\b/.test(k) ? 'Første kamp' : 'Kamp', type: 'match' }
+  }
+  if (/\b(oppmote|mot opp|motes|mote)\b/.test(k)) return { label: 'Oppmøte', type: 'meeting' }
+  if (/\b(trening|ovelse)\b/.test(k)) return { label: 'Trening', type: 'other' }
+  if (/\b(forestilling|konsert|show)\b/.test(k)) return { label: 'Forestilling', type: 'other' }
+  if (/\b(avreise|drar|reise)\b/.test(k)) return { label: 'Avreise', type: 'other' }
+  if (/\b(henting|levering)\b/.test(k)) return { label: /\bhenting\b/.test(k) ? 'Henting' : 'Levering', type: 'other' }
+  return null
+}
+
+function inferOppmoteFallbackFromNotes(notes: string[]): { time: string; label: string; type: TankestromScheduleHighlightType } | null {
+  const text = notes.join('\n')
+  const offsetMatch = /(\d{1,3})\s*min(?:utter|utt)?\s+f[øo]r\s+(?:kampstart|f[øo]rste\s+kamp|kamp)/i.exec(text)
+  if (!offsetMatch) return null
+  const offset = parseInt(offsetMatch[1]!, 10)
+  if (!Number.isFinite(offset) || offset < 5 || offset > 180) return null
+  const anchor = firstHmInText(text)
+  if (!anchor || !isHm(anchor)) return null
+  const t = minutesToHm(hmToMinutes(anchor) - offset)
+  if (!t) return null
+  return { time: t, label: 'Oppmøte', type: 'meeting' }
+}
+
 function filterHighlightForDisplay(
   h: TankestromScheduleHighlight,
   titleContext: string[],
@@ -408,6 +460,8 @@ export function normalizeTankestromScheduleDetails(input: {
   tentativeTimeWindow?: boolean
   /** Allerede lagret etter forrige normalisering — ikke kjør vindu-merge på nytt. */
   precomputedTimeWindowSummaries?: TankestromTimeWindowSummary[]
+  /** Defensiv starttid for fallback-highlight når upstream-highlights mangler. */
+  fallbackStartTime?: string
 }): NormalizedTankestromScheduleDetails {
   const titleContext = (input.titleContext ?? []).filter(Boolean)
   const removedFragments: string[] = []
@@ -565,6 +619,27 @@ export function normalizeTankestromScheduleDetails(input: {
     .filter((h) => normalizeTextKey(h.label) !== 'og')
     .sort((a, b) => a.time.localeCompare(b.time))
 
+  const canAddFallback =
+    highlights.length === 0 &&
+    timeWindowSummaries.length === 0 &&
+    isHm(input.fallbackStartTime) &&
+    !notes.some((n) => /mobiltelefoner skal ligge i bagen/i.test(n))
+  if (canAddFallback) {
+    const oppmoteFallback = inferOppmoteFallbackFromNotes(notes)
+    if (oppmoteFallback) {
+      highlights.push(oppmoteFallback)
+    } else {
+      const activity = inferFallbackActivityLabel(notes, titleContext)
+      if (activity) {
+        highlights.push({
+          time: input.fallbackStartTime!.slice(0, 5),
+          label: activity.label,
+          type: activity.type,
+        })
+      }
+    }
+  }
+
   const out: NormalizedTankestromScheduleDetails = {
     highlights,
     bringItems,
@@ -640,7 +715,8 @@ function readTimeWindowCandidates(
 
 export function readTankestromScheduleDetailsFromMetadata(
   metadata: EventMetadata | undefined,
-  titleContext?: string[]
+  titleContext?: string[],
+  opts?: { fallbackStartTime?: string }
 ): NormalizedTankestromScheduleDetails {
   if (!metadata) {
     return emptyNormalizedTankestromDetails()
@@ -694,6 +770,7 @@ export function readTankestromScheduleDetailsFromMetadata(
     tentativeTimeWindow: metadata.updateIntent?.likelyFollowup === true,
     precomputedTimeWindowSummaries: precomputed,
     titleContext: ctxFromMeta,
+    fallbackStartTime: opts?.fallbackStartTime,
   })
   if (detailsDebugEnabled()) {
     const rawHighlightsForLog = metadata.tankestromHighlights ?? metadata.highlights ?? metadata.scheduleHighlights

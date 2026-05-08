@@ -100,4 +100,27 @@ Notater:
     expect(out.notes).toContain('Oppmøte klokken 08:00 ved hallen.')
     expect(out.notes.some((n) => /spist litt/i.test(n))).toBe(false)
   })
+
+  it('lager forsiktig fallback-highlight når highlights er tomme men aktivitet er tydelig', () => {
+    const out = normalizeTankestromScheduleDetails({
+      highlights: [],
+      notes: ['Første kamp i Nadderud Arena.'],
+      titleContext: ['Høstcupen – fredag'],
+      fallbackStartTime: '17:30',
+    })
+    expect(out.highlights).toHaveLength(1)
+    expect(out.highlights[0]?.time).toBe('17:30')
+    expect(out.highlights[0]?.type).toBe('match')
+    expect(['Første kamp', 'Kamp']).toContain(out.highlights[0]?.label)
+  })
+
+  it('lager oppmøte-fallback fra offset + kampstart i notat', () => {
+    const out = normalizeTankestromScheduleDetails({
+      highlights: [],
+      notes: ['Møt 50 minutter før kampstart 17:30.'],
+      titleContext: ['Høstcupen – fredag'],
+      fallbackStartTime: '17:30',
+    })
+    expect(out.highlights).toEqual([{ time: '16:40', label: 'Oppmøte', type: 'meeting' }])
+  })
 })
