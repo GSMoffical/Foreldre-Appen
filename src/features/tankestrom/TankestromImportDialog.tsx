@@ -1946,6 +1946,36 @@ function parentEventNotesForReviewPreview(
 
 function flattenEmbeddedScheduleForPreview(item: PortalEventProposal): EmbeddedScheduleSegment[] {
   const parsed = parseEmbeddedScheduleFromMetadata(item.event.metadata)
+  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+    const lowerTitle = item.event.title.toLocaleLowerCase('nb-NO')
+    if (lowerTitle.includes('vårcup') || lowerTitle.includes('varcup')) {
+      console.info('[Vårcup parsed embedded schedule]', {
+        segments: parsed.map((s) => {
+          const rec = s as unknown as Record<string, unknown>
+          return {
+            title: s.title,
+            date: s.date,
+            start: s.start,
+            dayContent: rec.dayContent,
+            tankestromHighlights: s.tankestromHighlights,
+            scheduleHighlights: rec.scheduleHighlights,
+            highlights: rec.highlights,
+          }
+        }),
+      })
+      console.info('[Vårcup normalized embedded details]', {
+        segments: parsed.map((s) => {
+          const n = normalizeEmbeddedSegmentScheduleDetails(s as unknown as Record<string, unknown>)
+          return {
+            title: s.title,
+            normalizedHighlights: n.tankestromHighlights,
+            normalizedNotes: n.tankestromNotes,
+            normalizedBringItems: n.bringItems,
+          }
+        }),
+      })
+    }
+  }
   return groupEmbeddedScheduleByDate(parsed).flatMap((g) => g.items)
 }
 
