@@ -29,14 +29,39 @@ function normalizeTextKey(value: string): string {
     .trim()
 }
 
+function cleanHighlightLabel(label: string): string {
+  return label
+    .trim()
+    .replace(/^[,;:.!?()\-\s]+/g, '')
+    .replace(/\s+kl\.?\s*$/i, '')
+    .replace(/[;:.,\s]+$/g, '')
+    .trim()
+}
+
+function parseHighlightStringRow(raw: string): { time: string; label: string } | null {
+  const text = raw.trim()
+  if (!text) return null
+  const m = /^([01]\d|2[0-3]):([0-5]\d)(?:\s*[–-]\s*([01]\d|2[0-3]):([0-5]\d))?\s*(.+)$/u.exec(text)
+  if (!m) return null
+  const time = `${m[1]}:${m[2]}`
+  const label = cleanHighlightLabel(m[5] ?? '')
+  if (!label) return null
+  return { time, label }
+}
+
 function readHighlightRows(input: unknown): Array<{ time: string; label: string; type?: NonNullable<EmbeddedScheduleSegment['tankestromHighlights']>[number]['type'] }> {
   if (!Array.isArray(input)) return []
   const out: Array<{ time: string; label: string; type?: NonNullable<EmbeddedScheduleSegment['tankestromHighlights']>[number]['type'] }> = []
   for (const row of input) {
+    if (typeof row === 'string') {
+      const parsed = parseHighlightStringRow(row)
+      if (parsed) out.push(parsed)
+      continue
+    }
     const rec = asRecord(row)
     if (!rec) continue
     const timeRaw = typeof rec.time === 'string' ? rec.time.trim() : ''
-    const labelRaw = typeof rec.label === 'string' ? rec.label.trim() : ''
+    const labelRaw = typeof rec.label === 'string' ? cleanHighlightLabel(rec.label) : ''
     const time = trimHHmm(timeRaw.slice(0, 5))
     if (!time || !labelRaw) continue
     const typeRaw = typeof rec.type === 'string' ? rec.type : ''

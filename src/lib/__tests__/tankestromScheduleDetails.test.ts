@@ -125,37 +125,58 @@ Notater:
     expect(out.highlights).toEqual([{ time: '16:40', label: 'Oppmøte', type: 'meeting' }])
   })
 
-  it('leser dayContent-felter fra embeddedSchedule-segment og deduper highlights', () => {
+  it('parser string-highlights fra dayContent og sender til schedule details', () => {
     const eventMetadata: EventMetadata = {
       embeddedSchedule: [
         {
           date: '2026-06-12',
           title: 'Vårcupen – fredag',
           dayContent: {
-            highlights: [
-              { time: '17:45', label: 'Oppmøte' },
-              { time: '18:40', label: 'Kamp' },
-            ],
+            highlights: ['17:45 Oppmøte', '18:40 Første kamp kl.'],
             bringItems: ['drikkeflaske'],
             generalNotes: ['Møt opp 55 minutter før kampstart'],
           },
-          highlights: [{ time: '18:40', label: 'Kamp' }],
+          highlights: [{ time: '18:40', label: 'Første kamp' }],
+        },
+        {
+          date: '2026-06-13',
+          title: 'Vårcupen – lørdag',
+          dayContent: {
+            highlights: ['09:20 Kamp kl.', '15:10 Kamp kl.', '08:35 Oppmøte', '14:25 Oppmøte'],
+          },
         },
       ] as unknown as EventMetadata['embeddedSchedule'],
     }
-    const seg = parseEmbeddedScheduleFromMetadata(eventMetadata)[0]!
-    const out = readTankestromScheduleDetailsFromMetadata(
+    const [fri, lor] = parseEmbeddedScheduleFromMetadata(eventMetadata)
+    const outFri = readTankestromScheduleDetailsFromMetadata(
       {
-        tankestromHighlights: seg.tankestromHighlights,
-        tankestromNotes: seg.tankestromNotes,
-        bringItems: seg.bringItems,
-        packingItems: seg.packingItems,
-        timeWindowCandidates: seg.timeWindowCandidates,
+        tankestromHighlights: fri!.tankestromHighlights,
+        tankestromNotes: fri!.tankestromNotes,
+        bringItems: fri!.bringItems,
+        packingItems: fri!.packingItems,
+        timeWindowCandidates: fri!.timeWindowCandidates,
       },
       ['Vårcupen – fredag']
     )
-    expect(out.highlights.map((h) => `${h.time} ${h.label}`)).toEqual(['17:45 Oppmøte', '18:40 Kamp'])
-    expect(out.bringItems).toEqual(['drikkeflaske'])
-    expect(out.notes).toContain('Møt opp 55 minutter før kampstart')
+    expect(outFri.highlights.map((h) => `${h.time} ${h.label}`)).toEqual(['17:45 Oppmøte', '18:40 Første kamp'])
+    expect(outFri.bringItems).toEqual(['drikkeflaske'])
+    expect(outFri.notes).toContain('Møt opp 55 minutter før kampstart')
+
+    const outLor = readTankestromScheduleDetailsFromMetadata(
+      {
+        tankestromHighlights: lor!.tankestromHighlights,
+        tankestromNotes: lor!.tankestromNotes,
+        bringItems: lor!.bringItems,
+        packingItems: lor!.packingItems,
+        timeWindowCandidates: lor!.timeWindowCandidates,
+      },
+      ['Vårcupen – lørdag']
+    )
+    expect(outLor.highlights.map((h) => `${h.time} ${h.label}`)).toEqual([
+      '08:35 Oppmøte',
+      '09:20 Kamp',
+      '14:25 Oppmøte',
+      '15:10 Kamp',
+    ])
   })
 })
