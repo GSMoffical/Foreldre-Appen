@@ -231,6 +231,7 @@ export function SettingsScreen({
           </p>
           <button
             type="button"
+            data-testid="tankestrom-import-open"
             onClick={onOpenTankestromImport}
             className="mt-3 rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-[13px] font-medium text-zinc-800 hover:bg-zinc-50"
           >

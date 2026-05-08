@@ -17,7 +17,8 @@ test.describe('Mobile smoke', () => {
     const barn = page.getByLabel('Barn')
     await expect(voksen).toBeVisible()
     await expect(barn).toBeVisible()
-    await barn.check()
+    // Label wrapper can intercept direct checks on the sr-only input (mobile layout).
+    await barn.click({ force: true })
     await expect(barn).toBeChecked()
     await expect(voksen).not.toBeChecked()
   })

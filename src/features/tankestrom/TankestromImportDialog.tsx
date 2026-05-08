@@ -2796,6 +2796,7 @@ export function TankestromImportDialog({
       }}
     >
       <div
+        data-testid="tankestrom-import-dialog"
         className="flex max-h-[min(92vh,780px)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl"
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -3027,6 +3028,7 @@ export function TankestromImportDialog({
                   <p className={typSectionCap}>Tekst</p>
                   <Textarea
                     id="ts-import-text"
+                    data-testid="tankestrom-import-text"
                     rows={6}
                     label="Lim inn tekst som skal analyseres"
                     placeholder="F.eks. ukeplan, e-post eller aktivitetsbeskrivelse"
@@ -4107,6 +4109,7 @@ export function TankestromImportDialog({
                                   return (
                                     <div
                                       key={childId}
+                                      data-testid={`tankestrom-delprogram-day-${row.segment.date}`}
                                       className="rounded-xl border border-zinc-200/95 bg-white px-2.5 py-2.5 shadow-sm ring-1 ring-zinc-100/90 sm:px-3 sm:py-3"
                                     >
                                       <div className="flex items-start gap-2 sm:gap-2.5">
@@ -4780,6 +4783,8 @@ export function TankestromImportDialog({
                                                 precomputedTimeWindowSummaries={
                                                   structuredFromSegment.timeWindowSummaries
                                                 }
+                                                highlightsTestId={`tankestrom-schedule-highlights-${row.segment.date}`}
+                                                notesTestId={`tankestrom-schedule-notes-${row.segment.date}`}
                                               />
                                               ) : null
                                             })()}
@@ -4797,6 +4802,8 @@ export function TankestromImportDialog({
                                                 notes={childNotesPresentation.noteLines}
                                                 titleContext={[detailPanelTitle, cardTitleRaw]}
                                                 compact
+                                                highlightsTestId={`tankestrom-schedule-highlights-${row.segment.date}`}
+                                                notesTestId={`tankestrom-schedule-notes-${row.segment.date}`}
                                               />
                                             ) : null}
                                             {structuredFromSegment.highlights.length === 0 &&
@@ -5583,6 +5590,7 @@ export function TankestromImportDialog({
               type="button"
               variant="primary"
               className="flex-1"
+              data-testid="tankestrom-analyze"
               loading={analyzeLoading}
               disabled={
                 !hasPeople || (inputMode === 'file' ? pendingFiles.length === 0 : !textInput.trim())
@@ -5618,6 +5626,7 @@ export function TankestromImportDialog({
               type="button"
               variant="primary"
               className="flex-1"
+              data-testid="tankestrom-import-confirm"
               loading={saveLoading}
               disabled={
                 !hasPeople ||

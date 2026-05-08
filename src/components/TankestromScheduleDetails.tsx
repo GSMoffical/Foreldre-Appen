@@ -9,6 +9,10 @@ type TankestromScheduleDetailsProps = {
   compact?: boolean
   /** Når UI allerede har lest metadata (persistert vindu), ikke gjenberegn vindu på nytt. */
   precomputedTimeWindowSummaries?: TankestromTimeWindowSummary[]
+  /** E2E: stabil selector for «Høydepunkter»-blokken (f.eks. per dag). */
+  highlightsTestId?: string
+  /** E2E: stabil selector for notatlisten under detaljer. */
+  notesTestId?: string
 }
 export function TankestromScheduleDetails({
   highlights,
@@ -17,6 +21,8 @@ export function TankestromScheduleDetails({
   titleContext = [],
   compact = false,
   precomputedTimeWindowSummaries,
+  highlightsTestId,
+  notesTestId,
 }: TankestromScheduleDetailsProps) {
   const normalized = normalizeTankestromScheduleDetails({
     highlights,
@@ -37,7 +43,7 @@ export function TankestromScheduleDetails({
   return (
     <div className={compact ? 'space-y-2' : 'space-y-3'}>
       {hasHighlightSection ? (
-        <div>
+        <div data-testid={highlightsTestId}>
           <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[10px]">Høydepunkter</p>
           <ul className="mt-1.5 list-disc space-y-1.5 pl-4 marker:text-zinc-400 sm:space-y-2 sm:pl-[1.125rem]">
             {normalized.timeWindowSummaries.map((s, i) => (
@@ -81,7 +87,7 @@ export function TankestromScheduleDetails({
         </div>
       ) : null}
       {normalized.notes.length > 0 ? (
-        <div>
+        <div data-testid={notesTestId}>
           <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[10px]">Notater</p>
           <ul className="mt-1.5 list-disc space-y-1 pl-4 text-[11px] leading-snug text-zinc-800 sm:text-[12px]">
             {normalized.notes.map((n, i) => (
