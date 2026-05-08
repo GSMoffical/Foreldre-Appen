@@ -181,6 +181,48 @@ function countEmbeddedScheduleRowsForDebug(items: PortalProposalItem[]): number 
   return n
 }
 
+function isVarcupTitle(title: string): boolean {
+  const t = title.toLocaleLowerCase('nb-NO')
+  return t.includes('vårcup') || t.includes('varcup')
+}
+
+function logVarcupEmbeddedScheduleSnapshot(stage: string, items: PortalProposalItem[]): void {
+  if (!(import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true')) return
+  const rows = items
+    .filter((it): it is PortalEventProposal => it.kind === 'event' && isVarcupTitle(it.event.title))
+    .flatMap((it) => {
+      const meta =
+        it.event.metadata && typeof it.event.metadata === 'object' && !Array.isArray(it.event.metadata)
+          ? (it.event.metadata as Record<string, unknown>)
+          : null
+      const emb = Array.isArray(meta?.embeddedSchedule) ? meta!.embeddedSchedule : []
+      return emb.map((s, idx) => {
+        const rec = s && typeof s === 'object' && !Array.isArray(s) ? (s as Record<string, unknown>) : {}
+        const dayContent =
+          rec.dayContent && typeof rec.dayContent === 'object' && !Array.isArray(rec.dayContent)
+            ? (rec.dayContent as Record<string, unknown>)
+            : null
+        return {
+          parentTitle: it.event.title,
+          index: idx,
+          date: typeof rec.date === 'string' ? rec.date : '',
+          title: typeof rec.title === 'string' ? rec.title : '',
+          start: typeof rec.start === 'string' ? rec.start : typeof rec.startTime === 'string' ? rec.startTime : '',
+          isConditional: rec.isConditional === true,
+          timePrecision: typeof rec.timePrecision === 'string' ? rec.timePrecision : undefined,
+          dayContentHighlights: dayContent?.highlights,
+          tankestromHighlights: rec.tankestromHighlights,
+          scheduleHighlights: rec.scheduleHighlights,
+          highlights: rec.highlights,
+          notes: rec.notes,
+        }
+      })
+    })
+  if (rows.length > 0) {
+    console.info(`[Vårcup embedded stage:${stage}]`, { segments: rows })
+  }
+}
+
 function applyDefensiveArrangementNormalization(items: PortalProposalItem[]): PortalProposalItem[] {
   return items.map((it) => {
     if (it.kind !== 'event') return it
@@ -2453,6 +2495,28 @@ export function useTankestromImport({
       }
       if (!isEmbeddedScheduleParentCalendarItem(item)) continue
       const flat = flattenEmbeddedScheduleOrdered(item.event.metadata)
+      if (isVarcupTitle(item.event.title)) {
+        console.info('[Vårcup embedded stage:after-flattenEmbeddedScheduleOrdered]', {
+          parentTitle: item.event.title,
+          segments: flat.map((segment) => {
+            const rec = segment as unknown as Record<string, unknown>
+            const dayContent =
+              rec.dayContent && typeof rec.dayContent === 'object' && !Array.isArray(rec.dayContent)
+                ? (rec.dayContent as Record<string, unknown>)
+                : null
+            return {
+              title: segment.title,
+              date: segment.date,
+              start: segment.start,
+              isConditional: segment.isConditional === true,
+              timePrecision: typeof rec.timePrecision === 'string' ? rec.timePrecision : undefined,
+              dayContentHighlights: dayContent?.highlights,
+              tankestromHighlights: segment.tankestromHighlights,
+              notes: segment.notes,
+            }
+          }),
+        })
+      }
       map[item.proposalId] = flat.map((segment, i) => ({ origIndex: i, segment }))
     }
     setEmbeddedScheduleReviewRowsByParentId(map)
@@ -2849,6 +2913,7 @@ export function useTankestromImport({
         const defaultPersonId = people[0]?.id ?? ''
         const sourceHint = humanImportSourceLabelForBundle(b)
         const withLegacySegments = foldLegacyArrangementChildSegments(b.items)
+        logVarcupEmbeddedScheduleSnapshot('after-fold-legacy', withLegacySegments)
         const itemsPreDefensive = applyCupWeekendEmbeddedScheduleMerge(
           dedupeNearDuplicateCalendarProposals(withLegacySegments),
           {
@@ -2856,6 +2921,7 @@ export function useTankestromImport({
           }
         )
         const items = applyDefensiveArrangementNormalization(itemsPreDefensive)
+        logVarcupEmbeddedScheduleSnapshot('after-defensive-normalize', items)
         {
           const debugPayload = {
             rawItems: summarizeArrangementItemsForDebug(b.items),
@@ -3007,6 +3073,7 @@ export function useTankestromImport({
       const defaultPersonId = people[0]?.id ?? ''
       const sourceHint = humanImportSourceLabelForBundle(merged)
       const withLegacySegments = foldLegacyArrangementChildSegments(merged.items)
+      logVarcupEmbeddedScheduleSnapshot('after-fold-legacy', withLegacySegments)
       const itemsPreDefensive = applyCupWeekendEmbeddedScheduleMerge(
         dedupeNearDuplicateCalendarProposals(withLegacySegments),
         {
@@ -3014,6 +3081,7 @@ export function useTankestromImport({
         }
       )
       const items = applyDefensiveArrangementNormalization(itemsPreDefensive)
+      logVarcupEmbeddedScheduleSnapshot('after-defensive-normalize', items)
       {
         const debugPayload = {
           rawItems: summarizeArrangementItemsForDebug(merged.items),

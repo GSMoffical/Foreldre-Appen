@@ -117,6 +117,47 @@ function mergeSegmentDetails(a: EmbeddedScheduleSegment, b: EmbeddedScheduleSegm
   if (notes) merged.notes = notes
   if (a.kind || b.kind) merged.kind = a.kind || b.kind
   if (a.isConditional || b.isConditional) merged.isConditional = true
+  const detailsA = normalizeEmbeddedSegmentScheduleDetails(a as unknown as Record<string, unknown>)
+  const detailsB = normalizeEmbeddedSegmentScheduleDetails(b as unknown as Record<string, unknown>)
+  const highlightsByKey = new Map<string, { time: string; label: string; type?: string }>()
+  for (const h of [...detailsA.tankestromHighlights, ...detailsB.tankestromHighlights]) {
+    const key = `${h.time}|${h.label.toLocaleLowerCase('nb-NO')}`
+    const prev = highlightsByKey.get(key)
+    if (!prev || h.label.length < prev.label.length) highlightsByKey.set(key, h)
+  }
+  if (highlightsByKey.size > 0) {
+    merged.tankestromHighlights = [...highlightsByKey.values()] as EmbeddedScheduleSegment['tankestromHighlights']
+  }
+  const noteSeen = new Set<string>()
+  const notesMerged: string[] = []
+  for (const n of [...detailsA.tankestromNotes, ...detailsB.tankestromNotes]) {
+    const k = n.toLocaleLowerCase('nb-NO').trim()
+    if (!k || noteSeen.has(k)) continue
+    noteSeen.add(k)
+    notesMerged.push(n)
+  }
+  if (notesMerged.length > 0) merged.tankestromNotes = notesMerged
+  const bringSeen = new Set<string>()
+  const bringMerged: string[] = []
+  for (const n of [...detailsA.bringItems, ...detailsB.bringItems]) {
+    const k = n.toLocaleLowerCase('nb-NO').trim()
+    if (!k || bringSeen.has(k)) continue
+    bringSeen.add(k)
+    bringMerged.push(n)
+  }
+  if (bringMerged.length > 0) {
+    merged.bringItems = bringMerged
+    merged.packingItems = [...bringMerged]
+  }
+  const windowSeen = new Set<string>()
+  const windows: NonNullable<EmbeddedScheduleSegment['timeWindowCandidates']> = []
+  for (const w of [...detailsA.timeWindowCandidates, ...detailsB.timeWindowCandidates]) {
+    const key = `${w.start ?? ''}|${w.end ?? ''}|${w.label ?? ''}|${w.tentative ? '1' : '0'}`
+    if (windowSeen.has(key)) continue
+    windowSeen.add(key)
+    windows.push(w)
+  }
+  if (windows.length > 0) merged.timeWindowCandidates = windows
   return merged
 }
 

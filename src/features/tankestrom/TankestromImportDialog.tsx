@@ -4076,6 +4076,35 @@ export function TankestromImportDialog({
                                     [detailPanelTitle, cardTitleRaw, displayTitle],
                                     { fallbackStartTime: row.segment.start }
                                   )
+                                  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+                                    const parentLower = String(cardTitleRaw ?? '').toLocaleLowerCase('nb-NO')
+                                    if (parentLower.includes('vårcup') || parentLower.includes('varcup')) {
+                                      const rec = row.segment as unknown as Record<string, unknown>
+                                      const dayContent =
+                                        rec.dayContent && typeof rec.dayContent === 'object' && !Array.isArray(rec.dayContent)
+                                          ? (rec.dayContent as Record<string, unknown>)
+                                          : null
+                                      const statusLabel = row.segment.isConditional
+                                        ? 'Foreløpig'
+                                        : uncertainTime
+                                          ? 'Ikke endelig avklart'
+                                          : ''
+                                      console.info('[Vårcup embedded row pre-render]', {
+                                        title: displayTitle,
+                                        date: row.segment.date,
+                                        start: row.segment.start,
+                                        displayedTime: timeLabel,
+                                        isConditional: row.segment.isConditional === true,
+                                        statusLabel,
+                                        timePrecision:
+                                          typeof rec.timePrecision === 'string' ? rec.timePrecision : undefined,
+                                        dayContentHighlights: dayContent?.highlights,
+                                        tankestromHighlights: row.segment.tankestromHighlights,
+                                        normalizedHighlights: structuredFromSegment.highlights,
+                                        notes: structuredFromSegment.notes,
+                                      })
+                                    }
+                                  }
                                   const detailPanelId = `delprogram-child-detail-${childId}`
                                   const detailTriggerId = `delprogram-child-trigger-${childId}`
                                   const embEdit = embeddedChildReviewEditors[childId]

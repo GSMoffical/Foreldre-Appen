@@ -153,4 +153,55 @@ describe('foldLegacyArrangementChildSegments', () => {
     expect(sched[0]?.bringItems).toEqual(['drikkeflaske'])
     expect(sched[0]?.tankestromNotes).toContain('Møt opp 55 minutter før kampstart')
   })
+
+  it('bevarer parent dayContent string-highlights gjennom fold + dedupe mot legacy children', () => {
+    const parent = ev('p1', 'Vårcupen 2026', '2026-06-12', '00:00', '23:59', {
+      isArrangementParent: true,
+      arrangementStableKey: 'cup-1',
+      arrangementBlockGroupId: 'grp-1',
+      embeddedSchedule: [
+        {
+          date: '2026-06-12',
+          title: 'Vårcupen – fredag',
+          start: '17:45',
+          dayContent: {
+            highlights: ['17:45 Oppmøte', '18:40 Første kamp kl.'],
+          },
+        },
+        {
+          date: '2026-06-13',
+          title: 'Vårcupen – lørdag',
+          start: '08:35',
+          dayContent: {
+            highlights: ['09:20 Kamp kl.', '15:10 Kamp kl.', '08:35 Oppmøte', '14:25 Oppmøte'],
+          },
+        },
+      ],
+    })
+    const friChild = ev('c1', 'Vårcupen – fredag', '2026-06-12', '17:45', '19:00', {
+      isArrangementChild: true,
+      parentArrangementStableKey: 'cup-1',
+      arrangementBlockGroupId: 'grp-1',
+    })
+    const lorChild = ev('c2', 'Vårcupen – lørdag', '2026-06-13', '08:35', '16:00', {
+      isArrangementChild: true,
+      parentArrangementStableKey: 'cup-1',
+      arrangementBlockGroupId: 'grp-1',
+    })
+    const out = foldLegacyArrangementChildSegments([parent, friChild, lorChild] as PortalProposalItem[])
+    const patched = out[0] as PortalEventProposal
+    const sched = (patched.event.metadata?.embeddedSchedule as any[]) ?? []
+    const fri = sched.find((s: any) => s.date === '2026-06-12')
+    const lor = sched.find((s: any) => s.date === '2026-06-13')
+    expect(fri?.start).toBe('17:45')
+    expect(lor?.start).toBe('08:35')
+    expect(fri?.isConditional).not.toBe(true)
+    expect(lor?.isConditional).not.toBe(true)
+    expect(fri?.tankestromHighlights?.map((h: any) => `${h.time} ${h.label}`)).toEqual([
+      '17:45 Oppmøte',
+      '18:40 Første kamp',
+    ])
+    const lorHighlights = (lor?.tankestromHighlights ?? []).map((h: any) => `${h.time} ${h.label}`).sort()
+    expect(lorHighlights).toEqual(['08:35 Oppmøte', '09:20 Kamp', '14:25 Oppmøte', '15:10 Kamp'])
+  })
 })
