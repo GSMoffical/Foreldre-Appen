@@ -965,31 +965,6 @@ async function analyzeWithTankestrom(analyzePayload: AnalyzePayload): Promise<Po
     responseText,
     payload: responseJson,
   })
-  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
-    const rawItems =
-      isRecord(responseJson) && Array.isArray(responseJson.items)
-        ? responseJson.items
-        : isRecord(responseJson) && isRecord(responseJson.payload) && Array.isArray(responseJson.payload.items)
-          ? responseJson.payload.items
-          : []
-    const embeddedSchedule = rawItems
-      .filter((it): it is Record<string, unknown> => isRecord(it))
-      .map((it) => {
-        const ev = isRecord(it.event) ? it.event : null
-        const meta = ev && isRecord(ev.metadata) ? ev.metadata : null
-        return Array.isArray(meta?.embeddedSchedule) ? meta.embeddedSchedule : []
-      })
-      .flat()
-    console.info('[Vårcup raw analyze response]', {
-      items: rawItems,
-      embeddedSchedule,
-      searchForHighlights:
-        typeof responseText === 'string'
-          ? responseText.includes('18:40') || responseText.includes('09:20') || responseText.includes('15:10')
-          : JSON.stringify(responseJson).includes('18:40'),
-    })
-  }
-
   const failedPayload = isRecord(responseJson) && responseJson.ok === false
 
   if (!res.ok || failedPayload) {

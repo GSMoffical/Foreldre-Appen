@@ -238,25 +238,6 @@ export function parseEmbeddedScheduleFromMetadata(
     if (typeof o.titleOverride === 'string' && o.titleOverride.trim()) {
       seg.titleOverride = o.titleOverride.trim()
     }
-    if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
-      const lower = seg.title.toLocaleLowerCase('nb-NO')
-      if (lower.includes('vårcup') || lower.includes('varcup')) {
-        const dayContent =
-          o.dayContent && typeof o.dayContent === 'object' && !Array.isArray(o.dayContent)
-            ? (o.dayContent as Record<string, unknown>)
-            : null
-        console.info('[Vårcup parsed embedded schedule]', {
-          date: seg.date,
-          title: seg.title,
-          start: seg.start,
-          isConditional: seg.isConditional === true,
-          timePrecision: typeof o.timePrecision === 'string' ? o.timePrecision : undefined,
-          dayContentHighlights: dayContent?.highlights,
-          tankestromHighlights: seg.tankestromHighlights,
-          notes: seg.notes,
-        })
-      }
-    }
     out.push(seg)
   }
   return out

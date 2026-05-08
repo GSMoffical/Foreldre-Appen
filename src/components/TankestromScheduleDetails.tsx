@@ -18,19 +18,6 @@ export function TankestromScheduleDetails({
   compact = false,
   precomputedTimeWindowSummaries,
 }: TankestromScheduleDetailsProps) {
-  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
-    const title = titleContext[0] ?? ''
-    const t = title.toLocaleLowerCase('nb-NO')
-    if (t.includes('vårcup') || t.includes('varcup')) {
-      console.info('[Vårcup schedule details render input]', {
-        title,
-        highlights,
-        notes,
-        bringItems,
-        timeWindowSummaries: precomputedTimeWindowSummaries ?? [],
-      })
-    }
-  }
   const normalized = normalizeTankestromScheduleDetails({
     highlights,
     notes,
