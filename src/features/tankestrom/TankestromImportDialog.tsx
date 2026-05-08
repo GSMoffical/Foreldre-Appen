@@ -78,6 +78,13 @@ import {
   type TankestromPendingFile,
   type TankestromImportSuccess,
 } from './useTankestromImport'
+import {
+  buildFullImportDebugSnapshot,
+  buildRenderInputDebugRows,
+  enrichPersistPlanForDebug,
+  isTankestromImportDebugVisible,
+} from './tankestromImportDebug'
+import { TankestromImportDebugPanel } from './TankestromImportDebugPanel'
 import { cardSection, typSectionCap } from '../../lib/ui'
 import { Button } from '../../components/ui/Button'
 import { Input, Textarea } from '../../components/ui/Input'
@@ -2290,6 +2297,7 @@ export function TankestromImportDialog({
     existingEventMatchesByProposalId,
     existingEventLinkByProposalId,
     setExistingEventImportLink,
+    importPipelineAnalyzeSnapshot,
   } = useTankestromImport({
     open,
     people,
@@ -2304,8 +2312,39 @@ export function TankestromImportDialog({
 
   const validPersonIds = useMemo(() => new Set(people.map((p) => p.id)), [people])
 
+  const tankestromImportFullDebugSnapshot = useMemo(() => {
+    if (!isTankestromImportDebugVisible()) return null
+    const renderInput = buildRenderInputDebugRows({
+      bundle,
+      embeddedScheduleReviewRowsByParentId,
+      draftByProposalId,
+      makeChildProposalId: makeEmbeddedChildProposalId,
+    })
+    const persistRaw =
+      lastImportAttempt && lastImportAttempt.status !== 'running'
+        ? lastImportAttempt.debug.persistPlan
+        : []
+    const persistPlan = enrichPersistPlanForDebug(persistRaw, bundle)
+    return buildFullImportDebugSnapshot({
+      analyze: importPipelineAnalyzeSnapshot,
+      renderInput,
+      persistPlan,
+      lastImportAttemptStatus:
+        lastImportAttempt && lastImportAttempt.status !== 'running' ? lastImportAttempt.status : undefined,
+      analyzeWarning,
+    })
+  }, [
+    importPipelineAnalyzeSnapshot,
+    bundle,
+    embeddedScheduleReviewRowsByParentId,
+    draftByProposalId,
+    lastImportAttempt,
+    analyzeWarning,
+  ])
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importDebugOpen, setImportDebugOpen] = useState(false)
+  const [tankestromPipelineDebugOpen, setTankestromPipelineDebugOpen] = useState(false)
   const [fileDropActive, setFileDropActive] = useState(false)
   const [bulkPersonPick, setBulkPersonPick] = useState<Set<string>>(() => new Set())
 
@@ -3311,6 +3350,22 @@ export function TankestromImportDialog({
                 <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] leading-snug text-amber-950 whitespace-pre-wrap">
                   {analyzeWarning}
                 </p>
+              ) : null}
+              {isTankestromImportDebugVisible() ? (
+                <div className="rounded-lg border border-amber-200/80 bg-amber-50/30 px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setTankestromPipelineDebugOpen((v) => !v)}
+                    className="text-[11px] font-semibold text-amber-950 underline decoration-amber-300 underline-offset-2 hover:text-amber-900"
+                  >
+                    {tankestromPipelineDebugOpen ? 'Skjul import-debug' : 'Vis import-debug'}
+                  </button>
+                  {tankestromPipelineDebugOpen ? (
+                    <div className="mt-2">
+                      <TankestromImportDebugPanel snapshot={tankestromImportFullDebugSnapshot} />
+                    </div>
+                  ) : null}
+                </div>
               ) : null}
               <div className="rounded-xl border border-brandNavy/15 bg-brandSky/20 px-3 py-2.5">
                 <p className="text-[12px] font-medium leading-snug text-brandNavy">

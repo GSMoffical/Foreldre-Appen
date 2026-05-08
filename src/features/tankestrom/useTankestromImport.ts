@@ -91,6 +91,8 @@ import {
   type TankestromImportPersistOperation,
 } from '../../lib/tankestromImportPersistDiagnostics'
 import { logEvent } from '../../lib/appLogger'
+import { captureImportPipelineAnalyzeSnapshot } from './tankestromImportDebug'
+import type { TankestromImportPipelineAnalyzeSnapshot } from './tankestromImportDebug'
 import {
   buildEventProposalFromSecondaryCandidate,
   buildMergedSecondaryImportCandidates,
@@ -2000,6 +2002,13 @@ export function useTankestromImport({
     childTitlesAfter: string[]
   } | null>(null)
 
+  const [importPipelineAnalyzeSnapshot, setImportPipelineAnalyzeSnapshot] =
+    useState<TankestromImportPipelineAnalyzeSnapshot | null>(null)
+
+  useEffect(() => {
+    if (!open) setImportPipelineAnalyzeSnapshot(null)
+  }, [open])
+
   const primaryCalendarProposalItems = useMemo((): PortalProposalItem[] => {
     return calendarProposalItems.filter((it) => {
       if (it.kind !== 'event' && it.kind !== 'task') return true
@@ -2807,6 +2816,7 @@ export function useTankestromImport({
       if (inputMode === 'text') {
         const b = await analyzeTextWithTankestrom(textInput)
         if (isSchoolProfileBundle(b)) {
+          setImportPipelineAnalyzeSnapshot(null)
           setBundle(b)
           const schoolItems = b.items.filter((i): i is PortalSchoolProfileProposal => i.kind === 'school_profile')
           const primary = schoolItems[0]!
@@ -2877,6 +2887,15 @@ export function useTankestromImport({
           }
           console.info('[Tankestrom arrangement normalization debug]', debugPayload)
         }
+        setImportPipelineAnalyzeSnapshot(
+          captureImportPipelineAnalyzeSnapshot({
+            rawItems: b.items,
+            afterLegacyFoldItems: withLegacySegments,
+            afterDefensiveItems: items,
+            provenance: b.provenance,
+            fileErrorsCount: 0,
+          })
+        )
         setAnalyzedSourceLength(textInput.length)
         const classificationCtx = buildImportClassificationContext({
           inputMode: 'text',
@@ -2958,6 +2977,7 @@ export function useTankestromImport({
       }
 
       if (isSchoolProfileBundle(merged)) {
+        setImportPipelineAnalyzeSnapshot(null)
         setBundle(merged)
         const schoolItems = merged.items.filter((i): i is PortalSchoolProfileProposal => i.kind === 'school_profile')
         const primary = schoolItems[0]!
@@ -3035,6 +3055,15 @@ export function useTankestromImport({
         }
         console.info('[Tankestrom arrangement normalization debug]', debugPayload)
       }
+      setImportPipelineAnalyzeSnapshot(
+        captureImportPipelineAnalyzeSnapshot({
+          rawItems: merged.items,
+          afterLegacyFoldItems: withLegacySegments,
+          afterDefensiveItems: items,
+          provenance: merged.provenance,
+          fileErrorsCount: failureLines.length,
+        })
+      )
       setAnalyzedSourceLength(analyzedBytesTotal)
       const classificationCtx = buildImportClassificationContext({
         inputMode: 'file',
@@ -3085,6 +3114,7 @@ export function useTankestromImport({
     setAnalyzeWarning(null)
     prevSchoolChildForLangAdjustRef.current = null
     secondaryShownLogKeyRef.current = ''
+    setImportPipelineAnalyzeSnapshot(null)
   }, [])
 
   const reanalyzeFromSameInput = useCallback(async () => {
@@ -5332,5 +5362,6 @@ export function useTankestromImport({
     existingEventMatchesByProposalId,
     existingEventLinkByProposalId,
     setExistingEventImportLink,
+    importPipelineAnalyzeSnapshot,
   }
 }

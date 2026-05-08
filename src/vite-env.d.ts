@@ -15,6 +15,8 @@ interface ImportMetaEnv {
   readonly VITE_TANKESTROM_ANALYZE_URL?: string
   /** Sett til `true` for å vise midlertidig timeplan-import-debug i Tankestrøm-dialogen (også i prod-build). */
   readonly VITE_DEBUG_SCHOOL_IMPORT?: string
+  /** Sett til `true` for å vise import-debug-panelet for Tankestrøm (også utenfor DEV). */
+  readonly VITE_SHOW_TANKESTROM_DEBUG?: string
 }
 
 interface ImportMeta {
