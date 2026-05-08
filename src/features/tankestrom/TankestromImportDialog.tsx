@@ -4768,10 +4768,13 @@ export function TankestromImportDialog({
                                             ) : null}
                                           </dl>
                                           <div className="space-y-3">
-                                            {structuredFromSegment.highlights.length > 0 ||
-                                            structuredFromSegment.timeWindowSummaries.length > 0 ||
-                                            structuredFromSegment.notes.length > 0 ||
-                                            structuredFromSegment.bringItems.length > 0 ? (
+                                            {(() => {
+                                              const hasStructuredDetails =
+                                                structuredFromSegment.highlights.length > 0 ||
+                                                structuredFromSegment.timeWindowSummaries.length > 0 ||
+                                                structuredFromSegment.notes.length > 0 ||
+                                                structuredFromSegment.bringItems.length > 0
+                                              return hasStructuredDetails ? (
                                               <TankestromScheduleDetails
                                                 highlights={structuredFromSegment.highlights}
                                                 notes={structuredFromSegment.notes}
@@ -4782,7 +4785,8 @@ export function TankestromImportDialog({
                                                   structuredFromSegment.timeWindowSummaries
                                                 }
                                               />
-                                            ) : null}
+                                              ) : null
+                                            })()}
                                             {structuredFromSegment.highlights.length === 0 &&
                                             structuredFromSegment.timeWindowSummaries.length === 0 &&
                                             structuredFromSegment.notes.length === 0 &&
@@ -4799,7 +4803,11 @@ export function TankestromImportDialog({
                                                 compact
                                               />
                                             ) : null}
-                                            {childNotesPresentation?.mode === 'plain' ? (
+                                            {structuredFromSegment.highlights.length === 0 &&
+                                            structuredFromSegment.timeWindowSummaries.length === 0 &&
+                                            structuredFromSegment.notes.length === 0 &&
+                                            structuredFromSegment.bringItems.length === 0 &&
+                                            childNotesPresentation?.mode === 'plain' ? (
                                               <div>
                                                 <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[10px]">
                                                   Notater
@@ -4811,7 +4819,11 @@ export function TankestromImportDialog({
                                                 </div>
                                               </div>
                                             ) : null}
-                                            {!presentationHasRenderableContent(childNotesPresentation) ? (
+                                            {structuredFromSegment.highlights.length === 0 &&
+                                            structuredFromSegment.timeWindowSummaries.length === 0 &&
+                                            structuredFromSegment.notes.length === 0 &&
+                                            structuredFromSegment.bringItems.length === 0 &&
+                                            !presentationHasRenderableContent(childNotesPresentation) ? (
                                               <p className="text-[11px] leading-snug text-zinc-500 sm:text-[12px]">
                                                 Ingen egne notater for dette programpunktet.
                                               </p>
