@@ -119,4 +119,38 @@ describe('foldLegacyArrangementChildSegments', () => {
     expect(String(fri?.notes ?? '')).toContain('Oppmøte ved bane A')
     expect(String(fri?.notes ?? '')).toContain('Ta med drikkeflaske')
   })
+
+  it('bevarer legacy child dayContent/highlights ved fold inn i parent embeddedSchedule', () => {
+    const parent = ev('p1', 'Vårcupen 2026', '2026-06-12', '00:00', '23:59', {
+      isArrangementParent: true,
+      arrangementStableKey: 'cup-1',
+      arrangementBlockGroupId: 'grp-1',
+    })
+    const child = ev('c1', 'Fredag 12. juni', '2026-06-12', '17:45', '19:00', {
+      isArrangementChild: true,
+      parentArrangementStableKey: 'cup-1',
+      arrangementBlockGroupId: 'grp-1',
+      dayContent: {
+        highlights: [
+          { time: '17:45', label: 'Oppmøte' },
+          { time: '18:40', label: 'Kamp' },
+        ],
+        bringItems: ['drikkeflaske'],
+        generalNotes: ['Møt opp 55 minutter før kampstart'],
+      },
+      highlights: [{ time: '18:40', label: 'Kamp' }],
+    })
+
+    const out = foldLegacyArrangementChildSegments([parent, child] as PortalProposalItem[])
+    expect(out).toHaveLength(1)
+    const patched = out[0] as PortalEventProposal
+    const sched = (patched.event.metadata?.embeddedSchedule as any[]) ?? []
+    expect(sched).toHaveLength(1)
+    expect(sched[0]?.tankestromHighlights?.map((h: any) => `${h.time} ${h.label}`)).toEqual([
+      '17:45 Oppmøte',
+      '18:40 Kamp',
+    ])
+    expect(sched[0]?.bringItems).toEqual(['drikkeflaske'])
+    expect(sched[0]?.tankestromNotes).toContain('Møt opp 55 minutter før kampstart')
+  })
 })

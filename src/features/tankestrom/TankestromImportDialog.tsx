@@ -18,6 +18,7 @@ import type { EmbeddedScheduleSegment } from '../../types'
 import {
   groupEmbeddedScheduleByDate,
   isEmbeddedScheduleParentProposalItem,
+  normalizeEmbeddedSegmentScheduleDetails,
   parseEmbeddedScheduleFromMetadata,
 } from '../../lib/embeddedSchedule'
 import {
@@ -1779,14 +1780,15 @@ type EmbeddedChildReviewEditBuffer = {
 }
 
 function embeddedSegmentMetadataShape(seg: EmbeddedScheduleSegment): EventMetadata {
+  const normalized = normalizeEmbeddedSegmentScheduleDetails(seg as unknown as Record<string, unknown>)
   return {
-    tankestromHighlights: seg.tankestromHighlights,
-    tankestromNotes: seg.tankestromNotes,
-    bringItems: seg.bringItems,
-    packingItems: seg.packingItems,
+    tankestromHighlights: normalized.tankestromHighlights,
+    tankestromNotes: normalized.tankestromNotes,
+    bringItems: normalized.bringItems,
+    packingItems: normalized.packingItems,
     timeWindow: seg.timeWindow,
     tankestromTimeWindowSummaries: seg.tankestromTimeWindowSummaries,
-    timeWindowCandidates: seg.timeWindowCandidates,
+    timeWindowCandidates: normalized.timeWindowCandidates,
   }
 }
 

@@ -3,9 +3,148 @@ import type { EmbeddedScheduleSegment, EventMetadata } from '../types'
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/
 
+type NormalizedEmbeddedSegmentDetails = {
+  tankestromHighlights: NonNullable<EmbeddedScheduleSegment['tankestromHighlights']>
+  tankestromNotes: NonNullable<EmbeddedScheduleSegment['tankestromNotes']>
+  bringItems: NonNullable<EmbeddedScheduleSegment['bringItems']>
+  packingItems: NonNullable<EmbeddedScheduleSegment['packingItems']>
+  timeWindowCandidates: NonNullable<EmbeddedScheduleSegment['timeWindowCandidates']>
+}
+
 function trimHHmm(v: string): string | undefined {
   const t = v.trim()
   return HHMM.test(t) ? t : undefined
+}
+
+function asRecord(x: unknown): Record<string, unknown> | null {
+  return x && typeof x === 'object' && !Array.isArray(x) ? (x as Record<string, unknown>) : null
+}
+
+function normalizeTextKey(value: string): string {
+  return value
+    .toLocaleLowerCase('nb-NO')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function readHighlightRows(input: unknown): Array<{ time: string; label: string; type?: NonNullable<EmbeddedScheduleSegment['tankestromHighlights']>[number]['type'] }> {
+  if (!Array.isArray(input)) return []
+  const out: Array<{ time: string; label: string; type?: NonNullable<EmbeddedScheduleSegment['tankestromHighlights']>[number]['type'] }> = []
+  for (const row of input) {
+    const rec = asRecord(row)
+    if (!rec) continue
+    const timeRaw = typeof rec.time === 'string' ? rec.time.trim() : ''
+    const labelRaw = typeof rec.label === 'string' ? rec.label.trim() : ''
+    const time = trimHHmm(timeRaw.slice(0, 5))
+    if (!time || !labelRaw) continue
+    const typeRaw = typeof rec.type === 'string' ? rec.type : ''
+    const type =
+      typeRaw === 'match' || typeRaw === 'meeting' || typeRaw === 'deadline' || typeRaw === 'note' || typeRaw === 'other'
+        ? (typeRaw as NonNullable<EmbeddedScheduleSegment['tankestromHighlights']>[number]['type'])
+        : undefined
+    out.push({ time, label: labelRaw, type })
+  }
+  return out
+}
+
+function readStringList(input: unknown): string[] {
+  if (!Array.isArray(input)) return []
+  return input
+    .map((x) => (typeof x === 'string' ? x.trim() : ''))
+    .filter(Boolean)
+}
+
+function readTimeWindowCandidates(input: unknown): Array<{ start?: string; end?: string; label?: string; tentative?: boolean }> {
+  if (!Array.isArray(input)) return []
+  return input
+    .map((x) => asRecord(x))
+    .filter((x): x is Record<string, unknown> => !!x)
+    .map((x) => ({
+      start: typeof x.start === 'string' ? x.start : undefined,
+      end: typeof x.end === 'string' ? x.end : undefined,
+      label: typeof x.label === 'string' ? x.label : undefined,
+      tentative: x.tentative === true,
+    }))
+}
+
+/**
+ * Samler Tankestrøm-felter for ett embedded-segment (ny + legacy struktur)
+ * til appens standardfelt.
+ */
+export function normalizeEmbeddedSegmentScheduleDetails(input: unknown): NormalizedEmbeddedSegmentDetails {
+  const src = asRecord(input)
+  const dayContent = asRecord(src?.dayContent)
+  const rawHighlights = [
+    ...readHighlightRows(dayContent?.highlights),
+    ...readHighlightRows(src?.tankestromHighlights),
+    ...readHighlightRows(src?.scheduleHighlights),
+    ...readHighlightRows(src?.highlights),
+  ]
+  const highlightByKey = new Map<string, { time: string; label: string; type?: NonNullable<EmbeddedScheduleSegment['tankestromHighlights']>[number]['type'] }>()
+  for (const h of rawHighlights) {
+    const key = `${h.time}__${normalizeTextKey(h.label)}`
+    const prev = highlightByKey.get(key)
+    if (!prev || h.label.length < prev.label.length) {
+      highlightByKey.set(key, h)
+    }
+  }
+  const tankestromHighlights: NonNullable<EmbeddedScheduleSegment['tankestromHighlights']> = [...highlightByKey.values()]
+
+  const rawNotes = [
+    ...readStringList(dayContent?.generalNotes),
+    ...readStringList(dayContent?.logisticsNotes),
+    ...readStringList(dayContent?.uncertaintyNotes),
+    ...readStringList(src?.tankestromNotes),
+    ...readStringList(src?.notes),
+    ...readStringList(src?.logisticsNotes),
+    ...readStringList(src?.parentTasks),
+    ...readStringList(src?.uncertaintyNotes),
+  ]
+  const noteSet = new Set<string>()
+  const tankestromNotes: NonNullable<EmbeddedScheduleSegment['tankestromNotes']> = []
+  for (const n of rawNotes) {
+    const k = normalizeTextKey(n)
+    if (!k || noteSet.has(k)) continue
+    noteSet.add(k)
+    tankestromNotes.push(n)
+  }
+
+  const rawBring = [
+    ...readStringList(dayContent?.bringItems),
+    ...readStringList(src?.bringItems),
+    ...readStringList(src?.packingItems),
+  ]
+  const bringSet = new Set<string>()
+  const bringItems: NonNullable<EmbeddedScheduleSegment['bringItems']> = []
+  for (const b of rawBring) {
+    const k = normalizeTextKey(b)
+    if (!k || bringSet.has(k)) continue
+    bringSet.add(k)
+    bringItems.push(b)
+  }
+
+  const rawWindows = [
+    ...readTimeWindowCandidates(dayContent?.timeWindowCandidates),
+    ...readTimeWindowCandidates(src?.timeWindowCandidates),
+  ]
+  const windowSet = new Set<string>()
+  const timeWindowCandidates: NonNullable<EmbeddedScheduleSegment['timeWindowCandidates']> = []
+  for (const w of rawWindows) {
+    const key = `${w.start ?? ''}|${w.end ?? ''}|${normalizeTextKey(w.label ?? '')}|${w.tentative ? '1' : '0'}`
+    if (windowSet.has(key)) continue
+    windowSet.add(key)
+    timeWindowCandidates.push(w)
+  }
+
+  return {
+    tankestromHighlights,
+    tankestromNotes,
+    bringItems,
+    packingItems: bringItems,
+    timeWindowCandidates,
+  }
 }
 
 /**
@@ -38,42 +177,11 @@ export function parseEmbeddedScheduleFromMetadata(
       if (e) seg.end = e
     }
     if (typeof o.notes === 'string' && o.notes.trim()) seg.notes = o.notes.trim()
-    if (Array.isArray(o.tankestromHighlights)) {
-      seg.tankestromHighlights = o.tankestromHighlights
-        .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
-        .map((x) => {
-          const time = typeof x.time === 'string' ? x.time.trim().slice(0, 5) : ''
-          const label = typeof x.label === 'string' ? x.label.trim() : ''
-          const typeRaw = typeof x.type === 'string' ? x.type : ''
-          if (!time || !label) return null
-          if (
-            typeRaw === 'match' ||
-            typeRaw === 'meeting' ||
-            typeRaw === 'deadline' ||
-            typeRaw === 'note' ||
-            typeRaw === 'other'
-          ) {
-            return { time, label, type: typeRaw as 'match' | 'meeting' | 'deadline' | 'note' | 'other' }
-          }
-          return { time, label }
-        })
-        .filter((x): x is NonNullable<typeof x> => !!x)
-    }
-    if (Array.isArray(o.tankestromNotes)) {
-      seg.tankestromNotes = o.tankestromNotes
-        .filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
-        .map((x) => x.trim())
-    }
-    if (Array.isArray(o.bringItems)) {
-      seg.bringItems = o.bringItems
-        .filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
-        .map((x) => x.trim())
-    }
-    if (Array.isArray(o.packingItems)) {
-      seg.packingItems = o.packingItems
-        .filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
-        .map((x) => x.trim())
-    }
+    const details = normalizeEmbeddedSegmentScheduleDetails(o)
+    if (details.tankestromHighlights.length > 0) seg.tankestromHighlights = details.tankestromHighlights
+    if (details.tankestromNotes.length > 0) seg.tankestromNotes = details.tankestromNotes
+    if (details.bringItems.length > 0) seg.bringItems = details.bringItems
+    if (details.packingItems.length > 0) seg.packingItems = details.packingItems
     if (typeof o.tankestromDescriptionFallback === 'string' && o.tankestromDescriptionFallback.trim()) {
       seg.tankestromDescriptionFallback = o.tankestromDescriptionFallback.trim()
     }
@@ -98,16 +206,7 @@ export function parseEmbeddedScheduleFromMetadata(
         })
         .filter((x): x is NonNullable<typeof x> => !!x)
     }
-    if (Array.isArray(o.timeWindowCandidates)) {
-      seg.timeWindowCandidates = o.timeWindowCandidates
-        .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
-        .map((x) => ({
-          start: typeof x.start === 'string' ? x.start : undefined,
-          end: typeof x.end === 'string' ? x.end : undefined,
-          label: typeof x.label === 'string' ? x.label : undefined,
-          tentative: x.tentative === true,
-        }))
-    }
+    if (details.timeWindowCandidates.length > 0) seg.timeWindowCandidates = details.timeWindowCandidates
     if (typeof o.kind === 'string' && o.kind.trim()) seg.kind = o.kind.trim()
     if (o.isConditional === true) seg.isConditional = true
     if (o.userEditedTitle === true) seg.userEditedTitle = true

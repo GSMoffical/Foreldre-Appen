@@ -6,6 +6,7 @@ import {
   semanticBringKey,
 } from '../tankestromScheduleDetails'
 import type { EventMetadata } from '../../types'
+import { parseEmbeddedScheduleFromMetadata } from '../embeddedSchedule'
 
 describe('tankestromScheduleDetails', () => {
   it('leser highlights/notater fra metadata og dedupliserer notatlinjer mot highlights', () => {
@@ -122,5 +123,39 @@ Notater:
       fallbackStartTime: '17:30',
     })
     expect(out.highlights).toEqual([{ time: '16:40', label: 'Oppmøte', type: 'meeting' }])
+  })
+
+  it('leser dayContent-felter fra embeddedSchedule-segment og deduper highlights', () => {
+    const eventMetadata: EventMetadata = {
+      embeddedSchedule: [
+        {
+          date: '2026-06-12',
+          title: 'Vårcupen – fredag',
+          dayContent: {
+            highlights: [
+              { time: '17:45', label: 'Oppmøte' },
+              { time: '18:40', label: 'Kamp' },
+            ],
+            bringItems: ['drikkeflaske'],
+            generalNotes: ['Møt opp 55 minutter før kampstart'],
+          },
+          highlights: [{ time: '18:40', label: 'Kamp' }],
+        },
+      ] as unknown as EventMetadata['embeddedSchedule'],
+    }
+    const seg = parseEmbeddedScheduleFromMetadata(eventMetadata)[0]!
+    const out = readTankestromScheduleDetailsFromMetadata(
+      {
+        tankestromHighlights: seg.tankestromHighlights,
+        tankestromNotes: seg.tankestromNotes,
+        bringItems: seg.bringItems,
+        packingItems: seg.packingItems,
+        timeWindowCandidates: seg.timeWindowCandidates,
+      },
+      ['Vårcupen – fredag']
+    )
+    expect(out.highlights.map((h) => `${h.time} ${h.label}`)).toEqual(['17:45 Oppmøte', '18:40 Kamp'])
+    expect(out.bringItems).toEqual(['drikkeflaske'])
+    expect(out.notes).toContain('Møt opp 55 minutter før kampstart')
   })
 })

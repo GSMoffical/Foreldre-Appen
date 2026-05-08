@@ -1,7 +1,7 @@
 import type { EmbeddedScheduleSegment } from '../types'
 import type { PortalEventProposal, PortalProposalItem } from '../features/tankestrom/types'
 import { normalizeImportTime } from './tankestromImportTime'
-import { parseEmbeddedScheduleFromMetadata } from './embeddedSchedule'
+import { normalizeEmbeddedSegmentScheduleDetails, parseEmbeddedScheduleFromMetadata } from './embeddedSchedule'
 import { semanticTitleCore } from './tankestromImportDedupe'
 import {
   cleanManualTitle,
@@ -34,6 +34,16 @@ function normalizeChildSegmentFromEvent(child: PortalEventProposal): EmbeddedSch
   const notes = child.event.notes?.trim()
   if (notes) seg.notes = notes
   if (meta?.isConditional === true) seg.isConditional = true
+  const details = normalizeEmbeddedSegmentScheduleDetails(meta)
+  if (details.tankestromHighlights.length > 0) seg.tankestromHighlights = details.tankestromHighlights
+  if (details.tankestromNotes.length > 0) seg.tankestromNotes = details.tankestromNotes
+  if (details.bringItems.length > 0) seg.bringItems = details.bringItems
+  if (details.packingItems.length > 0) seg.packingItems = details.packingItems
+  if (details.timeWindowCandidates.length > 0) seg.timeWindowCandidates = details.timeWindowCandidates
+  const dayContent = meta?.dayContent
+  if (dayContent && typeof dayContent === 'object' && !Array.isArray(dayContent)) {
+    ;(seg as unknown as Record<string, unknown>).dayContent = dayContent
+  }
   return seg
 }
 
