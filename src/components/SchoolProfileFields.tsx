@@ -99,9 +99,6 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
         runId,
         band,
       })
-      // #region agent log
-      fetch('http://127.0.0.1:7535/ingest/049b3e24-eef8-4d09-b78d-4e257b02a969',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d90a0'},body:JSON.stringify({sessionId:'4d90a0',runId:'school-review-trace-v1',hypothesisId:'H2',location:'SchoolProfileFields.tsx:52',message:'harmonize run start',data:{runId,band},timestamp:Date.now()})}).catch(()=>{})
-      // #endregion
     }
 
     for (const wd of [0, 1, 2, 3, 4] as WeekdayMonFri[]) {
@@ -123,9 +120,6 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
             before: { subjectKey: lesson.subjectKey, customLabel: lesson.customLabel },
             match: inferred,
           })
-          // #region agent log
-          fetch('http://127.0.0.1:7535/ingest/049b3e24-eef8-4d09-b78d-4e257b02a969',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d90a0'},body:JSON.stringify({sessionId:'4d90a0',runId:'school-review-trace-v1',hypothesisId:'H2',location:'SchoolProfileFields.tsx:70',message:'lesson check',data:{runId,weekday:wd,lessonIndex:i,before:{subjectKey:lesson.subjectKey,customLabel:lesson.customLabel,start:lesson.start,end:lesson.end},inferred},timestamp:Date.now()})}).catch(()=>{})
-          // #endregion
         }
         if (inferred && inferred.subjectKey === lesson.subjectKey && inferred.matchType === 'exact' && custom) {
           // Samme fag to ganger: Tankestrøm kan sende både subjectKey og label/displayLabel som samme fagnavn.
@@ -157,9 +151,6 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
               lessonSubcategory: lesson.lessonSubcategory,
             },
           })
-          // #region agent log
-          fetch('http://127.0.0.1:7535/ingest/049b3e24-eef8-4d09-b78d-4e257b02a969',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d90a0'},body:JSON.stringify({sessionId:'4d90a0',runId:'school-review-trace-v1',hypothesisId:'H3',location:'SchoolProfileFields.tsx:88',message:'lesson harmonized',data:{runId,weekday:wd,lessonIndex:i,match:inferred,before,after:{subjectKey:lesson.subjectKey,customLabel:lesson.customLabel,start:lesson.start,end:lesson.end}},timestamp:Date.now()})}).catch(()=>{})
-          // #endregion
         }
         dayChanged = true
       }
@@ -219,9 +210,6 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
           runId,
           weekdays: nextWeekdays,
         })
-        // #region agent log
-        fetch('http://127.0.0.1:7535/ingest/049b3e24-eef8-4d09-b78d-4e257b02a969',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d90a0'},body:JSON.stringify({sessionId:'4d90a0',runId:'school-review-trace-v1',hypothesisId:'H4',location:'SchoolProfileFields.tsx:108',message:'harmonize commit',data:{runId},timestamp:Date.now()})}).catch(()=>{})
-        // #endregion
       }
       onChange({ ...value, weekdays: nextWeekdays })
     } else if (debugSchoolImport) {
@@ -259,9 +247,6 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
     }
     if (mismatches.length > 0) {
       console.debug('[school import harmonize] render:mismatches-still-visible', mismatches)
-      // #region agent log
-      fetch('http://127.0.0.1:7535/ingest/049b3e24-eef8-4d09-b78d-4e257b02a969',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d90a0'},body:JSON.stringify({sessionId:'4d90a0',runId:'school-review-trace-v1',hypothesisId:'H5',location:'SchoolProfileFields.tsx:149',message:'mismatches still visible in render',data:{mismatches},timestamp:Date.now()})}).catch(()=>{})
-      // #endregion
     }
   }, [band, debugSchoolImport, value])
 

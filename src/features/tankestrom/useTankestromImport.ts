@@ -93,6 +93,7 @@ import {
 import { logEvent } from '../../lib/appLogger'
 import { captureImportPipelineAnalyzeSnapshot } from './tankestromImportDebug'
 import type { TankestromImportPipelineAnalyzeSnapshot } from './tankestromImportDebug'
+import { isTankestromConsoleDebugEnabled } from '../../lib/tankestromConsoleDebug'
 import {
   buildEventProposalFromSecondaryCandidate,
   buildMergedSecondaryImportCandidates,
@@ -110,8 +111,7 @@ import {
   tankestromShouldStripSyntheticFlightEnd,
 } from '../../lib/tankestromFlightImportEnd'
 
-const TANKESTROM_IMPORT_PERSIST_DEBUG =
-  import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+const TANKESTROM_IMPORT_PERSIST_DEBUG = isTankestromConsoleDebugEnabled()
 const MISSING_ENDTIME_REVIEW_MESSAGE = 'Sluttid ikke oppgitt – rediger før import.'
 const DATE_ONLY_FALLBACK_START = '09:00'
 const DATE_ONLY_FALLBACK_END = '09:30'
@@ -730,7 +730,7 @@ function attachTankestromDetailsToMetadata(
     details.highlights,
     details.notes
   )
-  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+  if (isTankestromConsoleDebugEnabled()) {
     console.info('[Tankestrom schedule details debug]', {
       rawMetadataDetails: {
         highlights: metadata.highlights,
@@ -2266,11 +2266,13 @@ export function useTankestromImport({
         },
       ])
     )
-    console.info('[Tankestrom import match debug]', {
-      proposals,
-      existingEventsLoaded,
-      matchesByProposalId,
-    })
+    if (isTankestromConsoleDebugEnabled()) {
+      console.info('[Tankestrom import match debug]', {
+        proposals,
+        existingEventsLoaded,
+        matchesByProposalId,
+      })
+    }
   }, [
     step,
     bundle,
@@ -2288,20 +2290,22 @@ export function useTankestromImport({
       const incomingDraft = draftWrap.event
       const meta = item.event.metadata
       const match = existingEventMatchesByProposalId[item.proposalId]
-      console.info('[Tankestrom match result]', {
-        incomingTitle: incomingDraft.title,
-        incomingStableKey: readArrangementStableKey(meta),
-        incomingUpdateIntent:
-          meta && typeof meta === 'object' && !Array.isArray(meta)
-            ? (meta as Record<string, unknown>).updateIntent
-            : undefined,
-        matched: Boolean(match && !match.rejected && match.candidate),
-        matchStatus: match?.matchStatus,
-        score: match?.score,
-        matchedEventTitle: match?.candidate?.event.title,
-        matchedEventId: match?.candidate?.event.id,
-        reasons: match?.reasons,
-      })
+      if (isTankestromConsoleDebugEnabled()) {
+        console.info('[Tankestrom match result]', {
+          incomingTitle: incomingDraft.title,
+          incomingStableKey: readArrangementStableKey(meta),
+          incomingUpdateIntent:
+            meta && typeof meta === 'object' && !Array.isArray(meta)
+              ? (meta as Record<string, unknown>).updateIntent
+              : undefined,
+          matched: Boolean(match && !match.rejected && match.candidate),
+          matchStatus: match?.matchStatus,
+          score: match?.score,
+          matchedEventTitle: match?.candidate?.event.title,
+          matchedEventId: match?.candidate?.event.id,
+          reasons: match?.reasons,
+        })
+      }
     }
   }, [step, bundle, primaryCalendarProposalItems, draftByProposalId, existingEventMatchesByProposalId])
 
@@ -2726,9 +2730,6 @@ export function useTankestromImport({
           before: prev.draft,
           after: next,
         })
-        // #region agent log
-        fetch('http://127.0.0.1:7535/ingest/049b3e24-eef8-4d09-b78d-4e257b02a969',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d90a0'},body:JSON.stringify({sessionId:'4d90a0',runId:'school-review-trace-v1',hypothesisId:'H4',location:'useTankestromImport.ts:452',message:'setSchoolProfileDraft called',data:{before:prev.draft,after:next},timestamp:Date.now()})}).catch(()=>{})
-        // #endregion
       }
       return { ...prev, draft: next }
     })
@@ -2832,9 +2833,6 @@ export function useTankestromImport({
             meta: { confidence: primary.confidence, originalSourceType: primary.originalSourceType },
             parsedProfileSnapshotJson,
           })
-          // #region agent log
-          fetch('http://127.0.0.1:7535/ingest/049b3e24-eef8-4d09-b78d-4e257b02a969',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d90a0'},body:JSON.stringify({sessionId:'4d90a0',runId:'school-review-trace-v1',hypothesisId:'H1',location:'useTankestromImport.ts:518',message:'setSchoolReview from parsed snapshot (text mode)',data:{gradeBand:primary.schoolProfile.gradeBand,weekdays:primary.schoolProfile.weekdays},timestamp:Date.now()})}).catch(()=>{})
-          // #endregion
           if (import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
             console.debug('[tankestrom school import] text path: parsed profile (etter API)', {
               gradeBand: primary.schoolProfile.gradeBand,
@@ -2885,7 +2883,9 @@ export function useTankestromImport({
             childTitlesBefore: debugPayload.childTitlesBefore,
             childTitlesAfter: debugPayload.childTitlesAfter,
           }
-          console.info('[Tankestrom arrangement normalization debug]', debugPayload)
+          if (isTankestromConsoleDebugEnabled()) {
+            console.info('[Tankestrom arrangement normalization debug]', debugPayload)
+          }
         }
         setImportPipelineAnalyzeSnapshot(
           captureImportPipelineAnalyzeSnapshot({
@@ -2993,9 +2993,6 @@ export function useTankestromImport({
           meta: { confidence: primary.confidence, originalSourceType: primary.originalSourceType },
           parsedProfileSnapshotJson,
         })
-        // #region agent log
-        fetch('http://127.0.0.1:7535/ingest/049b3e24-eef8-4d09-b78d-4e257b02a969',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d90a0'},body:JSON.stringify({sessionId:'4d90a0',runId:'school-review-trace-v1',hypothesisId:'H1',location:'useTankestromImport.ts:598',message:'setSchoolReview from parsed snapshot (file mode)',data:{gradeBand:primary.schoolProfile.gradeBand,weekdays:primary.schoolProfile.weekdays},timestamp:Date.now()})}).catch(()=>{})
-        // #endregion
         if (import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
           console.debug('[tankestrom school import] file path: parsed profile (etter API)', {
             gradeBand: primary.schoolProfile.gradeBand,
@@ -3053,7 +3050,9 @@ export function useTankestromImport({
           childTitlesBefore: debugPayload.childTitlesBefore,
           childTitlesAfter: debugPayload.childTitlesAfter,
         }
-        console.info('[Tankestrom arrangement normalization debug]', debugPayload)
+        if (isTankestromConsoleDebugEnabled()) {
+          console.info('[Tankestrom arrangement normalization debug]', debugPayload)
+        }
       }
       setImportPipelineAnalyzeSnapshot(
         captureImportPipelineAnalyzeSnapshot({
@@ -3335,13 +3334,15 @@ export function useTankestromImport({
         existingEventLinkByProposalId[id] ??
         (existingEventMatchesByProposalId[id]?.candidate ? 'update_default' : 'new_default'),
     }))
-    console.info('[Tankestrom import approve clicked]', {
-      importAttemptId,
-      selectedProposalIds: ids,
-      selectedCount: ids.length,
-      proposalsCount: proposalItems.length,
-      selectedActions,
-    })
+    if (isTankestromConsoleDebugEnabled()) {
+      console.info('[Tankestrom import approve clicked]', {
+        importAttemptId,
+        selectedProposalIds: ids,
+        selectedCount: ids.length,
+        proposalsCount: proposalItems.length,
+        selectedActions,
+      })
+    }
     if (ids.length === 0) {
       return failEarly('Velg minst ett forslag som skal importeres.')
     }
@@ -3359,11 +3360,13 @@ export function useTankestromImport({
 
     const attemptStartedAt = nowIso()
     setLastImportAttempt({ status: 'running', id: importAttemptId, startedAt: attemptStartedAt })
-    console.info('[Tankestrom import attempt started]', {
-      importAttemptId,
-      selectedProposalIds: ids,
-      selectedCount: ids.length,
-    })
+    if (isTankestromConsoleDebugEnabled()) {
+      console.info('[Tankestrom import attempt started]', {
+        importAttemptId,
+        selectedProposalIds: ids,
+        selectedCount: ids.length,
+      })
+    }
     setError(null)
     setSaveLoading(true)
     let failed = 0
@@ -3466,7 +3469,7 @@ export function useTankestromImport({
         })
 
         if (batchPersistFingerprints.has(fp)) {
-          if (import.meta.env.DEV) {
+          if (isTankestromConsoleDebugEnabled()) {
             console.info('[Tankestrom import persist skip duplicate batch]', { fp, proposalId: logProposalId })
           }
           return { kind: 'skipped_duplicate_batch' }
@@ -3486,19 +3489,21 @@ export function useTankestromImport({
             logProposalId
           )
           if (dup) {
-            console.info('[Tankestrom create event attempt → idempotent update]', {
-              proposalId: logProposalId,
-              matchEventId: dup.event.id,
-              title: input.title,
-              date: dateKey,
-              start: input.start,
-              end: input.end,
-              timePrecision: metaRec?.timePrecision,
-            })
+            if (isTankestromConsoleDebugEnabled()) {
+              console.info('[Tankestrom create event attempt → idempotent update]', {
+                proposalId: logProposalId,
+                matchEventId: dup.event.id,
+                title: input.title,
+                date: dateKey,
+                start: input.start,
+                end: input.end,
+                timePrecision: metaRec?.timePrecision,
+              })
+            }
             const updates = buildTankestromIdempotentEventUpdate(dup.event, input)
             await editEvent(dup.anchorDate, dup.event, updates)
             batchPersistFingerprints.add(fp)
-            if (import.meta.env.DEV) {
+            if (isTankestromConsoleDebugEnabled()) {
               console.info('[Tankestrom import idempotent update ok]', {
                 proposalId: logProposalId,
                 eventId: dup.event.id,
@@ -3508,17 +3513,19 @@ export function useTankestromImport({
           }
         }
 
-        console.info('[Tankestrom create event attempt]', {
-          proposalId: logProposalId,
-          title: input.title,
-          date: dateKey,
-          start: input.start,
-          end: input.end,
-          personId: input.personId,
-          timePrecision: metaRec?.timePrecision,
-          metadata: input.metadata,
-        })
-        if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+        if (isTankestromConsoleDebugEnabled()) {
+          console.info('[Tankestrom create event attempt]', {
+            proposalId: logProposalId,
+            title: input.title,
+            date: dateKey,
+            start: input.start,
+            end: input.end,
+            personId: input.personId,
+            timePrecision: metaRec?.timePrecision,
+            metadata: input.metadata,
+          })
+        }
+        if (isTankestromConsoleDebugEnabled()) {
           console.info('[Tankestrom schedule details debug]', {
             rawMetadataDetails: {
               highlights: metaRec?.highlights,
@@ -3545,27 +3552,29 @@ export function useTankestromImport({
           await createEvent(dateKey, input)
           batchPersistFingerprints.add(fp)
           const persisted = findCreatedEventByProposalId(logProposalId)
-          if (persisted) {
-            console.info('[Tankestrom create event success]', {
-              proposalId: logProposalId,
-              id: persisted.event.id,
-              title: persisted.event.title,
-              date: persisted.anchorDate,
-              start: persisted.event.start,
-              end: persisted.event.end,
-              personId: persisted.event.personId,
-            })
-          } else {
-            console.info('[Tankestrom create event success]', {
-              proposalId: logProposalId,
-              id: logProposalId,
-              title: input.title,
-              date: dateKey,
-              start: input.start,
-              end: input.end,
-              personId: input.personId,
-              note: 'persisted_row_not_found_in_anchor_cache',
-            })
+          if (isTankestromConsoleDebugEnabled()) {
+            if (persisted) {
+              console.info('[Tankestrom create event success]', {
+                proposalId: logProposalId,
+                id: persisted.event.id,
+                title: persisted.event.title,
+                date: persisted.anchorDate,
+                start: persisted.event.start,
+                end: persisted.event.end,
+                personId: persisted.event.personId,
+              })
+            } else {
+              console.info('[Tankestrom create event success]', {
+                proposalId: logProposalId,
+                id: logProposalId,
+                title: input.title,
+                date: dateKey,
+                start: input.start,
+                end: input.end,
+                personId: input.personId,
+                note: 'persisted_row_not_found_in_anchor_cache',
+              })
+            }
           }
           return { kind: 'created' }
         } catch (error) {
@@ -3598,18 +3607,20 @@ export function useTankestromImport({
           createdEvents.map((e) => e.id).filter((id) => !id.startsWith(EMBEDDED_CHILD_ID_PREFIX))
         )
         const fetchedFlat = Object.values(refetched).flat()
-        console.info('[Tankestrom post-import event refetch]', {
-          range: { from, to },
-          expectedCreatedEventIds: [...expectedIds],
-          fetchedEvents: fetchedFlat.map((e) => ({
-            id: e.id,
-            title: e.title,
-            start: e.start,
-            end: e.end,
-            personId: e.personId,
-            metadata: e.metadata,
-          })),
-        })
+        if (isTankestromConsoleDebugEnabled()) {
+          console.info('[Tankestrom post-import event refetch]', {
+            range: { from, to },
+            expectedCreatedEventIds: [...expectedIds],
+            fetchedEvents: fetchedFlat.map((e) => ({
+              id: e.id,
+              title: e.title,
+              start: e.start,
+              end: e.end,
+              personId: e.personId,
+              metadata: e.metadata,
+            })),
+          })
+        }
       }
 
       for (const id of ids) {
@@ -3655,24 +3666,26 @@ export function useTankestromImport({
           validationErrors: Object.values(fieldErrors).filter(Boolean),
         })
       }
-      console.info('[Tankestrom import persist plan]', {
-        planItems: persistPlanPreview,
-      })
-      console.info('[Tankestrom import persist plan events]', {
-        eventPlanItems: persistPlanPreview.filter((p) => p.planSurface === 'event'),
-        taskPlanItems: persistPlanPreview.filter((p) => p.planSurface === 'task'),
-      })
-      console.info('[Tankestrom arrangement normalization debug]', {
-        rawItems: lastArrangementNormalizationDebugRef.current?.rawItems ?? [],
-        afterLegacyFold: lastArrangementNormalizationDebugRef.current?.afterLegacyFold ?? [],
-        embeddedScheduleRawCount: lastArrangementNormalizationDebugRef.current?.embeddedScheduleRawCount ?? 0,
-        embeddedScheduleDedupedCount:
-          lastArrangementNormalizationDebugRef.current?.embeddedScheduleDedupedCount ?? 0,
-        childTitlesBefore: lastArrangementNormalizationDebugRef.current?.childTitlesBefore ?? [],
-        childTitlesAfter: lastArrangementNormalizationDebugRef.current?.childTitlesAfter ?? [],
-        persistPlanEventCount: persistPlanPreview.filter((p) => p.planSurface === 'event').length,
-        createEventAttempts: attemptedPersistOps,
-      })
+      if (isTankestromConsoleDebugEnabled()) {
+        console.info('[Tankestrom import persist plan]', {
+          planItems: persistPlanPreview,
+        })
+        console.info('[Tankestrom import persist plan events]', {
+          eventPlanItems: persistPlanPreview.filter((p) => p.planSurface === 'event'),
+          taskPlanItems: persistPlanPreview.filter((p) => p.planSurface === 'task'),
+        })
+        console.info('[Tankestrom arrangement normalization debug]', {
+          rawItems: lastArrangementNormalizationDebugRef.current?.rawItems ?? [],
+          afterLegacyFold: lastArrangementNormalizationDebugRef.current?.afterLegacyFold ?? [],
+          embeddedScheduleRawCount: lastArrangementNormalizationDebugRef.current?.embeddedScheduleRawCount ?? 0,
+          embeddedScheduleDedupedCount:
+            lastArrangementNormalizationDebugRef.current?.embeddedScheduleDedupedCount ?? 0,
+          childTitlesBefore: lastArrangementNormalizationDebugRef.current?.childTitlesBefore ?? [],
+          childTitlesAfter: lastArrangementNormalizationDebugRef.current?.childTitlesAfter ?? [],
+          persistPlanEventCount: persistPlanPreview.filter((p) => p.planSurface === 'event').length,
+          createEventAttempts: attemptedPersistOps,
+        })
+      }
 
       const recordFailure = (
         proposalId: string,
@@ -3742,7 +3755,7 @@ export function useTankestromImport({
           ids.includes(parsedEmb.parentProposalId) &&
           !detachedEmbeddedChildIds.has(id)
         ) {
-          if (import.meta.env.DEV) {
+          if (isTankestromConsoleDebugEnabled()) {
             console.info('[Tankestrom import skip redundant embedded child row]', {
               childProposalId: id,
               parentProposalId: parsedEmb.parentProposalId,
@@ -4757,7 +4770,7 @@ export function useTankestromImport({
               ? (item.event.metadata as Record<string, unknown>)
               : null
           if (skipParentMeta?.isArrangementParent === true && skipParentMeta?.exportAsCalendarEvent === false) {
-            if (import.meta.env.DEV) {
+            if (isTankestromConsoleDebugEnabled()) {
               console.info('[Tankestrom import skip arrangement parent as standalone calendar row]', {
                 proposalId: id,
               })
@@ -4890,17 +4903,19 @@ export function useTankestromImport({
           })
         }
       }
-      console.info('[Tankestrom arrangement normalization debug]', {
-        rawItems: lastArrangementNormalizationDebugRef.current?.rawItems ?? [],
-        afterLegacyFold: lastArrangementNormalizationDebugRef.current?.afterLegacyFold ?? [],
-        embeddedScheduleRawCount: lastArrangementNormalizationDebugRef.current?.embeddedScheduleRawCount ?? 0,
-        embeddedScheduleDedupedCount:
-          lastArrangementNormalizationDebugRef.current?.embeddedScheduleDedupedCount ?? 0,
-        childTitlesBefore: lastArrangementNormalizationDebugRef.current?.childTitlesBefore ?? [],
-        childTitlesAfter: lastArrangementNormalizationDebugRef.current?.childTitlesAfter ?? [],
-        persistPlanEventCount: persistPlanPreview.filter((p) => p.planSurface === 'event').length,
-        createEventAttempts: attemptedPersistOps,
-      })
+      if (isTankestromConsoleDebugEnabled()) {
+        console.info('[Tankestrom arrangement normalization debug]', {
+          rawItems: lastArrangementNormalizationDebugRef.current?.rawItems ?? [],
+          afterLegacyFold: lastArrangementNormalizationDebugRef.current?.afterLegacyFold ?? [],
+          embeddedScheduleRawCount: lastArrangementNormalizationDebugRef.current?.embeddedScheduleRawCount ?? 0,
+          embeddedScheduleDedupedCount:
+            lastArrangementNormalizationDebugRef.current?.embeddedScheduleDedupedCount ?? 0,
+          childTitlesBefore: lastArrangementNormalizationDebugRef.current?.childTitlesBefore ?? [],
+          childTitlesAfter: lastArrangementNormalizationDebugRef.current?.childTitlesAfter ?? [],
+          persistPlanEventCount: persistPlanPreview.filter((p) => p.planSurface === 'event').length,
+          createEventAttempts: attemptedPersistOps,
+        })
+      }
 
       const taskPersistFailures = failureRecords.filter(
         (f) => f.proposalSurfaceType === 'task' && f.operation === 'createTask'
@@ -5118,12 +5133,14 @@ export function useTankestromImport({
         }
       }
 
-      console.info('[Tankestrom import result]', {
-        createdEvents,
-        updatedEvents,
-        createdTasks,
-        failures: failureRecords,
-      })
+      if (isTankestromConsoleDebugEnabled()) {
+        console.info('[Tankestrom import result]', {
+          createdEvents,
+          updatedEvents,
+          createdTasks,
+          failures: failureRecords,
+        })
+      }
       logTankestromImportPersist({
         tankestromImportFailureSummaryBuilt: true,
         tankestromImportFailedProposalIds: [],

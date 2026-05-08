@@ -4,6 +4,7 @@ import type {
   TankestromScheduleHighlightType,
   TankestromTimeWindowSummary,
 } from '../types'
+import { isTankestromConsoleDebugEnabled } from './tankestromConsoleDebug'
 
 function normalizeTextKey(value: string): string {
   return value
@@ -64,10 +65,6 @@ function normalizeList(input: unknown): string[] {
   return input
     .map((line) => (typeof line === 'string' ? line.trim() : ''))
     .filter((line) => line.length > 0)
-}
-
-function detailsDebugEnabled(): boolean {
-  return import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
 }
 
 function normalizeBringItem(item: string): string {
@@ -435,7 +432,7 @@ function logCleanupResult(
   liftedBringItems: string[],
   timeWindowSummaries: TankestromTimeWindowSummary[]
 ): void {
-  if (!detailsDebugEnabled()) return
+  if (!isTankestromConsoleDebugEnabled()) return
   console.info('[Tankestrom schedule cleanup result]', {
     rawHighlights,
     renderedHighlights,
@@ -733,7 +730,6 @@ export function readTankestromScheduleDetailsFromMetadata(
     .map(normalizeHighlightRow)
     .filter((r): r is TankestromScheduleHighlight => !!r)
   const parsedEmbedded = buildHighlightsFromEmbeddedSchedule(metadata.embeddedSchedule)
-  const beforeDedupeHighlightsCount = parsedDirect.length + parsedFallback.length + parsedEmbedded.length
   const highlightsByKey = new Map<string, TankestromScheduleHighlight>()
   for (const row of [...parsedDirect, ...parsedFallback, ...parsedEmbedded]) {
     const key = `${row.time}__${normalizeTextKey(row.label)}`
@@ -772,43 +768,6 @@ export function readTankestromScheduleDetailsFromMetadata(
     titleContext: ctxFromMeta,
     fallbackStartTime: opts?.fallbackStartTime,
   })
-  if (detailsDebugEnabled()) {
-    const rawHighlightsForLog = metadata.tankestromHighlights ?? metadata.highlights ?? metadata.scheduleHighlights
-    if (/høstcup/i.test(JSON.stringify({ rawHighlightsForLog, notesRaw }))) {
-      console.info('[Tankestrom schedule Høstcupen raw vs normalized]', {
-        rawHighlights: rawHighlightsForLog,
-        rawBringItems: bringItemsRaw,
-        rawNotes: notesRaw,
-        normalizedHighlights: normalized.highlights,
-        normalizedBringItems: normalized.bringItems,
-        normalizedNotes: normalized.notes,
-        timeWindowSummaries: normalized.timeWindowSummaries,
-        removedFragments: normalized.removedFragments,
-        removedHighlights: normalized.removedHighlights,
-      })
-    }
-    console.info('[Tankestrom schedule details debug]', {
-      rawMetadataDetails: {
-        highlights: metadata.highlights,
-        scheduleHighlights: metadata.scheduleHighlights,
-        notesList: metadata.notesList,
-        bringItems: (metadata as Record<string, unknown>).bringItems,
-        packingItems: (metadata as Record<string, unknown>).packingItems,
-        tankestromHighlights: metadata.tankestromHighlights,
-        tankestromNotes: metadata.tankestromNotes,
-        tankestromDescriptionFallback: metadata.tankestromDescriptionFallback,
-        timeWindowCandidates: (metadata as Record<string, unknown>).timeWindowCandidates,
-      },
-      normalizedDetails: normalized,
-      renderedHighlights: normalized.highlights,
-      renderedBringItems: normalized.bringItems,
-      renderedNotes: normalized.notes,
-      removedFragments: normalized.removedFragments,
-      removedDuplicateHighlights:
-        Math.max(0, beforeDedupeHighlightsCount - normalized.highlights.length) +
-        normalized.removedDuplicateHighlights,
-    })
-  }
   return normalized
 }
 

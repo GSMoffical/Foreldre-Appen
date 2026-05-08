@@ -23,6 +23,7 @@ import type {
 import { resolveSubjectKey } from './schoolContext'
 import { normalizeTaskIntent } from './taskIntent'
 import { normalizeImportTime, rawEventTimeInput } from './tankestromImportTime'
+import { isTankestromConsoleDebugEnabled, isTankestromHttpDebugEnabled } from './tankestromConsoleDebug'
 
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null && !Array.isArray(x)
@@ -403,7 +404,7 @@ function parseTaskPayload(raw: unknown): PortalTaskProposal['task'] {
   if (detailBlocks.length > 0) {
     out.notes = detailBlocks.join('\n\n')
   }
-  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+  if (isTankestromConsoleDebugEnabled()) {
     console.debug('[tankestrom parse task payload]', {
       taskProposalRawFields: Object.keys(raw).sort(),
       metadataFieldKeys:
@@ -921,7 +922,9 @@ async function analyzeWithTankestrom(analyzePayload: AnalyzePayload): Promise<Po
   }
 
   const analyzeUrl = url
-  console.info('[Tankestrom endpoint]', analyzeUrl)
+  if (isTankestromHttpDebugEnabled()) {
+    console.info('[Tankestrom endpoint]', analyzeUrl)
+  }
 
   let res: Response
   try {
@@ -944,13 +947,15 @@ async function analyzeWithTankestrom(analyzePayload: AnalyzePayload): Promise<Po
     throw err instanceof Error ? err : new Error('Kunne ikke kontakte Tankestrøm-analyse.')
   }
 
-  console.info('[Tankestrom response headers]', {
-    status: res.status,
-    service: res.headers.get('X-Tankestrom-Service'),
-    version: res.headers.get('X-Tankestrom-Version'),
-    wrapper: res.headers.get('X-Tankestrom-Analyze-Wrapper'),
-    contentType: res.headers.get('content-type'),
-  })
+  if (isTankestromHttpDebugEnabled()) {
+    console.info('[Tankestrom response headers]', {
+      status: res.status,
+      service: res.headers.get('X-Tankestrom-Service'),
+      version: res.headers.get('X-Tankestrom-Version'),
+      wrapper: res.headers.get('X-Tankestrom-Analyze-Wrapper'),
+      contentType: res.headers.get('content-type'),
+    })
+  }
 
   const responseText = await res.text()
   let responseJson: unknown = null
@@ -960,11 +965,13 @@ async function analyzeWithTankestrom(analyzePayload: AnalyzePayload): Promise<Po
     responseJson = null
   }
 
-  console.info('[Tankestrom raw response]', {
-    status: res.status,
-    responseText,
-    payload: responseJson,
-  })
+  if (isTankestromHttpDebugEnabled()) {
+    console.info('[Tankestrom raw response]', {
+      status: res.status,
+      responseText,
+      payload: responseJson,
+    })
+  }
   const failedPayload = isRecord(responseJson) && responseJson.ok === false
 
   if (!res.ok || failedPayload) {
@@ -982,9 +989,7 @@ async function analyzeWithTankestrom(analyzePayload: AnalyzePayload): Promise<Po
 
   const json = responseJson
 
-  const dbgText =
-    analyzePayload.kind === 'text' &&
-    (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true')
+  const dbgText = analyzePayload.kind === 'text' && isTankestromConsoleDebugEnabled()
 
   const normalized = normalizeTankestromAnalyzeHttpJson(json)
 

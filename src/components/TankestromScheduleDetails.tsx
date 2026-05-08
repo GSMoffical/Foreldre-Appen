@@ -34,17 +34,6 @@ export function TankestromScheduleDetails({
   ) {
     return null
   }
-  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
-    console.info('[Tankestrom schedule details debug]', {
-      rawMetadataDetails: null,
-      normalizedDetails: normalized,
-      renderedHighlights: normalized.highlights,
-      renderedBringItems: normalized.bringItems,
-      renderedNotes: normalized.notes,
-      removedFragments: normalized.removedFragments,
-      removedDuplicateHighlights: normalized.removedDuplicateHighlights,
-    })
-  }
   return (
     <div className={compact ? 'space-y-2' : 'space-y-3'}>
       {hasHighlightSection ? (

@@ -163,28 +163,6 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
     [event.metadata, event.title, event.start]
   )
   useEffect(() => {
-    if (!(import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true')) return
-    console.info('[Tankestrom schedule details debug]', {
-      rawMetadataDetails: {
-        highlights: event.metadata?.highlights,
-        scheduleHighlights: event.metadata?.scheduleHighlights,
-        notesList: event.metadata?.notesList,
-        bringItems: (event.metadata as Record<string, unknown> | undefined)?.bringItems,
-        packingItems: (event.metadata as Record<string, unknown> | undefined)?.packingItems,
-        tankestromHighlights: event.metadata?.tankestromHighlights,
-        tankestromNotes: event.metadata?.tankestromNotes,
-        tankestromDescriptionFallback: event.metadata?.tankestromDescriptionFallback,
-      },
-      normalizedDetails: tankestromDetails,
-      renderedHighlights: tankestromDetails.highlights,
-      renderedBringItems: [],
-      renderedNotes: tankestromDetails.notes,
-      removedFragments: [],
-      removedDuplicateHighlights: 0,
-    })
-  }, [event.metadata, tankestromDetails])
-
-  useEffect(() => {
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const root = dialogRef.current
     const focusables = root?.querySelectorAll<HTMLElement>(

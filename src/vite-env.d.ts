@@ -13,6 +13,8 @@ interface ImportMetaEnv {
    * JSON body PortalImportProposalBundle. Flere filer: gjenta kall og slå sammen i klienten.
    */
   readonly VITE_TANKESTROM_ANALYZE_URL?: string
+  /** Sett til `true` for å logge Tankestrøm HTTP-endpoint, headers og rå respons (kun feilsøking). */
+  readonly VITE_TANKESTROM_HTTP_DEBUG?: string
   /** Sett til `true` for å vise midlertidig timeplan-import-debug i Tankestrøm-dialogen (også i prod-build). */
   readonly VITE_DEBUG_SCHOOL_IMPORT?: string
   /** Sett til `true` for å vise import-debug-panelet for Tankestrøm (også utenfor DEV). */
