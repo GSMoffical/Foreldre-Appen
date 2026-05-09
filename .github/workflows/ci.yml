@@ -104,6 +104,14 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
+      - name: Check E2E env presence (safe)
+        run: |
+          echo "has E2E_LOGIN_EMAIL: $([ -n "${E2E_LOGIN_EMAIL}" ] && echo yes || echo no)"
+          echo "has E2E_LOGIN_PASSWORD: $([ -n "${E2E_LOGIN_PASSWORD}" ] && echo yes || echo no)"
+          echo "has VITE_SUPABASE_URL: $([ -n "${VITE_SUPABASE_URL}" ] && echo yes || echo no)"
+          echo "has VITE_SUPABASE_ANON_KEY: $([ -n "${VITE_SUPABASE_ANON_KEY}" ] && echo yes || echo no)"
+          echo "has VITE_TANKESTROM_ANALYZE_URL: $([ -n "${VITE_TANKESTROM_ANALYZE_URL}" ] && echo yes || echo no)"
+
       - name: Run Playwright E2E
         run: npx playwright test e2e/tankestrom-vaacup.spec.ts e2e/tankestrom-hostcup.spec.ts
 
