@@ -89,6 +89,7 @@ import { cardSection, typSectionCap } from '../../lib/ui'
 import { Button } from '../../components/ui/Button'
 import { Input, Textarea } from '../../components/ui/Input'
 import { TankestromScheduleDetails } from '../../components/TankestromScheduleDetails'
+import { TankestromImportPreviewBoundary } from '../../components/TankestromImportPreviewBoundary'
 import { SchoolProfileFields } from '../../components/SchoolProfileFields'
 import { logEvent } from '../../lib/appLogger'
 import { formatTimeRange } from '../../lib/time'
@@ -3039,7 +3040,9 @@ export function TankestromImportDialog({
               )}
               {error && <p className="text-[13px] text-rose-600">{error}</p>}
             </div>
-          ) : schoolReview ? (
+          ) : (
+            <TankestromImportPreviewBoundary>
+              {schoolReview ? (
             <div className="space-y-4">
               {schoolWeekOverlayProposal ? (
                 <>
@@ -3283,7 +3286,7 @@ export function TankestromImportDialog({
                 <p className="text-[12px] text-amber-800">Lagring er ikke tilgjengelig. Prøv å oppdatere appen.</p>
               ) : null}
             </div>
-          ) : (
+              ) : (
             <div className="space-y-4">
               {analyzeLoading && !bundle ? (
                 <p
@@ -5524,6 +5527,8 @@ export function TankestromImportDialog({
                 </p>
               )}
             </div>
+              )}
+            </TankestromImportPreviewBoundary>
           )}
         </div>
 

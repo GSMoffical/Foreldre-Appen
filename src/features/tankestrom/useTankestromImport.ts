@@ -16,6 +16,7 @@ import {
   isEmbeddedScheduleParentProposalItem,
   parseEmbeddedScheduleFromMetadata,
 } from '../../lib/embeddedSchedule'
+import { addTankestromSentryBreadcrumb } from '../../lib/sentry'
 import { filterSubjectUpdatesByLanguageTrack } from '../../lib/schoolWeekOverlayFilters'
 import {
   applyCupWeekendEmbeddedScheduleMerge,
@@ -2814,6 +2815,12 @@ export function useTankestromImport({
     setAnalyzeWarning(null)
     setAnalyzeLoading(true)
     try {
+      addTankestromSentryBreadcrumb(
+        'tankestrom_analysis_started',
+        inputMode === 'file'
+          ? { inputMode, pendingFileCount: pendingFiles.length }
+          : { inputMode, textCharCount: textInput.trim().length }
+      )
       if (inputMode === 'text') {
         const b = await analyzeTextWithTankestrom(textInput)
         if (isSchoolProfileBundle(b)) {
@@ -2951,6 +2958,7 @@ export function useTankestromImport({
       }
 
       if (bundles.length === 0) {
+        addTankestromSentryBreadcrumb('tankestrom_analysis_failed', { reason: 'no_file_bundles' })
         setError(
           failureLines.length > 0
             ? failureLines.join('\n')
@@ -2961,6 +2969,7 @@ export function useTankestromImport({
 
       const merged = mergePortalImportProposalBundles(bundles)
       if (!hasAnalyzeContent(merged)) {
+        addTankestromSentryBreadcrumb('tankestrom_analysis_failed', { reason: 'empty_after_merge' })
         setError('Ingen forslag etter sammenslåing.')
         return false
       }
@@ -3087,6 +3096,7 @@ export function useTankestromImport({
       }
       return true
     } catch (e) {
+      addTankestromSentryBreadcrumb('tankestrom_analysis_failed', { reason: 'exception' })
       setError(e instanceof Error ? e.message : 'Analyse feilet.')
       return false
     } finally {

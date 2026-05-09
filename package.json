@@ -20,6 +20,7 @@
     "deploy:hostinger:test:password": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-hostinger.ps1 -SkipBuild -TestConnection -UsePasswordAuth"
   },
   "dependencies": {
+    "@sentry/react": "^10.52.0",
     "@supabase/supabase-js": "^2.101.1",
     "date-holidays": "^3.26.11",
     "framer-motion": "^11.11.17",

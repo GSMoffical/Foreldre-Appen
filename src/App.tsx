@@ -23,6 +23,7 @@ import { useResolvedMePersonId } from './hooks/useResolvedMePersonId'
 import { useTimeOfDaySurface } from './hooks/useTimeOfDaySurface'
 import { startUxTimer, endUxTimer, logUxMetric } from './lib/uxMetrics'
 import { logEvent } from './lib/appLogger'
+import { addTankestromSentryBreadcrumb } from './lib/sentry'
 import { addCalendarDaysOslo, todayKeyOslo } from './lib/osloCalendar'
 import { useSaveFeedback } from './features/app/hooks/useSaveFeedback'
 import { useInviteAcceptance } from './features/invites/hooks/useInviteAcceptance'
@@ -332,6 +333,10 @@ function App() {
 
   const [familySetupDismissed, setFamilySetupDismissed] = useState(false)
   const [tankestromImportOpen, setTankestromImportOpen] = useState(false)
+  const openTankestromImport = useCallback((source: 'settings' | 'toast') => {
+    addTankestromSentryBreadcrumb('tankestrom_import_opened', { source })
+    setTankestromImportOpen(true)
+  }, [])
   useEffect(() => {
     if (user?.id && isFamilySetupSkipped(user.id)) setFamilySetupDismissed(true)
   }, [user?.id])
@@ -480,7 +485,7 @@ function App() {
                   setLastCalendarTab('today')
                   setShowTour(true)
                 }}
-                onOpenTankestromImport={() => setTankestromImportOpen(true)}
+                onOpenTankestromImport={() => openTankestromImport('settings')}
               />
             </div>
           ) : navTab === 'month' ? (
@@ -644,7 +649,7 @@ function App() {
                       <button
                         type="button"
                         onClick={() => {
-                          setTankestromImportOpen(true)
+                          openTankestromImport('toast')
                           dismissTankestromToast()
                         }}
                         className="rounded-full border border-amber-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-amber-900"
