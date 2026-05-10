@@ -8,6 +8,7 @@ import type { ReactNode } from 'react'
 export function TankestromImportPreviewBoundary({ children }: { children: ReactNode }) {
   return (
     <Sentry.ErrorBoundary
+      showDialog={false}
       beforeCapture={(scope) => {
         scope.addBreadcrumb({
           category: 'tankestrom',
