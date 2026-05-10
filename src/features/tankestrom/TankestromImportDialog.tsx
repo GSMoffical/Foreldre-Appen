@@ -70,6 +70,8 @@ import {
   filterSubjectUpdatesByLanguageTrack,
   getTankestromDraftFieldErrors,
   getTankestromTaskFieldErrors,
+  collectTankestromEventExportValidationIssues,
+  collectTankestromTaskExportValidationIssues,
   inferLanguageTrackFromChildSchool,
   inferValgfagTrackFromChildSchool,
   normalizeTimeInput,
@@ -78,6 +80,11 @@ import {
   type TankestromPendingFile,
   type TankestromImportSuccess,
 } from './useTankestromImport'
+import {
+  formatTankestromImportCardValidationBanner,
+  norwegianWeekdayLowercase,
+  summarizeEmbeddedChildrenImportValidation,
+} from '../../lib/tankestromInlineValidationLabel'
 import {
   buildFullImportDebugSnapshot,
   buildRenderInputDebugRows,
@@ -3545,10 +3552,30 @@ export function TankestromImportDialog({
                   const editorOpen = reviewCardEditorOpen.has(pid)
                   const compactConf = confidenceBadgeCompactStyle(item.confidence)
                   const notesRaw = u.importKind === 'event' ? u.event.notes : u.task.notes
-                  const hasFieldErrors =
-                    u.importKind === 'event'
-                      ? Object.keys(eventFieldErrors).length > 0
-                      : Object.keys(taskFieldErrors).length > 0
+                  const parentCardValidationIssues =
+                    checked && u.importKind === 'event'
+                      ? collectTankestromEventExportValidationIssues(pid, undefined, u.event, validPersonIds)
+                      : checked && u.importKind === 'task'
+                        ? collectTankestromTaskExportValidationIssues(pid, u.task)
+                        : []
+                  const embeddedChildrenValidationSummary =
+                    embeddedScheduleParentCard && u.importKind === 'event' && checked
+                      ? summarizeEmbeddedChildrenImportValidation(
+                          pid,
+                          embeddedScheduleReviewRowsByParentId[pid] ?? [],
+                          selectedIds,
+                          draftByProposalId,
+                          validPersonIds,
+                          makeEmbeddedChildProposalId
+                        )
+                      : null
+                  const suppressChildInlineBanners =
+                    embeddedChildrenValidationSummary?.suppressPerChildDuplicateBanners === true
+                  const showCardValidationAlerts =
+                    checked &&
+                    !editorOpen &&
+                    (parentCardValidationIssues.length > 0 ||
+                      Boolean(embeddedChildrenValidationSummary?.parentBanner))
 
                   const eventTimeSummary = (() => {
                     if (u.importKind !== 'event') return ''
@@ -4166,6 +4193,29 @@ export function TankestromImportDialog({
                                                 ? 'Trykk for å skjule'
                                                 : 'Trykk for detaljer og notater'}
                                             </p>
+                                            {childChecked && !embEdit && !suppressChildInlineBanners ? (() => {
+                                              const cd = draftByProposalId[childId]
+                                              const ci =
+                                                cd?.importKind === 'event'
+                                                  ? collectTankestromEventExportValidationIssues(
+                                                      childId,
+                                                      childId,
+                                                      cd.event,
+                                                      validPersonIds
+                                                    )
+                                                  : []
+                                              const line = formatTankestromImportCardValidationBanner(ci, {
+                                                weekdayNb: norwegianWeekdayLowercase(row.segment.date),
+                                              })
+                                              return line ? (
+                                                <p
+                                                  className="mt-1 text-[10px] font-medium text-rose-600 sm:text-[11px]"
+                                                  role="alert"
+                                                >
+                                                  {line}
+                                                </p>
+                                              ) : null
+                                            })() : null}
                                           </div>
                                         </button>
                                         <div className="mt-1 flex shrink-0 flex-col items-stretch gap-1 self-start">
@@ -4916,10 +4966,29 @@ export function TankestromImportDialog({
                               Annen språktrack.
                             </p>
                           ) : null}
-                          {!editorOpen && checked && hasFieldErrors ? (
-                            <p className="mt-0.5 text-[10px] font-medium text-rose-600 sm:text-[11px]" role="alert">
-                              Mangler felt — Rediger
-                            </p>
+                          {showCardValidationAlerts ? (
+                            <div
+                              className="mt-0.5 space-y-0.5"
+                              role="group"
+                              aria-label="Valideringsfeil på importkort"
+                            >
+                              {parentCardValidationIssues.length > 0 ? (
+                                <p
+                                  className="text-[10px] font-medium text-rose-600 sm:text-[11px]"
+                                  role="alert"
+                                >
+                                  {formatTankestromImportCardValidationBanner(parentCardValidationIssues)}
+                                </p>
+                              ) : null}
+                              {embeddedChildrenValidationSummary?.parentBanner ? (
+                                <p
+                                  className="text-[10px] font-medium text-rose-600 sm:text-[11px]"
+                                  role="alert"
+                                >
+                                  {embeddedChildrenValidationSummary.parentBanner}
+                                </p>
+                              ) : null}
+                            </div>
                           ) : null}
                           <div
                             className="mt-1 inline-flex rounded-md border border-zinc-200/90 bg-zinc-50/80 p-0.5 sm:mt-1.5"
@@ -5522,8 +5591,9 @@ export function TankestromImportDialog({
 
               {selectedIds.size > 0 && !canApproveSelection && (
                 <p className="text-[12px] leading-snug text-amber-900">
-                  <span className="font-semibold">Mangler eller ugyldig data</span> på et eller flere valgte kort. Se
-                  røde feltmerknader over.
+                  <span className="font-semibold">Noen valgte kort mangler person, dato eller tid</span> (eller har
+                  ugyldige verdier). Åpne «Rediger» på kortene merket med rød tekst over, eller følg de røde
+                  feltmerknadene når redigeringspanelet er åpent.
                 </p>
               )}
             </div>
