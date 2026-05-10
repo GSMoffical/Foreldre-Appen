@@ -12,6 +12,12 @@ export function formatSupabaseError(err: PostgrestError | null | undefined): str
   if (code === '42P01' || msg.includes('does not exist') || (msg.includes('relation') && msg.includes('not exist'))) {
     return 'Databasen mangler en tabell eller funksjon. Sjekk at Supabase-oppsettet er kjørt.'
   }
+  if (
+    code === 'PGRST204' ||
+    (msg.includes('column') && (msg.includes('schema cache') || msg.includes('could not find')))
+  ) {
+    return 'Kunne ikke lagre: databasen mangler en kolonne som appen forventer (f.eks. metadata eller reminder_minutes). Kjør supabase-fix.sql i Supabase SQL Editor og prøv igjen.'
+  }
   if (msg.includes('network') || msg.includes('failed to fetch') || msg.includes('load failed')) {
     return 'Ingen nettverk eller serveren svarer ikke. Sjekk tilkoblingen og prøv igjen.'
   }

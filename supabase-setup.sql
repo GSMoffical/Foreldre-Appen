@@ -13,6 +13,9 @@ CREATE TABLE public.events (
   "end" text NOT NULL,
   notes text,
   location text,
+  recurrence_group_id uuid,
+  reminder_minutes int,
+  metadata jsonb,
   created_at timestamptz DEFAULT now()
 );
 

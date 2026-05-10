@@ -1,5 +1,6 @@
 import type { PostgrestError } from '@supabase/supabase-js'
 import type { Task } from '../types'
+import { EventPersistError } from './eventsApi'
 import { formatSupabaseError } from './supabaseErrors'
 
 export type TankestromImportPersistOperation = 'createEvent' | 'createTask' | 'editEvent'
@@ -62,6 +63,14 @@ function asPostgrestError(err: unknown): PostgrestError | null {
   return null
 }
 
+/** PostgREST-feil direkte, innkapslet, eller fra `EventPersistError`. */
+function unwrapPostgrestError(err: unknown): PostgrestError | null {
+  const direct = asPostgrestError(err)
+  if (direct) return direct
+  if (err instanceof EventPersistError) return err.postgrest
+  return null
+}
+
 function operationFallbackKind(
   operation: TankestromImportPersistOperation
 ): TankestromImportPersistErrorKind {
@@ -86,7 +95,7 @@ export function classifyTankestromPersistThrownError(
   err: unknown,
   operation: TankestromImportPersistOperation
 ): TankestromPersistClassification {
-  const pg = asPostgrestError(err)
+  const pg = unwrapPostgrestError(err)
   const msgFromErr = err instanceof Error ? err.message : typeof err === 'string' ? err : ''
   const lower = (msgFromErr || '').toLowerCase()
 
@@ -161,7 +170,7 @@ const KIND_HINT_NB: Partial<Record<TankestromImportPersistErrorKind, string>> = 
   validation: 'Noe kan være ugyldig (dato, tid eller format).',
   task_create_failed: 'Noen oppgaver kunne ikke lagres.',
   event_update_failed: 'Noen oppdateringer av eksisterende arrangement feilet.',
-  event_create_failed: 'Noen nye hendelser kunne ikke opprettes.',
+  event_create_failed: 'Hendelsen ble avvist ved lagring (ofte database eller skjema).',
   unknown: 'Ukjent årsak — prøv igjen.',
 }
 
@@ -176,6 +185,45 @@ const HINT_PRIORITY: TankestromImportPersistErrorKind[] = [
   'event_create_failed',
   'unknown',
 ]
+
+/**
+ * Avsluttende veiledning for import-feil (skiller validering fra database/lagring).
+ */
+export function buildTankestromImportEventFailureClosingGuidance(
+  eventFailures: TankestromImportPersistFailureRecord[]
+): string {
+  if (eventFailures.length === 0) return ''
+  const onlyValidation = eventFailures.every((f) => f.kind === 'validation')
+  if (onlyValidation) {
+    return 'Åpne «Rediger» på hendelsen og fyll inn manglende felt.'
+  }
+  const parts: string[] = []
+  const hasPersistIssue = eventFailures.some(
+    (f) =>
+      f.kind === 'event_create_failed' || f.kind === 'event_update_failed' || f.kind === 'unknown'
+  )
+  const hasPermission = eventFailures.some((f) => f.kind === 'permission')
+  const hasAuth = eventFailures.some((f) => f.kind === 'auth')
+  const hasNetwork = eventFailures.some((f) => f.kind === 'network')
+  if (hasPersistIssue) {
+    parts.push(
+      'Hendelsen kunne ikke lagres på grunn av en database- eller serverfeil. Dette kan normalt ikke løses kun ved å trykke «Rediger» på kortet. Sjekk tekniske detaljer (PostgREST-/Postgres-kode og meldingstekst) og at Supabase-skjemaet er oppdatert (f.eks. supabase-fix.sql i prosjektet).'
+    )
+  }
+  if (hasPermission) {
+    parts.push('Ved tilgangsfeil: du mangler sannsynligvis rettighet til å lagre (RLS-policyer i Supabase).')
+  }
+  if (hasAuth) {
+    parts.push('Ved innloggingsfeil: logg inn på nytt.')
+  }
+  if (hasNetwork) {
+    parts.push('Ved nettverksfeil: prøv igjen om litt.')
+  }
+  if (eventFailures.some((f) => f.kind === 'validation')) {
+    parts.push('Der det er valideringsfeil i tillegg, åpne «Rediger» og korriger feltene.')
+  }
+  return parts.join('\n\n')
+}
 
 const MAX_TITLE_SNIPPET = 44
 
@@ -404,7 +452,8 @@ export function buildTankestromImportFailureUserMessage(
       }
       detailParts.push(`Kunne ikke lagre ${eventFailures.length} hendelse(r):\n${specific.join('\n')}`)
       if (hints.length > 0) detailParts.push(hints.join(' '))
-      detailParts.push('Åpne «Rediger» på hendelsen og fyll inn manglende felt.')
+      const closing = buildTankestromImportEventFailureClosingGuidance(eventFailures)
+      if (closing) detailParts.push(closing)
       return `${head} ${detailParts.join('\n\n')}`
     }
     const kinds = new Set(eventFailures.map((f) => f.kind))

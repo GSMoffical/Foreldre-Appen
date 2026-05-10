@@ -391,11 +391,6 @@ export function useScheduleState() {
     }
 
     const created = await createEventForDate(effectiveUserId!, date, input)
-    if (!created) {
-      throw new Error(
-        'Could not save event. Check the browser console and that the events table has columns: start, end, notes, location.'
-      )
-    }
 
     setUserEventsByDate((prev) => {
       const existing = prev[date] ?? []
