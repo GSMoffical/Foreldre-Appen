@@ -1,6 +1,18 @@
 import type { PostgrestError } from '@supabase/supabase-js'
 import type { Event, PersonId, EventMetadata } from '../types'
 import { supabase } from './supabaseClient'
+import { formatSupabaseError } from './supabaseErrors'
+
+/** Kastes ved insert-feil; bærer PostgREST-feil for klassifisering (uten Error.cause / ES2022). */
+export class EventPersistError extends Error {
+  constructor(
+    message: string,
+    readonly postgrest: PostgrestError
+  ) {
+    super(message)
+    this.name = 'EventPersistError'
+  }
+}
 
 const EVENT_COLUMNS =
   'id, user_id, person_id, date, title, start, end, notes, location, recurrence_group_id, reminder_minutes, metadata'
@@ -109,7 +121,7 @@ export async function createEventForDate(
   userId: string,
   date: string,
   input: Omit<Event, 'id'>
-): Promise<Event | null> {
+): Promise<Event> {
   const payload: Record<string, unknown> = {
     user_id: userId,
     date,
@@ -138,7 +150,7 @@ export async function createEventForDate(
 
   if (error) {
     console.error('[eventsApi] createEventForDate error', error)
-    return null
+    throw new EventPersistError(formatSupabaseError(error), error)
   }
 
   return mapRowToEvent(data as EventRow)

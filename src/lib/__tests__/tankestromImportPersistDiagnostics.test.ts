@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { EventPersistError } from '../eventsApi'
 import {
+  buildTankestromImportEventFailureClosingGuidance,
   buildTankestromImportFailureUserMessage,
   buildTankestromTaskPersistPayloadFingerprint,
   classifyTankestromPersistThrownError,
@@ -136,5 +138,53 @@ describe('tankestromImportPersistDiagnostics', () => {
     )
     expect(msg).toContain('1 av 4')
     expect(msg.toLowerCase()).toMatch(/ikke funnet/)
+  })
+
+  it('klassifiserer PostgREST-feil fra EventPersistError', () => {
+    const pg = {
+      code: 'PGRST204',
+      message: "Could not find the 'metadata' column of 'events' in the schema cache",
+      details: '',
+      hint: '',
+    } as import('@supabase/supabase-js').PostgrestError
+    const err = new EventPersistError('Kunne ikke lagre', pg)
+    const r = classifyTankestromPersistThrownError(err, 'createEvent')
+    expect(r.kind).toBe('event_create_failed')
+    expect(r.supabaseCode).toBe('PGRST204')
+    expect(r.message.toLowerCase()).toMatch(/kolonne|metadata|supabase-fix/)
+  })
+
+  it('database-feil (event_create_failed) skal ikke gi kun «fyll inn manglende felt»', () => {
+    const failures = [
+      {
+        proposalId: 'e1',
+        proposalSurfaceType: 'event' as const,
+        operation: 'createEvent' as const,
+        kind: 'event_create_failed' as const,
+        message: 'Kunne ikke lagre: mangler kolonne',
+        field: 'database' as const,
+        supabaseCode: 'PGRST204',
+      },
+    ]
+    const msg = buildTankestromImportFailureUserMessage(failures, 4)
+    expect(msg.toLowerCase()).toMatch(/database|serverfeil|supabase-fix|ikke lagres/)
+    const closing = buildTankestromImportEventFailureClosingGuidance(failures)
+    expect(closing.toLowerCase()).toMatch(/database|serverfeil/)
+    expect(closing.toLowerCase()).not.toMatch(/^åpne «rediger» på hendelsen og fyll inn manglende felt\.$/)
+  })
+
+  it('valideringsfeil gir fortsatt Rediger-veiledning', () => {
+    expect(
+      buildTankestromImportEventFailureClosingGuidance([
+        {
+          proposalId: 'v1',
+          proposalSurfaceType: 'event',
+          operation: 'createEvent',
+          kind: 'validation',
+          message: 'Mangler tittel',
+          field: 'title',
+        },
+      ])
+    ).toMatch(/Rediger.*fyll inn manglende felt/)
   })
 })
