@@ -29,11 +29,15 @@ export type TankestromImportPersistFailureRecord = {
   childId?: string
   title?: string
   date?: string
-  field?: 'title' | 'date' | 'start' | 'end' | 'personId' | 'parent' | 'database' | 'unknown'
+  field?: 'title' | 'date' | 'start' | 'end' | 'personId' | 'dueTime' | 'parent' | 'database' | 'unknown'
   proposalSurfaceType: 'event' | 'task'
   operation: TankestromImportPersistOperation | 'editEventPrecheck'
   kind: TankestromImportPersistErrorKind
   message: string
+  /** Eksport-validering (preflight), f.eks. `missing_person` eller `multiple_validation`. */
+  validationCode?: string
+  /** Kort, handlingsrettet hint til bruker (vises etter hovedmelding). */
+  actionHint?: string
   /** Fylles ved task-feil for konkrete brukermeldinger og debug. */
   taskPersistContext?: TankestromImportPersistTaskPersistContext
   supabaseCode?: string
@@ -345,7 +349,9 @@ export function buildTankestromImportFailureBulletBlock(
         (f.taskPersistContext?.title ?? '').trim() ||
         'Uten tittel'
       const db = f.supabaseCode ? ` (database: ${f.supabaseCode})` : ''
-      return `• ${t}: ${f.message}${db}`
+      const hint =
+        f.kind === 'validation' && f.actionHint && f.actionHint.trim() ? ` — ${f.actionHint.trim()}` : ''
+      return `• ${t}: ${f.message}${hint}${db}`
     })
     .join('\n')
 }
@@ -382,7 +388,9 @@ export function buildTankestromImportFailureUserMessage(
       .map((f) => {
         const t = (f.title ?? '').trim() || 'Uten tittel'
         const db = f.supabaseCode ? ` (databasekode: ${f.supabaseCode})` : ''
-        return `• ${t}: ${f.message}${db}`
+        const hint =
+          f.kind === 'validation' && f.actionHint && f.actionHint.trim() ? ` — ${f.actionHint.trim()}` : ''
+        return `• ${t}: ${f.message}${hint}${db}`
       })
     if (specific.length > 0) {
       const kinds = new Set(eventFailures.map((f) => f.kind))
