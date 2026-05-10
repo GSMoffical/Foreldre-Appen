@@ -6,8 +6,33 @@
 |----------|--------|
 | `npm test` | Unit- og integrasjonstester (Vitest) |
 | `npm run build` | TypeScript-prosjekt + Vite produksjonsbuild |
+| `npm run check:supabase-events-schema` | Valgfri **read-only** sjekk av at Supabase `events`-tabellen har kolonner appen bruker ved Tankestrom-import (krever eksplisitt flagg + URL/nøkkel) |
 
 Begge forventes grønne før merge av endringer som berører applikasjonskode.
+
+### Supabase `events`-skjema før deploy (anbefalt)
+
+Standard `npm test` **kjører ikke** mot ekte Supabase og fanget derfor ikke manglende kolonner (`metadata`, `reminder_minutes`, `recurrence_group_id`) før manuell UI-test.
+
+For å avdekke mismatch tidlig (mot **dev/staging** — ikke legg inn hemmeligheter i repo):
+
+1. Sett `VITE_SUPABASE_URL` og `VITE_SUPABASE_ANON_KEY` (samme som i `.env.local`, eller hent fra Supabase Dashboard).
+2. Sett **`RUN_SUPABASE_EVENTS_SCHEMA_CHECK=1`** (eller `true`) — uten dette hoppes integrasjonstesten over med vilje.
+3. Kjør:
+
+```bash
+RUN_SUPABASE_EVENTS_SCHEMA_CHECK=1 npm run check:supabase-events-schema
+```
+
+På Windows (PowerShell):
+
+```powershell
+$env:RUN_SUPABASE_EVENTS_SCHEMA_CHECK='1'; npm run check:supabase-events-schema
+```
+
+Sjekken bruker PostgREST **OpenAPI** (`/rest/v1/`) som primærkilde (ingen hendelsesrader leses), med sekundær `select(...).limit(0)` hvis OpenAPI ikke lar seg parse.
+
+**CI:** `test`-jobben har ikke Supabase-secrets; kjør kommandoen i en jobb som allerede har `VITE_SUPABASE_*` (f.eks. etter E2E-secrets) bare hvis dere eksplisitt ønsker det — bruk **staging**-prosjekt, ikke produksjon, med mindre det er bevisst.
 
 ## Playwright E2E
 
