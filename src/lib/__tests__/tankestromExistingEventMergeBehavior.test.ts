@@ -64,7 +64,6 @@ describe('buildTankestromIdempotentEventUpdate (idempotent path)', () => {
       },
     }
     const updates = buildTankestromIdempotentEventUpdate(existing, {
-      date: '2026-06-12',
       personId: 'child-1',
       title: 'Vårcupen – fredag',
       start: '17:45',
@@ -112,7 +111,6 @@ describe('buildTankestromIdempotentEventUpdate (idempotent path)', () => {
       },
     }
     const updates = buildTankestromIdempotentEventUpdate(existing, {
-      date: '2026-06-12',
       personId: 'p',
       title: 't',
       start: '09:00',
