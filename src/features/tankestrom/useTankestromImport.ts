@@ -1128,7 +1128,8 @@ export function validateTankestromDraft(
 ): string | null {
   if (!d.title.trim()) return 'Tittel kan ikke være tom.'
   const dateStr = d.date.trim()
-  if (!DATE_KEY_RE.test(dateStr)) return 'Dato må være på formen ÅÅÅÅ-MM-DD.'
+  if (!dateStr) return 'Dato mangler. Bruk formatet ÅÅÅÅ-MM-DD.'
+  if (!DATE_KEY_RE.test(dateStr)) return 'Bruk formatet ÅÅÅÅ-MM-DD.'
   const parsed = new Date(`${dateStr}T12:00:00`)
   if (Number.isNaN(parsed.getTime())) return 'Ugyldig dato.'
 
@@ -1152,7 +1153,9 @@ export function validateTankestromDraft(
   }
 
   if (requiresPersonForImport(d)) {
-    if (!d.personId.trim() || !validPersonIds.has(d.personId)) return 'Velg person før import.'
+    if (!d.personId.trim() || !validPersonIds.has(d.personId)) {
+      return 'Velg hvilket barn eller hvilken person hendelsen gjelder før du eksporterer til kalenderen.'
+    }
   } else if (d.personId.trim() && !validPersonIds.has(d.personId)) {
     return 'Ugyldig person valgt.'
   }
@@ -1171,7 +1174,8 @@ export function validateTankestromDraft(
 export function validateTankestromTaskDraft(d: TankestromTaskDraft): string | null {
   if (!d.title.trim()) return 'Tittel kan ikke være tom.'
   const dateStr = d.date.trim()
-  if (!DATE_KEY_RE.test(dateStr)) return 'Dato må være på formen ÅÅÅÅ-MM-DD.'
+  if (!dateStr) return 'Dato mangler. Bruk formatet ÅÅÅÅ-MM-DD.'
+  if (!DATE_KEY_RE.test(dateStr)) return 'Bruk formatet ÅÅÅÅ-MM-DD.'
   const parsed = new Date(`${dateStr}T12:00:00`)
   if (Number.isNaN(parsed.getTime())) return 'Ugyldig dato.'
   const due = d.dueTime.trim()
@@ -1181,13 +1185,202 @@ export function validateTankestromTaskDraft(d: TankestromTaskDraft): string | nu
 
 export type TankestromFieldErrorKey = 'title' | 'date' | 'start' | 'end' | 'personId'
 export type TankestromTaskFieldErrorKey = 'title' | 'date' | 'dueTime'
-export type ImportValidationError = {
+
+export type TankestromExportValidationCode =
+  | 'missing_title'
+  | 'missing_date'
+  | 'invalid_date_format'
+  | 'invalid_date'
+  | 'missing_start_time'
+  | 'invalid_start_time'
+  | 'missing_end_time'
+  | 'invalid_end_time'
+  | 'end_not_after_start'
+  | 'missing_person'
+  | 'invalid_person'
+  | 'invalid_participant'
+  | 'primary_participant_order'
+  | 'missing_task_title'
+  | 'missing_task_date'
+  | 'invalid_task_date_format'
+  | 'invalid_task_date'
+  | 'invalid_task_due_time'
+  | 'multiple_validation'
+
+export type TankestromExportValidationIssue = {
+  code: TankestromExportValidationCode
+  field: TankestromFieldErrorKey | TankestromTaskFieldErrorKey
   proposalId: string
   childId?: string
   title: string
-  date?: string
-  field: 'title' | 'date' | 'start' | 'end' | 'personId' | 'parent' | 'database' | 'unknown'
   message: string
+  actionHint: string
+}
+
+const VALIDATION_FIELD_PRIORITY: Partial<Record<TankestromExportValidationIssue['field'], number>> = {
+  personId: 0,
+  title: 1,
+  date: 2,
+  start: 3,
+  end: 4,
+  dueTime: 4,
+}
+
+/**
+ * Strukturerte valideringsfeil før Tankestrøm-eksport til kalender (én rad per felt).
+ * Brukes av import/approve; endrer ikke analysemodell.
+ */
+export function collectTankestromEventExportValidationIssues(
+  proposalId: string,
+  childId: string | undefined,
+  d: TankestromEventDraft,
+  validPersonIds: Set<string>
+): TankestromExportValidationIssue[] {
+  const errs = getTankestromDraftFieldErrors(d, validPersonIds)
+  const displayTitle = d.title.trim() || 'Uten tittel'
+  const order: TankestromFieldErrorKey[] = ['personId', 'title', 'date', 'start', 'end']
+  const out: TankestromExportValidationIssue[] = []
+  for (const key of order) {
+    const msg = errs[key]
+    if (!msg) continue
+    let code: TankestromExportValidationCode
+    let actionHint: string
+    switch (key) {
+      case 'title':
+        code = 'missing_title'
+        actionHint = 'Åpne «Rediger» og fyll inn en kort tittel som beskriver hendelsen.'
+        break
+      case 'date': {
+        const ds = d.date.trim()
+        if (!ds) {
+          code = 'missing_date'
+          actionHint = 'Fyll inn feltet «Dato» (ÅÅÅÅ-MM-DD) før eksport.'
+        } else if (!DATE_KEY_RE.test(ds)) {
+          code = 'invalid_date_format'
+          actionHint = 'Skriv dato som ÅÅÅÅ-MM-DD, for eksempel 2026-06-15.'
+        } else {
+          code = 'invalid_date'
+          actionHint = 'Sjekk at datoen er gyldig (finnes i kalenderen).'
+        }
+        break
+      }
+      case 'start':
+        if (msg.includes('ikke oppgitt')) {
+          code = 'missing_start_time'
+          actionHint =
+            'Legg inn starttid (HH:mm), eller gjør hendelsen til hendelse uten klokkeslett ved å fjerne både start og slutt.'
+        } else {
+          code = 'invalid_start_time'
+          actionHint = 'Starttid må være gyldig klokkeslett (HH:mm, 24-timers format).'
+        }
+        break
+      case 'end':
+        if (msg.includes('Slutt må være')) {
+          code = 'end_not_after_start'
+          actionHint = 'Juster sluttid så den er etter starttid.'
+        } else if (msg.includes('ikke oppgitt') || msg.includes('Sluttid ikke')) {
+          code = 'missing_end_time'
+          actionHint = 'Legg inn sluttid før eksport, eller bekreft hendelse uten klokkeslett.'
+        } else {
+          code = 'invalid_end_time'
+          actionHint = 'Sluttid må være gyldig klokkeslett (HH:mm).'
+        }
+        break
+      case 'personId':
+        if (msg.includes('deltaker') && msg.includes('Ugyldig')) {
+          code = 'invalid_participant'
+          actionHint = 'Fjern ugyldige deltakere eller velg kun personer fra familien.'
+        } else if (msg.includes('Primær')) {
+          code = 'primary_participant_order'
+          actionHint = 'La hovedperson stå først i deltakerlisten, eller fjern ekstra deltakere.'
+        } else if (msg.includes('Ugyldig person')) {
+          code = 'invalid_person'
+          actionHint = 'Velg en gyldig person fra familien i personfeltet.'
+        } else {
+          code = 'missing_person'
+          actionHint = 'Åpne «Rediger» og velg hvilket barn eller hvilken voksen hendelsen gjelder.'
+        }
+        break
+      default:
+        code = 'missing_title'
+        actionHint = 'Se over skjemaet og rett opp det som er markert.'
+    }
+    out.push({ proposalId, childId, title: displayTitle, field: key, code, message: msg, actionHint })
+  }
+  return out
+}
+
+export function collectTankestromTaskExportValidationIssues(
+  proposalId: string,
+  d: TankestromTaskDraft
+): TankestromExportValidationIssue[] {
+  const errs = getTankestromTaskFieldErrors(d)
+  const displayTitle = d.title.trim() || 'Uten tittel'
+  const order: TankestromTaskFieldErrorKey[] = ['title', 'date', 'dueTime']
+  const out: TankestromExportValidationIssue[] = []
+  for (const key of order) {
+    const msg = errs[key]
+    if (!msg) continue
+    let code: TankestromExportValidationCode
+    let actionHint: string
+    switch (key) {
+      case 'title':
+        code = 'missing_task_title'
+        actionHint = 'Åpne oppgaven og fyll inn tittel før eksport.'
+        break
+      case 'date': {
+        const ds = d.date.trim()
+        if (!ds) {
+          code = 'missing_task_date'
+          actionHint = 'Velg fristdato (ÅÅÅÅ-MM-DD) for oppgaven.'
+        } else if (!DATE_KEY_RE.test(ds)) {
+          code = 'invalid_task_date_format'
+          actionHint = 'Skriv dato som ÅÅÅÅ-MM-DD.'
+        } else {
+          code = 'invalid_task_date'
+          actionHint = 'Sjekk at fristdatoen er gyldig.'
+        }
+        break
+      }
+      case 'dueTime':
+        code = 'invalid_task_due_time'
+        actionHint = 'Klokkeslett for frist må være HH:mm, eller la feltet stå tomt.'
+        break
+      default:
+        code = 'missing_task_title'
+        actionHint = 'Se over oppgavefeltene og rett opp det som er markert.'
+    }
+    out.push({ proposalId, title: displayTitle, field: key, code, message: msg, actionHint })
+  }
+  return out
+}
+
+export function groupTankestromExportValidationIssues(issues: TankestromExportValidationIssue[]): {
+  message: string
+  actionHint: string
+  validationCode: TankestromExportValidationCode
+  field: NonNullable<TankestromImportPersistFailureRecord['field']>
+  title: string
+  date?: string
+  childId?: string
+} | null {
+  if (issues.length === 0) return null
+  const sorted = [...issues].sort(
+    (a, b) => (VALIDATION_FIELD_PRIORITY[a.field] ?? 99) - (VALIDATION_FIELD_PRIORITY[b.field] ?? 99)
+  )
+  const maxShow = 3
+  const top = sorted.slice(0, maxShow)
+  const more = sorted.length - top.length
+  const message = top.map((i) => i.message).join(' ') + (more > 0 ? ` (+${more} til)` : '')
+  const first = sorted[0]!
+  return {
+    message,
+    actionHint: top[0]!.actionHint,
+    validationCode: sorted.length === 1 ? first.code : 'multiple_validation',
+    field: first.field as NonNullable<TankestromImportPersistFailureRecord['field']>,
+    title: first.title,
+    childId: first.childId,
+  }
 }
 
 /** Felt-spesifikke meldinger for inline validering (samme regler som validateTankestromDraft). */
@@ -1198,7 +1391,8 @@ export function getTankestromDraftFieldErrors(
   const out: Partial<Record<TankestromFieldErrorKey, string>> = {}
   if (!d.title.trim()) out.title = 'Tittel kan ikke være tom.'
   const dateStr = d.date.trim()
-  if (!DATE_KEY_RE.test(dateStr)) out.date = 'Bruk formatet ÅÅÅÅ-MM-DD.'
+  if (!dateStr) out.date = 'Dato mangler. Bruk formatet ÅÅÅÅ-MM-DD.'
+  else if (!DATE_KEY_RE.test(dateStr)) out.date = 'Bruk formatet ÅÅÅÅ-MM-DD.'
   else {
     const parsed = new Date(`${dateStr}T12:00:00`)
     if (Number.isNaN(parsed.getTime())) out.date = 'Ugyldig dato.'
@@ -1228,7 +1422,8 @@ export function getTankestromDraftFieldErrors(
   }
   if (requiresPersonForImport(d)) {
     if (!d.personId.trim() || !validPersonIds.has(d.personId)) {
-      out.personId = 'Velg person før import.'
+      out.personId =
+        'Velg hvilket barn eller hvilken person hendelsen gjelder før du eksporterer til kalenderen.'
     }
   } else if (d.personId.trim() && !validPersonIds.has(d.personId)) {
     out.personId = 'Ugyldig person valgt.'
@@ -1254,7 +1449,8 @@ export function getTankestromTaskFieldErrors(
   const out: Partial<Record<TankestromTaskFieldErrorKey, string>> = {}
   if (!d.title.trim()) out.title = 'Tittel kan ikke være tom.'
   const dateStr = d.date.trim()
-  if (!DATE_KEY_RE.test(dateStr)) out.date = 'Bruk formatet ÅÅÅÅ-MM-DD.'
+  if (!dateStr) out.date = 'Dato mangler. Bruk formatet ÅÅÅÅ-MM-DD.'
+  else if (!DATE_KEY_RE.test(dateStr)) out.date = 'Bruk formatet ÅÅÅÅ-MM-DD.'
   else {
     const parsed = new Date(`${dateStr}T12:00:00`)
     if (Number.isNaN(parsed.getTime())) out.date = 'Ugyldig dato.'
@@ -1274,17 +1470,8 @@ function preflightEventValidationErrors(
   childId: string | undefined,
   d: TankestromEventDraft,
   validPersonIds: Set<string>
-): ImportValidationError[] {
-  const errs = getTankestromDraftFieldErrors(d, validPersonIds)
-  const out: ImportValidationError[] = []
-  const title = d.title.trim() || 'Uten tittel'
-  const date = d.date.trim() || undefined
-  if (errs.title) out.push({ proposalId, childId, title, date, field: 'title', message: errs.title })
-  if (errs.date) out.push({ proposalId, childId, title, date, field: 'date', message: errs.date })
-  if (errs.start) out.push({ proposalId, childId, title, date, field: 'start', message: errs.start })
-  if (errs.end) out.push({ proposalId, childId, title, date, field: 'end', message: errs.end })
-  if (errs.personId) out.push({ proposalId, childId, title, date, field: 'personId', message: errs.personId })
-  return out
+): TankestromExportValidationIssue[] {
+  return collectTankestromEventExportValidationIssues(proposalId, childId, d, validPersonIds)
 }
 
 function bulkApplyTaskPersonFields(
@@ -3647,7 +3834,7 @@ export function useTankestromImport({
               start: '',
               end: '',
               personId: unified.task.childPersonId || unified.task.assignedToPersonId || '',
-              validationErrors: [],
+              validationErrors: Object.values(getTankestromTaskFieldErrors(unified.task)).filter(Boolean),
             })
           }
           continue
@@ -3710,6 +3897,8 @@ export function useTankestromImport({
           | 'title'
           | 'date'
           | 'field'
+          | 'validationCode'
+          | 'actionHint'
           | 'supabaseCode'
           | 'supabaseMessage'
           | 'supabaseDetails'
@@ -3741,6 +3930,25 @@ export function useTankestromImport({
           tankestromImportPersistErrorMessage: message,
           proposalId,
           proposalSurfaceType: surface,
+        })
+      }
+
+      const recordGroupedExportValidation = (
+        proposalId: string,
+        surface: 'event' | 'task',
+        operation: TankestromImportPersistFailureRecord['operation'],
+        issues: TankestromExportValidationIssue[],
+        dateKey?: string
+      ) => {
+        const grouped = groupTankestromExportValidationIssues(issues)
+        if (!grouped) return
+        recordFailure(proposalId, surface, operation, 'validation', grouped.message, {
+          childId: grouped.childId,
+          title: grouped.title,
+          date: dateKey?.trim() || undefined,
+          field: grouped.field,
+          validationCode: grouped.validationCode,
+          actionHint: grouped.actionHint,
         })
       }
 
@@ -3846,14 +4054,7 @@ export function useTankestromImport({
             draftEv = reconcileEmbeddedExportAfterDraftMerge(draftEv, row.segment, id)
             const preflightEmb = preflightEventValidationErrors(id, id, draftEv, validPersonIds)
             if (preflightEmb.length > 0) {
-              for (const v of preflightEmb) {
-                recordFailure(id, 'event', 'createEvent', 'validation', v.message, {
-                  childId: v.childId,
-                  title: v.title,
-                  date: v.date,
-                  field: v.field,
-                })
-              }
+              recordGroupedExportValidation(id, 'event', 'createEvent', preflightEmb, draftEv.date)
               continue
             }
             const parentProposal = parentItem
@@ -3982,14 +4183,7 @@ export function useTankestromImport({
           }
           const preflightErrors = preflightEventValidationErrors(id, id, draftEv, validPersonIds)
           if (preflightErrors.length > 0) {
-            for (const v of preflightErrors) {
-              recordFailure(id, 'event', 'createEvent', 'validation', v.message, {
-                childId: v.childId,
-                title: v.title,
-                date: v.date,
-                field: v.field,
-              })
-            }
+            recordGroupedExportValidation(id, 'event', 'createEvent', preflightErrors, draftEv.date)
             continue
           }
           const integration = {
@@ -4135,6 +4329,11 @@ export function useTankestromImport({
 
         if (unified.importKind === 'task') {
           const t = unified.task
+          const taskExportIssues = collectTankestromTaskExportValidationIssues(id, t)
+          if (taskExportIssues.length > 0) {
+            recordGroupedExportValidation(id, 'task', 'createTask', taskExportIssues, t.date)
+            continue
+          }
           const rawIntent = t.taskIntent
           const safeIntent = normalizeTaskIntent(rawIntent) ?? 'must_do'
           if (
@@ -4470,13 +4669,7 @@ export function useTankestromImport({
           if (draft.location.length > 0) updates.location = draft.location
           const updatePreflight = preflightEventValidationErrors(id, undefined, draft, validPersonIds)
           if (updatePreflight.length > 0) {
-            for (const v of updatePreflight) {
-              recordFailure(id, 'event', 'editEventPrecheck', 'validation', v.message, {
-                title: v.title,
-                date: v.date,
-                field: v.field,
-              })
-            }
+            recordGroupedExportValidation(id, 'event', 'editEventPrecheck', updatePreflight, draft.date)
             continue
           }
 
@@ -4636,14 +4829,13 @@ export function useTankestromImport({
               )
               if (childPreflight.length > 0) {
                 allSegmentCreatesOk = false
-                for (const v of childPreflight) {
-                  recordFailure(childProposalId, 'event', 'createEvent', 'validation', v.message, {
-                    childId: childProposalId,
-                    title: v.title,
-                    date: v.date,
-                    field: v.field,
-                  })
-                }
+                recordGroupedExportValidation(
+                  childProposalId,
+                  'event',
+                  'createEvent',
+                  childPreflight,
+                  draftEv.date
+                )
                 continue
               }
 
@@ -4873,13 +5065,7 @@ export function useTankestromImport({
         }
         const preflight = preflightEventValidationErrors(id, undefined, draft, validPersonIds)
         if (preflight.length > 0) {
-          for (const v of preflight) {
-            recordFailure(id, 'event', 'createEvent', 'validation', v.message, {
-              title: v.title,
-              date: v.date,
-              field: v.field,
-            })
-          }
+          recordGroupedExportValidation(id, 'event', 'createEvent', preflight, draft.date)
           continue
         }
         try {
