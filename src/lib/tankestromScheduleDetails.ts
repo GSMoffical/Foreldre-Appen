@@ -183,6 +183,102 @@ function isLikelyBringItem(line: string): boolean {
   return false
 }
 
+/** Tommelfingerregler for Husk/ta med i import-preview (ikke stedsspesifikke cup-navn). */
+const TANKESTROM_GENERIC_BRING_TOKENS = new Set([
+  'utstyr',
+  'ting',
+  'diverse',
+  'saker',
+  'equipment',
+  'stuff',
+  'greier',
+  'masse',
+  'litt',
+  'noe',
+  'allting',
+  'annet',
+])
+
+const TANKESTROM_CONCRETE_BRING_RE = new RegExp(
+  [
+    String.raw`\b(matpakke|mat\s*og\s*drikke|drikkeflaske|drikke(?=\s|$)|flaske|vann|juice|energi|frokost|lunch|lunsj)\b`,
+    String.raw`\b(regnjakke|jakke|bukse|bukser|shorts|genser|skjorte|trøye|t[\s-]?skjorte|drakt|klubbgenser|uniform|klær)\b`,
+    String.raw`\b(sko|skoene|støvler|fotballsko|joggesko|innesko|sandaler)\b`,
+    String.raw`\b(sokker|strømper|sokk|undertøy|overtrekk|overtrekksbukse|overtrekksklær|leggskyttere?|leggskinn)\b`,
+    String.raw`\b(hansker|hanske|arbeidshansker|votter|lue|hette|hjelm|ball)\b`,
+    String.raw`\b(håndkle|handkle)\b`,
+    String.raw`\b(billett|billetter|dokument|dokumenter|legitimasjon|pass)\b`,
+    String.raw`\b(bag|sekk|ryggsekk|sekken)\b`,
+    String.raw`\b(begge|ekstra|spare|reserve)\b`,
+    String.raw`\b(røde?|sort|svart|hvit|blå|graa|grå|gul|grønn|oransje|lilla)\b`,
+  ].join('|'),
+  'i'
+)
+
+function isTankestromParentLogisticsBringLine(raw: string): boolean {
+  const k = normalizeTextKey(raw.trim())
+  if (!k) return false
+  if (/\bforeldre\b/.test(k) && /\b(bidra|still|frivillig|samlingspunkt|servert|kaffe|kake)\b/.test(k)) return true
+  if (/\bforeldre\s+kan\b/.test(k)) return true
+  if (/\bsamlingspunkt\b/.test(k) && /\b(bidra|foreldre|felles)\b/.test(k)) return true
+  if (/\bvi\s+trenger\s+(hjelp|foreldre)\b/.test(k)) return true
+  return false
+}
+
+function isGenericOnlyBringPhraseNormalized(k: string): boolean {
+  const parts = k
+    .split(' ')
+    .map((x) => x.trim())
+    .filter((w) => w && w !== 'og' && w !== 'eller' && w !== 'ogsa')
+  if (parts.length === 0) return true
+  return parts.every((w) => TANKESTROM_GENERIC_BRING_TOKENS.has(w))
+}
+
+function hasTankestromConcreteBringSignal(raw: string): boolean {
+  const t = raw.trim()
+  if (/[0-9]/.test(t)) return true
+  return TANKESTROM_CONCRETE_BRING_RE.test(t)
+}
+
+function hasSubstantialNonGenericBringPhrase(raw: string, genericOnly: boolean): boolean {
+  if (genericOnly) return false
+  const words = raw.trim().split(/\s+/).filter(Boolean)
+  return words.length >= 5
+}
+
+function qualifiesUtstyrWithSpecifier(raw: string): boolean {
+  if (!/\butstyr\b/i.test(raw)) return false
+  return raw.trim().split(/\s+/).filter(Boolean).length >= 3
+}
+
+/**
+ * Delprogram / import: konkrete «ta med»-punkter i Husk/ta med; foreldrelogistikk til notater;
+ * generiske enkeltord (f.eks. «utstyr») fjernes.
+ */
+export function partitionTankestromBringItemsForPreview(items: readonly string[]): {
+  concreteBring: string[]
+  divertToNotes: string[]
+} {
+  const concreteBring: string[] = []
+  const divertToNotes: string[] = []
+  for (const raw of items) {
+    const t = normalizeBringItem(raw)
+    if (!t) continue
+    if (isTankestromParentLogisticsBringLine(t)) {
+      divertToNotes.push(t)
+      continue
+    }
+    const k = normalizeTextKey(t)
+    const genericOnly = isGenericOnlyBringPhraseNormalized(k)
+    const concreteSig = hasTankestromConcreteBringSignal(t)
+    const utstyrOk = qualifiesUtstyrWithSpecifier(t)
+    const substantial = hasSubstantialNonGenericBringPhrase(t, genericOnly)
+    if (!concreteSig && !utstyrOk && !substantial) continue
+    concreteBring.push(t)
+  }
+  return { concreteBring, divertToNotes }
+}
+
 function isJunkNoteFragment(line: string): boolean {
   const trimmed = line.trim()
   const k = normalizeTextKey(trimmed)
@@ -533,7 +629,7 @@ export function normalizeTankestromScheduleDetails(input: {
     remainingNotesRaw.push(n)
   }
 
-  const bringItems = dedupeBringItemsList([...initialBring, ...fromNotes, ...liftedFromLists])
+  let bringItems = dedupeBringItemsList([...initialBring, ...fromNotes, ...liftedFromLists])
 
   let notes = remainingNotesRaw
     .filter((n) => {
@@ -636,6 +732,19 @@ export function normalizeTankestromScheduleDetails(input: {
       }
     }
   }
+
+  const bringPartition = partitionTankestromBringItemsForPreview(bringItems)
+  bringItems = dedupeBringItemsList(bringPartition.concreteBring)
+  if (bringPartition.divertToNotes.length > 0) {
+    const noteKeys = new Set(notes.map((n) => normalizeTextKey(n)))
+    for (const d of bringPartition.divertToNotes) {
+      const dk = normalizeTextKey(d)
+      if (!dk || noteKeys.has(dk)) continue
+      notes.push(d)
+      noteKeys.add(dk)
+    }
+  }
+  notes = dedupeNotesAgainstHighlights(notes, highlights)
 
   const out: NormalizedTankestromScheduleDetails = {
     highlights,
@@ -786,4 +895,28 @@ export function buildTankestromScheduleDescriptionFallback(
     for (const n of notes) rows.push(`- ${n}`)
   }
   return rows.join('\n').trim()
+}
+
+/** Én sammenhengende notattekst for kalender-persist (inkl. ta med / tidsvinduer). */
+export function buildCalendarNotesFromNormalizedScheduleDetails(
+  details: NormalizedTankestromScheduleDetails
+): string {
+  const chunks: string[] = []
+  const body = buildTankestromScheduleDescriptionFallback(details.highlights, details.notes)
+  if (body) chunks.push(body)
+  if (details.bringItems.length > 0) {
+    if (chunks.length > 0) chunks.push('')
+    chunks.push('Ta med:')
+    for (const b of details.bringItems) chunks.push(`- ${b}`)
+  }
+  if (details.timeWindowSummaries.length > 0) {
+    if (chunks.length > 0) chunks.push('')
+    chunks.push('Tidsvinduer:')
+    for (const t of details.timeWindowSummaries) {
+      const tent = t.tentative ? ' (foreløpig)' : ''
+      const lab = t.label?.trim()
+      chunks.push(`- ${t.timeRange}${lab ? ` ${lab}` : ''}${tent}`)
+    }
+  }
+  return chunks.join('\n').trim()
 }

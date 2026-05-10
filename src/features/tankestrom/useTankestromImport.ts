@@ -36,6 +36,7 @@ import {
   resolveEmbeddedScheduleSegmentTimesForCalendarExport,
 } from '../../lib/tankestromEmbeddedChildNotesPresentation'
 import {
+  buildCalendarNotesFromNormalizedScheduleDetails,
   buildTankestromScheduleDescriptionFallback,
   dedupeNotesAgainstHighlights,
   normalizeTankestromScheduleDetails,
@@ -587,6 +588,124 @@ function resolveTankestromExistingEventPersistPlan(
   return { mode: 'new', reason: 'no_match_or_rejected' }
 }
 
+const EMBEDDED_CHILD_PARENT_NOTES_FALLBACK_MAX = 720
+
+function normalizeTextKeyEmbeddedChild(value: string): string {
+  return value
+    .toLocaleLowerCase('nb-NO')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function mergeDistinctEmbeddedChildNoteLines(lines: readonly string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const raw of lines) {
+    const t = raw.replace(/\r\n/g, '\n').trim()
+    if (t.length < 2) continue
+    const k = normalizeTextKeyEmbeddedChild(t)
+    if (!k || seen.has(k)) continue
+    seen.add(k)
+    out.push(t)
+  }
+  return out
+}
+
+function mergeTankestromHighlightsLists(
+  a: TankestromScheduleHighlight[],
+  b: TankestromScheduleHighlight[]
+): TankestromScheduleHighlight[] {
+  const m = new Map<string, TankestromScheduleHighlight>()
+  for (const h of [...a, ...b]) {
+    const time = h.time.slice(0, 5)
+    const lab = h.label.trim()
+    const key = `${time}__${normalizeTextKeyEmbeddedChild(lab === '—' ? '' : lab) || time}`
+    const prev = m.get(key)
+    if (!prev || (lab !== '—' && lab.length > prev.label.length)) {
+      m.set(key, { ...h, time, label: lab || prev?.label || h.label })
+    }
+  }
+  return [...m.values()].sort((x, y) => x.time.localeCompare(y.time))
+}
+
+function mapSegmentTankestromHighlights(segment: EmbeddedScheduleSegment): TankestromScheduleHighlight[] {
+  const raw = segment.tankestromHighlights
+  if (!raw?.length) return []
+  const out: TankestromScheduleHighlight[] = []
+  for (const h of raw) {
+    const time = typeof h.time === 'string' ? h.time.trim().slice(0, 5) : ''
+    const label = typeof h.label === 'string' ? h.label.trim() : ''
+    if (!time || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time) || !label) continue
+    out.push({
+      time,
+      label,
+      type: h.type ?? highlightTypeFromLabel(label),
+    })
+  }
+  return out.sort((a, b) => a.time.localeCompare(b.time))
+}
+
+function hmFromSegmentStartForNormalize(segment: EmbeddedScheduleSegment): string | undefined {
+  const s = segment.start?.trim().slice(0, 5)
+  if (!s || !/^([01]\d|2[0-3]):[0-5]\d$/.test(s)) return undefined
+  return s
+}
+
+function cappedParentNotesForEmbeddedChildFallback(parentNotes: string): string | undefined {
+  const t = parentNotes.replace(/\r\n/g, '\n').trim()
+  if (!t) return undefined
+  if (t.length <= EMBEDDED_CHILD_PARENT_NOTES_FALLBACK_MAX) {
+    return `(Felles info fra arrangementet)\n\n${t}`
+  }
+  const slice = t.slice(0, EMBEDDED_CHILD_PARENT_NOTES_FALLBACK_MAX).trim()
+  const cut = slice.replace(/\s+\S*$/, '').trim()
+  return `(Felles info fra arrangementet – forkortet)\n\n${cut}…`
+}
+
+function composeEmbeddedChildCalendarNotesFromParentAndSegment(
+  parentDraft: Pick<TankestromEventDraft, 'title' | 'notes'>,
+  segment: EmbeddedScheduleSegment,
+  opts?: { childProposalId?: string; siblingTitlesBlob?: string }
+): string {
+  const calendarTitle = embeddedScheduleChildCalendarExportTitle(
+    segment,
+    parentDraft.title,
+    opts?.siblingTitlesBlob
+  )
+  const parentCore = normalizeEmbeddedScheduleParentDisplayTitle(parentDraft.title.trim()).title
+  const childProposalId = opts?.childProposalId ?? 'embedded-child'
+  const scheduleDetails = structuredDetailsFromSegment(
+    segment,
+    parentCore,
+    calendarTitle,
+    childProposalId
+  )
+  let notes = buildCalendarNotesFromNormalizedScheduleDetails(scheduleDetails)
+  if (!notes.trim() && segment.tankestromDescriptionFallback?.trim()) {
+    notes = segment.tankestromDescriptionFallback.trim()
+  }
+  if (!notes.trim()) {
+    notes = cappedParentNotesForEmbeddedChildFallback(parentDraft.notes) ?? ''
+  }
+  return notes
+}
+
+/** Eksponert for enhetstester (delprogram → kalender-notater). */
+export function composeEmbeddedChildCalendarNotesForExport(
+  parentTitle: string,
+  parentNotes: string,
+  segment: EmbeddedScheduleSegment,
+  opts?: { childProposalId?: string; siblingTitlesBlob?: string }
+): string {
+  return composeEmbeddedChildCalendarNotesFromParentAndSegment(
+    { title: parentTitle, notes: parentNotes },
+    segment,
+    opts
+  )
+}
+
 function buildEmbeddedChildEventDraft(
   parentDraft: TankestromEventDraft,
   segment: EmbeddedScheduleSegment,
@@ -610,6 +729,10 @@ function buildEmbeddedChildEventDraft(
       segmentTitleRaw: segment.title,
     })
   }
+  const notes = composeEmbeddedChildCalendarNotesFromParentAndSegment(parentDraft, segment, {
+    childProposalId: timeOpts?.childProposalId,
+    siblingTitlesBlob: timeOpts?.siblingTitlesBlob,
+  })
   return {
     ...parentDraft,
     documentExtractedPersonName: undefined,
@@ -617,7 +740,7 @@ function buildEmbeddedChildEventDraft(
     date: segment.date,
     start,
     end,
-    notes: segment.notes?.trim() ? segment.notes.trim() : parentDraft.notes,
+    notes,
     embeddedScheduleExport:
       segmentHasConcreteTimes && exportTimes?.usesSyntheticLayoutEnd
         ? {
@@ -656,6 +779,22 @@ function structuredDetailsFromSegment(
         ]
       : undefined
 
+  const segHighlights = mapSegmentTankestromHighlights(segment)
+  const segNotesList = [...(segment.tankestromNotes ?? [])]
+  const precomputedSummaries =
+    Array.isArray(segment.tankestromTimeWindowSummaries) && segment.tankestromTimeWindowSummaries.length > 0
+      ? segment.tankestromTimeWindowSummaries
+      : undefined
+
+  const normalizeBase = {
+    bringItems: bring,
+    titleContext: [displayTitle, parentCardTitle],
+    timeWindowCandidates: tw,
+    precomputedTimeWindowSummaries: precomputedSummaries,
+    tentativeTimeWindow: segment.isConditional === true,
+    fallbackStartTime: hmFromSegmentStartForNormalize(segment),
+  }
+
   const p = presentEmbeddedChildNotesForReview({
     seg: segment,
     parentCardTitle,
@@ -664,34 +803,32 @@ function structuredDetailsFromSegment(
   })
   if (!p) {
     return normalizeTankestromScheduleDetails({
-      highlights: [],
-      notes: segment.notes?.trim() ? [segment.notes.trim()] : [],
-      bringItems: bring,
-      titleContext: [displayTitle, parentCardTitle],
-      timeWindowCandidates: tw,
+      highlights: segHighlights,
+      notes: segNotesList,
+      ...normalizeBase,
     })
   }
   if (p.mode === 'plain') {
     return normalizeTankestromScheduleDetails({
-      highlights: [],
-      notes: segment.notes?.trim() ? [segment.notes.trim()] : [],
-      bringItems: bring,
-      titleContext: [displayTitle, parentCardTitle],
-      timeWindowCandidates: tw,
+      highlights: segHighlights,
+      notes: mergeDistinctEmbeddedChildNoteLines([p.notesText, ...segNotesList]),
+      ...normalizeBase,
     })
   }
-  const highlights = p.highlights.map((h) => ({
-    time: h.displayTime.slice(0, 5),
+  const fromPres = p.highlights.map((h) => ({
+    time: h.timeStart.slice(0, 5),
     label: h.label,
     type: highlightTypeFromLabel(h.label),
   }))
-  const notes = dedupeNotesAgainstHighlights(p.noteLines, highlights)
+  const mergedHigh = mergeTankestromHighlightsLists(fromPres, segHighlights)
+  const notes = dedupeNotesAgainstHighlights(
+    mergeDistinctEmbeddedChildNoteLines([...p.noteLines, ...segNotesList]),
+    mergedHigh
+  )
   return normalizeTankestromScheduleDetails({
-    highlights,
+    highlights: mergedHigh,
     notes,
-    bringItems: bring,
-    titleContext: [displayTitle, parentCardTitle],
-    timeWindowCandidates: tw,
+    ...normalizeBase,
   })
 }
 
@@ -788,7 +925,11 @@ function buildDetachedEmbeddedChildProposal(
       start,
       end,
       title: embeddedScheduleChildCalendarExportTitle(segment, parent.event.title),
-      notes: segment.notes?.trim() ? segment.notes.trim() : parent.event.notes,
+      notes: composeEmbeddedChildCalendarNotesFromParentAndSegment(
+        { title: parent.event.title, notes: parent.event.notes ?? '' },
+        segment,
+        { childProposalId: proposalId }
+      ),
       metadata: baseMeta,
     },
   }
@@ -1519,6 +1660,8 @@ function sanitizeEmbeddedChildCalendarExportMetadata(metadata: Record<string, un
   delete metadata.multiDayAllDay
   delete metadata.__anchorDate
   metadata.isAllDay = false
+  /** Bevarer sammensatte delprogram-notater i `buildPersistNotes` (ellers strippes «Høydepunkter:»-blokker). */
+  metadata.tankestromPersistEventNotesFromEmbeddedChild = true
 }
 
 function draftIsDateOnly(draft: Pick<TankestromEventDraft, 'start' | 'end'>): boolean {
@@ -1627,6 +1770,7 @@ function stripGeneratedTankestromFallbackNotes(
   metadata?: Record<string, unknown>
 ): string {
   if (!metadata) return notes
+  if (metadata.tankestromPersistEventNotesFromEmbeddedChild === true) return notes
   const hasStructured =
     (Array.isArray(metadata.tankestromHighlights) && metadata.tankestromHighlights.length > 0) ||
     (Array.isArray(metadata.tankestromNotes) && metadata.tankestromNotes.length > 0)
