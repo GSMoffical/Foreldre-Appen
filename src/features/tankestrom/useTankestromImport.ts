@@ -75,6 +75,7 @@ import {
 } from '../../lib/tankestromExistingEventMatch'
 import { addCalendarDaysOslo } from '../../lib/osloCalendar'
 import {
+  buildTankestromExplicitUpdateEventNotes,
   buildTankestromIdempotentEventUpdate,
   findTankestromPersistDuplicateInAnchors,
   tankestromPersistFingerprint,
@@ -4809,7 +4810,16 @@ export function useTankestromImport({
             personId: normalizePersistedPersonId(draft.personId),
             ...buildPersistTimes(draft),
           }
-          updates.notes = buildPersistNotes(draft, metadata)
+          /**
+           * Bevar eksisterende notater når bruker velger «Oppdater eksisterende» i review.
+           * Tankestrøm-import skal kunne legge til oppfølgings-detaljer uten å overskrive
+           * manuelle eller tidligere notater på kalenderhendelsen. Samme regel som
+           * idempotent-stien (`buildTankestromIdempotentEventUpdate` / `mergeNotesPreferNonEmpty`).
+           */
+          updates.notes = buildTankestromExplicitUpdateEventNotes(
+            existingEvent.notes,
+            buildPersistNotes(draft, metadata)
+          )
           if (draft.location.length > 0) updates.location = draft.location
           const updatePreflight = preflightEventValidationErrors(id, undefined, draft, validPersonIds)
           if (updatePreflight.length > 0) {

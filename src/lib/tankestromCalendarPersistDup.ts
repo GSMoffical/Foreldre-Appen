@@ -102,6 +102,26 @@ export function mergeNotesPreferNonEmpty(a: string | undefined, b: string | unde
   return `${t1}\n\n${t2}`
 }
 
+/**
+ * Tankestrøm-review: notatfelt når brukeren eksplisitt velger «Oppdater eksisterende».
+ *
+ * Samme bevarings-regel som idempotent-stien (`mergeNotesPreferNonEmpty`):
+ *   1. tom ny tekst → behold eksisterende
+ *   2. tom eksisterende → bruk ny
+ *   3. én tekst er substring av den andre → behold mest komplette
+ *   4. ellers → eksisterende `\n\n` ny
+ *
+ * Motivasjon: tidligere ble `existingEvent.notes` ignorert i update-grenen, slik at
+ * manuelle/gamle notater forsvant ved oppfølgingsimport. Eksponert som egen funksjon
+ * for å gjøre intensjonen og test-dekningen tydelig.
+ */
+export function buildTankestromExplicitUpdateEventNotes(
+  existingNotes: string | undefined,
+  importPersistNotes: string | undefined
+): string | undefined {
+  return mergeNotesPreferNonEmpty(existingNotes, importPersistNotes)
+}
+
 export function buildTankestromIdempotentEventUpdate(existing: Event, input: Omit<Event, 'id'>): Partial<Event> {
   const exMeta =
     existing.metadata && typeof existing.metadata === 'object' && !Array.isArray(existing.metadata)
