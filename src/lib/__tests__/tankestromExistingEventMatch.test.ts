@@ -329,6 +329,112 @@ describe('findConservativeExistingEventMatch', () => {
     expect(r.defaultAction).toBe('update')
   })
 
+  it('beholder avvisning av container-rad med annen arrangementStableKey (ikke cluster-dag)', () => {
+    const proposal: PortalEventProposal = {
+      proposalId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      kind: 'event',
+      sourceId: 'src',
+      originalSourceType: 'text',
+      confidence: 0.9,
+      event: {
+        date: '2026-06-12',
+        personId: 'child-1',
+        title: 'Eksempelcup hele helgen',
+        start: '00:00',
+        end: '23:59',
+        notes: '',
+        location: '',
+        metadata: {
+          endDate: '2026-06-14',
+          isAllDay: true,
+          multiDayAllDay: true,
+          arrangementStableKey: 'import-parent-stable-for-test',
+          embeddedSchedule: [
+            { date: '2026-06-12', title: 'Fredag' },
+            { date: '2026-06-13', title: 'Lørdag' },
+          ],
+        },
+      },
+    }
+    const existingContainer: Event = {
+      id: 'evt-container-other-key',
+      personId: 'child-1',
+      title: 'Eksempelcup — container',
+      start: '00:00',
+      end: '23:59',
+      notes: '',
+      metadata: {
+        isAllDay: true,
+        endDate: '2026-06-14',
+        arrangementStableKey: 'existing-container-other-stable-key',
+        embeddedSchedule: [{ date: '2026-06-12', title: 'Dag 1' }],
+      },
+    }
+    const r = findConservativeExistingEventMatch(
+      proposal,
+      proposal.event.title,
+      '2026-06-12',
+      '2026-06-14',
+      'child-1',
+      [{ event: existingContainer, anchorDate: '2026-06-12' }]
+    )
+    expect(r.rejected).toBe(true)
+    expect(r.candidate).toBeNull()
+    expect(r.rejectReason).toBe('no_candidate')
+    expect(r.importMatchTrace?.stableKeyMismatchAllowedForClusterDayRow).toBeFalsy()
+  })
+
+  it('cluster dag-rad med ulik stableKey matcher ikke når tittel er helt annet arrangement (false positive)', () => {
+    const proposal: PortalEventProposal = {
+      proposalId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      kind: 'event',
+      sourceId: 'src',
+      originalSourceType: 'text',
+      confidence: 0.9,
+      event: {
+        date: '2026-06-12',
+        personId: 'child-1',
+        title: 'Padling og bading i naturperle',
+        start: '00:00',
+        end: '23:59',
+        notes: '',
+        location: '',
+        metadata: {
+          endDate: '2026-06-14',
+          isAllDay: true,
+          multiDayAllDay: true,
+          arrangementStableKey: 'import-stable-for-unrelated-title-test',
+          embeddedSchedule: [
+            { date: '2026-06-12', title: 'Fredag' },
+            { date: '2026-06-13', title: 'Lørdag' },
+          ],
+        },
+      },
+    }
+    const existingFriday: Event = {
+      id: 'evt-basket-fri',
+      personId: 'child-1',
+      title: 'Basketballskole – fredag',
+      start: '10:00',
+      end: '15:00',
+      notes: '',
+      metadata: {
+        arrangementStableKey: 'export-day-stable-basketball',
+      },
+    }
+    const r = findConservativeExistingEventMatch(
+      proposal,
+      proposal.event.title,
+      '2026-06-12',
+      '2026-06-14',
+      'child-1',
+      [{ event: existingFriday, anchorDate: '2026-06-12' }]
+    )
+    expect(r.rejected).toBe(true)
+    expect(r.candidate).toBeNull()
+    expect(r.importMatchTrace?.stableKeyMismatchAllowedForClusterDayRow).toBeFalsy()
+  })
+
   it('avviser import som ikke er container-lik (ingen flerdagers/endDate-skille, ikke programforelder)', () => {
     const proposal: PortalEventProposal = {
       proposalId: '11111111-1111-4111-8111-111111111111',
