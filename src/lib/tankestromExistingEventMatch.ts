@@ -416,6 +416,12 @@ export type ExistingEventImportMatchTrace = {
   diagnosticRowCount: number
   bestScoreSeen: number
   topRejectedReason: string | null
+  /**
+   * True når treffende rad ble vurdert etter parent/dag-stableKey-ulikhet:
+   * import har arrangementStableKey, dag-rad hadde annen exKey, men vi slapp den gjennom
+   * fordi raden er cluster/follow-up-dag (ikke container).
+   */
+  stableKeyMismatchAllowedForClusterDayRow?: boolean
 }
 
 export type ExistingEventMatchResult = {
@@ -434,7 +440,8 @@ export type ExistingEventMatchResult = {
 function attachImportMatchTrace(
   result: ExistingEventMatchResult,
   anchoredLen: number,
-  diags: readonly ExistingEventMatchCandidateDiag[]
+  diags: readonly ExistingEventMatchCandidateDiag[],
+  extraTrace?: Partial<ExistingEventImportMatchTrace>
 ): ExistingEventMatchResult {
   const sorted = [...diags].sort((a, b) => b.score - a.score)
   const top = sorted[0]
@@ -448,6 +455,7 @@ function attachImportMatchTrace(
       diagnosticRowCount: diags.length,
       bestScoreSeen,
       topRejectedReason,
+      ...extraTrace,
     },
   }
 }
@@ -574,6 +582,7 @@ export function findConservativeExistingEventMatch(
     clusterFollowUp: boolean
     locationMatch: boolean
     usedEmbeddedScheduleDateTolerance: boolean
+    stableKeyMismatchAllowedForClusterDayRow: boolean
   } | null = null
 
   let overlapPersonAnchors = 0
@@ -590,12 +599,28 @@ export function findConservativeExistingEventMatch(
 
   for (const anchor of anchoredExisting) {
     const { event, anchorDate } = anchor
+    const containerLike = existingEventLooksLikeContainer(anchor)
+    let stableKeyMismatchAllowedForClusterDayRow = false
     if (incomingStableKey) {
       const exKey = readArrangementStableKey(event.metadata)
-      if (exKey && exKey !== incomingStableKey) continue
+      if (exKey && exKey !== incomingStableKey) {
+        const existingIsClusterDayRow = !containerLike && isFollowUpClusterDayRowAnchor(anchor)
+        if (containerLike || !existingIsClusterDayRow) {
+          continue
+        }
+        stableKeyMismatchAllowedForClusterDayRow = true
+        if (dbg) {
+          console.debug('[tankestrom existing event match]', {
+            stableKeyMismatchAllowedForClusterDayRow: true,
+            incomingStableKey,
+            existingStableKey: exKey,
+            eventId: event.id,
+            anchorDate,
+          })
+        }
+      }
     }
 
-    const containerLike = existingEventLooksLikeContainer(anchor)
     const clusterFollowUp = !containerLike && isFollowUpClusterDayRowAnchor(anchor)
     if (!containerLike && !clusterFollowUp) {
       matchCandidateDiags.push({
@@ -749,6 +774,7 @@ export function findConservativeExistingEventMatch(
       clusterFollowUp,
       locationMatch,
       usedEmbeddedScheduleDateTolerance,
+      stableKeyMismatchAllowedForClusterDayRow,
     }
     if (!best) {
       best = cand
@@ -878,6 +904,7 @@ export function findConservativeExistingEventMatch(
         eventId: best.anchor.event.id,
         anchorDate: best.anchor.anchorDate,
       },
+      stableKeyMismatchAllowedForClusterDayRow: best.stableKeyMismatchAllowedForClusterDayRow,
     })
   }
 
@@ -892,7 +919,10 @@ export function findConservativeExistingEventMatch(
       ...(learnedStableKey ? { learnedStableKey: true } : {}),
     },
     anchoredExisting.length,
-    matchCandidateDiags
+    matchCandidateDiags,
+    best.stableKeyMismatchAllowedForClusterDayRow
+      ? { stableKeyMismatchAllowedForClusterDayRow: true }
+      : undefined
   )
 }
 
