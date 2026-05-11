@@ -18,7 +18,9 @@
     "deploy:hostinger:dry": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-hostinger.ps1 -DryRun",
     "deploy:hostinger:test": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-hostinger.ps1 -SkipBuild -TestConnection",
     "deploy:hostinger:password": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-hostinger.ps1 -UsePasswordAuth",
-    "deploy:hostinger:test:password": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-hostinger.ps1 -SkipBuild -TestConnection -UsePasswordAuth"
+    "deploy:hostinger:password:dry": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-hostinger.ps1 -UsePasswordAuth -DryRun",
+    "deploy:hostinger:test:password": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-hostinger.ps1 -SkipBuild -TestConnection -UsePasswordAuth",
+    "verify:hostinger": "powershell -ExecutionPolicy Bypass -File ./scripts/verify-hostinger.ps1"
   },
   "dependencies": {
     "@sentry/react": "^10.52.0",
