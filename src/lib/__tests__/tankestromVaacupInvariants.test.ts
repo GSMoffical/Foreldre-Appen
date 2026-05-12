@@ -129,14 +129,26 @@ describe('correctMislabeledHighlightsAgainstSourceText', () => {
     expect(out.relabeled).toHaveLength(1)
   })
 
-  it('dropper Oppmøte uten noe oppmøte-evidens i kilden', () => {
+  it('dropper Oppmøte på foreløpig dag når tiden ikke er eksplisitt i kilden', () => {
     const out = correctMislabeledHighlightsAgainstSourceText(
       [{ time: '17:45', label: 'Oppmøte', type: 'meeting' }],
-      'Program for søndag avhenger av plassering etter lørdagens kamper.'
+      'Program for søndag avhenger av plassering etter lørdagens kamper.',
+      { isConditionalSegment: true }
     )
     expect(out.highlights).toEqual([])
     expect(out.dropped).toHaveLength(1)
-    expect(out.dropped[0]!.reason).toBe('no_oppmote_evidence')
+    expect(out.dropped[0]!.reason).toBe('tentative_segment_without_explicit_time')
+  })
+
+  it('beholder Oppmøte på vanlig dag uten oppmøte-ord i kilde (konservativ default)', () => {
+    const out = correctMislabeledHighlightsAgainstSourceText(
+      [{ time: '08:20', label: 'Oppmøte før første kamp', type: 'meeting' }],
+      'Laget spiser felles lunsj mellom kampene. Foreldre hjelper med rydding etter siste kamp.'
+    )
+    expect(out.highlights).toEqual([
+      { time: '08:20', label: 'Oppmøte før første kamp', type: 'meeting' },
+    ])
+    expect(out.dropped).toEqual([])
   })
 
   it('lar Oppmøte stå når kilden støtter det', () => {
@@ -170,6 +182,57 @@ describe('Vårcupen-invariants på kanonisk fixture', () => {
     const days = normalizeAllDays(buildCanonicalVaacupMetadata())
     const violations = assertVaacupOriginalInvariants(days)
     expect(formatVaacupInvariantViolations(violations)).toBe('OK')
+  })
+})
+
+describe('Høstcup-lignende fixture (notes som array, ingen rå segment.notes-streng)', () => {
+  it('beholder lørdag Oppmøte-highlights selv om praktiske notater ikke nevner oppmøte', () => {
+    const segMetadata: EventMetadata = {
+      tankestromHighlights: [
+        { time: '08:20', label: 'Oppmøte før første kamp', type: 'meeting' },
+        { time: '09:00', label: 'Første kamp', type: 'match' },
+        { time: '13:55', label: 'Oppmøte før andre kamp', type: 'meeting' },
+        { time: '14:40', label: 'Andre kamp', type: 'match' },
+      ],
+      tankestromNotes: [
+        'Laget spiser felles lunsj mellom kampene.',
+        'Foreldre hjelper med rydding etter siste kamp.',
+      ],
+    }
+    const normalized = readTankestromScheduleDetailsFromMetadata(segMetadata, ['Høstcupen – lørdag'], {
+      fallbackStartTime: '08:20',
+      sourceTextForValidation: undefined,
+      isConditionalSegment: false,
+    })
+    const labels = normalized.highlights.map((h) => `${h.time} ${h.label}`)
+    expect(labels).toEqual([
+      '08:20 Oppmøte før første kamp',
+      '09:00 Første kamp',
+      '13:55 Oppmøte før andre kamp',
+      '14:40 Andre kamp',
+    ])
+  })
+
+  it('beholder fredag 17:30 Oppmøte og 18:15 Første kamp uten å rote til labels', () => {
+    const segMetadata: EventMetadata = {
+      tankestromHighlights: [
+        { time: '17:30', label: 'Oppmøte', type: 'meeting' },
+        { time: '18:15', label: 'Første kamp', type: 'match' },
+      ],
+      tankestromNotes: [
+        'Sjekk værmelding og kle dere etter været.',
+        'Foreldre hjelper med rydding etter siste kamp.',
+      ],
+    }
+    const normalized = readTankestromScheduleDetailsFromMetadata(segMetadata, ['Høstcupen – fredag'], {
+      fallbackStartTime: '17:30',
+      sourceTextForValidation: undefined,
+      isConditionalSegment: false,
+    })
+    expect(normalized.highlights).toEqual([
+      { time: '17:30', label: 'Oppmøte', type: 'meeting' },
+      { time: '18:15', label: 'Første kamp', type: 'match' },
+    ])
   })
 })
 

@@ -385,8 +385,6 @@ function inferFallbackActivityLabel(notes: string[], titleContext: string[]): { 
   return null
 }
 
-const OPPMOTE_WORD_RE = /\boppm[øo]te\b|\bm[øo]t\s+opp\b|\bm[øo]tes?\b|\bankomst\b/i
-
 export type HighlightTimeIntent = 'kamp' | 'oppmote' | 'both' | 'unknown'
 
 function findAllOccurrences(text: string, pattern: RegExp): number[] {
@@ -568,11 +566,15 @@ function kampLabelOrdinalKey(label: string): string {
 
 /**
  * Korriger åpenbar feil-merking mot kildetekst (samme dag):
- * - Oppmøte ved en tid som kilden tydelig sier er kamp/første kamp blir omdøpt.
- * - Oppmøte uten kilde-evidens for samme dag droppes.
+ * - Oppmøte ved en tid som kilden tydelig sier er kamp/første kamp blir omdøpt (positiv evidens MOT).
  * - Kamp-label kan presiseres når kilden gir tydelig ordinal (f.eks. "Andre kamp 15:10").
- * - For foreløpige segmenter (`isConditionalSegment=true`): dropp Oppmøte hvis tiden ikke
- *   er eksplisitt i kilden — unngår syntetisk «Oppmøte 17:00» når søndag er uavklart.
+ * - For foreløpige segmenter (`isConditionalSegment=true`): dropp Oppmøte hvis tiden ikke er
+ *   eksplisitt i kilden — unngår syntetisk «Oppmøte 17:00» når søndag er uavklart.
+ *
+ * Konservativ default: når vi ikke har positiv evidens MOT en Oppmøte-label (f.eks. fordi
+ * `sourceText`-proxyen vår bare er praktiske notater uten dagsspesifikke klokkeslett), behold
+ * highlighten som-er. Det er bedre å la en evt. LLM-feil stå enn å falske-positivt droppe
+ * legitime oppmøtetider (Høstcupen-regresjon).
  */
 export function correctMislabeledHighlightsAgainstSourceText(
   highlights: TankestromScheduleHighlight[],
@@ -583,7 +585,6 @@ export function correctMislabeledHighlightsAgainstSourceText(
   const relabeled: HighlightSourceTextValidation['relabeled'] = []
   const dropped: HighlightSourceTextValidation['dropped'] = []
   if (!text) return { highlights, relabeled, dropped }
-  const sourceHasAnyOppmote = OPPMOTE_WORD_RE.test(text)
   const isConditional = opts?.isConditionalSegment === true
   const out: TankestromScheduleHighlight[] = []
   for (const h of highlights) {
@@ -622,10 +623,6 @@ export function correctMislabeledHighlightsAgainstSourceText(
     }
     if (isConditional && !sourceContainsTime(text, h.time)) {
       dropped.push({ time: h.time, label: h.label, reason: 'tentative_segment_without_explicit_time' })
-      continue
-    }
-    if (!sourceHasAnyOppmote) {
-      dropped.push({ time: h.time, label: h.label, reason: 'no_oppmote_evidence' })
       continue
     }
     out.push(h)

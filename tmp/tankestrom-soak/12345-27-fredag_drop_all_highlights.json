@@ -1,0 +1,56 @@
+{
+  "run": 27,
+  "seed": 226158,
+  "mutation": "fredag_drop_all_highlights",
+  "invariantsPassed": false,
+  "days": [
+    {
+      "dayKey": "fredag",
+      "date": "2026-06-12",
+      "start": "17:45",
+      "end": "19:00",
+      "highlights": [],
+      "notesCount": 0
+    },
+    {
+      "dayKey": "lordag",
+      "date": "2026-06-13",
+      "start": "08:35",
+      "end": "16:00",
+      "highlights": [
+        "08:35 Oppmøte før første kamp",
+        "09:20 Første kamp",
+        "14:25 Oppmøte før andre kamp",
+        "15:10 Andre kamp"
+      ],
+      "notesCount": 0
+    },
+    {
+      "dayKey": "sondag",
+      "date": "2026-06-14",
+      "isConditional": true,
+      "highlights": [],
+      "notesCount": 0
+    }
+  ],
+  "violations": [
+    {
+      "code": "fredag_missing_1745_oppmote",
+      "message": "fredag mangler highlight 17:45 (Oppmøte)",
+      "detail": {
+        "time": "17:45",
+        "expected": "Oppmøte",
+        "highlights": []
+      }
+    },
+    {
+      "code": "fredag_missing_1840_kamp",
+      "message": "fredag mangler highlight 18:40 (Kamp / Første kamp)",
+      "detail": {
+        "time": "18:40",
+        "expected": "Kamp / Første kamp",
+        "highlights": []
+      }
+    }
+  ]
+}
