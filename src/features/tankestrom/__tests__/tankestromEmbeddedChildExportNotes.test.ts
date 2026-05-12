@@ -51,7 +51,7 @@ describe('composeEmbeddedChildCalendarNotesForExport (delprogram)', () => {
     const notes = composeEmbeddedChildCalendarNotesForExport(parentTitle, parentNotes, fridaySeg, {
       childProposalId: 'child-fri',
     })
-    expect(notes).toMatch(/Oppmøte ved banen 17:45/i)
+    expect(notes).toMatch(/(?:Oppmøte ved banen.*17:45|17:45.*Oppmøte ved banen)/i)
     expect(notes).toMatch(/18:40.*Kamp G12|Kamp G12/i)
     expect(notes).not.toMatch(/seriestart/i)
     expect(notes).not.toMatch(/15:00 kamp to/i)

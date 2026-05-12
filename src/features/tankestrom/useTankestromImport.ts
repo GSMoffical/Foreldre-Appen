@@ -794,6 +794,8 @@ function structuredDetailsFromSegment(
     precomputedTimeWindowSummaries: precomputedSummaries,
     tentativeTimeWindow: segment.isConditional === true,
     fallbackStartTime: hmFromSegmentStartForNormalize(segment),
+    sourceTextForValidation: typeof segment.notes === 'string' ? segment.notes : undefined,
+    isConditionalSegment: segment.isConditional === true,
   }
 
   const p = presentEmbeddedChildNotesForReview({
