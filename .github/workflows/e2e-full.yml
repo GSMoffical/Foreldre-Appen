@@ -1,0 +1,92 @@
+name: E2E full matrix
+
+# Full Playwright-matrise (mobile-chrome + mobile-safari/webkit).
+# Kjøres i offisiell Playwright-container, slik at alle browsere og
+# system-deps allerede er forhåndsinstallert — vi unngår de tregeste
+# stegene (~3–5 min) som blokkerer PR-CI.
+#
+# Triggers:
+#   - push til main         (sanity etter merge)
+#   - schedule (nattlig)    (regresjonsdeteksjon)
+#   - workflow_dispatch     (manuell kjøring)
+#   - pull_request paths    (kun når e2e/Tankestrøm UI eller config endres)
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'e2e/**'
+      - 'tests/e2e/**'
+      - 'playwright.config.ts'
+      - 'src/features/tankestrom/**'
+      - 'src/lib/tankestrom*.ts'
+      - 'src/lib/tankestromEval/**'
+      - 'src/lib/embeddedSchedule.ts'
+      - 'src/lib/tankestromScheduleDetails.ts'
+      - 'src/lib/tankestromVaacupInvariants.ts'
+      - '.github/workflows/e2e-full.yml'
+      - 'package-lock.json'
+
+concurrency:
+  group: e2e-full-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  e2e-full:
+    runs-on: ubuntu-latest
+    # Container må holdes i sync med @playwright/test i package-lock.json.
+    # Sjekk versjon med: node -p "require('@playwright/test/package.json').version"
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-jammy
+      options: --user 1001
+    env:
+      E2E_LOGIN_EMAIL: ${{ secrets.E2E_LOGIN_EMAIL }}
+      E2E_LOGIN_PASSWORD: ${{ secrets.E2E_LOGIN_PASSWORD }}
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      VITE_TANKESTROM_ANALYZE_URL: ${{ secrets.VITE_TANKESTROM_ANALYZE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify Playwright version matches container
+        run: |
+          INSTALLED="$(node -p "require('@playwright/test/package.json').version")"
+          echo "Installed @playwright/test: $INSTALLED"
+          if [ "$INSTALLED" != "1.58.2" ]; then
+            echo "::warning::Container er pinnet til v1.58.2 men lock-fila har $INSTALLED — oppdater container-tag i e2e-full.yml."
+          fi
+
+      - name: Run Playwright (alle projects)
+        run: npx playwright test e2e/tankestrom-vaacup.spec.ts e2e/tankestrom-hostcup.spec.ts
+
+      - name: Upload playwright-report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-full
+          path: playwright-report/
+          if-no-files-found: ignore
+
+      - name: Upload test-results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-full
+          path: test-results/
+          if-no-files-found: ignore
