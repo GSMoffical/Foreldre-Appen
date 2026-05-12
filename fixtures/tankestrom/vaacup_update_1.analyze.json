@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.0.0",
+  "provenance": {
+    "sourceSystem": "tankestrom",
+    "sourceType": "eval_fixture",
+    "generatorVersion": "eval-v1",
+    "generatedAt": "2026-05-12T08:00:00.000Z",
+    "importRunId": "eval-vaacup-update-1"
+  },
+  "items": [
+    {
+      "proposalId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "kind": "event",
+      "sourceId": "eval",
+      "originalSourceType": "pasted_text",
+      "confidence": 0.93,
+      "event": {
+        "date": "2026-06-12",
+        "personId": "",
+        "title": "Vårcupen 2026 på Ekeberg · 12.–14. juni 2026",
+        "start": "00:00",
+        "end": "23:59",
+        "metadata": {
+          "endDate": "2026-06-14",
+          "isAllDay": true,
+          "multiDayAllDay": true,
+          "isArrangementParent": true,
+          "exportAsCalendarEvent": false,
+          "arrangementStableKey": "import-parent-stable-key-2026",
+          "updateIntent": { "likelyFollowup": true },
+          "embeddedSchedule": [
+            { "date": "2026-06-12", "title": "Fredag" },
+            { "date": "2026-06-13", "title": "Lørdag" },
+            { "date": "2026-06-14", "title": "Søndag", "isConditional": true }
+          ]
+        }
+      }
+    }
+  ]
+}

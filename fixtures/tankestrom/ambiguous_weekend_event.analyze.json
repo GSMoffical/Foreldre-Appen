@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1.0.0",
+  "provenance": {
+    "sourceSystem": "tankestrom",
+    "sourceType": "eval_fixture",
+    "generatorVersion": "eval-v1",
+    "generatedAt": "2026-05-12T08:10:00.000Z",
+    "importRunId": "eval-ambiguous-weekend-1"
+  },
+  "items": [
+    {
+      "proposalId": "00000000-0000-4000-8000-000000000202",
+      "kind": "event",
+      "sourceId": "eval",
+      "originalSourceType": "pasted_text",
+      "confidence": 0.68,
+      "event": {
+        "date": "2026-10-04",
+        "personId": "",
+        "title": "Familiesammenkomst (helg)",
+        "start": "00:00",
+        "end": "23:59",
+        "metadata": {
+          "timePrecision": "date_only",
+          "endDate": "2026-10-05",
+          "isAllDay": true,
+          "timeWindowCandidates": [
+            {
+              "start": "09:00",
+              "end": "15:00",
+              "label": "Lørdag: formiddag eller tidlig ettermiddag (tid kommer)",
+              "tentative": true
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+name: Tankestrom eval
+
+on:
+  pull_request:
+    paths:
+      - 'fixtures/tankestrom/**'
+      - 'src/lib/tankestromEval/**'
+      - 'src/lib/tankestromScheduleDetails.ts'
+      - 'src/lib/tankestromVaacupInvariants.ts'
+      - 'src/lib/tankestromExistingEventMatch.ts'
+      - 'src/lib/embeddedSchedule.ts'
+      - 'src/lib/tankestromApi.ts'
+      - 'scripts/eval-tankestrom.mjs'
+      - 'package.json'
+      - 'vite.config.ts'
+      - '.github/workflows/tankestrom-eval.yml'
+  workflow_dispatch:
+    inputs:
+      fixture:
+        description: 'Fixture id eller all'
+        required: false
+        default: 'all'
+      runs:
+        description: 'Antall runs per fixture'
+        required: false
+        default: '10'
+      seed:
+        description: 'Seed'
+        required: false
+        default: '123'
+  schedule:
+    - cron: '0 6 * * 1'
+
+concurrency:
+  group: tankestrom-eval-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        # Matchet med ci.yml (node 24 + cache-dependency-path) for å unngå
+        # «Missing: @esbuild/win32-arm64 / @rollup/rollup-win32-…»-feil som
+        # oppstår når npm 10 (Node 20) leser optional platform-pakker i et
+        # lockfile generert av npm 11 (Node 24).
+        run: npm ci
+
+      - name: Deterministic Tankestrom eval
+        env:
+          TANKESTROM_EVAL: '1'
+          TANKESTROM_EVAL_FIXTURE: ${{ github.event.inputs.fixture || 'all' }}
+          TANKESTROM_EVAL_RUNS: ${{ github.event.inputs.runs || '5' }}
+          TANKESTROM_EVAL_SEED: ${{ github.event.inputs.seed || '42' }}
+          TANKESTROM_EVAL_OUT: tmp/tankestrom-eval
+        run: npx vitest run src/lib/tankestromEval/tankestromEvalRunner.test.ts --reporter=dot
+
+      - name: Upload eval artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tankestrom-eval-${{ github.run_id }}
+          path: tmp/tankestrom-eval/
+          if-no-files-found: warn
