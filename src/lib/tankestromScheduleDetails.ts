@@ -366,6 +366,11 @@ function firstHmInText(text: string): string | null {
   return `${String(parseInt(m[1]!, 10)).padStart(2, '0')}:${m[2]!}`
 }
 
+/**
+ * Aktivitetsetikett for segment-start fallback. Aldri "Oppmøte" fra `fallbackStartTime` alene:
+ * det krever trygg avledning (`inferOppmoteFallbackFromNotes` med anker+offset). Ellers risikerer
+ * vi å merke kampstart (f.eks. 18:40) som "Oppmøte" når notater bare nevner ordet generelt.
+ */
 function inferFallbackActivityLabel(notes: string[], titleContext: string[]): { label: string; type: TankestromScheduleHighlightType } | null {
   const joined = [...notes, ...titleContext].join('\n')
   const k = normalizeTextKey(joined)
@@ -373,12 +378,259 @@ function inferFallbackActivityLabel(notes: string[], titleContext: string[]): { 
   if (/\b(kampstart|forste kamp|kamp)\b/.test(k)) {
     return { label: /\bforste kamp\b/.test(k) ? 'Første kamp' : 'Kamp', type: 'match' }
   }
-  if (/\b(oppmote|mot opp|motes|mote)\b/.test(k)) return { label: 'Oppmøte', type: 'meeting' }
   if (/\b(trening|ovelse)\b/.test(k)) return { label: 'Trening', type: 'other' }
   if (/\b(forestilling|konsert|show)\b/.test(k)) return { label: 'Forestilling', type: 'other' }
   if (/\b(avreise|drar|reise)\b/.test(k)) return { label: 'Avreise', type: 'other' }
   if (/\b(henting|levering)\b/.test(k)) return { label: /\bhenting\b/.test(k) ? 'Henting' : 'Levering', type: 'other' }
   return null
+}
+
+const OPPMOTE_WORD_RE = /\boppm[øo]te\b|\bm[øo]t\s+opp\b|\bm[øo]tes?\b|\bankomst\b/i
+
+export type HighlightTimeIntent = 'kamp' | 'oppmote' | 'both' | 'unknown'
+
+function findAllOccurrences(text: string, pattern: RegExp): number[] {
+  const out: number[] = []
+  const re = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : pattern.flags + 'g')
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
+    out.push(m.index)
+    if (m.index === re.lastIndex) re.lastIndex += 1
+  }
+  return out
+}
+
+const PROXIMITY_WINDOW_CHARS = 50
+const OPPMOTE_PROXIMITY_RE = /\b(?:oppm[øo]te|m[øo]t\s+opp|m[øo]tes?|ankomst|innfinn(?:ing|er)?)\b/gi
+const KAMP_PROXIMITY_RE = /\b(?:f[øo]rste\s+kamp|andre\s+kamp|tredje\s+kamp|kampstart|kamp(?:en|er|ene)?)\b/gi
+const NORWEGIAN_ABBREVS_AT_END_RE =
+  /\b(?:kl|ca|f\.eks|fr|jr|nr|mvh|kr|mrk|kg|m|cm|km|mil|m\.fl|bl\.a|osv|hr|ev|evt|f|n)\.$/i
+
+/** Setningsdeler som ikke splittes etter "kl.", "ca." og lignende norske forkortelser. */
+function splitSentencesNorwegian(text: string): string[] {
+  const out: string[] = []
+  let buf = ''
+  let i = 0
+  while (i < text.length) {
+    const ch = text[i]!
+    buf += ch
+    const next = text[i + 1]
+    if ((ch === '.' || ch === '!' || ch === '?') && (next === ' ' || next === '\n' || next === undefined)) {
+      const candidate = buf.trim()
+      if (NORWEGIAN_ABBREVS_AT_END_RE.test(candidate)) {
+        i += 1
+        continue
+      }
+      out.push(candidate)
+      buf = ''
+      i += 1
+      while (i < text.length && (text[i] === ' ' || text[i] === '\n')) i += 1
+      continue
+    }
+    if (ch === '\n') {
+      const candidate = buf.trim()
+      if (candidate) out.push(candidate)
+      buf = ''
+      i += 1
+      continue
+    }
+    i += 1
+  }
+  const tail = buf.trim()
+  if (tail) out.push(tail)
+  return out
+}
+
+function stripLeadingBullet(s: string): string {
+  return s.trim().replace(/^[•\-\*\u2022]\s*/u, '').trim()
+}
+
+function sentenceLeadingIntent(sentence: string): HighlightTimeIntent | null {
+  const s = stripLeadingBullet(sentence)
+  if (!s) return null
+  if (/^(?:oppm[øo]te|m[øo]t\s+opp|m[øo]tes?|ankomst|innfinn(?:ing|er)?)\b/i.test(s)) return 'oppmote'
+  if (/^(?:f[øo]rste\s+kamp|andre\s+kamp|tredje\s+kamp|kamp(?:start)?\b)/i.test(s)) return 'kamp'
+  return null
+}
+
+function proximityIntentForTimeInText(timePos: number, oppmotePos: number[], kampPos: number[]): HighlightTimeIntent {
+  let bestOppmote = Infinity
+  let bestKamp = Infinity
+  for (const op of oppmotePos) {
+    const dist = Math.abs(op - timePos)
+    if (dist <= PROXIMITY_WINDOW_CHARS && dist < bestOppmote) bestOppmote = dist
+  }
+  for (const kp of kampPos) {
+    const dist = Math.abs(kp - timePos)
+    if (dist <= PROXIMITY_WINDOW_CHARS && dist < bestKamp) bestKamp = dist
+  }
+  if (bestOppmote === Infinity && bestKamp === Infinity) return 'unknown'
+  if (bestOppmote < bestKamp) return 'oppmote'
+  if (bestKamp < bestOppmote) return 'kamp'
+  return 'both'
+}
+
+/**
+ * Klassifiser intensjonen til ett klokkeslett: setnings-basert (forrang) + nærhet (fallback).
+ * Setning som starter med "Oppmøte ..." gir alltid `oppmote` for tider i setningen, selv om
+ * "kamp" er nærmere klokkeslett ("Oppmøte før første kamp kl. 08:35.").
+ */
+export function classifyTimeIntentInSourceText(time: string, sourceText: string): HighlightTimeIntent {
+  if (!time || !sourceText) return 'unknown'
+  const text = sourceText.replace(/\r\n/g, '\n')
+  const sentences = splitSentencesNorwegian(text)
+  const timeEscaped = time.replace(/[:]/g, '\\:')
+  const timeRe = new RegExp(`\\b${timeEscaped}\\b`)
+  const seen: HighlightTimeIntent[] = []
+  const oppmotePosAll = findAllOccurrences(text, OPPMOTE_PROXIMITY_RE)
+  const kampPosAll = findAllOccurrences(text, KAMP_PROXIMITY_RE)
+  for (const sentence of sentences) {
+    if (!timeRe.test(sentence)) continue
+    const leading = sentenceLeadingIntent(sentence)
+    if (leading) {
+      seen.push(leading)
+      continue
+    }
+    const stripped = stripLeadingBullet(sentence)
+    const tPosInSentence = stripped.search(timeRe)
+    if (tPosInSentence < 0) {
+      seen.push('unknown')
+      continue
+    }
+    const oppmotePosInSentence = findAllOccurrences(stripped, OPPMOTE_PROXIMITY_RE)
+    const kampPosInSentence = findAllOccurrences(stripped, KAMP_PROXIMITY_RE)
+    seen.push(proximityIntentForTimeInText(tPosInSentence, oppmotePosInSentence, kampPosInSentence))
+  }
+  if (seen.length === 0) {
+    const positions = findAllOccurrences(text, timeRe)
+    if (positions.length === 0) return 'unknown'
+    for (const tp of positions) seen.push(proximityIntentForTimeInText(tp, oppmotePosAll, kampPosAll))
+  }
+  if (seen.length === 0) return 'unknown'
+  if (seen.includes('kamp') && seen.includes('oppmote')) return 'both'
+  if (seen.includes('kamp')) return 'kamp'
+  if (seen.includes('oppmote')) return 'oppmote'
+  if (seen.includes('both')) return 'both'
+  return 'unknown'
+}
+
+type KampCandidatePattern = { test: RegExp; label: string; specificity: number }
+
+const KAMP_CANDIDATES: KampCandidatePattern[] = [
+  { test: /\bandre\s+kamp\b/i, label: 'Andre kamp', specificity: 3 },
+  { test: /\btredje\s+kamp\b/i, label: 'Tredje kamp', specificity: 3 },
+  { test: /\bf[øo]rste\s+kamp\b/i, label: 'Første kamp', specificity: 2 },
+  { test: /\bkampstart\b/i, label: 'Kamp', specificity: 1 },
+  { test: /\bkamp(?:en|er|ene)?\b/i, label: 'Kamp', specificity: 1 },
+]
+
+function pickKampLabelFromSource(time: string, sourceText: string): string | null {
+  const text = sourceText.replace(/\r\n/g, '\n')
+  const sentences = splitSentencesNorwegian(text)
+  const timeRe = new RegExp(`\\b${time.replace(/[:]/g, '\\:')}\\b`)
+  let best: { label: string; specificity: number } | null = null
+  for (const sentence of sentences) {
+    if (!timeRe.test(sentence)) continue
+    for (const cand of KAMP_CANDIDATES) {
+      if (cand.test.test(sentence)) {
+        if (!best || cand.specificity > best.specificity) {
+          best = { label: cand.label, specificity: cand.specificity }
+        }
+        break
+      }
+    }
+  }
+  return best?.label ?? null
+}
+
+export type HighlightSourceTextValidation = {
+  highlights: TankestromScheduleHighlight[]
+  relabeled: Array<{ time: string; from: string; to: string }>
+  dropped: Array<{
+    time: string
+    label: string
+    reason: 'kamp_signal_at_time' | 'no_oppmote_evidence' | 'tentative_segment_without_explicit_time'
+  }>
+}
+
+function sourceContainsTime(text: string, time: string): boolean {
+  const escaped = time.replace(/[:]/g, '\\:')
+  return new RegExp(`\\b${escaped}\\b`).test(text)
+}
+
+function kampLabelOrdinalKey(label: string): string {
+  const lc = label.toLocaleLowerCase('nb-NO')
+  if (/\bf[øo]rste\b/.test(lc)) return 'forste'
+  if (/\bandre\b/.test(lc)) return 'andre'
+  if (/\btredje\b/.test(lc)) return 'tredje'
+  return ''
+}
+
+/**
+ * Korriger åpenbar feil-merking mot kildetekst (samme dag):
+ * - Oppmøte ved en tid som kilden tydelig sier er kamp/første kamp blir omdøpt.
+ * - Oppmøte uten kilde-evidens for samme dag droppes.
+ * - Kamp-label kan presiseres når kilden gir tydelig ordinal (f.eks. "Andre kamp 15:10").
+ * - For foreløpige segmenter (`isConditionalSegment=true`): dropp Oppmøte hvis tiden ikke
+ *   er eksplisitt i kilden — unngår syntetisk «Oppmøte 17:00» når søndag er uavklart.
+ */
+export function correctMislabeledHighlightsAgainstSourceText(
+  highlights: TankestromScheduleHighlight[],
+  sourceText: string | undefined,
+  opts?: { isConditionalSegment?: boolean }
+): HighlightSourceTextValidation {
+  const text = (sourceText ?? '').trim()
+  const relabeled: HighlightSourceTextValidation['relabeled'] = []
+  const dropped: HighlightSourceTextValidation['dropped'] = []
+  if (!text) return { highlights, relabeled, dropped }
+  const sourceHasAnyOppmote = OPPMOTE_WORD_RE.test(text)
+  const isConditional = opts?.isConditionalSegment === true
+  const out: TankestromScheduleHighlight[] = []
+  for (const h of highlights) {
+    const type = h.type ?? inferTypeFromLabel(h.label)
+    const labelKind = classifyHighlightLabel(h.label)
+    const treatAsOppmote = type === 'meeting' || labelKind === 'oppmote'
+    const treatAsKamp = type === 'match' || labelKind === 'kamp'
+    if (treatAsKamp) {
+      const sourceLabel = pickKampLabelFromSource(h.time, text)
+      if (sourceLabel) {
+        const sourceOrd = kampLabelOrdinalKey(sourceLabel)
+        const labelOrd = kampLabelOrdinalKey(h.label)
+        if (sourceOrd && labelOrd && sourceOrd !== labelOrd) {
+          out.push({ time: h.time, label: sourceLabel, type: 'match' })
+          relabeled.push({ time: h.time, from: h.label, to: sourceLabel })
+          continue
+        }
+      }
+      out.push(h)
+      continue
+    }
+    if (!treatAsOppmote) {
+      out.push(h)
+      continue
+    }
+    const intent = classifyTimeIntentInSourceText(h.time, text)
+    if (intent === 'kamp') {
+      const replacement = pickKampLabelFromSource(h.time, text) ?? 'Kamp'
+      out.push({ time: h.time, label: replacement, type: 'match' })
+      relabeled.push({ time: h.time, from: h.label, to: replacement })
+      continue
+    }
+    if (intent === 'oppmote' || intent === 'both') {
+      out.push(h)
+      continue
+    }
+    if (isConditional && !sourceContainsTime(text, h.time)) {
+      dropped.push({ time: h.time, label: h.label, reason: 'tentative_segment_without_explicit_time' })
+      continue
+    }
+    if (!sourceHasAnyOppmote) {
+      dropped.push({ time: h.time, label: h.label, reason: 'no_oppmote_evidence' })
+      continue
+    }
+    out.push(h)
+  }
+  return { highlights: out, relabeled, dropped }
 }
 
 function inferOppmoteFallbackFromNotes(notes: string[]): { time: string; label: string; type: TankestromScheduleHighlightType } | null {
@@ -503,6 +755,76 @@ function mergeTimeWindowHighlights(
   return { rest, summaries }
 }
 
+function buildSourceTextForValidation(
+  explicit: string | undefined,
+  rawNotes: string[],
+  filteredNotes: string[]
+): string {
+  const parts = [explicit ?? '', ...rawNotes, ...filteredNotes]
+    .map((p) => (typeof p === 'string' ? p.trim() : ''))
+    .filter(Boolean)
+  return parts.join('\n')
+}
+
+function padHmFromMatch(h: string, m: string): string {
+  const hh = String(parseInt(h, 10)).padStart(2, '0')
+  return `${hh}:${m}`
+}
+
+/** Rens en setning til en kort aktivitetstittel (uten tid/«kl.»/punktum). */
+function extractLabelFromSentenceWithTime(sentence: string, time: string, fallback: string): string {
+  let s = stripLeadingBullet(sentence)
+  const escapedTime = time.replace(/[:]/g, '\\:')
+  s = s.replace(new RegExp(`\\bkl\\.?\\s*${escapedTime}\\b`, 'gi'), ' ')
+  s = s.replace(new RegExp(`\\b${escapedTime}\\b`, 'g'), ' ')
+  s = s.replace(/\bkl\.?\b/gi, ' ')
+  s = s.replace(/^[\s,;:.!?]+|[\s,;:.!?]+$/g, '')
+  s = s.replace(/\s+/g, ' ').trim()
+  if (s.length === 0) return fallback
+  if (s.length > 60) return fallback
+  return s
+}
+
+/**
+ * Konservativ rekonstruksjon: når kildeteksten tydelig nevner en aktivitet med klokkeslett
+ * («Oppmøte kl. 17:45», «Første kamp 18:40»), kan vi gjenopprette manglende highlights
+ * uten å fabrikkere nye labels. Kun setninger som starter med kamp/oppmøte-nøkkelord brukes,
+ * og kun klokkeslett som ikke allerede finnes i highlights.
+ */
+export function augmentHighlightsFromSourceText(
+  highlights: TankestromScheduleHighlight[],
+  sourceText: string | undefined
+): TankestromScheduleHighlight[] {
+  const text = (sourceText ?? '').trim()
+  if (!text) return highlights
+  const sentences = splitSentencesNorwegian(text.replace(/\r\n/g, '\n'))
+  const existingTimes = new Set(highlights.map((h) => h.time))
+  const added: TankestromScheduleHighlight[] = []
+  for (const sentenceRaw of sentences) {
+    const sentence = stripLeadingBullet(sentenceRaw)
+    const timeRe = /\b([01]?\d|2[0-3]):([0-5]\d)\b/g
+    let m: RegExpExecArray | null
+    while ((m = timeRe.exec(sentence)) !== null) {
+      const time = padHmFromMatch(m[1]!, m[2]!)
+      if (existingTimes.has(time)) continue
+      const leading = sentenceLeadingIntent(sentence)
+      if (leading === 'oppmote') {
+        const label = extractLabelFromSentenceWithTime(sentence, time, 'Oppmøte')
+        added.push({ time, label, type: 'meeting' })
+        existingTimes.add(time)
+        continue
+      }
+      if (leading === 'kamp') {
+        const kampLabel = pickKampLabelFromSource(time, sentence) ?? 'Kamp'
+        added.push({ time, label: kampLabel, type: 'match' })
+        existingTimes.add(time)
+      }
+    }
+  }
+  if (added.length === 0) return highlights
+  return [...highlights, ...added].sort((a, b) => a.time.localeCompare(b.time))
+}
+
 export function emptyNormalizedTankestromDetails(): NormalizedTankestromScheduleDetails {
   return {
     highlights: [],
@@ -555,6 +877,10 @@ export function normalizeTankestromScheduleDetails(input: {
   precomputedTimeWindowSummaries?: TankestromTimeWindowSummary[]
   /** Defensiv starttid for fallback-highlight når upstream-highlights mangler. */
   fallbackStartTime?: string
+  /** Kildetekst (samme dag/segment) brukt til å validere oppmøte-/kamp-labels mot kontekst. */
+  sourceTextForValidation?: string
+  /** Markerer foreløpige/uavklarte segmenter (f.eks. søndag i en cup) — strengere drop-policy. */
+  isConditionalSegment?: boolean
 }): NormalizedTankestromScheduleDetails {
   const titleContext = (input.titleContext ?? []).filter(Boolean)
   const removedFragments: string[] = []
@@ -708,9 +1034,16 @@ export function normalizeTankestromScheduleDetails(input: {
     timeWindowSummaries = timeWindowSummaries.map((s) => ({ ...s, tentative: true }))
   }
 
-  const highlights = [...dedup.values()]
+  const preValidationHighlights = [...dedup.values()]
     .filter((h) => normalizeTextKey(h.label) !== 'og')
     .sort((a, b) => a.time.localeCompare(b.time))
+
+  const sourceTextForValidation = buildSourceTextForValidation(input.sourceTextForValidation, rawNotesIn, notes)
+  const validated = correctMislabeledHighlightsAgainstSourceText(preValidationHighlights, sourceTextForValidation, {
+    isConditionalSegment: input.isConditionalSegment === true,
+  })
+  const augmented = augmentHighlightsFromSourceText(validated.highlights, sourceTextForValidation)
+  const highlights = augmented
 
   const canAddFallback =
     highlights.length === 0 &&
@@ -822,7 +1155,11 @@ function readTimeWindowCandidates(
 export function readTankestromScheduleDetailsFromMetadata(
   metadata: EventMetadata | undefined,
   titleContext?: string[],
-  opts?: { fallbackStartTime?: string }
+  opts?: {
+    fallbackStartTime?: string
+    sourceTextForValidation?: string
+    isConditionalSegment?: boolean
+  }
 ): NormalizedTankestromScheduleDetails {
   if (!metadata) {
     return emptyNormalizedTankestromDetails()
@@ -876,6 +1213,8 @@ export function readTankestromScheduleDetailsFromMetadata(
     precomputedTimeWindowSummaries: precomputed,
     titleContext: ctxFromMeta,
     fallbackStartTime: opts?.fallbackStartTime,
+    sourceTextForValidation: opts?.sourceTextForValidation,
+    isConditionalSegment: opts?.isConditionalSegment,
   })
   return normalized
 }
