@@ -37,6 +37,7 @@ import {
 } from '../../lib/tankestromEmbeddedChildNotesPresentation'
 import {
   buildCalendarNotesFromNormalizedScheduleDetails,
+  buildPerDaySourceTextForValidation,
   buildTankestromScheduleDescriptionFallback,
   dedupeNotesAgainstHighlights,
   normalizeTankestromScheduleDetails,
@@ -668,7 +669,7 @@ function cappedParentNotesForEmbeddedChildFallback(parentNotes: string): string 
 function composeEmbeddedChildCalendarNotesFromParentAndSegment(
   parentDraft: Pick<TankestromEventDraft, 'title' | 'notes'>,
   segment: EmbeddedScheduleSegment,
-  opts?: { childProposalId?: string; siblingTitlesBlob?: string }
+  opts?: { childProposalId?: string; siblingTitlesBlob?: string; originalImportText?: string }
 ): string {
   const calendarTitle = embeddedScheduleChildCalendarExportTitle(
     segment,
@@ -681,7 +682,8 @@ function composeEmbeddedChildCalendarNotesFromParentAndSegment(
     segment,
     parentCore,
     calendarTitle,
-    childProposalId
+    childProposalId,
+    { originalImportText: opts?.originalImportText }
   )
   let notes = buildCalendarNotesFromNormalizedScheduleDetails(scheduleDetails)
   if (!notes.trim() && segment.tankestromDescriptionFallback?.trim()) {
@@ -698,7 +700,7 @@ export function composeEmbeddedChildCalendarNotesForExport(
   parentTitle: string,
   parentNotes: string,
   segment: EmbeddedScheduleSegment,
-  opts?: { childProposalId?: string; siblingTitlesBlob?: string }
+  opts?: { childProposalId?: string; siblingTitlesBlob?: string; originalImportText?: string }
 ): string {
   return composeEmbeddedChildCalendarNotesFromParentAndSegment(
     { title: parentTitle, notes: parentNotes },
@@ -710,7 +712,7 @@ export function composeEmbeddedChildCalendarNotesForExport(
 function buildEmbeddedChildEventDraft(
   parentDraft: TankestromEventDraft,
   segment: EmbeddedScheduleSegment,
-  timeOpts?: { childProposalId?: string; siblingTitlesBlob?: string }
+  timeOpts?: { childProposalId?: string; siblingTitlesBlob?: string; originalImportText?: string }
 ): TankestromEventDraft {
   const segmentHasConcreteTimes = Boolean((segment.start ?? '').trim() || (segment.end ?? '').trim())
   const exportTimes = segmentHasConcreteTimes
@@ -733,6 +735,7 @@ function buildEmbeddedChildEventDraft(
   const notes = composeEmbeddedChildCalendarNotesFromParentAndSegment(parentDraft, segment, {
     childProposalId: timeOpts?.childProposalId,
     siblingTitlesBlob: timeOpts?.siblingTitlesBlob,
+    originalImportText: timeOpts?.originalImportText,
   })
   return {
     ...parentDraft,
@@ -765,7 +768,8 @@ function structuredDetailsFromSegment(
   segment: EmbeddedScheduleSegment,
   parentCardTitle: string,
   displayTitle: string,
-  childProposalId: string
+  childProposalId: string,
+  opts?: { originalImportText?: string }
 ): NormalizedTankestromScheduleDetails {
   const bring = [...(segment.bringItems ?? []), ...(segment.packingItems ?? [])]
   const tw =
@@ -787,6 +791,12 @@ function structuredDetailsFromSegment(
       ? segment.tankestromTimeWindowSummaries
       : undefined
 
+  const sourceTextForValidation = buildPerDaySourceTextForValidation({
+    segmentSourceText: typeof segment.notes === 'string' ? segment.notes : undefined,
+    globalSourceText: opts?.originalImportText,
+    date: segment.date,
+  })
+
   const normalizeBase = {
     bringItems: bring,
     titleContext: [displayTitle, parentCardTitle],
@@ -794,7 +804,7 @@ function structuredDetailsFromSegment(
     precomputedTimeWindowSummaries: precomputedSummaries,
     tentativeTimeWindow: segment.isConditional === true,
     fallbackStartTime: hmFromSegmentStartForNormalize(segment),
-    sourceTextForValidation: typeof segment.notes === 'string' ? segment.notes : undefined,
+    sourceTextForValidation,
     isConditionalSegment: segment.isConditional === true,
   }
 
@@ -2056,7 +2066,8 @@ function buildDraftsFromItems(
   validPersonIds: Set<string>,
   defaultPersonId: string,
   people: Person[],
-  taskSourceLabelHint?: string
+  taskSourceLabelHint?: string,
+  buildOpts?: { originalImportText?: string }
 ): Record<string, TankestromImportDraft> {
   const drafts: Record<string, TankestromImportDraft> = {}
   for (const item of items) {
@@ -2087,7 +2098,9 @@ function buildDraftsFromItems(
       const id = makeEmbeddedChildProposalId(item.proposalId, i)
       drafts[id] = {
         importKind: 'event',
-        event: buildEmbeddedChildEventDraft(base.event, flat[i]!),
+        event: buildEmbeddedChildEventDraft(base.event, flat[i]!, {
+          originalImportText: buildOpts?.originalImportText,
+        }),
       }
     }
   }
@@ -2673,6 +2686,13 @@ export function useTankestromImport({
   )
 
   const prevSchoolChildForLangAdjustRef = useRef<string | null>(null)
+  /**
+   * Snapshot av tekst som ble analysert sist gang (tekstmodus). Brukes som defensiv
+   * `sourceTextForValidation`-fallback når live/LLM-payloaden mangler dagsspesifikke
+   * `segment.notes` (slik at f.eks. fredag 18:40 ikke feilaktig labels som «Oppmøte»
+   * når kilden tydelig sier «Første kamp starter 18:40»).
+   */
+  const lastAnalyzedTextRef = useRef<string>('')
 
   const reset = useCallback(() => {
     setStep('pick')
@@ -2680,6 +2700,7 @@ export function useTankestromImport({
     setPendingFiles([])
     setTextInput('')
     setBundle(null)
+    lastAnalyzedTextRef.current = ''
     setAnalyzedSourceLength(0)
     setSchoolReview(null)
     setSchoolProfileChildId('')
@@ -2943,7 +2964,9 @@ export function useTankestromImport({
         const parentDraftEntry = prev[parentProposalId]
         if (!parentDraftEntry || parentDraftEntry.importKind !== 'event') return prev
         const childId = makeEmbeddedChildProposalId(parentProposalId, origIndex)
-        const baseChild = buildEmbeddedChildEventDraft(parentDraftEntry.event, segmentForChild)
+        const baseChild = buildEmbeddedChildEventDraft(parentDraftEntry.event, segmentForChild, {
+          originalImportText: lastAnalyzedTextRef.current,
+        })
         const prevChild = prev[childId]
         let personId = baseChild.personId
         let participantPersonIds = baseChild.participantPersonIds
@@ -3238,6 +3261,7 @@ export function useTankestromImport({
           })
         )
         setAnalyzedSourceLength(textInput.length)
+        lastAnalyzedTextRef.current = textInput
         const classificationCtx = buildImportClassificationContext({
           inputMode: 'text',
           provenanceSourceType: b.provenance.sourceType,
@@ -3246,7 +3270,9 @@ export function useTankestromImport({
           secondaryCandidateCount: b.secondaryCandidates?.length ?? 0,
         })
         setBundle({ ...b, items })
-        const drafts = buildDraftsFromItems(items, validPersonIds, defaultPersonId, people, sourceHint)
+        const drafts = buildDraftsFromItems(items, validPersonIds, defaultPersonId, people, sourceHint, {
+          originalImportText: textInput,
+        })
         setDraftByProposalId(drafts)
         setSelectedIds(
           initialSelectedIdsForGeneralImport(items, drafts, people, importChildId, classificationCtx)
@@ -3407,6 +3433,7 @@ export function useTankestromImport({
         })
       )
       setAnalyzedSourceLength(analyzedBytesTotal)
+      lastAnalyzedTextRef.current = ''
       const classificationCtx = buildImportClassificationContext({
         inputMode: 'file',
         provenanceSourceType: merged.provenance.sourceType,
@@ -3441,6 +3468,7 @@ export function useTankestromImport({
   /** Tømmer review-tilstand uten å gå til «Velg innhold» eller endre tekst/filer. */
   const clearReviewStateForReanalyze = useCallback(() => {
     setBundle(null)
+    lastAnalyzedTextRef.current = ''
     setAnalyzedSourceLength(0)
     setSchoolReview(null)
     setSchoolProfileChildId('')
@@ -4171,6 +4199,7 @@ export function useTankestromImport({
             const slice = buildEmbeddedChildEventDraft(parentDraft, row.segment, {
               childProposalId: id,
               siblingTitlesBlob,
+              originalImportText: lastAnalyzedTextRef.current,
             })
             let draftEv: TankestromEventDraft = {
               ...slice,
@@ -4261,7 +4290,8 @@ export function useTankestromImport({
               row.segment,
               normalizeEmbeddedScheduleParentDisplayTitle(parentDraft.title.trim()).title,
               draftEv.title,
-              id
+              id,
+              { originalImportText: lastAnalyzedTextRef.current }
             )
             attachTankestromDetailsToMetadata(metadataNd, scheduleDetailsNd)
             metadataNd.tankestromImportRunId = bundle.provenance.importRunId
@@ -4384,7 +4414,8 @@ export function useTankestromImport({
             },
             parentCoreTitle,
             draftEv.title,
-            id
+            id,
+            { originalImportText: lastAnalyzedTextRef.current }
           )
           attachTankestromDetailsToMetadata(metadata, detachedDetails)
           metadata.tankestromImportRunId = bundle.provenance.importRunId
@@ -4965,6 +4996,7 @@ export function useTankestromImport({
               const slice = buildEmbeddedChildEventDraft(draft, row.segment, {
                 childProposalId,
                 siblingTitlesBlob: siblingTitlesBlobForExport,
+                originalImportText: lastAnalyzedTextRef.current,
               })
               let draftEv: TankestromEventDraft = {
                 ...slice,
@@ -5035,7 +5067,8 @@ export function useTankestromImport({
                 row.segment,
                 normalizeEmbeddedScheduleParentDisplayTitle(draft.title.trim()).title,
                 draftEv.title,
-                childProposalId
+                childProposalId,
+                { originalImportText: lastAnalyzedTextRef.current }
               )
               attachTankestromDetailsToMetadata(metadata, scheduleDetails)
               metadata.tankestromImportRunId = bundle.provenance.importRunId

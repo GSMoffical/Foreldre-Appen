@@ -134,7 +134,8 @@ function runHostcupRun(run: number, mutationSeed: number): EvalRunRecord {
     }
   }
   const meta = ev.event.metadata as EventMetadata
-  const days = normalizeEmbeddedScheduleDaySnapshots(meta)
+  const globalSourceText = readFixtureText('hostcup_original')
+  const days = normalizeEmbeddedScheduleDaySnapshots(meta, { globalSourceText })
   const failures = invariantFailuresForHostcupDays(days)
   return {
     fixture: 'hostcup_original',
@@ -277,7 +278,7 @@ async function runLiveOne(
   const failures: FixtureInvariantFailure[] = []
   let summary: Record<string, unknown> = {}
   if (fixture === 'vaacup_original') {
-    const days = normalizeVaacupDaysFromEmbeddedMetadata(meta)
+    const days = normalizeVaacupDaysFromEmbeddedMetadata(meta, { globalSourceText: text })
     failures.push(...invariantFailuresForVaacupDays(days))
     summary = {
       days: days.map((d) => ({
@@ -286,7 +287,7 @@ async function runLiveOne(
       })),
     }
   } else if (fixture === 'hostcup_original') {
-    const days = normalizeEmbeddedScheduleDaySnapshots(meta)
+    const days = normalizeEmbeddedScheduleDaySnapshots(meta, { globalSourceText: text })
     failures.push(...invariantFailuresForHostcupDays(days))
     summary = { dayCount: days.length, dates: days.map((d) => d.date) }
   }
