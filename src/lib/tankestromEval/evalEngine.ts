@@ -18,6 +18,11 @@ import {
   invariantFailuresForVaacupUpdateMatch,
   type FixtureInvariantFailure,
 } from './fixtureInvariants'
+import {
+  analyzeTextWithLiveApi,
+  LiveAnalyzeError,
+  type LiveAnalyzeOptions,
+} from './liveAnalyze'
 
 export const TANKESTROM_EVAL_FIXTURE_IDS = [
   'vaacup_original',
@@ -29,20 +34,34 @@ export const TANKESTROM_EVAL_FIXTURE_IDS = [
 
 export type TankestromEvalFixtureId = (typeof TANKESTROM_EVAL_FIXTURE_IDS)[number]
 
+/** Fixtures støttet i live-modus (innskrenket initielt: kun cup-fixtures med embedded schedule). */
+export const TANKESTROM_LIVE_FIXTURE_IDS = ['vaacup_original', 'hostcup_original'] as const
+export type TankestromLiveFixtureId = (typeof TANKESTROM_LIVE_FIXTURE_IDS)[number]
+
+export type TankestromEvalMode = 'deterministic' | 'live'
+
 export type EvalRunRecord = {
   fixture: TankestromEvalFixtureId
   run: number
   seed: number
   passed: boolean
+  mode: TankestromEvalMode
   mutationKind?: string
   failures: FixtureInvariantFailure[]
   summary?: Record<string, unknown>
+  /** Sett kun i live-modus. Lagres til disk for feilede runs. */
+  live?: {
+    httpStatus?: number
+    durationMs?: number
+    errorStage?: string
+  }
 }
 
 export type EvalSummary = {
   generatedAt: string
   commit: string
   argv: string[]
+  mode: TankestromEvalMode
   runsPerFixture: number
   baseSeed: number
   records: EvalRunRecord[]
@@ -89,6 +108,7 @@ function runVaacupOriginalRun(run: number, mutationSeed: number): EvalRunRecord 
     run,
     seed: mutationSeed,
     passed: failures.length === 0,
+    mode: 'deterministic',
     mutationKind: mutation.kind,
     failures,
     summary: {
@@ -109,6 +129,7 @@ function runHostcupRun(run: number, mutationSeed: number): EvalRunRecord {
       run,
       seed: mutationSeed,
       passed: false,
+      mode: 'deterministic',
       failures: [{ code: 'hostcup_parse', message: 'Ingen event i bundle', detail: {} }],
     }
   }
@@ -120,6 +141,7 @@ function runHostcupRun(run: number, mutationSeed: number): EvalRunRecord {
     run,
     seed: mutationSeed,
     passed: failures.length === 0,
+    mode: 'deterministic',
     failures,
     summary: { dayCount: days.length, dates: days.map((d) => d.date) },
   }
@@ -133,6 +155,7 @@ function runSpondRun(run: number, mutationSeed: number): EvalRunRecord {
     run,
     seed: mutationSeed,
     passed: failures.length === 0,
+    mode: 'deterministic',
     failures,
     summary: { itemKinds: bundle.items.map((i) => i.kind) },
   }
@@ -146,6 +169,7 @@ function runAmbiguousRun(run: number, mutationSeed: number): EvalRunRecord {
     run,
     seed: mutationSeed,
     passed: failures.length === 0,
+    mode: 'deterministic',
     failures,
     summary: { itemKinds: bundle.items.map((i) => i.kind) },
   }
@@ -159,9 +183,137 @@ function runVaacupUpdateRun(run: number, mutationSeed: number): EvalRunRecord {
     run,
     seed: mutationSeed,
     passed: failures.length === 0,
+    mode: 'deterministic',
     failures,
     summary: { itemKinds: bundle.items.map((i) => i.kind) },
   }
+}
+
+function isLiveEligibleFixture(id: TankestromEvalFixtureId): id is TankestromLiveFixtureId {
+  return (TANKESTROM_LIVE_FIXTURE_IDS as readonly string[]).includes(id)
+}
+
+function firstEventMetadataFromBundle(bundle: PortalImportProposalBundle): EventMetadata | null {
+  for (const it of bundle.items) {
+    if (it.kind === 'event') {
+      const meta = it.event.metadata
+      if (meta && typeof meta === 'object' && !Array.isArray(meta)) return meta as EventMetadata
+    }
+  }
+  return null
+}
+
+async function runLiveOne(
+  fixture: TankestromLiveFixtureId,
+  run: number,
+  seed: number,
+  liveOpts: LiveAnalyzeOptions,
+  rawDir: string
+): Promise<EvalRunRecord> {
+  const text = readFixtureText(fixture)
+  const baseRecord: Omit<EvalRunRecord, 'passed' | 'failures'> = {
+    fixture,
+    run,
+    seed,
+    mode: 'live',
+    summary: { fixtureBytes: text.length },
+  }
+  let liveRes
+  try {
+    liveRes = await analyzeTextWithLiveApi(text, liveOpts)
+  } catch (err) {
+    const live = err instanceof LiveAnalyzeError ? err : null
+    const message = err instanceof Error ? err.message : String(err)
+    const rec: EvalRunRecord = {
+      ...baseRecord,
+      passed: false,
+      failures: [
+        {
+          code: live ? `live_${live.stage}_error` : 'live_unknown_error',
+          message,
+          detail: {
+            httpStatus: live?.httpStatus,
+            durationMs: live?.durationMs,
+            responseText: live?.responseText,
+          },
+        },
+      ],
+      live: {
+        httpStatus: live?.httpStatus,
+        durationMs: live?.durationMs,
+        errorStage: live?.stage,
+      },
+    }
+    writeFileSync(
+      join(rawDir, `${fixture}__run-${run}__seed-${seed}__live-error.json`),
+      JSON.stringify(rec, null, 2),
+      'utf-8'
+    )
+    return rec
+  }
+
+  const meta = firstEventMetadataFromBundle(liveRes.bundle)
+  if (!meta) {
+    const rec: EvalRunRecord = {
+      ...baseRecord,
+      passed: false,
+      failures: [
+        {
+          code: 'live_no_event_in_bundle',
+          message: 'Live analyse returnerte ingen kalenderhendelse — fant ingen event-metadata.',
+          detail: { itemKinds: liveRes.bundle.items.map((i) => i.kind) },
+        },
+      ],
+      live: { httpStatus: liveRes.httpStatus, durationMs: liveRes.durationMs },
+    }
+    writeFileSync(
+      join(rawDir, `${fixture}__run-${run}__seed-${seed}__live-raw.json`),
+      JSON.stringify({ rec, rawPayload: liveRes.rawPayload }, null, 2),
+      'utf-8'
+    )
+    return rec
+  }
+
+  const failures: FixtureInvariantFailure[] = []
+  let summary: Record<string, unknown> = {}
+  if (fixture === 'vaacup_original') {
+    const days = normalizeVaacupDaysFromEmbeddedMetadata(meta)
+    failures.push(...invariantFailuresForVaacupDays(days))
+    summary = {
+      days: days.map((d) => ({
+        dayKey: d.dayKey,
+        highlights: d.highlights.map((h) => `${h.time} ${h.label}`),
+      })),
+    }
+  } else if (fixture === 'hostcup_original') {
+    const days = normalizeEmbeddedScheduleDaySnapshots(meta)
+    failures.push(...invariantFailuresForHostcupDays(days))
+    summary = { dayCount: days.length, dates: days.map((d) => d.date) }
+  }
+  if (!meta.embeddedSchedule || !Array.isArray(meta.embeddedSchedule) || meta.embeddedSchedule.length === 0) {
+    failures.push({
+      code: 'live_no_embedded_schedule',
+      message: 'Live analyse returnerte ingen embeddedSchedule på parent-event — kan ikke verifisere delprogram.',
+      detail: { itemKinds: liveRes.bundle.items.map((i) => i.kind) },
+    })
+  }
+
+  const passed = failures.length === 0
+  const rec: EvalRunRecord = {
+    ...baseRecord,
+    passed,
+    failures,
+    summary: { ...summary, httpStatus: liveRes.httpStatus, durationMs: liveRes.durationMs },
+    live: { httpStatus: liveRes.httpStatus, durationMs: liveRes.durationMs },
+  }
+  if (!passed) {
+    writeFileSync(
+      join(rawDir, `${fixture}__run-${run}__seed-${seed}__live-raw.json`),
+      JSON.stringify({ rec, rawPayload: liveRes.rawPayload }, null, 2),
+      'utf-8'
+    )
+  }
+  return rec
 }
 
 function runOne(
@@ -194,41 +346,77 @@ export function assertFixtureTextPresent(ids: readonly TankestromEvalFixtureId[]
   }
 }
 
-export function runTankestromEval(opts: {
+export type RunTankestromEvalOptions = {
   fixture: 'all' | TankestromEvalFixtureId
   runs: number
   seed: number
   outDir: string
-}): EvalSummary {
-  const ids: TankestromEvalFixtureId[] =
-    opts.fixture === 'all' ? [...TANKESTROM_EVAL_FIXTURE_IDS] : [opts.fixture]
+  mode?: TankestromEvalMode
+  live?: LiveAnalyzeOptions
+}
+
+export async function runTankestromEval(opts: RunTankestromEvalOptions): Promise<EvalSummary> {
+  const mode: TankestromEvalMode = opts.mode === 'live' ? 'live' : 'deterministic'
+
+  let ids: TankestromEvalFixtureId[]
+  if (mode === 'live') {
+    if (opts.fixture === 'all') {
+      ids = [...TANKESTROM_LIVE_FIXTURE_IDS]
+    } else if (isLiveEligibleFixture(opts.fixture)) {
+      ids = [opts.fixture]
+    } else {
+      throw new Error(
+        `Live-modus støtter foreløpig kun fixtures: ${TANKESTROM_LIVE_FIXTURE_IDS.join(', ')}. Fikk «${opts.fixture}».`
+      )
+    }
+    if (!opts.live || !opts.live.url) {
+      throw new Error(
+        'Live-modus krever VITE_TANKESTROM_ANALYZE_URL (+ valgfri TANKESTROM_BEARER/TANKESTROM_API_KEY) i env.'
+      )
+    }
+  } else {
+    ids = opts.fixture === 'all' ? [...TANKESTROM_EVAL_FIXTURE_IDS] : [opts.fixture]
+  }
   assertFixtureTextPresent(ids)
 
   const runs = Math.max(1, Math.floor(opts.runs))
   const outDir = resolve(process.cwd(), opts.outDir)
-  mkdirSync(join(outDir, 'runs'), { recursive: true })
+  const rawDir = join(outDir, 'runs')
+  mkdirSync(rawDir, { recursive: true })
 
   const records: EvalRunRecord[] = []
-  for (const fixture of ids) {
-    parseBundle(fixture)
-    for (let run = 1; run <= runs; run++) {
-      const mutationSeed = (opts.seed + hashFixtureSalt(fixture) + run * 7919) >>> 0
-      const rec = runOne(fixture, run, mutationSeed)
-      records.push(rec)
-      if (!rec.passed) {
-        const fname = `${fixture}__run-${run}__seed-${mutationSeed}.json`
-        writeFileSync(
-          join(outDir, 'runs', fname),
-          JSON.stringify(
-            {
-              ...rec,
-              fixtureTextNote: 'Se fixtures/tankestrom/<fixture>.txt (kildebank)',
-            },
-            null,
-            2
-          ),
-          'utf-8'
-        )
+  if (mode === 'deterministic') {
+    for (const fixture of ids) {
+      parseBundle(fixture)
+      for (let run = 1; run <= runs; run++) {
+        const mutationSeed = (opts.seed + hashFixtureSalt(fixture) + run * 7919) >>> 0
+        const rec = runOne(fixture, run, mutationSeed)
+        records.push(rec)
+        if (!rec.passed) {
+          const fname = `${fixture}__run-${run}__seed-${mutationSeed}.json`
+          writeFileSync(
+            join(rawDir, fname),
+            JSON.stringify(
+              {
+                ...rec,
+                fixtureTextNote: 'Se fixtures/tankestrom/<fixture>.txt (kildebank)',
+              },
+              null,
+              2
+            ),
+            'utf-8'
+          )
+        }
+      }
+    }
+  } else {
+    for (const fixture of ids) {
+      if (!isLiveEligibleFixture(fixture)) continue
+      for (let run = 1; run <= runs; run++) {
+        const seed = (opts.seed + hashFixtureSalt(fixture) + run * 7919) >>> 0
+        // eslint-disable-next-line no-await-in-loop -- intentionally sequential to be gentle på live API
+        const rec = await runLiveOne(fixture, run, seed, opts.live!, rawDir)
+        records.push(rec)
       }
     }
   }
@@ -239,6 +427,7 @@ export function runTankestromEval(opts: {
     generatedAt: new Date().toISOString(),
     commit: tryGitSha(),
     argv: typeof process !== 'undefined' ? process.argv : [],
+    mode,
     runsPerFixture: runs,
     baseSeed: opts.seed,
     records,
@@ -249,6 +438,7 @@ export function runTankestromEval(opts: {
   const failuresPayload = {
     generatedAt: summary.generatedAt,
     commit: summary.commit,
+    mode,
     failureCount,
     passCount,
     records: records.filter((r) => !r.passed),
@@ -256,9 +446,10 @@ export function runTankestromEval(opts: {
   writeFileSync(join(outDir, 'failures.json'), JSON.stringify(failuresPayload, null, 2), 'utf-8')
 
   const byFixture = new Map<TankestromEvalFixtureId, { pass: number; fail: number }>()
-  for (const id of TANKESTROM_EVAL_FIXTURE_IDS) byFixture.set(id, { pass: 0, fail: 0 })
+  for (const id of ids) byFixture.set(id, { pass: 0, fail: 0 })
   for (const r of records) {
-    const cur = byFixture.get(r.fixture)!
+    const cur = byFixture.get(r.fixture)
+    if (!cur) continue
     if (r.passed) cur.pass += 1
     else cur.fail += 1
   }
@@ -279,6 +470,7 @@ export function runTankestromEval(opts: {
   const lines: string[] = []
   lines.push(`# Tankestrøm eval summary`)
   lines.push('')
+  lines.push(`- **Mode:** ${mode === 'live' ? 'live (Tankestrøm analyze API)' : 'deterministic (fixtures only)'}`)
   lines.push(`- **Generated:** ${summary.generatedAt}`)
   lines.push(`- **Commit:** \`${summary.commit}\``)
   lines.push(`- **Fixtures:** ${ids.length}`)
@@ -287,11 +479,14 @@ export function runTankestromEval(opts: {
   lines.push(`- **Pass:** ${passCount} / ${records.length}`)
   lines.push(`- **Fail:** ${failureCount}`)
   lines.push(`- **Failures JSON:** \`${join(outDir, 'failures.json')}\``)
+  if (mode === 'live') {
+    lines.push(`- **Live raw payload (failed runs):** \`${rawDir}/<fixture>__run-N__seed-...__live-*.json\``)
+  }
   lines.push('')
   lines.push('## Per fixture')
   lines.push('')
   for (const id of ids) {
-    const c = byFixture.get(id)!
+    const c = byFixture.get(id) ?? { pass: 0, fail: 0 }
     const icon = c.fail === 0 ? '✅' : '❌'
     lines.push(`${icon} **${id}** ${c.pass}/${c.pass + c.fail}`)
     if (c.fail > 0) {
