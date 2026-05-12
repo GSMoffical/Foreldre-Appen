@@ -18,7 +18,6 @@ import type { EmbeddedScheduleSegment } from '../../types'
 import {
   groupEmbeddedScheduleByDate,
   isEmbeddedScheduleParentProposalItem,
-  normalizeEmbeddedSegmentScheduleDetails,
   parseEmbeddedScheduleFromMetadata,
 } from '../../lib/embeddedSchedule'
 import {
@@ -53,7 +52,6 @@ import type {
   ChildSchoolDayPlan,
   ChildSchoolProfile,
   Event,
-  EventMetadata,
   NorwegianGradeBand,
   Person,
   SchoolContext,
@@ -77,6 +75,7 @@ import {
   normalizeTimeInput,
   scanNotesBodyForLanguage,
   taskIndicatesForeignLanguageMismatchWithTrack,
+  buildEmbeddedChildStructuredScheduleDetailsForReview,
   type TankestromPendingFile,
   type TankestromImportSuccess,
 } from './useTankestromImport'
@@ -102,9 +101,9 @@ import { logEvent } from '../../lib/appLogger'
 import { formatTimeRange } from '../../lib/time'
 import { TANKESTROM_FLIGHT_MISSING_END_LABEL } from '../../lib/tankestromFlightImportEnd'
 import {
+  buildPerDaySourceTextForValidation,
   buildTankestromScheduleDescriptionFallback,
   normalizeTankestromScheduleDetails,
-  readTankestromScheduleDetailsFromMetadata,
 } from '../../lib/tankestromScheduleDetails'
 import { taskIntentBadgeClassName, taskIntentLabelNb } from '../../lib/taskIntent'
 import {
@@ -1794,19 +1793,6 @@ type EmbeddedChildReviewEditBuffer = {
   editAsText: boolean
 }
 
-function embeddedSegmentMetadataShape(seg: EmbeddedScheduleSegment): EventMetadata {
-  const normalized = normalizeEmbeddedSegmentScheduleDetails(seg as unknown as Record<string, unknown>)
-  return {
-    tankestromHighlights: normalized.tankestromHighlights,
-    tankestromNotes: normalized.tankestromNotes,
-    bringItems: normalized.bringItems,
-    packingItems: normalized.packingItems,
-    timeWindow: seg.timeWindow,
-    tankestromTimeWindowSummaries: seg.tankestromTimeWindowSummaries,
-    timeWindowCandidates: normalized.timeWindowCandidates,
-  }
-}
-
 function embeddedSegmentHasStructuredDetails(seg: EmbeddedScheduleSegment): boolean {
   return (
     (Array.isArray(seg.tankestromHighlights) && seg.tankestromHighlights.length > 0) ||
@@ -2306,6 +2292,7 @@ export function TankestromImportDialog({
     existingEventLinkByProposalId,
     setExistingEventImportLink,
     importPipelineAnalyzeSnapshot,
+    analyzedImportTextSnapshot,
   } = useTankestromImport({
     open,
     people,
@@ -4128,10 +4115,19 @@ export function TankestromImportDialog({
                                     displayTitle,
                                     childId
                                   )
-                                  const structuredFromSegment = readTankestromScheduleDetailsFromMetadata(
-                                    embeddedSegmentMetadataShape(row.segment),
-                                    [detailPanelTitle, cardTitleRaw, displayTitle],
-                                    { fallbackStartTime: row.segment.start }
+                                  const parentCardTitleForSchedule =
+                                    normalizeEmbeddedScheduleParentDisplayTitle(cardTitleRaw.trim()).title
+                                  const structuredFromSegment = buildEmbeddedChildStructuredScheduleDetailsForReview(
+                                    row.segment,
+                                    parentCardTitleForSchedule,
+                                    displayTitle,
+                                    childId,
+                                    {
+                                      originalImportText:
+                                        analyzedImportTextSnapshot.trim().length > 0
+                                          ? analyzedImportTextSnapshot
+                                          : undefined,
+                                    }
                                   )
                                   const detailPanelId = `delprogram-child-detail-${childId}`
                                   const detailTriggerId = `delprogram-child-trigger-${childId}`
@@ -4249,6 +4245,22 @@ export function TankestromImportDialog({
                                                       : [],
                                                 bringItems: structuredFromSegment.bringItems,
                                                 titleContext: [displayTitle, cardTitleRaw],
+                                                fallbackStartTime:
+                                                  row.segment.start && row.segment.start.length >= 5
+                                                    ? row.segment.start.slice(0, 5)
+                                                    : undefined,
+                                                sourceTextForValidation: buildPerDaySourceTextForValidation({
+                                                  segmentSourceText:
+                                                    typeof row.segment.notes === 'string'
+                                                      ? row.segment.notes
+                                                      : undefined,
+                                                  globalSourceText:
+                                                    analyzedImportTextSnapshot.trim().length > 0
+                                                      ? analyzedImportTextSnapshot
+                                                      : undefined,
+                                                  date: row.segment.date,
+                                                }),
+                                                isConditionalSegment: row.segment.isConditional === true,
                                               })
                                               setEmbeddedChildReviewEditors((prev) => ({
                                                 ...prev,
@@ -4678,6 +4690,20 @@ export function TankestromImportDialog({
                                                     ? []
                                                     : buf.bringItems.map((line) => line.trim()).filter(Boolean),
                                                   titleContext: [cleanedTitle, cardTitleRaw],
+                                                  fallbackStartTime:
+                                                    buf.start.trim() && HM24.test(sN) ? sN : undefined,
+                                                  sourceTextForValidation: buildPerDaySourceTextForValidation({
+                                                    segmentSourceText:
+                                                      typeof row.segment.notes === 'string'
+                                                        ? row.segment.notes
+                                                        : undefined,
+                                                    globalSourceText:
+                                                      analyzedImportTextSnapshot.trim().length > 0
+                                                        ? analyzedImportTextSnapshot
+                                                        : undefined,
+                                                    date: buf.date || row.segment.date,
+                                                  }),
+                                                  isConditionalSegment: row.segment.isConditional === true,
                                                 })
                                                 const fallbackNotes = [
                                                   ...normalizedStructured.notes,

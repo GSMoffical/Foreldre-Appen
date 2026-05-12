@@ -845,6 +845,20 @@ function structuredDetailsFromSegment(
   })
 }
 
+/**
+ * Samme schedule-normalisering som ved persist/eksport (`structuredDetailsFromSegment`).
+ * Brukes av import-modalens delprogram-preview slik at UI matcher korrigerte highlights.
+ */
+export function buildEmbeddedChildStructuredScheduleDetailsForReview(
+  segment: EmbeddedScheduleSegment,
+  parentCardTitle: string,
+  displayTitle: string,
+  childProposalId: string,
+  opts?: { originalImportText?: string }
+): NormalizedTankestromScheduleDetails {
+  return structuredDetailsFromSegment(segment, parentCardTitle, displayTitle, childProposalId, opts)
+}
+
 function attachTankestromDetailsToMetadata(
   metadata: Record<string, unknown>,
   details: NormalizedTankestromScheduleDetails
@@ -2693,6 +2707,8 @@ export function useTankestromImport({
    * når kilden tydelig sier «Første kamp starter 18:40»).
    */
   const lastAnalyzedTextRef = useRef<string>('')
+  /** Synkron med `lastAnalyzedTextRef` — React-state slik at modal-preview kan lese snapshot ved render. */
+  const [analyzedImportTextSnapshot, setAnalyzedImportTextSnapshot] = useState('')
 
   const reset = useCallback(() => {
     setStep('pick')
@@ -2701,6 +2717,7 @@ export function useTankestromImport({
     setTextInput('')
     setBundle(null)
     lastAnalyzedTextRef.current = ''
+    setAnalyzedImportTextSnapshot('')
     setAnalyzedSourceLength(0)
     setSchoolReview(null)
     setSchoolProfileChildId('')
@@ -3262,6 +3279,7 @@ export function useTankestromImport({
         )
         setAnalyzedSourceLength(textInput.length)
         lastAnalyzedTextRef.current = textInput
+        setAnalyzedImportTextSnapshot(textInput)
         const classificationCtx = buildImportClassificationContext({
           inputMode: 'text',
           provenanceSourceType: b.provenance.sourceType,
@@ -3434,6 +3452,7 @@ export function useTankestromImport({
       )
       setAnalyzedSourceLength(analyzedBytesTotal)
       lastAnalyzedTextRef.current = ''
+      setAnalyzedImportTextSnapshot('')
       const classificationCtx = buildImportClassificationContext({
         inputMode: 'file',
         provenanceSourceType: merged.provenance.sourceType,
@@ -3469,6 +3488,7 @@ export function useTankestromImport({
   const clearReviewStateForReanalyze = useCallback(() => {
     setBundle(null)
     lastAnalyzedTextRef.current = ''
+    setAnalyzedImportTextSnapshot('')
     setAnalyzedSourceLength(0)
     setSchoolReview(null)
     setSchoolProfileChildId('')
@@ -5765,5 +5785,7 @@ export function useTankestromImport({
     existingEventLinkByProposalId,
     setExistingEventImportLink,
     importPipelineAnalyzeSnapshot,
+    /** Tekst som ble analysert i tekstmodus (snapshot) — brukes til dagsscopet sourceText i modal-preview. */
+    analyzedImportTextSnapshot,
   }
 }
