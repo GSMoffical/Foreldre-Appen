@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       fixture:
-        description: 'Fixture id eller all'
+        description: 'Fixture id eller all (live: kun vaacup_original / hostcup_original)'
         required: false
         default: 'all'
       runs:
@@ -28,6 +28,14 @@ on:
         description: 'Seed'
         required: false
         default: '123'
+      live_api:
+        description: 'Kjør LIVE mot Tankestrøm analyse-API (krever VITE_TANKESTROM_ANALYZE_URL secret). Default off.'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
   schedule:
     - cron: '0 6 * * 1'
 
@@ -38,6 +46,10 @@ concurrency:
 jobs:
   eval:
     runs-on: ubuntu-latest
+    # Live-modus tillates kun via workflow_dispatch med eksplisitt input.
+    # Pull_request og schedule kjører alltid deterministisk.
+    env:
+      TANKESTROM_MODE: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.live_api == 'true') && 'live' || 'deterministic' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -55,19 +67,36 @@ jobs:
         # lockfile generert av npm 11 (Node 24).
         run: npm ci
 
-      - name: Deterministic Tankestrom eval
+      - name: Resolve live defaults
+        id: live
+        run: |
+          if [ "$TANKESTROM_MODE" = "live" ]; then
+            echo "fixture=${{ github.event.inputs.fixture || 'vaacup_original' }}" >> "$GITHUB_OUTPUT"
+            echo "runs=${{ github.event.inputs.runs || '3' }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "fixture=${{ github.event.inputs.fixture || 'all' }}" >> "$GITHUB_OUTPUT"
+            echo "runs=${{ github.event.inputs.runs || '5' }}" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Resolved live mode: $TANKESTROM_MODE"
+
+      - name: Tankestrom eval (${{ env.TANKESTROM_MODE }})
         env:
           TANKESTROM_EVAL: '1'
-          TANKESTROM_EVAL_FIXTURE: ${{ github.event.inputs.fixture || 'all' }}
-          TANKESTROM_EVAL_RUNS: ${{ github.event.inputs.runs || '5' }}
+          TANKESTROM_EVAL_MODE: ${{ env.TANKESTROM_MODE }}
+          TANKESTROM_EVAL_FIXTURE: ${{ steps.live.outputs.fixture }}
+          TANKESTROM_EVAL_RUNS: ${{ steps.live.outputs.runs }}
           TANKESTROM_EVAL_SEED: ${{ github.event.inputs.seed || '42' }}
           TANKESTROM_EVAL_OUT: tmp/tankestrom-eval
+          TANKESTROM_EVAL_LIVE_TIMEOUT_MS: '90000'
+          VITE_TANKESTROM_ANALYZE_URL: ${{ secrets.VITE_TANKESTROM_ANALYZE_URL }}
+          TANKESTROM_BEARER: ${{ secrets.TANKESTROM_BEARER }}
+          TANKESTROM_API_KEY: ${{ secrets.TANKESTROM_API_KEY }}
         run: npx vitest run src/lib/tankestromEval/tankestromEvalRunner.test.ts --reporter=dot
 
       - name: Upload eval artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tankestrom-eval-${{ github.run_id }}
+          name: tankestrom-eval-${{ env.TANKESTROM_MODE }}-${{ github.run_id }}
           path: tmp/tankestrom-eval/
           if-no-files-found: warn
