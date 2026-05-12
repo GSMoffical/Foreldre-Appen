@@ -15,6 +15,9 @@ test-results/
 playwright-report/
 playwright/.cache/
 
+# Tankestrom eval/soak output (genereres lokalt/CI)
+tmp/
+
 # TypeScript
 *.tsbuildinfo
 

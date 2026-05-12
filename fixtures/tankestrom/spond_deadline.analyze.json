@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0.0",
+  "provenance": {
+    "sourceSystem": "tankestrom",
+    "sourceType": "eval_fixture",
+    "generatorVersion": "eval-v1",
+    "generatedAt": "2026-05-12T08:05:00.000Z",
+    "importRunId": "eval-spond-deadline-1"
+  },
+  "items": [
+    {
+      "proposalId": "00000000-0000-4000-8000-000000000201",
+      "kind": "task",
+      "sourceId": "eval",
+      "originalSourceType": "pasted_text",
+      "confidence": 0.91,
+      "task": {
+        "date": "2026-09-09",
+        "title": "Svar i Spond innen tirsdag 9. september kl. 18:00",
+        "notes": "Påmelding til treningsleir (syntetisk).",
+        "taskIntent": "must_do",
+        "assignedToPersonId": "",
+        "childPersonId": ""
+      }
+    }
+  ]
+}
