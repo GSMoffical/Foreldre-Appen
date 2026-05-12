@@ -15,6 +15,29 @@ function normalizeTextKey(value: string): string {
     .trim()
 }
 
+/**
+ * Nordic-letter-aware label-nøkkel. NFD bryter ned `å` til `a` + diakritisk og lar
+ * `normalizeTextKey` håndtere det, men `ø` og `æ` er udelelige base-tegn — de strippes
+ * derfor til mellomrom av `normalizeTextKey`. Resultatet er at klassifikasjonen av
+ * vanlige norske kamp/oppmøte-labels (`Oppmøte`, `Første kamp`) feilet når
+ * live-API-en returnerte `type: 'other'`: «Oppmøte» normaliserte til «oppm te» som
+ * verken inneholdt «oppmote» eller «mote».
+ *
+ * Vi bruker dette spesifikt for label-klassifisering i corrector + type-inference,
+ * og lar `normalizeTextKey` (35+ call sites for dedup, sammenligninger m.m.) være
+ * uendret.
+ */
+function normalizeLabelForKeyMatch(value: string): string {
+  return value
+    .toLocaleLowerCase('nb-NO')
+    .replace(/ø/g, 'o')
+    .replace(/æ/g, 'ae')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
 export type NormalizedTankestromScheduleDetails = {
   highlights: TankestromScheduleHighlight[]
   bringItems: string[]
@@ -45,7 +68,7 @@ function normalizeHighlightRow(input: unknown): TankestromScheduleHighlight | nu
 }
 
 function inferTypeFromLabel(label: string): TankestromScheduleHighlightType {
-  const key = normalizeTextKey(label)
+  const key = normalizeLabelForKeyMatch(label)
   if (key.includes('kamp') || key.includes('match')) return 'match'
   if (key.includes('oppmote') || key.includes('mote')) return 'meeting'
   if (key.includes('frist') || key.includes('deadline')) return 'deadline'
@@ -305,7 +328,7 @@ function looksLikeTitleOnlyHighlight(label: string, titleContext: string[]): boo
 }
 
 function classifyHighlightLabel(label: string): string {
-  const key = normalizeTextKey(label)
+  const key = normalizeLabelForKeyMatch(label)
   if (key.includes('kamp')) return 'kamp'
   if (key.includes('oppmote') || key.includes('mote')) return 'oppmote'
   return key
@@ -547,13 +570,68 @@ export type HighlightSourceTextValidation = {
   dropped: Array<{
     time: string
     label: string
-    reason: 'kamp_signal_at_time' | 'no_oppmote_evidence' | 'tentative_segment_without_explicit_time'
+    reason:
+      | 'kamp_signal_at_time'
+      | 'no_oppmote_evidence'
+      | 'tentative_segment_without_explicit_time'
+      | 'time_not_in_day_section_with_explicit_times'
   }>
 }
 
 function sourceContainsTime(text: string, time: string): boolean {
   const escaped = time.replace(/[:]/g, '\\:')
   return new RegExp(`\\b${escaped}\\b`).test(text)
+}
+
+/**
+ * Telles antall distinkte HH:MM-klokkeslett i en dagsspesifikk kildetekst.
+ * Brukes som heuristikk for «dagseksjonen er meningsfull» — hvis vi har flere
+ * konkrete tider å støtte oss på, er en høydepunkt-tid som ikke finnes der
+ * nesten alltid en lekkasje fra en annen dag (typisk live-LLM-feil).
+ */
+function countDistinctTimesInSourceText(text: string): number {
+  const re = /\b([01]?\d|2[0-3]):([0-5]\d)\b/g
+  const seen = new Set<string>()
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
+    const hh = String(parseInt(m[1]!, 10)).padStart(2, '0')
+    seen.add(`${hh}:${m[2]!}`)
+  }
+  return seen.size
+}
+
+const DAY_SECTION_EVIDENCE_MIN_DISTINCT_TIMES = 2
+
+/**
+ * Sterke «hele dagen er foreløpig»-markører i en dagsspesifikk kildetekst.
+ * Brukes for å gjenkjenne tentative segmenter når LLM «glemte» å sette
+ * `isConditional: true` på segmentet (sett i live Vårcup-payloads).
+ *
+ * KRITISK: Kalleren må allerede ha scopa sourceText til _denne_ dagens
+ * seksjon (se `extractDaySectionForScheduleValidation`). Ellers kan fredagsfraser
+ * («avhenger av resultatene fredag og lørdag») i et global blob gjøre
+ * fredag foreløpig — som ville være feil.
+ *
+ * Mønstrene er bevisst konservative: de matcher fraser som beskriver at
+ * _selve programmet/dagen_ er foreløpig, ikke ordet «foreløpig» løsrevet.
+ */
+export function classifyConditionalIntentFromSourceText(sourceText: string | undefined): boolean {
+  if (!sourceText) return false
+  const text = sourceText.toLowerCase()
+  const markers: RegExp[] = [
+    /\bspilleplan(?:en)?\s+(?:er\s+)?forel[øo]pig\b/,
+    /\bforel[øo]pig\s+(?:program|opplegg|tid|plan|spilleplan)\b/,
+    /\bendelig\s+tid\s+(?:kommer|meldes|gis|publiseres|annonseres)\b/,
+    /\b(?:vi\s+)?melder\s+endelig\s+tid\b/,
+    /\bendelig\s+tid\s+n[åa]r\s+(?:vi\s+vet|mer\s+er)\s+(?:mer|kjent)/,
+    /\bavhenger\s+av\s+(?:resultat|hvordan|plassering|sluttspill)/,
+    /\bikke\s+endelig\s+(?:avklart|bestemt|fastsatt|tid)/,
+    /\bsluttspill(?:et)?\s+avhenger\b/,
+    /\bbetinget\s+opplegg\b/,
+    /\beventuell\s+kamp\b/,
+    /\btidspunkt\s+(?:er|for)?\s*(?:ikke\s+)?(?:endelig\s+)?avklart\b/,
+  ]
+  return markers.some((re) => re.test(text))
 }
 
 function kampLabelOrdinalKey(label: string): string {
@@ -585,7 +663,17 @@ export function correctMislabeledHighlightsAgainstSourceText(
   const relabeled: HighlightSourceTextValidation['relabeled'] = []
   const dropped: HighlightSourceTextValidation['dropped'] = []
   if (!text) return { highlights, relabeled, dropped }
-  const isConditional = opts?.isConditionalSegment === true
+  // En segment er «foreløpig» enten fordi struktur-flagget sier det, eller fordi
+  // dagsspesifikk sourceText eksplisitt sier det (LLM «glemmer» av og til flagget).
+  // Vi bruker kun dagsspesifikk sourceText her (kalleren har scopa den per dato),
+  // så fredag/lørdag-formuleringer kan ikke gjøre fredag eller lørdag foreløpig.
+  const isConditional =
+    opts?.isConditionalSegment === true || classifyConditionalIntentFromSourceText(text)
+  // Hvis dagsseksjonen har flere konkrete tider (>=2), er den meningsfull, og en
+  // highlight med en tid som _ikke_ er nevnt der er nesten alltid lekkasje fra
+  // en annen dag (typisk live-LLM-feil hvor fredagstid havner på lørdag).
+  const dayHasExplicitTimeEvidence =
+    countDistinctTimesInSourceText(text) >= DAY_SECTION_EVIDENCE_MIN_DISTINCT_TIMES
   const out: TankestromScheduleHighlight[] = []
   for (const h of highlights) {
     const type = h.type ?? inferTypeFromLabel(h.label)
@@ -593,6 +681,31 @@ export function correctMislabeledHighlightsAgainstSourceText(
     const treatAsOppmote = type === 'meeting' || labelKind === 'oppmote'
     const treatAsKamp = type === 'match' || labelKind === 'kamp'
     if (treatAsKamp) {
+      // Tentative-/conditional segment uten eksplisitt klokkeslett i kildeteksten:
+      // dropp kamp-highlighten for å unngå at fredagstider lekker til søndag etc.
+      if (isConditional && !sourceContainsTime(text, h.time)) {
+        dropped.push({ time: h.time, label: h.label, reason: 'tentative_segment_without_explicit_time' })
+        continue
+      }
+      // Dagseksjonen er meningsfull men nevner ikke denne tida → lekkasje fra
+      // en annen dag (f.eks. fredagstid 18:15 dukker opp på lørdag).
+      if (dayHasExplicitTimeEvidence && !sourceContainsTime(text, h.time)) {
+        dropped.push({
+          time: h.time,
+          label: h.label,
+          reason: 'time_not_in_day_section_with_explicit_times',
+        })
+        continue
+      }
+      // Setningsstart «Oppmøte ...» på samme tid → degrader fra kamp til oppmøte.
+      // (Live-LLM merket «08:35 Første kamp» selv om kildelinjen sier
+      // «Oppmøte før første kamp kl. 08:35».)
+      const kampIntent = classifyTimeIntentInSourceText(h.time, text)
+      if (kampIntent === 'oppmote') {
+        out.push({ time: h.time, label: 'Oppmøte', type: 'meeting' })
+        relabeled.push({ time: h.time, from: h.label, to: 'Oppmøte' })
+        continue
+      }
       const sourceLabel = pickKampLabelFromSource(h.time, text)
       if (sourceLabel) {
         const sourceOrd = kampLabelOrdinalKey(sourceLabel)
@@ -623,6 +736,16 @@ export function correctMislabeledHighlightsAgainstSourceText(
     }
     if (isConditional && !sourceContainsTime(text, h.time)) {
       dropped.push({ time: h.time, label: h.label, reason: 'tentative_segment_without_explicit_time' })
+      continue
+    }
+    // Samme lekkasje-regel for oppmøte-highlights: dagseksjonen har flere
+    // konkrete tider, men denne er ikke nevnt der → drop.
+    if (dayHasExplicitTimeEvidence && !sourceContainsTime(text, h.time)) {
+      dropped.push({
+        time: h.time,
+        label: h.label,
+        reason: 'time_not_in_day_section_with_explicit_times',
+      })
       continue
     }
     out.push(h)
@@ -761,6 +884,202 @@ function buildSourceTextForValidation(
     .map((p) => (typeof p === 'string' ? p.trim() : ''))
     .filter(Boolean)
   return parts.join('\n')
+}
+
+const NB_WEEKDAY_LONG = ['søndag', 'mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag'] as const
+const NB_WEEKDAY_SHORT = ['søn', 'man', 'tir', 'ons', 'tor', 'fre', 'lør'] as const
+const NB_MONTHS_LONG = [
+  'januar',
+  'februar',
+  'mars',
+  'april',
+  'mai',
+  'juni',
+  'juli',
+  'august',
+  'september',
+  'oktober',
+  'november',
+  'desember',
+] as const
+const NB_MONTHS_SHORT = [
+  'jan',
+  'feb',
+  'mar',
+  'apr',
+  'mai',
+  'jun',
+  'jul',
+  'aug',
+  'sep',
+  'okt',
+  'nov',
+  'des',
+] as const
+
+function dayOfWeekFromIsoDate(isoDate: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null
+  const [y, m, d] = isoDate.split('-').map((v) => parseInt(v, 10))
+  if (!Number.isFinite(y!) || !Number.isFinite(m!) || !Number.isFinite(d!)) return null
+  const dt = new Date(Date.UTC(y!, m! - 1, d!))
+  if (Number.isNaN(dt.getTime())) return null
+  return dt.getUTCDay()
+}
+
+type DayHeaderMatch = {
+  start: number
+  end: number
+  weekdayIndex: number | null
+  dayOfMonth: number
+  monthIndex: number | null
+}
+
+const HEADER_WEEKDAY_ALT = [...NB_WEEKDAY_LONG, ...NB_WEEKDAY_SHORT].join('|')
+const HEADER_MONTH_ALT = [...NB_MONTHS_LONG, ...NB_MONTHS_SHORT].join('|')
+
+const STRICT_DAY_HEADER_RE = new RegExp(
+  String.raw`(^|\n)[ \t]*` +
+    String.raw`(?:(${HEADER_WEEKDAY_ALT})\.?\s*,?\s*)` +
+    String.raw`(\d{1,2})\.?` +
+    String.raw`(?:\s*(${HEADER_MONTH_ALT})\.?|\s*\.?\s*(\d{1,2})\.?)` +
+    String.raw`(?:\s*\d{4})?\b`,
+  'gi'
+)
+
+const DATE_ONLY_HEADER_RE = new RegExp(
+  String.raw`(^|\n)[ \t]*` +
+    String.raw`(\d{1,2})\.?` +
+    String.raw`\s*(${HEADER_MONTH_ALT})\.?` +
+    String.raw`(?:\s*\d{4})?\b`,
+  'gi'
+)
+
+function weekdayIndexFromToken(token: string | undefined): number | null {
+  if (!token) return null
+  const t = token.toLowerCase().replace(/\.$/, '')
+  for (let i = 0; i < NB_WEEKDAY_LONG.length; i++) {
+    if (NB_WEEKDAY_LONG[i] === t) return i
+  }
+  for (let i = 0; i < NB_WEEKDAY_SHORT.length; i++) {
+    if (NB_WEEKDAY_SHORT[i] === t) return i
+  }
+  return null
+}
+
+function monthIndexFromToken(token: string | undefined): number | null {
+  if (!token) return null
+  const t = token.toLowerCase().replace(/\.$/, '')
+  for (let i = 0; i < NB_MONTHS_LONG.length; i++) {
+    if (NB_MONTHS_LONG[i] === t) return i
+  }
+  for (let i = 0; i < NB_MONTHS_SHORT.length; i++) {
+    if (NB_MONTHS_SHORT[i] === t) return i
+  }
+  return null
+}
+
+function collectDayHeaderMatches(text: string): DayHeaderMatch[] {
+  const out: DayHeaderMatch[] = []
+  STRICT_DAY_HEADER_RE.lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = STRICT_DAY_HEADER_RE.exec(text)) !== null) {
+    const leadLen = (m[1] ?? '').length
+    const weekdayIndex = weekdayIndexFromToken(m[2])
+    const dom = parseInt(m[3]!, 10)
+    if (!Number.isFinite(dom)) continue
+    let monthIndex: number | null = null
+    if (m[4]) {
+      monthIndex = monthIndexFromToken(m[4])
+    } else if (m[5]) {
+      const num = parseInt(m[5], 10)
+      if (Number.isFinite(num) && num >= 1 && num <= 12) monthIndex = num - 1
+    }
+    out.push({
+      start: m.index + leadLen,
+      end: STRICT_DAY_HEADER_RE.lastIndex,
+      weekdayIndex,
+      dayOfMonth: dom,
+      monthIndex,
+    })
+  }
+  if (out.length > 0) return out
+  DATE_ONLY_HEADER_RE.lastIndex = 0
+  while ((m = DATE_ONLY_HEADER_RE.exec(text)) !== null) {
+    const leadLen = (m[1] ?? '').length
+    const dom = parseInt(m[2]!, 10)
+    const monthIndex = monthIndexFromToken(m[3])
+    if (!Number.isFinite(dom) || monthIndex === null) continue
+    out.push({
+      start: m.index + leadLen,
+      end: DATE_ONLY_HEADER_RE.lastIndex,
+      weekdayIndex: null,
+      dayOfMonth: dom,
+      monthIndex,
+    })
+  }
+  return out
+}
+
+/**
+ * Henter ut én dagseksjon fra full kildetekst (norske dagoverskrifter).
+ *
+ * Brukes som en defensiv fallback for `sourceTextForValidation` når
+ * segment-level notes/sourceText mangler i live-payload eller LLM-resultatet
+ * ikke har dagsspesifikke notater. Returnerer kun seksjonen for den oppgitte
+ * datoen — aldri den globale teksten ukritisk, for å unngå lekkasje av
+ * tider mellom dager (f.eks. fredag 18:40 inn på søndag).
+ *
+ * Støtter overskrifter som:
+ *  - «Fredag 12. juni»
+ *  - «fredag 12. juni 2026»
+ *  - «Fre 13. juni»
+ *  - «Lørdag 13.6.»
+ *  - «12. juni» (rent dato-fallback hvis ingen weekday-headers finnes)
+ *
+ * Hvis ingen passende dagsoverskrift finnes, returneres tom streng (slik at
+ * kalleren kan beholde sin nåværende `sourceTextForValidation` uten endring).
+ */
+export function extractDaySectionForScheduleValidation(
+  globalText: string | undefined,
+  isoDate: string | undefined
+): string {
+  if (typeof globalText !== 'string' || !globalText.trim()) return ''
+  if (typeof isoDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return ''
+  const text = globalText.replace(/\r\n/g, '\n')
+  const [, mStr, dStr] = isoDate.split('-')
+  const monthIndex = parseInt(mStr!, 10) - 1
+  const dayOfMonth = parseInt(dStr!, 10)
+  const weekdayIndex = dayOfWeekFromIsoDate(isoDate)
+  if (!Number.isFinite(monthIndex) || !Number.isFinite(dayOfMonth)) return ''
+  const headers = collectDayHeaderMatches(text)
+  if (headers.length === 0) return ''
+  const matchIdx = headers.findIndex((h) => {
+    if (h.dayOfMonth !== dayOfMonth) return false
+    if (h.monthIndex !== null && h.monthIndex !== monthIndex) return false
+    if (h.weekdayIndex !== null && weekdayIndex !== null && h.weekdayIndex !== weekdayIndex) return false
+    return true
+  })
+  if (matchIdx < 0) return ''
+  const sectionStart = headers[matchIdx]!.start
+  const sectionEnd = matchIdx + 1 < headers.length ? headers[matchIdx + 1]!.start : text.length
+  return text.slice(sectionStart, sectionEnd).trim()
+}
+
+/**
+ * Kombinerer eksplisitt segment-text og en evt. global kildetekst til
+ * et trygt `sourceTextForValidation`-input. Ekstraherer kun den aktuelle
+ * dagseksjonen fra global tekst — aldri hele blob-en — for å unngå
+ * lekkasje mellom dager.
+ */
+export function buildPerDaySourceTextForValidation(opts: {
+  segmentSourceText?: string
+  globalSourceText?: string
+  date?: string
+}): string | undefined {
+  const explicit = typeof opts.segmentSourceText === 'string' ? opts.segmentSourceText.trim() : ''
+  const daySection = extractDaySectionForScheduleValidation(opts.globalSourceText, opts.date)
+  const merged = [explicit, daySection].filter((s) => s.length > 0).join('\n\n')
+  return merged.length > 0 ? merged : undefined
 }
 
 function padHmFromMatch(h: string, m: string): string {
