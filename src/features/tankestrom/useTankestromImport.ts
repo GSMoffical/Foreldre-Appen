@@ -757,8 +757,9 @@ function buildEmbeddedChildEventDraft(
 
 function highlightTypeFromLabel(label: string): TankestromScheduleHighlight['type'] {
   const s = label.toLocaleLowerCase('nb-NO')
-  if (s.includes('kamp') || s.includes('match')) return 'match'
+  // «Oppmøte før første kamp» inneholder «kamp» — møte må vinne over generisk kamp-match.
   if (s.includes('oppmøte') || s.includes('møte')) return 'meeting'
+  if (s.includes('kamp') || s.includes('match')) return 'match'
   if (s.includes('frist') || s.includes('deadline')) return 'deadline'
   if (s.includes('notat') || s.includes('husk')) return 'note'
   return 'other'

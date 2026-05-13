@@ -4859,6 +4859,7 @@ export function TankestromImportDialog({
                                                 bringItems={structuredFromSegment.bringItems}
                                                 titleContext={[detailPanelTitle, cardTitleRaw]}
                                                 compact
+                                                useNormalizedInput
                                                 precomputedTimeWindowSummaries={
                                                   structuredFromSegment.timeWindowSummaries
                                                 }

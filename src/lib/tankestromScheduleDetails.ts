@@ -69,8 +69,9 @@ function normalizeHighlightRow(input: unknown): TankestromScheduleHighlight | nu
 
 function inferTypeFromLabel(label: string): TankestromScheduleHighlightType {
   const key = normalizeLabelForKeyMatch(label)
-  if (key.includes('kamp') || key.includes('match')) return 'match'
+  // «Oppmøte før første kamp» — ikke klassifiser som kamp pga. «første kamp»-delstreng.
   if (key.includes('oppmote') || key.includes('mote')) return 'meeting'
+  if (key.includes('kamp') || key.includes('match')) return 'match'
   if (key.includes('frist') || key.includes('deadline')) return 'deadline'
   if (key.includes('notat') || key.includes('husk')) return 'note'
   return 'other'
@@ -329,8 +330,8 @@ function looksLikeTitleOnlyHighlight(label: string, titleContext: string[]): boo
 
 function classifyHighlightLabel(label: string): string {
   const key = normalizeLabelForKeyMatch(label)
-  if (key.includes('kamp')) return 'kamp'
   if (key.includes('oppmote') || key.includes('mote')) return 'oppmote'
+  if (key.includes('kamp')) return 'kamp'
   return key
 }
 

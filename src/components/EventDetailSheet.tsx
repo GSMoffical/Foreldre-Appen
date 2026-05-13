@@ -358,6 +358,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                 bringItems={tankestromDetails.bringItems}
                 titleContext={[event.title]}
                 precomputedTimeWindowSummaries={tankestromDetails.timeWindowSummaries}
+                useNormalizedInput
               />
             </div>
           )}

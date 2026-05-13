@@ -1,5 +1,8 @@
 import type { TankestromScheduleHighlight, TankestromTimeWindowSummary } from '../types'
-import { normalizeTankestromScheduleDetails } from '../lib/tankestromScheduleDetails'
+import {
+  normalizeTankestromScheduleDetails,
+  type NormalizedTankestromScheduleDetails,
+} from '../lib/tankestromScheduleDetails'
 
 type TankestromScheduleDetailsProps = {
   highlights: TankestromScheduleHighlight[]
@@ -9,11 +12,37 @@ type TankestromScheduleDetailsProps = {
   compact?: boolean
   /** Når UI allerede har lest metadata (persistert vindu), ikke gjenberegn vindu på nytt. */
   precomputedTimeWindowSummaries?: TankestromTimeWindowSummary[]
+  /**
+   * Når true: `highlights`/`notes`/`bringItems`/`precomputedTimeWindowSummaries` er allerede
+   * output fra `normalizeTankestromScheduleDetails` (eller tilsvarende). Unngår dobbel-kjøring
+   * uten `sourceTextForValidation`, som ellers kan kollapse f.eks. «Oppmøte før første kamp» → «Oppmøte»
+   * når notatene ikke inneholder klokkeslett (Tankestrøm import-modal / hendelsesdetaljer).
+   */
+  useNormalizedInput?: boolean
   /** E2E: stabil selector for «Høydepunkter»-blokken (f.eks. per dag). */
   highlightsTestId?: string
   /** E2E: stabil selector for notatlisten under detaljer. */
   notesTestId?: string
 }
+
+function normalizedDetailsFromProps(
+  highlights: TankestromScheduleHighlight[],
+  notes: string[],
+  bringItems: string[],
+  timeWindowSummaries: TankestromTimeWindowSummary[]
+): NormalizedTankestromScheduleDetails {
+  return {
+    highlights: [...highlights],
+    notes: [...notes],
+    bringItems: [...bringItems],
+    timeWindowSummaries: [...timeWindowSummaries],
+    removedFragments: [],
+    removedDuplicateHighlights: 0,
+    removedHighlights: [],
+    liftedBringItems: [],
+  }
+}
+
 export function TankestromScheduleDetails({
   highlights,
   notes,
@@ -21,16 +50,19 @@ export function TankestromScheduleDetails({
   titleContext = [],
   compact = false,
   precomputedTimeWindowSummaries,
+  useNormalizedInput = false,
   highlightsTestId,
   notesTestId,
 }: TankestromScheduleDetailsProps) {
-  const normalized = normalizeTankestromScheduleDetails({
-    highlights,
-    notes,
-    bringItems,
-    titleContext,
-    precomputedTimeWindowSummaries,
-  })
+  const normalized = useNormalizedInput
+    ? normalizedDetailsFromProps(highlights, notes, bringItems, precomputedTimeWindowSummaries ?? [])
+    : normalizeTankestromScheduleDetails({
+        highlights,
+        notes,
+        bringItems,
+        titleContext,
+        precomputedTimeWindowSummaries,
+      })
   const hasHighlightSection =
     normalized.timeWindowSummaries.length > 0 || normalized.highlights.length > 0
   if (
