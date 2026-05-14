@@ -2,18 +2,6 @@ name: Tankestrom eval
 
 on:
   pull_request:
-    paths:
-      - 'fixtures/tankestrom/**'
-      - 'src/lib/tankestromEval/**'
-      - 'src/lib/tankestromScheduleDetails.ts'
-      - 'src/lib/tankestromVaacupInvariants.ts'
-      - 'src/lib/tankestromExistingEventMatch.ts'
-      - 'src/lib/embeddedSchedule.ts'
-      - 'src/lib/tankestromApi.ts'
-      - 'scripts/eval-tankestrom.mjs'
-      - 'package.json'
-      - 'vite.config.ts'
-      - '.github/workflows/tankestrom-eval.yml'
   workflow_dispatch:
     inputs:
       fixture:
@@ -44,10 +32,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  eval:
+  changes:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # Live-modus tillates kun via workflow_dispatch med eksplisitt input.
-    # Pull_request og schedule kjører alltid deterministisk.
+    outputs:
+      eval_needed: ${{ steps.filter.outputs.eval }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            eval:
+              - 'fixtures/tankestrom/**'
+              - 'src/lib/tankestromEval/**'
+              - 'src/lib/tankestromScheduleDetails.ts'
+              - 'src/lib/tankestromVaacupInvariants.ts'
+              - 'src/lib/tankestromExistingEventMatch.ts'
+              - 'src/lib/embeddedSchedule.ts'
+              - 'src/lib/tankestromApi.ts'
+              - 'scripts/eval-tankestrom.mjs'
+              - 'package.json'
+              - 'vite.config.ts'
+              - '.github/workflows/tankestrom-eval.yml'
+
+  eval:
+    needs: [changes]
+    if: |
+      always() && (
+        github.event_name != 'pull_request' ||
+        needs.changes.outputs.eval_needed == 'true'
+      )
+    runs-on: ubuntu-latest
     env:
       TANKESTROM_MODE: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.live_api == 'true') && 'live' || 'deterministic' }}
     steps:
@@ -61,10 +77,6 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        # Matchet med ci.yml (node 24 + cache-dependency-path) for å unngå
-        # «Missing: @esbuild/win32-arm64 / @rollup/rollup-win32-…»-feil som
-        # oppstår når npm 10 (Node 20) leser optional platform-pakker i et
-        # lockfile generert av npm 11 (Node 24).
         run: npm ci
 
       - name: Resolve live defaults

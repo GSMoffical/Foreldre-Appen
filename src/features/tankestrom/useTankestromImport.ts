@@ -1177,7 +1177,7 @@ export function humanImportSourceLabelForBundle(bundle: PortalImportProposalBund
   return undefined
 }
 
-function initialSelectedIdsForGeneralImport(
+export function initialSelectedIdsForGeneralImport(
   items: PortalProposalItem[],
   drafts: Record<string, TankestromImportDraft>,
   people: Person[],
