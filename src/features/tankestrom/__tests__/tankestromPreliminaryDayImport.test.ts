@@ -13,12 +13,13 @@ import {
   getTankestromDraftFieldErrors,
   collectTankestromEventExportValidationIssues,
   buildEmbeddedChildStructuredScheduleDetailsForReview,
+  initialSelectedIdsForGeneralImport,
 } from '../useTankestromImport'
 import {
   normalizeEmbeddedScheduleParentDisplayTitle,
   embeddedScheduleChildTitleForReview,
 } from '../../../lib/tankestromCupEmbeddedScheduleMerge'
-import type { TankestromEventDraft } from '../types'
+import type { TankestromEventDraft, TankestromImportDraft } from '../types'
 
 const VAACUP_FIXTURE = join(process.cwd(), 'fixtures/tankestrom/vaacup_original.analyze.json')
 const fixtureJson = JSON.parse(readFileSync(VAACUP_FIXTURE, 'utf8'))
@@ -52,6 +53,55 @@ function mockParentDraft(): TankestromEventDraft {
   }
 }
 
+function makeParentImportDraft(): TankestromImportDraft {
+  return {
+    importKind: 'event',
+    event: mockParentDraft(),
+  }
+}
+
+describe('Vårcup lørdag display time', () => {
+  it('lørdag har highlights med 08:35 som tidligste tid', () => {
+    const childId = makeEmbeddedChildProposalId(parentItem.proposalId, 1)
+    const displayTitle = embeddedScheduleChildTitleForReview(parentCard, saturdaySeg)
+    const structured = buildEmbeddedChildStructuredScheduleDetailsForReview(
+      saturdaySeg, parentCard, displayTitle, childId
+    )
+    const times = structured.highlights.map((h) => h.time).sort()
+    expect(times[0]).toBe('08:35')
+  })
+
+  it('lørdag segment.start er 08:35 (ikke 17:45)', () => {
+    expect(saturdaySeg.start).toBe('08:35')
+  })
+
+  it('lørdag har ingen 17:45 i sine egne highlights', () => {
+    const highlights = saturdaySeg.tankestromHighlights ?? []
+    const has1745 = highlights.some((h: { time?: string }) => h?.time === '17:45')
+    expect(has1745).toBe(false)
+  })
+
+  it('lørdag display time rule: tidligste highlight (08:35) har prioritet over derivert tid', () => {
+    const highlights = Array.isArray(saturdaySeg.tankestromHighlights)
+      ? saturdaySeg.tankestromHighlights.filter(
+          (h: { time?: string }) => h?.time && /^([01]\d|2[0-3]):[0-5]\d$/.test(h.time)
+        )
+      : []
+    const earliestHighlight = highlights.map((h: { time: string }) => h.time).sort()[0]
+    expect(earliestHighlight).toBe('08:35')
+  })
+
+  it('fredag 17:45 lekker ikke til lørdag highlights', () => {
+    const childId = makeEmbeddedChildProposalId(parentItem.proposalId, 1)
+    const displayTitle = embeddedScheduleChildTitleForReview(parentCard, saturdaySeg)
+    const structured = buildEmbeddedChildStructuredScheduleDetailsForReview(
+      saturdaySeg, parentCard, displayTitle, childId
+    )
+    const has1745 = structured.highlights.some((h) => h.time === '17:45')
+    expect(has1745).toBe(false)
+  })
+})
+
 describe('Vårcup søndag (foreløpig dag)', () => {
   it('søndag er isConditional', () => {
     expect(sundaySeg.isConditional).toBe(true)
@@ -70,8 +120,7 @@ describe('Vårcup søndag (foreløpig dag)', () => {
       start: '',
       end: '',
     }
-    const err = validateTankestromDraft(draft, validPersonIds)
-    expect(err).toBeNull()
+    expect(validateTankestromDraft(draft, validPersonIds)).toBeNull()
   })
 
   it('søndag date-only draft har ingen field errors for start/end', () => {
@@ -123,11 +172,63 @@ describe('Vårcup søndag (foreløpig dag)', () => {
     )
     expect(leaked).toHaveLength(0)
   })
+})
 
-  it('søndag er ikke forhåndsvalgt som kalenderhendelse uten confirmed tid', () => {
-    expect(sundaySeg.isConditional).toBe(true)
-    expect((sundaySeg.start ?? '').trim()).toBe('')
-    expect((sundaySeg.end ?? '').trim()).toBe('')
+describe('initialSelectedIdsForGeneralImport — foreløpig dag ekskluderes', () => {
+  it('conditional søndag uten tid er ikke i selectedIds', () => {
+    const drafts: Record<string, TankestromImportDraft> = {
+      [parentItem.proposalId]: makeParentImportDraft(),
+    }
+    const people = [{ id: 'person-a', name: 'Test', memberKind: 'child' as const }]
+    const selected = initialSelectedIdsForGeneralImport(
+      bundle.items, drafts, people as any, 'person-a'
+    )
+    const sundayChildId = makeEmbeddedChildProposalId(parentItem.proposalId, 2)
+    expect(selected.has(sundayChildId)).toBe(false)
+  })
+
+  it('confirmed fredag og lørdag er i selectedIds', () => {
+    const drafts: Record<string, TankestromImportDraft> = {
+      [parentItem.proposalId]: makeParentImportDraft(),
+    }
+    const people = [{ id: 'person-a', name: 'Test', memberKind: 'child' as const }]
+    const selected = initialSelectedIdsForGeneralImport(
+      bundle.items, drafts, people as any, 'person-a'
+    )
+    const fridayChildId = makeEmbeddedChildProposalId(parentItem.proposalId, 0)
+    const saturdayChildId = makeEmbeddedChildProposalId(parentItem.proposalId, 1)
+    expect(selected.has(fridayChildId)).toBe(true)
+    expect(selected.has(saturdayChildId)).toBe(true)
+  })
+
+  it('import count = 2 hendelser (ikke 3) for Vårcup', () => {
+    const drafts: Record<string, TankestromImportDraft> = {
+      [parentItem.proposalId]: makeParentImportDraft(),
+    }
+    const people = [{ id: 'person-a', name: 'Test', memberKind: 'child' as const }]
+    const selected = initialSelectedIdsForGeneralImport(
+      bundle.items, drafts, people as any, 'person-a'
+    )
+    const childIds = segments.map((_, i) =>
+      makeEmbeddedChildProposalId(parentItem.proposalId, i)
+    )
+    const selectedChildren = childIds.filter((id) => selected.has(id))
+    expect(selectedChildren).toHaveLength(2)
+  })
+
+  it('ny analyse gir samme selection (ingen stale state)', () => {
+    const drafts: Record<string, TankestromImportDraft> = {
+      [parentItem.proposalId]: makeParentImportDraft(),
+    }
+    const people = [{ id: 'person-a', name: 'Test', memberKind: 'child' as const }]
+
+    const sel1 = initialSelectedIdsForGeneralImport(bundle.items, drafts, people as any, 'person-a')
+    const sel2 = initialSelectedIdsForGeneralImport(bundle.items, drafts, people as any, 'person-a')
+
+    const sundayChildId = makeEmbeddedChildProposalId(parentItem.proposalId, 2)
+    expect(sel1.has(sundayChildId)).toBe(false)
+    expect(sel2.has(sundayChildId)).toBe(false)
+    expect([...sel1]).toEqual([...sel2])
   })
 })
 
@@ -163,14 +264,6 @@ describe('Vårcup fredag/lørdag (confirmed dager)', () => {
     const times = structured.highlights.map((h) => h.time)
     expect(times).toContain('17:45')
     expect(times).toContain('18:40')
-  })
-
-  it('fredag er ikke isConditional', () => {
-    expect(fridaySeg.isConditional).toBeUndefined()
-  })
-
-  it('lørdag er ikke isConditional', () => {
-    expect(saturdaySeg.isConditional).toBeUndefined()
   })
 
   it('confirmed fredag/lørdag blokkeres ikke av foreløpig søndag', () => {

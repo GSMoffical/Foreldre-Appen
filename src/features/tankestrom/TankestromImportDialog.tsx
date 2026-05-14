@@ -4060,17 +4060,30 @@ export function TankestromImportDialog({
                                   const derivedOppmote = tryDeriveOppmoteStartFromSegmentNotes(row.segment, {
                                     childProposalId: childId,
                                   })
-                                  const timeLabel = derivedOppmote?.displayClock
-                                    ? derivedOppmote.displayClock
-                                    : reviewListClock.clock
-                                      ? reviewListClock.clock
-                                      : row.segment.isConditional
-                                        ? '–'
-                                        : 'Tid ikke avklart'
+                                  const segHighlights = Array.isArray(row.segment.tankestromHighlights)
+                                    ? row.segment.tankestromHighlights.filter(
+                                        (h: { time?: string }) => h?.time && /^([01]\d|2[0-3]):[0-5]\d$/.test(h.time)
+                                      )
+                                    : []
+                                  const earliestHighlightTime =
+                                    segHighlights.length > 0
+                                      ? segHighlights
+                                          .map((h: { time: string }) => h.time)
+                                          .sort()[0]!
+                                      : null
+                                  const timeLabel = earliestHighlightTime
+                                    ? earliestHighlightTime
+                                    : derivedOppmote?.displayClock
+                                      ? derivedOppmote.displayClock
+                                      : reviewListClock.clock
+                                        ? reviewListClock.clock
+                                        : row.segment.isConditional
+                                          ? '–'
+                                          : 'Tid ikke avklart'
                                   const uncertainTime =
-                                    !derivedOppmote && !reviewListClock.clock && !row.segment.isConditional
+                                    !earliestHighlightTime && !derivedOppmote && !reviewListClock.clock && !row.segment.isConditional
                                   const hasConcreteTimeDisplay = Boolean(
-                                    derivedOppmote?.displayClock ?? reviewListClock.clock
+                                    earliestHighlightTime ?? derivedOppmote?.displayClock ?? reviewListClock.clock
                                   )
                                   if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
                                     console.debug('[tankestrom embedded child display]', {
