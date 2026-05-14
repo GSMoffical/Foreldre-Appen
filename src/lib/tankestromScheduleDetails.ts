@@ -5,6 +5,7 @@ import type {
   TankestromTimeWindowSummary,
 } from '../types'
 import { isTankestromConsoleDebugEnabled } from './tankestromConsoleDebug'
+import { dedupeTankestromNotes } from './tankestromNoteDedupe'
 
 function normalizeTextKey(value: string): string {
   return value
@@ -1395,6 +1396,7 @@ export function normalizeTankestromScheduleDetails(input: {
     }
   }
   notes = dedupeNotesAgainstHighlights(notes, highlights)
+  notes = dedupeTankestromNotes(notes)
 
   const out: NormalizedTankestromScheduleDetails = {
     highlights,

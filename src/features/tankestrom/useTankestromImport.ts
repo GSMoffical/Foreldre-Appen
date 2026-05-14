@@ -109,6 +109,7 @@ import {
 } from '../../lib/tankestromSecondaryCandidates'
 import { resolvePersonForImport } from '../../lib/tankestromImportPersonResolve'
 import { normalizePersistedPersonId, requiresPersonForImport } from '../../lib/tankestromRequiresPerson'
+import { dedupeTankestromNotes } from '../../lib/tankestromNoteDedupe'
 import {
   TANKESTROM_FLIGHT_MISSING_END_LABEL,
   tankestromApplyStrippedFlightEndMetadata,
@@ -612,7 +613,7 @@ function mergeDistinctEmbeddedChildNoteLines(lines: readonly string[]): string[]
     seen.add(k)
     out.push(t)
   }
-  return out
+  return dedupeTankestromNotes(out)
 }
 
 function mergeTankestromHighlightsLists(
@@ -715,11 +716,12 @@ function buildEmbeddedChildEventDraft(
   timeOpts?: { childProposalId?: string; siblingTitlesBlob?: string; originalImportText?: string }
 ): TankestromEventDraft {
   const segmentHasConcreteTimes = Boolean((segment.start ?? '').trim() || (segment.end ?? '').trim())
-  const exportTimes = segmentHasConcreteTimes
+  const isConditionalWithoutConfirmedTime = segment.isConditional === true && !segmentHasConcreteTimes
+  const exportTimes = segmentHasConcreteTimes && !isConditionalWithoutConfirmedTime
     ? resolveEmbeddedScheduleSegmentTimesForCalendarExport(segment, timeOpts)
     : null
-  const start = segmentHasConcreteTimes && exportTimes ? normalizeTimeInput(exportTimes.start) : ''
-  const end = segmentHasConcreteTimes && exportTimes ? normalizeTimeInput(exportTimes.end) : ''
+  const start = exportTimes ? normalizeTimeInput(exportTimes.start) : ''
+  const end = exportTimes ? normalizeTimeInput(exportTimes.end) : ''
   const calendarTitle = embeddedScheduleChildCalendarExportTitle(
     segment,
     parentDraft.title,
@@ -1285,6 +1287,10 @@ function initialSelectedIdsForGeneralImport(
     if (!out.has(item.proposalId)) continue
     const flat = flattenEmbeddedScheduleOrdered(item.event.metadata)
     for (let i = 0; i < flat.length; i++) {
+      const seg = flat[i]!
+      const isConditionalWithoutTime =
+        seg.isConditional === true && !(seg.start ?? '').trim() && !(seg.end ?? '').trim()
+      if (isConditionalWithoutTime) continue
       out.add(makeEmbeddedChildProposalId(item.proposalId, i))
     }
   }
