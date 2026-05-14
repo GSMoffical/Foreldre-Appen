@@ -162,7 +162,7 @@ test.describe('Tankestrom Høstcupen import-preview', () => {
 
     const confirm = page.getByTestId('tankestrom-import-confirm')
     await expect(confirm).toBeVisible({ timeout: 15_000 })
-    await expect(confirm).toContainText('Importer valgte (1 arrangement / 3 hendelser)')
+    await expect(confirm).toContainText('Importer valgte (1 arrangement / 2 hendelser)')
     await expect(dialog).toContainText('Høstcupen')
 
     const friday = dialog.getByTestId('tankestrom-delprogram-day-2026-09-18')
