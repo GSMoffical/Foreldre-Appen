@@ -1,37 +1,80 @@
-# Tankestrøm-importflyt — læringsnotater
+# Tankestrøm-importflyt
 
-## To mulige feilkilder
+## Pipeline (én sannhet for preview)
 
-Ved feil i import eller preview: feilen kan ligge i **Tankestrømmens analyse-output**, i **Foreldre-appens normalisering/visning**, eller i **grensesnittet mellom dem**. Det er nyttig å skille:
+```
+Tankestrommen API
+  → parsePortalImportProposalBundle (tankestromApi.ts)
+  → defensive merge / dedupe (useTankestromImport)
+  → buildDraftsFromItems (kalenderutkast per forslag)
+  → buildEmbeddedChildCanonicalPreviewForReview (tankestromCanonicalPreview.ts)
+  → TankestromImportDialog (visning, selection, validering, rediger-seed)
+  → approveSelected → kalender/oppgaver
+```
 
-1. Hva kom ut av API-et (struktur og felter)?
-2. Hvordan ble det tolket, foldet og deduplisert i appen?
-3. Hva rendrer UI faktisk (read-only vs redigerbar)?
+**Kanonisk preview-modell** (`src/lib/tankestromCanonicalPreview.ts`) er eneste sannhet for:
 
-## Viktige konsepter og felter
+| Felt | Kilde |
+|------|--------|
+| Hovedtid / `Tid` i liste og detalj | `canonicalPreview.displayTime` / `timeLabel` |
+| Highlights i preview | `canonicalPreview.normalized.highlights` |
+| Forhåndsvalg (selection) | `canonicalPreview.isImportSelectable` |
+| Import-telling | antall valgte barn der `isImportSelectable === true` |
+| «Mangler sluttid»-blokker | kun valgte rader; foreløpige dager har tom start/slutt i draft |
+| Rediger-seed (start/end) | `canonicalPreview.editSeed` — **ikke** rå `segment.start` |
 
-Disse dukker ofte opp i arrangement-/ukeprogram-import:
+## Råfelter som ikke skal brukes direkte i UI
 
-| Konsept | Kommentar |
-|---------|-----------|
-| `embeddedSchedule` | Per-dag segmenter under et parent-arrangement |
-| `dayContent.highlights` | Dag-spesifikke høydepunkter der modellen bruker det |
-| `tankestromHighlights` | Strukturerte tidslinjer (tid + label + type) per segment |
-| `bringItems` | «Ta med» / pakkeliste — løftes ofte til egen UI-seksjon |
-| `notes` | Fritekst-/punktnotater; må ikke dupliseres unødig mot rå visning |
-| `timeWindowCandidates` / tid-vinduer | Brukes til å utlede eller vise tidsintervaller der det er relevant |
-| `tentative` / `conditional` | «Foreløpig», sluttspill avhengig av tidligere resultater — skal ikke presenteres som fast endelig tid uten grunnlag |
+Unngå parallelle avledninger fra:
 
-Appens `src/lib/`-moduler (embedded schedule, arrangement-merge, schedule details, review-notater) utgjør mye av «oversettelsen» fra rå metadata til det brukeren ser.
+- `segment.start` / `segment.end` for visning eller edit-seed
+- `segment.tankestromHighlights` uten normalisering
+- `presentEmbeddedChildNotesForReview` som eneste highlight-kilde når `originalImportText` + strukturerte highlights finnes
+- `fallbackStartTime: segment.start` i modal
 
-## Tidligere problemklasser (nå delvis dekket av tester/regler)
+Disse kan være feil fra LLM (f.eks. fredag 17:45 på lørdag). Normalisering med dagsspesifikk `sourceTextForValidation` filtrerer lekkasje.
 
-- **Highlights forsvant** ved fold/merge av arrangement-segmenter — må bevare eller rekonstruere fra kildefelter.
-- **`dayContent.highlights`** må leses/bevares der modellen leverer dem.
-- **Dobbelt notes-rendering** i read-only visning — én strukturert blokk, ikke samme innhold to ganger.
-- **Spond-frister** skal ikke feiltolkes som **programtid** i kalender-høydepunkter.
-- **Søndag / sluttspill**: når teksten sier betinget eller ikke endelig avklart, skal UI ikke antyde fast kampstart uten grunnlag.
+## Foreløpige / conditional dager
 
-## Playwright som sikkerhetsnett
+Regler (søndag, sluttspill uten bekreftet tid):
 
-E2E-testene sjekker at **synlig struktur** (titler, highlights, «Husk / ta med», negative assertions) stemmer med forventet oppførsel for **kjente fixtures**. De erstatter ikke manuell vurdering av nye kildetyper, men hindrer regresjon på allerede avtalt UX.
+1. `isPreliminaryDay` / `isImportSelectable === false` → ikke i `initialSelectedIdsForGeneralImport`
+2. Draft bygges med tom `start` og `end` (date-only)
+3. Ingen `missing_end_time` når raden ikke er valgt
+4. `displayTime` er `null`, `timeLabel` er `–`
+5. Valgte fredag/lørdag blokkeres ikke av foreløpig søndag
+
+Ved **manuell** avkrysning av foreløpig rad: bruker må fylle tid i rediger, eller behandle som info — eksisterende validering krever start/slutt ved eksport.
+
+## Normalisering
+
+`normalizeTankestromScheduleDetails` (tankestromScheduleDetails.ts):
+
+- Dagseksjon fra `originalImportText` (ikke hele e-posten i `segment.notes` når det lekker)
+- `correctMislabeledHighlightsAgainstSourceText` — dropper tider som ikke finnes i dagseksjonen
+- `augmentHighlightsFromSourceText` — fyller manglende tider fra kilde når listen er tom
+
+Kalled via `structuredDetailsFromSegment` → `buildEmbeddedChildStructuredScheduleDetailsForReview`.
+
+## Tester
+
+| Test | Dekning |
+|------|---------|
+| `tankestromCanonicalPreviewGolden.test.ts` | Exact Vårcup/Høstcup, selection, debug JSON |
+| `tankestromCrossDayFallbackHighlight.test.ts` | Cross-day 17:45-lekkasje |
+| `tankestromPreliminaryDayImport.test.ts` | Foreløpig søndag, import count |
+| `e2e/tankestrom-vaacup.spec.ts`, `e2e/tankestrom-hostcup.spec.ts` | Synlig UI |
+
+Debug ved feil: `tmp/tankestrom-preview-debug/*.json` (skrives av golden-tester via `tankestromCanonicalPreviewDebug.ts` — kun Node/test, ikke app-bundle).
+
+## Tidligere problemklasser
+
+- Highlights forsvant ved fold/merge
+- Dobbelt notes-rendering
+- Spond-frister som programtid
+- Cross-day syntetiske highlights (17:45 på lørdag)
+- Split mellom rå highlights for `timeLabel` og normaliserte highlights i detalj
+
+## Playwright
+
+E2E sjekker synlig struktur for kjente fixtures. Supplerer, erstatter ikke, golden unit-tester.
