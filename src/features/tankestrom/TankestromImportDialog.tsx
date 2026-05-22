@@ -34,7 +34,6 @@ import {
   embeddedScheduleChildReviewListTimeClock,
   presentEmbeddedChildNotesForReview,
   presentationHasRenderableContent,
-  tryDeriveOppmoteStartFromSegmentNotes,
 } from '../../lib/tankestromEmbeddedChildNotesPresentation'
 import {
   logTankestromConditionalCopyDebug,
@@ -44,6 +43,7 @@ import {
   tankestromConditionalPreviewTitleSuffixNb,
   tankestromConditionalTitleSuffixAlreadyPresent,
 } from '../../lib/tankestromConditionalCopy'
+import { canonicalEditSeedFromPreview } from '../../lib/tankestromCanonicalPreview'
 import {
   normalizeNotesDedupeKey,
   stripRedundantHighlightsForReviewDisplay,
@@ -75,7 +75,7 @@ import {
   normalizeTimeInput,
   scanNotesBodyForLanguage,
   taskIndicatesForeignLanguageMismatchWithTrack,
-  buildEmbeddedChildStructuredScheduleDetailsForReview,
+  buildEmbeddedChildCanonicalPreviewForReview,
   type TankestromPendingFile,
   type TankestromImportSuccess,
 } from './useTankestromImport'
@@ -4056,35 +4056,22 @@ export function TankestromImportDialog({
                                     cardTitleRaw,
                                     siblingTitlesBlob
                                   )
-                                  const reviewListClock = embeddedScheduleChildReviewListTimeClock(row.segment)
-                                  const derivedOppmote = tryDeriveOppmoteStartFromSegmentNotes(row.segment, {
-                                    childProposalId: childId,
-                                  })
-                                  const segHighlights = Array.isArray(row.segment.tankestromHighlights)
-                                    ? row.segment.tankestromHighlights.filter(
-                                        (h: { time?: string }) => h?.time && /^([01]\d|2[0-3]):[0-5]\d$/.test(h.time)
-                                      )
-                                    : []
-                                  const earliestHighlightTime =
-                                    segHighlights.length > 0
-                                      ? segHighlights
-                                          .map((h: { time: string }) => h.time)
-                                          .sort()[0]!
-                                      : null
-                                  const timeLabel = earliestHighlightTime
-                                    ? earliestHighlightTime
-                                    : derivedOppmote?.displayClock
-                                      ? derivedOppmote.displayClock
-                                      : reviewListClock.clock
-                                        ? reviewListClock.clock
-                                        : row.segment.isConditional
-                                          ? '–'
-                                          : 'Tid ikke avklart'
-                                  const uncertainTime =
-                                    !earliestHighlightTime && !derivedOppmote && !reviewListClock.clock && !row.segment.isConditional
-                                  const hasConcreteTimeDisplay = Boolean(
-                                    earliestHighlightTime ?? derivedOppmote?.displayClock ?? reviewListClock.clock
+                                  const parentCardTitleForSchedule =
+                                    normalizeEmbeddedScheduleParentDisplayTitle(cardTitleRaw.trim()).title
+                                  const canonicalPreview = buildEmbeddedChildCanonicalPreviewForReview(
+                                    row.segment,
+                                    parentCardTitleForSchedule,
+                                    displayTitle,
+                                    childId,
+                                    {
+                                      originalImportText:
+                                        analyzedImportTextSnapshot.trim().length > 0
+                                          ? analyzedImportTextSnapshot
+                                          : undefined,
+                                    }
                                   )
+                                  const structuredFromSegment = canonicalPreview.normalized
+                                  const { timeLabel, uncertainTime, hasConcreteTimeDisplay } = canonicalPreview
                                   if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
                                     console.debug('[tankestrom embedded child display]', {
                                       reviewChildDisplayTitleNormalized: displayTitle,
@@ -4092,15 +4079,8 @@ export function TankestromImportDialog({
                                       reviewSummaryPhraseSuppressedInExportTitle:
                                         calendarExportChildTitle.trim() !== row.segment.title.trim(),
                                       embeddedScheduleChildDisplayTitleNormalized: displayTitle,
-                                      embeddedScheduleChildDisplayTimeNormalized:
-                                        derivedOppmote?.displayClock ??
-                                        reviewListClock.clock ??
-                                        (row.segment.isConditional ? '—' : 'Tid ikke avklart'),
-                                      embeddedScheduleChildDisplayedWithoutSyntheticTime:
-                                        reviewListClock.omittedSynthetic,
-                                      embeddedScheduleChildDerivedMeetingTimeApplied: Boolean(derivedOppmote),
-                                      embeddedScheduleChildDurationSuppressedAsUnknown:
-                                        reviewListClock.durationSuppressedAsUnknown,
+                                      embeddedScheduleChildDisplayTimeNormalized: timeLabel,
+                                      embeddedScheduleChildCanonicalPreviewApplied: true,
                                       embeddedScheduleChildSingleStartTimeDisplayed:
                                         Boolean(timeLabel) &&
                                         timeLabel !== '–' &&
@@ -4111,6 +4091,7 @@ export function TankestromImportDialog({
                                       embeddedScheduleChildTimeColumnNormalized: true,
                                       embeddedScheduleChildDateTimeGroupingImproved: true,
                                       embeddedScheduleChildUncertainTimeRendered: uncertainTime,
+                                      embeddedScheduleChildHasConcreteTimeDisplay: hasConcreteTimeDisplay,
                                       childProposalId: childId,
                                     })
                                   }
@@ -4127,20 +4108,6 @@ export function TankestromImportDialog({
                                     cardTitleRaw,
                                     displayTitle,
                                     childId
-                                  )
-                                  const parentCardTitleForSchedule =
-                                    normalizeEmbeddedScheduleParentDisplayTitle(cardTitleRaw.trim()).title
-                                  const structuredFromSegment = buildEmbeddedChildStructuredScheduleDetailsForReview(
-                                    row.segment,
-                                    parentCardTitleForSchedule,
-                                    displayTitle,
-                                    childId,
-                                    {
-                                      originalImportText:
-                                        analyzedImportTextSnapshot.trim().length > 0
-                                          ? analyzedImportTextSnapshot
-                                          : undefined,
-                                    }
                                   )
                                   const detailPanelId = `delprogram-child-detail-${childId}`
                                   const detailTriggerId = `delprogram-child-trigger-${childId}`
@@ -4248,6 +4215,11 @@ export function TankestromImportDialog({
                                                   personFromChild = ev.personId
                                                 }
                                               }
+                                              const editSeed = canonicalEditSeedFromPreview(
+                                                canonicalPreview,
+                                                row.segment,
+                                                { childProposalId: childId }
+                                              )
                                               const normalizedFromSegment = normalizeTankestromScheduleDetails({
                                                 highlights: structuredFromSegment.highlights,
                                                 notes:
@@ -4258,10 +4230,7 @@ export function TankestromImportDialog({
                                                       : [],
                                                 bringItems: structuredFromSegment.bringItems,
                                                 titleContext: [displayTitle, cardTitleRaw],
-                                                fallbackStartTime:
-                                                  row.segment.start && row.segment.start.length >= 5
-                                                    ? row.segment.start.slice(0, 5)
-                                                    : undefined,
+                                                fallbackStartTime: canonicalPreview.displayTime ?? undefined,
                                                 sourceTextForValidation: buildPerDaySourceTextForValidation({
                                                   segmentSourceText:
                                                     typeof row.segment.notes === 'string'
@@ -4288,14 +4257,8 @@ export function TankestromImportDialog({
                                                         )
                                                       : row.segment.title,
                                                   date: row.segment.date,
-                                                  start:
-                                                    row.segment.start && row.segment.start.length >= 5
-                                                      ? row.segment.start.slice(0, 5)
-                                                      : '',
-                                                  end:
-                                                    row.segment.end && row.segment.end.length >= 5
-                                                      ? row.segment.end.slice(0, 5)
-                                                      : '',
+                                                  start: editSeed.start,
+                                                  end: editSeed.end,
                                                   notes: row.segment.notes ?? '',
                                                   personId: personFromChild,
                                                   highlights: normalizedFromSegment.highlights.map((h) => ({

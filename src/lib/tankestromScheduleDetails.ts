@@ -547,6 +547,25 @@ const KAMP_CANDIDATES: KampCandidatePattern[] = [
   { test: /\bkamp(?:en|er|ene)?\b/i, label: 'Kamp', specificity: 1 },
 ]
 
+/** Kort bane-disambiguering fra kilden (f.eks. «Oppmøte ved bane 2») — ikke lange stedsnavn. */
+const OPPMOTE_BANE_QUALIFIER_RE = /^Oppmøte ved bane \d+$/i
+
+/** Utvider ren «Oppmøte» kun når kilden gir kort «ved bane N» (Høstcup fredag). */
+function enrichOppmoteLabelFromSource(time: string, label: string, sourceText: string): string {
+  const lab = label.trim()
+  if (normalizeLabelForKeyMatch(lab) !== 'oppmote') return lab
+  const text = sourceText.replace(/\r\n/g, '\n')
+  const timeRe = new RegExp(`\\b${time.replace(/[:]/g, '\\:')}\\b`)
+  for (const sentenceRaw of splitSentencesNorwegian(text)) {
+    const sentence = stripLeadingBullet(sentenceRaw)
+    if (!timeRe.test(sentence)) continue
+    if (sentenceLeadingIntent(sentence) !== 'oppmote') continue
+    const enriched = extractLabelFromSentenceWithTime(sentence, time, lab)
+    if (enriched && OPPMOTE_BANE_QUALIFIER_RE.test(enriched.trim())) return enriched.trim()
+  }
+  return lab
+}
+
 function pickKampLabelFromSource(time: string, sourceText: string): string | null {
   const text = sourceText.replace(/\r\n/g, '\n')
   const sentences = splitSentencesNorwegian(text)
@@ -741,7 +760,9 @@ export function correctMislabeledHighlightsAgainstSourceText(
         })
         continue
       }
-      out.push(h)
+      const label = enrichOppmoteLabelFromSource(h.time, h.label, text)
+      out.push({ ...h, label, type: 'meeting' })
+      if (label !== h.label) relabeled.push({ time: h.time, from: h.label, to: label })
       continue
     }
     if (isConditional && !sourceContainsTime(text, h.time)) {
@@ -758,7 +779,9 @@ export function correctMislabeledHighlightsAgainstSourceText(
       })
       continue
     }
-    out.push(h)
+    const label = enrichOppmoteLabelFromSource(h.time, h.label, text)
+    out.push({ ...h, label })
+    if (label !== h.label) relabeled.push({ time: h.time, from: h.label, to: label })
   }
   return { highlights: out, relabeled, dropped }
 }

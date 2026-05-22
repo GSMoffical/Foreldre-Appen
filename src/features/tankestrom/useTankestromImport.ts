@@ -21,6 +21,7 @@ import { filterSubjectUpdatesByLanguageTrack } from '../../lib/schoolWeekOverlay
 import {
   applyCupWeekendEmbeddedScheduleMerge,
   embeddedScheduleChildCalendarExportTitle,
+  embeddedScheduleChildTitleForReview,
   normalizeEmbeddedScheduleParentDisplayTitle,
 } from '../../lib/tankestromCupEmbeddedScheduleMerge'
 import { normalizeCalendarEventTitle } from '../../lib/tankestromTitleNormalization'
@@ -35,6 +36,11 @@ import {
   presentEmbeddedChildNotesForReview,
   resolveEmbeddedScheduleSegmentTimesForCalendarExport,
 } from '../../lib/tankestromEmbeddedChildNotesPresentation'
+import {
+  buildEmbeddedChildCanonicalPreview,
+  canonicalSegmentIsImportSelectable,
+  type TankestromEmbeddedChildCanonicalPreview,
+} from '../../lib/tankestromCanonicalPreview'
 import {
   buildCalendarNotesFromNormalizedScheduleDetails,
   buildPerDaySourceTextForValidation,
@@ -713,15 +719,53 @@ export function composeEmbeddedChildCalendarNotesForExport(
 function buildEmbeddedChildEventDraft(
   parentDraft: TankestromEventDraft,
   segment: EmbeddedScheduleSegment,
-  timeOpts?: { childProposalId?: string; siblingTitlesBlob?: string; originalImportText?: string }
+  timeOpts?: {
+    childProposalId?: string
+    siblingTitlesBlob?: string
+    originalImportText?: string
+    canonicalPreview?: TankestromEmbeddedChildCanonicalPreview
+  }
 ): TankestromEventDraft {
+  const preview = timeOpts?.canonicalPreview
   const segmentHasConcreteTimes = Boolean((segment.start ?? '').trim() || (segment.end ?? '').trim())
-  const isConditionalWithoutConfirmedTime = segment.isConditional === true && !segmentHasConcreteTimes
-  const exportTimes = segmentHasConcreteTimes && !isConditionalWithoutConfirmedTime
-    ? resolveEmbeddedScheduleSegmentTimesForCalendarExport(segment, timeOpts)
-    : null
-  const start = exportTimes ? normalizeTimeInput(exportTimes.start) : ''
-  const end = exportTimes ? normalizeTimeInput(exportTimes.end) : ''
+  const isConditionalWithoutConfirmedTime = preview
+    ? preview.isPreliminaryDay
+    : segment.isConditional === true && !segmentHasConcreteTimes
+
+  let start = ''
+  let end = ''
+  let exportTimes: ReturnType<typeof resolveEmbeddedScheduleSegmentTimesForCalendarExport> | null = null
+
+  if (preview) {
+    if (preview.isImportSelectable) {
+      const seed = preview.editSeed
+      start = seed.start ? normalizeTimeInput(seed.start) : ''
+      end = seed.end ? normalizeTimeInput(seed.end) : ''
+      if (start && end) {
+        exportTimes = {
+          start,
+          end,
+          embeddedScheduleChildExportTimePolicyUsed: 'segment_start_conservative_end',
+          embeddedScheduleChildExportDerivedMeetingTimeApplied: preview.displayTimeOrigin === 'derived_oppmote',
+          embeddedScheduleChildExportDurationSuppressed: false,
+          embeddedScheduleChildExportSyntheticTimeSkipped: false,
+          embeddedScheduleChildExportTimeNormalized: true,
+          usesSyntheticLayoutEnd: false,
+        }
+      } else if (start) {
+        exportTimes = resolveEmbeddedScheduleSegmentTimesForCalendarExport(segment, timeOpts)
+        start = normalizeTimeInput(exportTimes.start)
+        end = normalizeTimeInput(exportTimes.end)
+      }
+    }
+  } else {
+    exportTimes =
+      segmentHasConcreteTimes && !isConditionalWithoutConfirmedTime
+        ? resolveEmbeddedScheduleSegmentTimesForCalendarExport(segment, timeOpts)
+        : null
+    start = exportTimes ? normalizeTimeInput(exportTimes.start) : ''
+    end = exportTimes ? normalizeTimeInput(exportTimes.end) : ''
+  }
   const calendarTitle = embeddedScheduleChildCalendarExportTitle(
     segment,
     parentDraft.title,
@@ -747,13 +791,12 @@ function buildEmbeddedChildEventDraft(
     start,
     end,
     notes,
-    embeddedScheduleExport:
-      segmentHasConcreteTimes && exportTimes?.usesSyntheticLayoutEnd
-        ? {
-            usesSyntheticLayoutEnd: true,
-            policy: exportTimes.embeddedScheduleChildExportTimePolicyUsed,
-          }
-        : undefined,
+    embeddedScheduleExport: exportTimes?.usesSyntheticLayoutEnd
+      ? {
+          usesSyntheticLayoutEnd: true,
+          policy: exportTimes.embeddedScheduleChildExportTimePolicyUsed,
+        }
+      : undefined,
   }
 }
 
@@ -765,6 +808,14 @@ function highlightTypeFromLabel(label: string): TankestromScheduleHighlight['typ
   if (s.includes('frist') || s.includes('deadline')) return 'deadline'
   if (s.includes('notat') || s.includes('husk')) return 'note'
   return 'other'
+}
+
+/** Når analyse-tekst finnes og segment har strukturerte highlights: ikke parse notater på nytt (lekkasje). */
+function useCanonicalHighlightSeedFromSegment(
+  segment: EmbeddedScheduleSegment,
+  opts?: { originalImportText?: string }
+): boolean {
+  return Boolean(opts?.originalImportText?.trim()) && (segment.tankestromHighlights?.length ?? 0) > 0
 }
 
 function structuredDetailsFromSegment(
@@ -831,6 +882,17 @@ function structuredDetailsFromSegment(
       ...normalizeBase,
     })
   }
+  if (useCanonicalHighlightSeedFromSegment(segment, opts)) {
+    const notes = dedupeNotesAgainstHighlights(
+      mergeDistinctEmbeddedChildNoteLines([...p.noteLines, ...segNotesList]),
+      segHighlights
+    )
+    return normalizeTankestromScheduleDetails({
+      highlights: segHighlights,
+      notes,
+      ...normalizeBase,
+    })
+  }
   const fromPres = p.highlights.map((h) => ({
     time: h.timeStart.slice(0, 5),
     label: h.label,
@@ -860,6 +922,22 @@ export function buildEmbeddedChildStructuredScheduleDetailsForReview(
   opts?: { originalImportText?: string }
 ): NormalizedTankestromScheduleDetails {
   return structuredDetailsFromSegment(segment, parentCardTitle, displayTitle, childProposalId, opts)
+}
+
+/**
+ * Kanonisk preview for import-modal: normaliserte detaljer + hovedtid fra samme highlights.
+ */
+export function buildEmbeddedChildCanonicalPreviewForReview(
+  segment: EmbeddedScheduleSegment,
+  parentCardTitle: string,
+  displayTitle: string,
+  childProposalId: string,
+  opts?: { originalImportText?: string }
+): TankestromEmbeddedChildCanonicalPreview {
+  return buildEmbeddedChildCanonicalPreview(segment, parentCardTitle, displayTitle, childProposalId, {
+    originalImportText: opts?.originalImportText,
+    normalizeDetails: buildEmbeddedChildStructuredScheduleDetailsForReview,
+  })
 }
 
 function attachTankestromDetailsToMetadata(
@@ -1177,12 +1255,17 @@ export function humanImportSourceLabelForBundle(bundle: PortalImportProposalBund
   return undefined
 }
 
+export type InitialSelectedIdsForGeneralImportOpts = {
+  originalImportText?: string
+}
+
 export function initialSelectedIdsForGeneralImport(
   items: PortalProposalItem[],
   drafts: Record<string, TankestromImportDraft>,
   people: Person[],
   schoolProfileChildId: string,
-  classificationCtx?: ImportClassificationContext
+  classificationCtx?: ImportClassificationContext,
+  selectionOpts?: InitialSelectedIdsForGeneralImportOpts
 ): Set<string> {
   const child = people.find((p) => p.id === schoolProfileChildId && p.memberKind === 'child')
   const languageDiag = resolveLanguageTrackDiagnostics(child?.school)
@@ -1286,12 +1369,23 @@ export function initialSelectedIdsForGeneralImport(
     if (!isEmbeddedScheduleParentForReview(item, d)) continue
     if (!out.has(item.proposalId)) continue
     const flat = flattenEmbeddedScheduleOrdered(item.event.metadata)
+    const parentCardTitle = normalizeEmbeddedScheduleParentDisplayTitle(
+      item.event.title.trim()
+    ).title
+    const siblingTitlesBlob = flat.map((s) => s.title.trim()).join('\n')
     for (let i = 0; i < flat.length; i++) {
       const seg = flat[i]!
-      const isConditionalWithoutTime =
-        seg.isConditional === true && !(seg.start ?? '').trim() && !(seg.end ?? '').trim()
-      if (isConditionalWithoutTime) continue
-      out.add(makeEmbeddedChildProposalId(item.proposalId, i))
+      const childId = makeEmbeddedChildProposalId(item.proposalId, i)
+      const displayTitle = embeddedScheduleChildTitleForReview(parentCardTitle, seg, siblingTitlesBlob)
+      const preview = buildEmbeddedChildCanonicalPreviewForReview(
+        seg,
+        parentCardTitle,
+        displayTitle,
+        childId,
+        { originalImportText: selectionOpts?.originalImportText }
+      )
+      if (!canonicalSegmentIsImportSelectable(seg, preview)) continue
+      out.add(childId)
     }
   }
   return out
@@ -2082,7 +2176,7 @@ function importDraftFromProposal(
   }
 }
 
-function buildDraftsFromItems(
+export function buildDraftsFromItems(
   items: PortalProposalItem[],
   validPersonIds: Set<string>,
   defaultPersonId: string,
@@ -2115,12 +2209,20 @@ function buildDraftsFromItems(
         parentProposalId: item.proposalId,
       })
     }
+    const parentCardTitle = normalizeEmbeddedScheduleParentDisplayTitle(base.event.title.trim()).title
+    const siblingTitlesBlob = flat.map((s) => s.title.trim()).join('\n')
     for (let i = 0; i < flat.length; i++) {
+      const seg = flat[i]!
       const id = makeEmbeddedChildProposalId(item.proposalId, i)
+      const displayTitle = embeddedScheduleChildTitleForReview(parentCardTitle, seg, siblingTitlesBlob)
+      const preview = buildEmbeddedChildCanonicalPreviewForReview(seg, parentCardTitle, displayTitle, id, {
+        originalImportText: buildOpts?.originalImportText,
+      })
       drafts[id] = {
         importKind: 'event',
-        event: buildEmbeddedChildEventDraft(base.event, flat[i]!, {
+        event: buildEmbeddedChildEventDraft(base.event, seg, {
           originalImportText: buildOpts?.originalImportText,
+          canonicalPreview: preview,
         }),
       }
     }
@@ -3300,7 +3402,9 @@ export function useTankestromImport({
         })
         setDraftByProposalId(drafts)
         setSelectedIds(
-          initialSelectedIdsForGeneralImport(items, drafts, people, importChildId, classificationCtx)
+          initialSelectedIdsForGeneralImport(items, drafts, people, importChildId, classificationCtx, {
+            originalImportText: textInput,
+          })
         )
         prevSchoolChildForLangAdjustRef.current = null
         setStep('review')

@@ -22,7 +22,9 @@ import {
 import type { TankestromEventDraft, TankestromImportDraft } from '../types'
 
 const VAACUP_FIXTURE = join(process.cwd(), 'fixtures/tankestrom/vaacup_original.analyze.json')
+const VAACUP_SOURCE = join(process.cwd(), 'fixtures/tankestrom/vaacup_original.txt')
 const fixtureJson = JSON.parse(readFileSync(VAACUP_FIXTURE, 'utf8'))
+const vaacupSourceText = readFileSync(VAACUP_SOURCE, 'utf8')
 const bundle = parsePortalImportProposalBundle(fixtureJson)
 
 const parentItem = bundle.items[0]!
@@ -181,7 +183,12 @@ describe('initialSelectedIdsForGeneralImport — foreløpig dag ekskluderes', ()
     }
     const people = [{ id: 'person-a', name: 'Test', memberKind: 'child' as const }]
     const selected = initialSelectedIdsForGeneralImport(
-      bundle.items, drafts, people as any, 'person-a'
+      bundle.items,
+      drafts,
+      people as any,
+      'person-a',
+      undefined,
+      { originalImportText: vaacupSourceText }
     )
     const sundayChildId = makeEmbeddedChildProposalId(parentItem.proposalId, 2)
     expect(selected.has(sundayChildId)).toBe(false)
@@ -193,7 +200,12 @@ describe('initialSelectedIdsForGeneralImport — foreløpig dag ekskluderes', ()
     }
     const people = [{ id: 'person-a', name: 'Test', memberKind: 'child' as const }]
     const selected = initialSelectedIdsForGeneralImport(
-      bundle.items, drafts, people as any, 'person-a'
+      bundle.items,
+      drafts,
+      people as any,
+      'person-a',
+      undefined,
+      { originalImportText: vaacupSourceText }
     )
     const fridayChildId = makeEmbeddedChildProposalId(parentItem.proposalId, 0)
     const saturdayChildId = makeEmbeddedChildProposalId(parentItem.proposalId, 1)
@@ -207,7 +219,12 @@ describe('initialSelectedIdsForGeneralImport — foreløpig dag ekskluderes', ()
     }
     const people = [{ id: 'person-a', name: 'Test', memberKind: 'child' as const }]
     const selected = initialSelectedIdsForGeneralImport(
-      bundle.items, drafts, people as any, 'person-a'
+      bundle.items,
+      drafts,
+      people as any,
+      'person-a',
+      undefined,
+      { originalImportText: vaacupSourceText }
     )
     const childIds = segments.map((_, i) =>
       makeEmbeddedChildProposalId(parentItem.proposalId, i)
@@ -222,8 +239,22 @@ describe('initialSelectedIdsForGeneralImport — foreløpig dag ekskluderes', ()
     }
     const people = [{ id: 'person-a', name: 'Test', memberKind: 'child' as const }]
 
-    const sel1 = initialSelectedIdsForGeneralImport(bundle.items, drafts, people as any, 'person-a')
-    const sel2 = initialSelectedIdsForGeneralImport(bundle.items, drafts, people as any, 'person-a')
+    const sel1 = initialSelectedIdsForGeneralImport(
+      bundle.items,
+      drafts,
+      people as any,
+      'person-a',
+      undefined,
+      { originalImportText: vaacupSourceText }
+    )
+    const sel2 = initialSelectedIdsForGeneralImport(
+      bundle.items,
+      drafts,
+      people as any,
+      'person-a',
+      undefined,
+      { originalImportText: vaacupSourceText }
+    )
 
     const sundayChildId = makeEmbeddedChildProposalId(parentItem.proposalId, 2)
     expect(sel1.has(sundayChildId)).toBe(false)
