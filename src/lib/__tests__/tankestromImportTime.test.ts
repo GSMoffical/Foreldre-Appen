@@ -165,13 +165,11 @@ describe('validateTankestromDraft tid', () => {
     isManualCalendarEntry: true,
   }
 
-  it('blokkerer import med tydelig melding når sluttid mangler', () => {
+  it('tillater import når sluttid mangler men start finnes (slutt estimeres ved persist)', () => {
     const d = { ...base, end: '' }
-    expect(validateTankestromDraft(d, new Set(['p1']))).toBe(
-      'Sluttid ikke oppgitt – rediger før import.'
-    )
+    expect(validateTankestromDraft(d, new Set(['p1']))).toBeNull()
     const err = getTankestromDraftFieldErrors(d, new Set(['p1']))
-    expect(err.end).toBe('Sluttid ikke oppgitt – rediger før import.')
+    expect(err.end).toBeUndefined()
   })
 
   it('blokkerer import når starttid mangler', () => {

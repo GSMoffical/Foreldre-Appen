@@ -63,4 +63,30 @@ describe('tankestromCanonicalPreview', () => {
     )
     expect(preview.timeLabel).toBe('08:35')
   })
+
+  it('foreløpig søndag med lekket segment.start/highlights ignorerer fredagstid', () => {
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), '../../../fixtures/tankestrom/hostcup_original.txt'),
+      'utf8'
+    )
+    const segment: EmbeddedScheduleSegment = {
+      date: '2026-09-20',
+      title: 'Søndag',
+      isConditional: true,
+      start: '17:30',
+      tankestromHighlights: [{ time: '17:30', label: 'Oppmøte', type: 'meeting' }],
+      notes: 'Sluttspill avhenger av plassering etter lørdagens kamper.',
+    }
+    const preview = buildEmbeddedChildCanonicalPreviewForReview(
+      segment,
+      'Høstcupen 2026',
+      'Høstcupen – søndag',
+      'ts-emb:test:2',
+      { originalImportText: source }
+    )
+    expect(preview.displayTime).toBeNull()
+    expect(preview.isPreliminaryDay).toBe(true)
+    expect(preview.isImportSelectable).toBe(false)
+    expect(preview.normalized.highlights).toEqual([])
+  })
 })

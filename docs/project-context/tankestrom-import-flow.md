@@ -67,6 +67,14 @@ Kalled via `structuredDetailsFromSegment` → `buildEmbeddedChildStructuredSched
 
 Debug ved feil: `tmp/tankestrom-preview-debug/*.json` (skrives av golden-tester via `tankestromCanonicalPreviewDebug.ts` — kun Node/test, ikke app-bundle).
 
+## Manglende sluttid (start kjent)
+
+Når utkast har **gyldig start** men tom slutt (ikke date-only, ikke fly med ukjent ankomst):
+
+- Import **blokkeres ikke**; `buildPersistTimes` estimerer slutt (standard +60 min) ved persist.
+- Metadata: `timePrecision: start_only`, `inferredEndTime: true`, `displayTimeLabel: Sluttid ikke oppgitt`.
+- UI viser **amber** hint (`Sluttid ikke oppgitt – estimert ved import`), ikke rød «Mangler sluttid — Rediger».
+
 ## Tidligere problemklasser
 
 - Highlights forsvant ved fold/merge

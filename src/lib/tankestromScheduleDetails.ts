@@ -599,7 +599,7 @@ export type HighlightSourceTextValidation = {
   }>
 }
 
-function sourceContainsTime(text: string, time: string): boolean {
+export function sourceContainsTime(text: string, time: string): boolean {
   const escaped = time.replace(/[:]/g, '\\:')
   return new RegExp(`\\b${escaped}\\b`).test(text)
 }
@@ -1179,7 +1179,12 @@ export function augmentHighlightsFromSourceText(
   for (const sentenceRaw of sentences) {
     const sentence = stripLeadingBullet(sentenceRaw)
     const timeRe = /\b([01]?\d|2[0-3]):([0-5]\d)\b/g
+    const timesInSentence = [...sentence.matchAll(timeRe)].map((x) =>
+      padHmFromMatch(x[1]!, x[2]!)
+    )
+    if (new Set(timesInSentence).size > 1) continue
     let m: RegExpExecArray | null
+    timeRe.lastIndex = 0
     while ((m = timeRe.exec(sentence)) !== null) {
       const time = padHmFromMatch(m[1]!, m[2]!)
       if (existingTimes.has(time)) continue
@@ -1419,7 +1424,7 @@ export function normalizeTankestromScheduleDetails(input: {
     isConditionalSegment: input.isConditionalSegment === true,
   })
   const augmented = augmentHighlightsFromSourceText(validated.highlights, sourceTextForValidation)
-  const highlights = augmented
+  let highlights = augmented
 
   const canAddFallback =
     highlights.length === 0 &&
@@ -1432,7 +1437,10 @@ export function normalizeTankestromScheduleDetails(input: {
     const dayMeaningful =
       scoped.length > 0 &&
       countDistinctTimesInSourceText(scoped) >= DAY_SECTION_EVIDENCE_MIN_DISTINCT_TIMES
-    const fbAllowedInSource = !dayMeaningful || sourceContainsTime(scoped, fbTime)
+    const fbAllowedInSource =
+      input.isConditionalSegment === true
+        ? sourceContainsTime(scoped, fbTime)
+        : !dayMeaningful || sourceContainsTime(scoped, fbTime)
     if (fbAllowedInSource) {
       const oppmoteFallback = inferOppmoteFallbackFromNotes(notes, sourceTextForValidation)
       if (oppmoteFallback) {
@@ -1448,6 +1456,13 @@ export function normalizeTankestromScheduleDetails(input: {
         }
       }
     }
+  }
+
+  if (input.isConditionalSegment === true) {
+    const scoped = sourceTextForValidation?.trim() ?? ''
+    highlights = scoped
+      ? highlights.filter((h) => sourceContainsTime(scoped, h.time))
+      : []
   }
 
   const bringPartition = partitionTankestromBringItemsForPreview(bringItems)

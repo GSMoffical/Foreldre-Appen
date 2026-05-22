@@ -123,10 +123,31 @@ import {
 } from '../../lib/tankestromFlightImportEnd'
 
 const TANKESTROM_IMPORT_PERSIST_DEBUG = isTankestromConsoleDebugEnabled()
-const MISSING_ENDTIME_REVIEW_MESSAGE = 'Sluttid ikke oppgitt – rediger før import.'
+/** Kun informativ i UI — blokkerer ikke import når starttid finnes. */
+export const TANKESTROM_MISSING_END_REVIEW_HINT_NB = 'Sluttid ikke oppgitt – estimert ved import.'
+const INFERRED_END_SLOT_MINUTES = 60
 const DATE_ONLY_FALLBACK_START = '09:00'
 const DATE_ONLY_FALLBACK_END = '09:30'
 const DATE_ONLY_LABEL = 'Tid ikke avklart'
+
+/** Hendelse med start men uten slutt (ikke date-only, ikke fly med ukjent ankomst). */
+export function draftHasStartWithoutKnownEnd(
+  d: Pick<TankestromEventDraft, 'start' | 'end' | 'travelImportType'>
+): boolean {
+  if (draftIsDateOnly(d)) return false
+  if (isFlightDraftWithUnknownEndForImport(d as TankestromEventDraft)) return false
+  const startNorm = normalizeTimeInput(d.start)
+  return Boolean(d.start.trim()) && isHm24(startNorm) && !d.end.trim()
+}
+
+function inferConservativeEndFromStartHm(start: string): string {
+  const startNorm = normalizeTimeInput(start)
+  const startMin = parseTime(startNorm)
+  const endMin = Math.min(startMin + INFERRED_END_SLOT_MINUTES, 23 * 60 + 59)
+  const h = Math.floor(endMin / 60)
+  const m = endMin % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
 
 function logTankestromImportPersist(payload: Record<string, unknown>): void {
   if (!TANKESTROM_IMPORT_PERSIST_DEBUG) return
@@ -1405,14 +1426,11 @@ export function validateTankestromDraft(
   const missingStart = !d.start.trim()
   const missingEnd = !d.end.trim()
   const dateOnly = missingStart && missingEnd
-  const flightUnknownEnd = isFlightDraftWithUnknownEndForImport(d)
   if (!dateOnly && missingStart) return 'Starttid ikke oppgitt. Rediger forslaget og legg inn starttid før import.'
   const startNorm = normalizeTimeInput(d.start)
   if (!dateOnly && !isHm24(startNorm)) return 'Starttid må være gyldig klokkeslett (HH:mm, 24 t).'
 
-  if (!dateOnly && missingEnd && !flightUnknownEnd) {
-    return MISSING_ENDTIME_REVIEW_MESSAGE
-  }
+  // Manglende sluttid med gyldig start blokkerer ikke — slutt estimeres ved persist (som fly/date-only-policy).
   if (!dateOnly && !missingEnd) {
     const endNorm = normalizeTimeInput(d.end)
     if (!isHm24(endNorm)) return 'Sluttid må være gyldig klokkeslett (HH:mm, 24 t).'
@@ -1669,7 +1687,6 @@ export function getTankestromDraftFieldErrors(
   const missingStart = !d.start.trim()
   const missingEnd = !d.end.trim()
   const dateOnly = missingStart && missingEnd
-  const flightUnknownEnd = isFlightDraftWithUnknownEndForImport(d)
   if (!dateOnly && !d.start.trim()) {
     out.start = 'Starttid ikke oppgitt. Rediger forslaget og legg inn starttid før import.'
   } else {
@@ -1677,9 +1694,7 @@ export function getTankestromDraftFieldErrors(
     if (!dateOnly && !isHm24(startNorm)) out.start = 'Ugyldig tid (HH:mm, 24 t).'
   }
 
-  if (!dateOnly && missingEnd && !flightUnknownEnd) {
-    out.end = MISSING_ENDTIME_REVIEW_MESSAGE
-  } else if (!dateOnly && !missingEnd) {
+  if (!dateOnly && !missingEnd) {
     const endNorm = normalizeTimeInput(d.end)
     if (!isHm24(endNorm)) out.end = 'Ugyldig tid (HH:mm, 24 t).'
   }
@@ -1849,10 +1864,23 @@ function applyEmbeddedScheduleExportTimeMetadata(
   metadata.requiresManualTimeReview = true
 }
 
+/** Persist når utkast har start men ingen slutt — kalender får estimert varighet. */
+function applyInferredEndFromStartMetadata(metadata: Record<string, unknown>): void {
+  metadata.timePrecision = 'start_only'
+  metadata.layoutEndOnly = true
+  metadata.endTimeSource = 'fallback_duration'
+  metadata.inferredEndTime = true
+  metadata.displayTimeLabel = CALENDAR_SLUTTID_IKKE_OPPGITT_NB
+  metadata.requiresManualTimeReview = false
+}
+
 function applyEventTimingMetadataForPersist(metadata: Record<string, unknown>, draft: TankestromEventDraft): void {
   applyDateOnlyMetadata(metadata, draftIsDateOnly(draft))
   applyFlightStartOnlyPersistMetadata(metadata, draft)
   applyEmbeddedScheduleExportTimeMetadata(metadata, draft)
+  if (draftHasStartWithoutKnownEnd(draft)) {
+    applyInferredEndFromStartMetadata(metadata)
+  }
 }
 
 function reconcileEmbeddedExportAfterDraftMerge(
@@ -1882,10 +1910,12 @@ function buildPersistTimes(draft: TankestromEventDraft): { start: string; end: s
       const s = normalizeTimeInput(draft.start)
       return { start: s, end: s }
     }
-    return {
-      start: normalizeTimeInput(draft.start),
-      end: normalizeTimeInput(draft.end),
+    const start = normalizeTimeInput(draft.start)
+    const endRaw = normalizeTimeInput(draft.end)
+    if (isHm24(start) && !endRaw) {
+      return { start, end: inferConservativeEndFromStartHm(start) }
     }
+    return { start, end: endRaw }
   }
   return {
     start: DATE_ONLY_FALLBACK_START,

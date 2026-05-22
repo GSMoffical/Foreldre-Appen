@@ -14,6 +14,10 @@ const VAACUP_SOURCE = readFileSync(
   join(__dirname, '../../../fixtures/tankestrom/vaacup_original.txt'),
   'utf8'
 )
+const HOSTCUP_SOURCE = readFileSync(
+  join(__dirname, '../../../fixtures/tankestrom/hostcup_original.txt'),
+  'utf8'
+)
 
 const LORDAG_CORRECT_HIGHLIGHTS = [
   { time: '08:35', label: 'Oppmøte før første kamp', type: 'meeting' as const },
@@ -85,6 +89,23 @@ describe('cross-day fallback highlight (Vårcup lørdag)', () => {
       }),
     })
     expect(out.highlights.map((h) => h.time)).toContain('08:35')
+  })
+
+  it('Høstcup søndag foreløpig: segment.start 17:30 gir ikke fallback-highlight', () => {
+    const out = normalizeTankestromScheduleDetails({
+      highlights: [{ time: '17:30', label: 'Oppmøte', type: 'meeting' }],
+      notes: ['Sluttspill avhenger av plassering etter lørdagens kamper.'],
+      titleContext: ['Høstcupen – søndag'],
+      fallbackStartTime: '17:30',
+      sourceTextForValidation: buildPerDaySourceTextForValidation({
+        segmentSourceText:
+          'Sluttspill avhenger av plassering etter lørdagens kamper. Tidspunkt for eventuell kamp er ikke endelig avklart.',
+        globalSourceText: HOSTCUP_SOURCE,
+        date: '2026-09-20',
+      }),
+      isConditionalSegment: true,
+    })
+    expect(out.highlights).toEqual([])
   })
 
   it('søndag foreløpig får ikke 17:45/18:40 fra fredag', () => {
