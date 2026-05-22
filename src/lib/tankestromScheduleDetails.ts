@@ -733,6 +733,14 @@ export function correctMislabeledHighlightsAgainstSourceText(
       continue
     }
     if (intent === 'oppmote' || intent === 'both') {
+      if (dayHasExplicitTimeEvidence && !sourceContainsTime(text, h.time)) {
+        dropped.push({
+          time: h.time,
+          label: h.label,
+          reason: 'time_not_in_day_section_with_explicit_times',
+        })
+        continue
+      }
       out.push(h)
       continue
     }
@@ -755,7 +763,10 @@ export function correctMislabeledHighlightsAgainstSourceText(
   return { highlights: out, relabeled, dropped }
 }
 
-function inferOppmoteFallbackFromNotes(notes: string[]): { time: string; label: string; type: TankestromScheduleHighlightType } | null {
+function inferOppmoteFallbackFromNotes(
+  notes: string[],
+  sourceTextForValidation?: string
+): { time: string; label: string; type: TankestromScheduleHighlightType } | null {
   const text = notes.join('\n')
   const offsetMatch = /(\d{1,3})\s*min(?:utter|utt)?\s+f[øo]r\s+(?:kampstart|f[øo]rste\s+kamp|kamp)/i.exec(text)
   if (!offsetMatch) return null
@@ -763,6 +774,8 @@ function inferOppmoteFallbackFromNotes(notes: string[]): { time: string; label: 
   if (!Number.isFinite(offset) || offset < 5 || offset > 180) return null
   const anchor = firstHmInText(text)
   if (!anchor || !isHm(anchor)) return null
+  const scoped = (sourceTextForValidation ?? '').trim()
+  if (scoped && !sourceContainsTime(scoped, anchor)) return null
   const t = minutesToHm(hmToMinutes(anchor) - offset)
   if (!t) return null
   return { time: t, label: 'Oppmøte', type: 'meeting' }
@@ -1073,6 +1086,16 @@ export function extractDaySectionForScheduleValidation(
  * dagseksjonen fra global tekst — aldri hele blob-en — for å unngå
  * lekkasje mellom dager.
  */
+function segmentSourceTextHasTimesOutsideDaySection(explicit: string, daySection: string): boolean {
+  const re = /\b([01]?\d|2[0-3]):([0-5]\d)\b/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(explicit)) !== null) {
+    const time = padHmFromMatch(m[1]!, m[2]!)
+    if (!sourceContainsTime(daySection, time)) return true
+  }
+  return false
+}
+
 export function buildPerDaySourceTextForValidation(opts: {
   segmentSourceText?: string
   globalSourceText?: string
@@ -1080,8 +1103,20 @@ export function buildPerDaySourceTextForValidation(opts: {
 }): string | undefined {
   const explicit = typeof opts.segmentSourceText === 'string' ? opts.segmentSourceText.trim() : ''
   const daySection = extractDaySectionForScheduleValidation(opts.globalSourceText, opts.date)
-  const merged = [explicit, daySection].filter((s) => s.length > 0).join('\n\n')
-  return merged.length > 0 ? merged : undefined
+  if (daySection.length > 0) {
+    const dayIsMeaningful =
+      countDistinctTimesInSourceText(daySection) >= DAY_SECTION_EVIDENCE_MIN_DISTINCT_TIMES
+    if (
+      dayIsMeaningful &&
+      explicit.length > 0 &&
+      segmentSourceTextHasTimesOutsideDaySection(explicit, daySection)
+    ) {
+      return daySection
+    }
+    const merged = [explicit, daySection].filter((s) => s.length > 0).join('\n\n')
+    return merged.length > 0 ? merged : daySection
+  }
+  return explicit.length > 0 ? explicit : undefined
 }
 
 function padHmFromMatch(h: string, m: string): string {
@@ -1369,17 +1404,25 @@ export function normalizeTankestromScheduleDetails(input: {
     isHm(input.fallbackStartTime) &&
     !notes.some((n) => /mobiltelefoner skal ligge i bagen/i.test(n))
   if (canAddFallback) {
-    const oppmoteFallback = inferOppmoteFallbackFromNotes(notes)
-    if (oppmoteFallback) {
-      highlights.push(oppmoteFallback)
-    } else {
-      const activity = inferFallbackActivityLabel(notes, titleContext)
-      if (activity) {
-        highlights.push({
-          time: input.fallbackStartTime!.slice(0, 5),
-          label: activity.label,
-          type: activity.type,
-        })
+    const fbTime = input.fallbackStartTime!.slice(0, 5)
+    const scoped = sourceTextForValidation?.trim() ?? ''
+    const dayMeaningful =
+      scoped.length > 0 &&
+      countDistinctTimesInSourceText(scoped) >= DAY_SECTION_EVIDENCE_MIN_DISTINCT_TIMES
+    const fbAllowedInSource = !dayMeaningful || sourceContainsTime(scoped, fbTime)
+    if (fbAllowedInSource) {
+      const oppmoteFallback = inferOppmoteFallbackFromNotes(notes, sourceTextForValidation)
+      if (oppmoteFallback) {
+        highlights.push(oppmoteFallback)
+      } else {
+        const activity = inferFallbackActivityLabel(notes, titleContext)
+        if (activity) {
+          highlights.push({
+            time: fbTime,
+            label: activity.label,
+            type: activity.type,
+          })
+        }
       }
     }
   }
