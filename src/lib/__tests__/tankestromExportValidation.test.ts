@@ -84,7 +84,7 @@ describe('Tankestrom eksport-validering (preflight)', () => {
         title: '',
         date: '',
         personId: '',
-        start: '09:00',
+        start: '99:99',
         end: '',
       },
       new Set(['p1'])

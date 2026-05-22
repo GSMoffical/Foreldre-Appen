@@ -1,6 +1,7 @@
 import type { TankestromImportDraft } from '../features/tankestrom/types'
 import {
   collectTankestromEventExportValidationIssues,
+  TANKESTROM_MISSING_END_REVIEW_HINT_NB,
   type TankestromExportValidationCode,
   type TankestromExportValidationIssue,
 } from '../features/tankestrom/useTankestromImport'
@@ -94,6 +95,14 @@ export type FormatTankestromImportCardValidationBannerOptions = {
   maxConcrete?: number
   /** Ved minst så mange feltfeil: «N felt må rettes». */
   manyFieldsThreshold?: number
+}
+
+/**
+ * Informativ sluttid-linje (amber) — blokkerer ikke import når start finnes.
+ */
+export function formatTankestromMissingEndReviewHint(weekdayNb?: string): string {
+  const day = weekdayNb ? ` på ${weekdayNb}` : ''
+  return `${TANKESTROM_MISSING_END_REVIEW_HINT_NB}${day}`
 }
 
 /**

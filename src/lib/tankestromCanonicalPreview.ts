@@ -8,7 +8,7 @@
 
 import type { EmbeddedScheduleSegment } from '../types'
 import type { NormalizedTankestromScheduleDetails } from './tankestromScheduleDetails'
-import { buildPerDaySourceTextForValidation } from './tankestromScheduleDetails'
+import { buildPerDaySourceTextForValidation, sourceContainsTime } from './tankestromScheduleDetails'
 import {
   embeddedScheduleChildReviewListTimeClock,
   resolveEmbeddedScheduleSegmentTimesForCalendarExport,
@@ -66,19 +66,53 @@ function isNonDisplayTimeLabel(label: string): boolean {
   return label === '–' || label === 'Tid ikke avklart'
 }
 
+function segmentStartHm(seg: EmbeddedScheduleSegment): string | null {
+  const raw = seg.start?.trim().slice(0, 5) ?? ''
+  return HM24.test(raw) ? raw : null
+}
+
+/** Foreløpig/betinget dag: tid teller kun når dagsspesifikk kilde bekrefter klokkeslettet. */
+function sourceConfirmsProgramTime(sourceText: string | undefined, hm: string | null | undefined): boolean {
+  if (!hm || !HM24.test(hm)) return false
+  const text = (sourceText ?? '').trim()
+  if (!text) return false
+  return sourceContainsTime(text, hm)
+}
+
 export function deriveEmbeddedChildDisplayTimeFromNormalized(
   normalized: NormalizedTankestromScheduleDetails,
   segment: EmbeddedScheduleSegment,
-  opts?: { childProposalId?: string }
+  opts?: { childProposalId?: string; sourceTextForValidation?: string }
 ): Pick<
   TankestromEmbeddedChildCanonicalPreview,
   'timeLabel' | 'displayTime' | 'displayTimeOrigin' | 'uncertainTime' | 'hasConcreteTimeDisplay'
 > {
-  const earliestHighlightTime = earliestNormalizedHighlightTime(normalized.highlights)
-  const derivedOppmote = tryDeriveOppmoteStartFromSegmentNotes(segment, {
+  const isConditional = segment.isConditional === true
+  const sourceText = opts?.sourceTextForValidation
+
+  const confirmedHighlights =
+    isConditional && sourceText
+      ? normalized.highlights.filter((h) => sourceConfirmsProgramTime(sourceText, h.time.slice(0, 5)))
+      : normalized.highlights
+
+  const earliestHighlightTime = earliestNormalizedHighlightTime(confirmedHighlights)
+
+  const derivedOppmoteRaw = tryDeriveOppmoteStartFromSegmentNotes(segment, {
     childProposalId: opts?.childProposalId,
   })
-  const reviewListClock = embeddedScheduleChildReviewListTimeClock(segment)
+  const derivedOppmote =
+    derivedOppmoteRaw &&
+    (!isConditional || sourceConfirmsProgramTime(sourceText, derivedOppmoteRaw.displayClock))
+      ? derivedOppmoteRaw
+      : null
+
+  const reviewListClockRaw = embeddedScheduleChildReviewListTimeClock(segment)
+  const startHm = segmentStartHm(segment)
+  const reviewListClock =
+    reviewListClockRaw.clock &&
+    (!isConditional || sourceConfirmsProgramTime(sourceText, startHm))
+      ? reviewListClockRaw
+      : { clock: null, omittedSynthetic: true, durationSuppressedAsUnknown: false }
 
   let displayTimeOrigin: CanonicalDisplayTimeOrigin = 'none'
   let timeLabel: string
@@ -92,7 +126,7 @@ export function deriveEmbeddedChildDisplayTimeFromNormalized(
   } else if (reviewListClock.clock) {
     timeLabel = reviewListClock.clock
     displayTimeOrigin = 'review_list_clock'
-  } else if (segment.isConditional) {
+  } else if (isConditional) {
     timeLabel = '–'
     displayTimeOrigin = 'none'
   } else {
@@ -101,7 +135,7 @@ export function deriveEmbeddedChildDisplayTimeFromNormalized(
   }
 
   const uncertainTime =
-    !earliestHighlightTime && !derivedOppmote && !reviewListClock.clock && !segment.isConditional
+    !earliestHighlightTime && !derivedOppmote && !reviewListClock.clock && !isConditional
 
   const hasConcreteTimeDisplay = Boolean(
     earliestHighlightTime ?? derivedOppmote?.displayClock ?? reviewListClock.clock
@@ -116,7 +150,9 @@ export function canonicalSegmentIsPreliminaryDay(
   segment: EmbeddedScheduleSegment,
   preview: Pick<TankestromEmbeddedChildCanonicalPreview, 'hasConcreteTimeDisplay'>
 ): boolean {
-  if (segment.isConditional === true && !preview.hasConcreteTimeDisplay) return true
+  if (segment.isConditional === true) {
+    return !preview.hasConcreteTimeDisplay
+  }
   return false
 }
 
@@ -182,6 +218,7 @@ export function buildEmbeddedChildCanonicalPreview(
 
   const display = deriveEmbeddedChildDisplayTimeFromNormalized(normalized, segment, {
     childProposalId,
+    sourceTextForValidation,
   })
 
   const isPreliminaryDay = canonicalSegmentIsPreliminaryDay(segment, display)

@@ -16,6 +16,7 @@
     "test:e2e:mobile": "playwright test --project=mobile-chrome --project=mobile-safari",
     "eval:tankestrom:soak": "node ./scripts/eval-tankestrom-soak.mjs",
     "eval:tankestrom": "node ./scripts/eval-tankestrom.mjs",
+    "eval:tankestrom:duration": "vitest run src/lib/tankestromEval/__tests__/hostcupDurationInference.test.ts && vitest run src/lib/tankestromEval/__tests__/hostcupDurationInference.strict.test.ts",
     "eval:tankestrom:ci": "node ./scripts/eval-tankestrom.mjs --fixture=all --runs=5 --seed=42",
     "deploy:hostinger": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-hostinger.ps1",
     "deploy:hostinger:dry": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-hostinger.ps1 -DryRun",

@@ -76,11 +76,13 @@ import {
   scanNotesBodyForLanguage,
   taskIndicatesForeignLanguageMismatchWithTrack,
   buildEmbeddedChildCanonicalPreviewForReview,
+  draftHasStartWithoutKnownEnd,
   type TankestromPendingFile,
   type TankestromImportSuccess,
 } from './useTankestromImport'
 import {
   formatTankestromImportCardValidationBanner,
+  formatTankestromMissingEndReviewHint,
   norwegianWeekdayLowercase,
   summarizeEmbeddedChildrenImportValidation,
 } from '../../lib/tankestromInlineValidationLabel'
@@ -3558,11 +3560,16 @@ export function TankestromImportDialog({
                       : null
                   const suppressChildInlineBanners =
                     embeddedChildrenValidationSummary?.suppressPerChildDuplicateBanners === true
+                  const parentMissingEndHint =
+                    checked && u.importKind === 'event' && draftHasStartWithoutKnownEnd(u.event)
+                      ? formatTankestromMissingEndReviewHint(norwegianWeekdayLowercase(u.event.date))
+                      : null
                   const showCardValidationAlerts =
                     checked &&
                     !editorOpen &&
                     (parentCardValidationIssues.length > 0 ||
-                      Boolean(embeddedChildrenValidationSummary?.parentBanner))
+                      Boolean(embeddedChildrenValidationSummary?.parentBanner) ||
+                      Boolean(parentMissingEndHint))
 
                   const eventTimeSummary = (() => {
                     if (u.importKind !== 'event') return ''
@@ -4183,14 +4190,31 @@ export function TankestromImportDialog({
                                               const line = formatTankestromImportCardValidationBanner(ci, {
                                                 weekdayNb: norwegianWeekdayLowercase(row.segment.date),
                                               })
-                                              return line ? (
-                                                <p
-                                                  className="mt-1 text-[10px] font-medium text-rose-600 sm:text-[11px]"
-                                                  role="alert"
-                                                >
-                                                  {line}
-                                                </p>
-                                              ) : null
+                                              const endHint =
+                                                cd?.importKind === 'event' &&
+                                                draftHasStartWithoutKnownEnd(cd.event)
+                                                  ? formatTankestromMissingEndReviewHint(
+                                                      norwegianWeekdayLowercase(row.segment.date)
+                                                    )
+                                                  : null
+                                              if (!line && !endHint) return null
+                                              return (
+                                                <div className="mt-1 space-y-0.5">
+                                                  {line ? (
+                                                    <p
+                                                      className="text-[10px] font-medium text-rose-600 sm:text-[11px]"
+                                                      role="alert"
+                                                    >
+                                                      {line}
+                                                    </p>
+                                                  ) : null}
+                                                  {endHint ? (
+                                                    <p className="text-[10px] font-medium text-amber-700 sm:text-[11px]">
+                                                      {endHint}
+                                                    </p>
+                                                  ) : null}
+                                                </div>
+                                              )
                                             })() : null}
                                           </div>
                                         </button>
@@ -4989,6 +5013,11 @@ export function TankestromImportDialog({
                                   role="alert"
                                 >
                                   {embeddedChildrenValidationSummary.parentBanner}
+                                </p>
+                              ) : null}
+                              {parentMissingEndHint ? (
+                                <p className="text-[10px] font-medium text-amber-700 sm:text-[11px]">
+                                  {parentMissingEndHint}
                                 </p>
                               ) : null}
                             </div>
