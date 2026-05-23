@@ -21,7 +21,11 @@ import {
   normalizeEmbeddedScheduleParentDisplayTitle,
 } from '../tankestromCupEmbeddedScheduleMerge'
 import type { CanonicalDisplayTimeOrigin } from '../tankestromCanonicalPreview'
-import { canonicalEditSeedFromPreview } from '../tankestromCanonicalPreview'
+import {
+  canonicalEditSeedFromPreview,
+  resolveCanonicalEmbeddedChildExportTimes,
+} from '../tankestromCanonicalPreview'
+import type { SegmentEndTimeProvenance } from '../tankestromSegmentDurationFacts'
 
 export type HostcupLiveNarrativeDaySnapshot = {
   date: string
@@ -41,6 +45,9 @@ export type HostcupLiveNarrativeDaySnapshot = {
   editSeedEnd: string
   draftStart: string
   draftEnd: string
+  endTimeProvenance: SegmentEndTimeProvenance
+  endTimeSource?: string
+  draftInferredEndTime: boolean
   validationBlockers: string[]
 }
 
@@ -54,20 +61,32 @@ export type HostcupLiveNarrativeRunResult = {
   days: HostcupLiveNarrativeDaySnapshot[]
 }
 
-export function loadHostcupLiveNarrativeFixture(): {
+export function loadHostcupLiveNarrativeFixture(opts?: {
+  analyzeJson?: string
+  sourceTextFile?: string
+}): {
   source: string
   bundle: PortalImportProposalBundle
 } {
   const root = join(process.cwd(), 'fixtures/tankestrom')
-  const source = readFileSync(join(root, 'hostcup_duration_inference_rich.txt'), 'utf8')
+  const source = readFileSync(
+    join(root, opts?.sourceTextFile ?? 'hostcup_duration_inference_rich.txt'),
+    'utf8'
+  )
   const bundle = parsePortalImportProposalBundle(
-    JSON.parse(readFileSync(join(root, 'hostcup_duration_inference_rich.analyze.json'), 'utf8'))
+    JSON.parse(
+      readFileSync(join(root, opts?.analyzeJson ?? 'hostcup_duration_inference_rich.analyze.json'), 'utf8')
+    )
   )
   return { source, bundle }
 }
 
-export function runHostcupLiveNarrativePreviewCase(): HostcupLiveNarrativeRunResult {
-  const { source, bundle } = loadHostcupLiveNarrativeFixture()
+export function runHostcupLiveNarrativePreviewCase(opts?: {
+  analyzeJson?: string
+}): HostcupLiveNarrativeRunResult {
+  const { source, bundle } = loadHostcupLiveNarrativeFixture({
+    analyzeJson: opts?.analyzeJson,
+  })
   const personId = 'person-a'
   const validPersonIds = new Set([personId])
   const people = [
@@ -113,6 +132,9 @@ export function runHostcupLiveNarrativePreviewCase(): HostcupLiveNarrativeRunRes
       { originalImportText: source }
     )
     const editSeed = canonicalEditSeedFromPreview(preview, seg, { childProposalId: childId })
+    const canonicalTimes = resolveCanonicalEmbeddedChildExportTimes(preview, seg, {
+      childProposalId: childId,
+    })
     const draft = drafts[childId]
     const ev = draft?.importKind === 'event' ? draft.event : null
     return {
@@ -135,6 +157,9 @@ export function runHostcupLiveNarrativePreviewCase(): HostcupLiveNarrativeRunRes
       editSeedEnd: editSeed.end,
       draftStart: ev?.start ?? '',
       draftEnd: ev?.end ?? '',
+      endTimeProvenance: canonicalTimes.endTimeProvenance,
+      endTimeSource: canonicalTimes.endTimeSource,
+      draftInferredEndTime: ev?.embeddedScheduleExport?.inferredEndTime === true,
       validationBlockers:
         ev != null
           ? collectTankestromEventExportValidationIssues(childId, childId, ev, validPersonIds).map(

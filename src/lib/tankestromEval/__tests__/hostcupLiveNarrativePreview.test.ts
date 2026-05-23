@@ -130,9 +130,11 @@ describe('hostcup live narrative — draft/persist bruker canonical tider', () =
       expect(fri.editSeedStart).toBe('16:40')
       expect(fri.draftStart).toBe('16:40')
       expect(fri.draftStart).not.toBe('10:00')
-      expect(fri.draftEnd).toBeTruthy()
-      expect(fri.draftEnd > fri.draftStart).toBe(true)
+      expect(fri.draftEnd).toBe('18:45')
       expect(fri.editSeedStart).toBe(fri.draftStart)
+      expect(fri.endTimeProvenance).toBe('local_conservative_fallback')
+      expect(fri.endTimeSource).toBe('fallback_duration')
+      expect(fri.draftInferredEndTime).toBe(true)
     })
   })
 
@@ -143,8 +145,8 @@ describe('hostcup live narrative — draft/persist bruker canonical tider', () =
       expect(lor.draftStart).toBe('08:30')
       expect(lor.draftStart).not.toBe('10:00')
       expect(lor.editSeedStart).toBe('08:30')
-      expect(lor.draftEnd).toBeTruthy()
-      expect(lor.draftEnd >= '15:55').toBe(true)
+      expect(lor.draftEnd).toBe('16:00')
+      expect(lor.endTimeProvenance).toBe('source_confirmed_end')
     })
   })
 
@@ -156,6 +158,35 @@ describe('hostcup live narrative — draft/persist bruker canonical tider', () =
       expect(son.rawSegmentStart).toBe('12:00')
       expect(son.draftStart).toBe('')
       expect(son.draftStart).not.toBe('12:00')
+    })
+  })
+})
+
+describe('hostcup live narrative — Tankestrom API duration-felt', () => {
+  it('fredag: API inferred end 18:45 (ikke lokal fallback)', () => {
+    const r = runHostcupLiveNarrativePreviewCase({
+      analyzeJson: 'hostcup_duration_inference_rich_api.analyze.json',
+    })
+    assertLivePreview(r, () => {
+      const fri = day(r, '2026-09-18')
+      expect(fri.draftStart).toBe('16:40')
+      expect(fri.draftEnd).toBe('18:45')
+      expect(fri.endTimeProvenance).toBe('api_inferred_end')
+      expect(fri.endTimeSource).toBe('computed_from_duration_and_aftertime')
+      expect(fri.draftInferredEndTime).toBe(true)
+    })
+  })
+
+  it('lørdag: eksplisitt API end 16:00', () => {
+    const r = runHostcupLiveNarrativePreviewCase({
+      analyzeJson: 'hostcup_duration_inference_rich_api.analyze.json',
+    })
+    assertLivePreview(r, () => {
+      const lor = day(r, '2026-09-19')
+      expect(lor.draftStart).toBe('08:30')
+      expect(lor.draftEnd).toBe('16:00')
+      expect(lor.endTimeProvenance).toBe('source_confirmed_end')
+      expect(lor.draftInferredEndTime).toBe(false)
     })
   })
 })
