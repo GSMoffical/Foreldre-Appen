@@ -2,10 +2,10 @@
   "schemaVersion": "1.0.0",
   "provenance": {
     "sourceSystem": "tankestrom",
-    "sourceType": "e2e_fixture",
-    "generatorVersion": "duration-rich-v1",
-    "generatedAt": "2026-05-22T12:00:00.000Z",
-    "importRunId": "e2e-hostcup-duration-rich"
+    "sourceType": "live_capture",
+    "generatorVersion": "live-preview-regression-v1",
+    "generatedAt": "2026-05-22T14:00:00.000Z",
+    "importRunId": "e2e-hostcup-live-narrative"
   },
   "items": [
     {
@@ -13,7 +13,7 @@
       "kind": "event",
       "sourceId": "e2e",
       "originalSourceType": "pasted_text",
-      "confidence": 0.96,
+      "confidence": 0.92,
       "event": {
         "date": "2026-09-18",
         "personId": "",
@@ -28,13 +28,11 @@
             {
               "date": "2026-09-18",
               "title": "Fredag",
-              "start": "16:40",
-              "end": "18:45",
+              "start": "10:00",
               "tankestromHighlights": [
-                { "time": "16:40", "label": "Oppmøte", "type": "meeting" },
-                { "time": "17:30", "label": "Første kamp", "type": "match" }
+                { "time": "10:00", "label": "Første kamp (foreløpig)", "type": "match" }
               ],
-              "notes": "Oppmøte 16:40, kampstart 17:30, ferdig ca. 18:45."
+              "notes": ""
             },
             {
               "date": "2026-09-19",
@@ -45,17 +43,26 @@
                 { "time": "08:30", "label": "Oppmøte før første kamp", "type": "meeting" },
                 { "time": "09:15", "label": "Første kamp", "type": "match" },
                 { "time": "13:55", "label": "Oppmøte før andre kamp", "type": "meeting" },
-                { "time": "14:40", "label": "Andre kamp", "type": "match" }
+                { "time": "14:40", "label": "Andre kamp", "type": "match" },
+                { "time": "10:00", "label": "Første kamp (foreløpig)", "type": "match" }
               ],
-              "notes": "Ferdig rundt 15:55–16:00."
+              "notes": ""
             },
             {
               "date": "2026-09-20",
               "title": "Søndag",
               "isConditional": true,
-              "timeWindowCandidates": [{ "start": "10:00", "end": "12:00", "label": "A-sluttspill (foreløpig)" }],
-              "notes": "Sluttspill foreløpig. Tidsvindu 10:00–12:00 for A-sluttspill.",
-              "tankestromHighlights": []
+              "start": "12:00",
+              "timeWindowCandidates": [
+                {
+                  "start": "10:00",
+                  "end": "12:00",
+                  "label": "A-sluttspill (foreløpig)",
+                  "tentative": true
+                }
+              ],
+              "notes": "Sluttspill avhenger av resultater. Første kamp en gang mellom kl. 10:00 og 12:00.",
+              "tankestromHighlights": [{ "time": "12:00", "label": "foreløpig", "type": "other" }]
             }
           ]
         }

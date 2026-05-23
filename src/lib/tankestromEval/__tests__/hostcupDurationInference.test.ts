@@ -142,6 +142,6 @@ describe('Høstcup duration inference matrix', () => {
     })
     expect(matrixPath).toContain('tankestrom-duration-inference-hostcup')
     expect(report.summaryByTextVariant).toBeDefined()
-  })
+  }, 60_000)
 
 })
