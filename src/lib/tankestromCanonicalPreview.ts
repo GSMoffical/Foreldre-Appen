@@ -8,14 +8,156 @@
 
 import type { EmbeddedScheduleSegment } from '../types'
 import type { NormalizedTankestromScheduleDetails } from './tankestromScheduleDetails'
-import { buildPerDaySourceTextForValidation, sourceContainsTime } from './tankestromScheduleDetails'
+import {
+  buildPerDaySourceTextForValidation,
+  sourceConfirmsConcreteProgramTime,
+  sourceMentionsTimeAsTentativeWindow,
+} from './tankestromScheduleDetails'
+import type { EmbeddedScheduleChildExportTimePolicy } from './tankestromEmbeddedChildNotesPresentation'
 import {
   embeddedScheduleChildReviewListTimeClock,
-  resolveEmbeddedScheduleSegmentTimesForCalendarExport,
   tryDeriveOppmoteStartFromSegmentNotes,
 } from './tankestromEmbeddedChildNotesPresentation'
 
 const HM24 = /^([01]\d|2[0-3]):[0-5]\d$/
+const SYNTHETIC_CLOCK = new Set(['00:00', '06:00', '23:59'])
+/** Typical match block (2×20 + pause) plus hall exit buffer — e.g. 17:30 → ~18:45. */
+const CANONICAL_MATCH_END_BUFFER_MINUTES = 75
+const CONSERVATIVE_SLOT_FROM_START_MINUTES = 60
+const MAX_REASONABLE_CANONICAL_SPAN_MINUTES = 12 * 60
+const MIN_END_AFTER_LAST_HIGHLIGHT_MINUTES = 30
+
+function hmStringToMinutes(hm: string): number {
+  const [h, m] = hm.split(':').map((x) => parseInt(x, 10))
+  return h * 60 + m
+}
+
+function addMinutesToHmClamp(hm: string, addMinutes: number): string {
+  const startMin = hmStringToMinutes(hm)
+  const endMin = Math.min(startMin + addMinutes, 23 * 60 + 59)
+  const h = Math.floor(endMin / 60)
+  const m = endMin % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+function latestConfirmedHighlightTime(
+  highlights: NormalizedTankestromScheduleDetails['highlights'],
+  sourceText?: string
+): string | null {
+  const confirmed = sourceText
+    ? highlights.filter((h) => sourceConfirmsProgramTime(sourceText, h.time.slice(0, 5)))
+    : highlights
+  const times = confirmed
+    .map((h) => h.time.trim().slice(0, 5))
+    .filter((t) => HM24.test(t))
+    .sort()
+  return times[times.length - 1] ?? null
+}
+
+function segmentEndIsCanonicalExportCandidate(
+  segment: EmbeddedScheduleSegment,
+  canonicalStart: string,
+  latestHighlight: string | null,
+  sourceText?: string
+): string | null {
+  const raw = segment.end?.trim().slice(0, 5) ?? ''
+  if (!raw || !HM24.test(raw) || SYNTHETIC_CLOCK.has(raw)) return null
+  const endMin = hmStringToMinutes(raw)
+  const startMin = hmStringToMinutes(canonicalStart)
+  if (endMin <= startMin || endMin - startMin > MAX_REASONABLE_CANONICAL_SPAN_MINUTES) return null
+  if (latestHighlight && endMin < hmStringToMinutes(latestHighlight)) return null
+  if (sourceText && sourceMentionsTimeAsTentativeWindow(raw, sourceText)) return null
+  if (sourceText && sourceConfirmsConcreteProgramTime(sourceText, raw)) return raw
+  const segStart = segment.start?.trim().slice(0, 5) ?? ''
+  if (segStart && HM24.test(segStart) && segStart === canonicalStart) {
+    if (!latestHighlight || endMin >= hmStringToMinutes(latestHighlight) + MIN_END_AFTER_LAST_HIGHLIGHT_MINUTES) {
+      return raw
+    }
+  }
+  return null
+}
+
+export type CanonicalEmbeddedChildExportTimes = {
+  start: string
+  end: string
+  inferredEndTime: boolean
+  usesSyntheticLayoutEnd: boolean
+  embeddedScheduleChildExportTimePolicyUsed: EmbeddedScheduleChildExportTimePolicy
+  embeddedScheduleChildExportDerivedMeetingTimeApplied: boolean
+  embeddedScheduleChildExportDurationSuppressed: boolean
+  embeddedScheduleChildExportSyntheticTimeSkipped: boolean
+  embeddedScheduleChildExportTimeNormalized: boolean
+}
+
+/**
+ * Kalender-exporttider fra canonical preview — aldri rå `segment.start` når den strider mot displayTime.
+ */
+export function resolveCanonicalEmbeddedChildExportTimes(
+  preview: TankestromEmbeddedChildCanonicalPreview,
+  segment: EmbeddedScheduleSegment,
+  _opts?: { childProposalId?: string }
+): CanonicalEmbeddedChildExportTimes {
+  const start = preview.displayTime?.slice(0, 5) ?? ''
+  const empty: CanonicalEmbeddedChildExportTimes = {
+    start: '',
+    end: '',
+    inferredEndTime: false,
+    usesSyntheticLayoutEnd: false,
+    embeddedScheduleChildExportTimePolicyUsed: 'no_safe_segment_clock_default_slot',
+    embeddedScheduleChildExportDerivedMeetingTimeApplied: false,
+    embeddedScheduleChildExportDurationSuppressed: false,
+    embeddedScheduleChildExportSyntheticTimeSkipped: true,
+    embeddedScheduleChildExportTimeNormalized: true,
+  }
+  if (!HM24.test(start)) return empty
+
+  const sourceText = preview.sourceTextForValidation
+  const latestHighlight = latestConfirmedHighlightTime(preview.normalized.highlights, sourceText)
+  const derivedFromOppmote = preview.displayTimeOrigin === 'derived_oppmote'
+
+  const confirmedEnd = segmentEndIsCanonicalExportCandidate(segment, start, latestHighlight, sourceText)
+  if (confirmedEnd) {
+    return {
+      start,
+      end: confirmedEnd,
+      inferredEndTime: false,
+      usesSyntheticLayoutEnd: false,
+      embeddedScheduleChildExportTimePolicyUsed: 'segment_pair_sanitized',
+      embeddedScheduleChildExportDerivedMeetingTimeApplied: derivedFromOppmote,
+      embeddedScheduleChildExportDurationSuppressed: false,
+      embeddedScheduleChildExportSyntheticTimeSkipped: false,
+      embeddedScheduleChildExportTimeNormalized: true,
+    }
+  }
+
+  if (latestHighlight && hmStringToMinutes(latestHighlight) >= hmStringToMinutes(start)) {
+    const end = addMinutesToHmClamp(latestHighlight, CANONICAL_MATCH_END_BUFFER_MINUTES)
+    return {
+      start,
+      end,
+      inferredEndTime: true,
+      usesSyntheticLayoutEnd: true,
+      embeddedScheduleChildExportTimePolicyUsed: 'segment_start_conservative_end',
+      embeddedScheduleChildExportDerivedMeetingTimeApplied: derivedFromOppmote,
+      embeddedScheduleChildExportDurationSuppressed: false,
+      embeddedScheduleChildExportSyntheticTimeSkipped: false,
+      embeddedScheduleChildExportTimeNormalized: true,
+    }
+  }
+
+  const end = addMinutesToHmClamp(start, CONSERVATIVE_SLOT_FROM_START_MINUTES)
+  return {
+    start,
+    end,
+    inferredEndTime: true,
+    usesSyntheticLayoutEnd: true,
+    embeddedScheduleChildExportTimePolicyUsed: 'segment_start_conservative_end',
+    embeddedScheduleChildExportDerivedMeetingTimeApplied: derivedFromOppmote,
+    embeddedScheduleChildExportDurationSuppressed: false,
+    embeddedScheduleChildExportSyntheticTimeSkipped: false,
+    embeddedScheduleChildExportTimeNormalized: true,
+  }
+}
 
 export type CanonicalDisplayTimeOrigin =
   | 'normalized_highlights'
@@ -71,12 +213,9 @@ function segmentStartHm(seg: EmbeddedScheduleSegment): string | null {
   return HM24.test(raw) ? raw : null
 }
 
-/** Foreløpig/betinget dag: tid teller kun når dagsspesifikk kilde bekrefter klokkeslettet. */
+/** Bekreftet programtid — ikke bare tidsvindu eller foreløpig markør. */
 function sourceConfirmsProgramTime(sourceText: string | undefined, hm: string | null | undefined): boolean {
-  if (!hm || !HM24.test(hm)) return false
-  const text = (sourceText ?? '').trim()
-  if (!text) return false
-  return sourceContainsTime(text, hm)
+  return sourceConfirmsConcreteProgramTime(sourceText, hm)
 }
 
 export function deriveEmbeddedChildDisplayTimeFromNormalized(
@@ -90,27 +229,30 @@ export function deriveEmbeddedChildDisplayTimeFromNormalized(
   const isConditional = segment.isConditional === true
   const sourceText = opts?.sourceTextForValidation
 
-  const confirmedHighlights =
-    isConditional && sourceText
-      ? normalized.highlights.filter((h) => sourceConfirmsProgramTime(sourceText, h.time.slice(0, 5)))
-      : normalized.highlights
+  const confirmedHighlights = sourceText
+    ? normalized.highlights.filter((h) => sourceConfirmsProgramTime(sourceText, h.time.slice(0, 5)))
+    : normalized.highlights
 
   const earliestHighlightTime = earliestNormalizedHighlightTime(confirmedHighlights)
 
-  const derivedOppmoteRaw = tryDeriveOppmoteStartFromSegmentNotes(segment, {
-    childProposalId: opts?.childProposalId,
-  })
+  const derivedOppmoteRaw = tryDeriveOppmoteStartFromSegmentNotes(
+    sourceText && (!segment.notes || String(segment.notes).trim().length < 12)
+      ? { ...segment, notes: sourceText }
+      : segment,
+    {
+      childProposalId: opts?.childProposalId,
+    }
+  )
   const derivedOppmote =
     derivedOppmoteRaw &&
-    (!isConditional || sourceConfirmsProgramTime(sourceText, derivedOppmoteRaw.displayClock))
+    (!sourceText || sourceConfirmsProgramTime(sourceText, derivedOppmoteRaw.displayClock))
       ? derivedOppmoteRaw
       : null
 
   const reviewListClockRaw = embeddedScheduleChildReviewListTimeClock(segment)
   const startHm = segmentStartHm(segment)
   const reviewListClock =
-    reviewListClockRaw.clock &&
-    (!isConditional || sourceConfirmsProgramTime(sourceText, startHm))
+    reviewListClockRaw.clock && (!sourceText || sourceConfirmsProgramTime(sourceText, startHm))
       ? reviewListClockRaw
       : { clock: null, omittedSynthetic: true, durationSuppressedAsUnknown: false }
 
@@ -177,19 +319,8 @@ export function canonicalEditSeedFromPreview(
   if (!preview.hasConcreteTimeDisplay || !preview.displayTime) {
     return { start: '', end: '' }
   }
-  const start = preview.displayTime.slice(0, 5)
-  const exportTimes = resolveEmbeddedScheduleSegmentTimesForCalendarExport(segment, {
-    childProposalId: opts?.childProposalId,
-  })
-  const exportStart = exportTimes.start.slice(0, 5)
-  const exportEnd = exportTimes.end.slice(0, 5)
-  let end = ''
-  if (HM24.test(exportEnd) && exportEnd !== start) {
-    if (!HM24.test(exportStart) || exportStart === start) {
-      end = exportEnd
-    }
-  }
-  return { start, end }
+  const times = resolveCanonicalEmbeddedChildExportTimes(preview, segment, opts)
+  return { start: times.start, end: times.end }
 }
 
 export function buildEmbeddedChildCanonicalPreview(

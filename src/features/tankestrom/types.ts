@@ -164,6 +164,8 @@ export interface TankestromEventDraft {
   embeddedScheduleExport?: {
     usesSyntheticLayoutEnd: boolean
     policy: EmbeddedScheduleChildExportTimePolicy
+    /** Slutt estimert fra canonical policy (ikke bekreftet i kilde). */
+    inferredEndTime?: boolean
   }
 }
 

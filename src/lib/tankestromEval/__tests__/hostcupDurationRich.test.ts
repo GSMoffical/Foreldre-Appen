@@ -1,29 +1,28 @@
 import { describe, expect, it } from 'vitest'
-import { runHostcupRichDurationCase } from '../hostcupRichDurationHarness'
 import { runHostcupDurationCase } from '../hostcupDurationInferenceHarness'
 import { HOSTCUP_TEXT_VARIANTS } from '../hostcupTextVariants'
+import { runHostcupLiveNarrativePreviewCase } from '../hostcupLiveNarrativePreviewHarness'
 
-function dayRich(r: ReturnType<typeof runHostcupRichDurationCase>, date: string) {
+function dayLive(r: ReturnType<typeof runHostcupLiveNarrativePreviewCase>, date: string) {
   const d = r.days.find((x) => x.date === date)
   if (!d) throw new Error(`missing ${date}`)
   return d
 }
 
-describe('Høstcup rich duration fixture', () => {
+describe('Høstcup rich duration fixture (live narrative payload)', () => {
   it('fredag: 16:40 oppmøte, 17:30 kamp, inferred slutt', () => {
-    const r = runHostcupRichDurationCase()
-    const fri = dayRich(r, '2026-09-18')
+    const r = runHostcupLiveNarrativePreviewCase()
+    const fri = dayLive(r, '2026-09-18')
     expect(fri.canonicalDisplayTime).toBe('16:40')
     expect(fri.canonicalHighlights).toEqual(['16:40 Oppmøte', '17:30 Første kamp'])
     expect(fri.selected).toBe(true)
-    expect(fri.draftStart).toBe('16:40')
-    expect(fri.draftEnd.length).toBeGreaterThan(0)
+    expect(fri.editSeedStart).toBe('16:40')
     expect(fri.validationBlockers).not.toContain('missing_end_time')
   })
 
   it('lørdag: 08:30/09:15/13:55/14:40, ingen fredagstid', () => {
-    const r = runHostcupRichDurationCase()
-    const lor = dayRich(r, '2026-09-19')
+    const r = runHostcupLiveNarrativePreviewCase()
+    const lor = dayLive(r, '2026-09-19')
     expect(lor.canonicalDisplayTime).toBe('08:30')
     expect(lor.canonicalHighlights).toEqual([
       '08:30 Oppmøte før første kamp',
@@ -39,8 +38,8 @@ describe('Høstcup rich duration fixture', () => {
   })
 
   it('søndag: foreløpig, ikke selected confirmed', () => {
-    const r = runHostcupRichDurationCase()
-    const son = dayRich(r, '2026-09-20')
+    const r = runHostcupLiveNarrativePreviewCase()
+    const son = dayLive(r, '2026-09-20')
     expect(son.isPreliminaryDay).toBe(true)
     expect(son.isImportSelectable).toBe(false)
     expect(son.selected).toBe(false)
@@ -49,7 +48,7 @@ describe('Høstcup rich duration fixture', () => {
   })
 
   it('Spond-frist 8. sept 21:00 er task, ikke program-highlight', () => {
-    const r = runHostcupRichDurationCase()
+    const r = runHostcupLiveNarrativePreviewCase()
     expect(r.taskDueTime).toBe('21:00')
     for (const d of r.days) {
       expect(d.canonicalHighlights.some((l) => l.startsWith('21:00'))).toBe(false)
