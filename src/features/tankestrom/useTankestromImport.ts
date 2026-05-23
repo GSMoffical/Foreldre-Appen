@@ -812,13 +812,16 @@ function buildEmbeddedChildEventDraft(
     start,
     end,
     notes,
-    embeddedScheduleExport: exportTimes?.usesSyntheticLayoutEnd
-      ? {
-          usesSyntheticLayoutEnd: true,
-          policy: exportTimes.embeddedScheduleChildExportTimePolicyUsed,
-          inferredEndTime: canonicalTimes?.inferredEndTime === true,
-        }
-      : undefined,
+    embeddedScheduleExport:
+      exportTimes?.usesSyntheticLayoutEnd || canonicalTimes?.inferredEndTime
+        ? {
+            usesSyntheticLayoutEnd: canonicalTimes?.usesSyntheticLayoutEnd ?? true,
+            policy: exportTimes!.embeddedScheduleChildExportTimePolicyUsed,
+            inferredEndTime: canonicalTimes?.inferredEndTime === true,
+            endTimeSource: canonicalTimes?.endTimeSource,
+            endTimeProvenance: canonicalTimes?.endTimeProvenance,
+          }
+        : undefined,
   }
 }
 
@@ -1864,9 +1867,12 @@ function applyEmbeddedScheduleExportTimeMetadata(
   if (!ex?.usesSyntheticLayoutEnd) return
   metadata.timePrecision = 'start_only'
   metadata.layoutEndOnly = true
-  metadata.endTimeSource = embeddedExportEndTimeSourceForPolicy(ex.policy)
+  metadata.endTimeSource =
+    typeof ex.endTimeSource === 'string' && ex.endTimeSource.trim()
+      ? ex.endTimeSource.trim()
+      : embeddedExportEndTimeSourceForPolicy(ex.policy)
   metadata.displayTimeLabel = CALENDAR_SLUTTID_IKKE_OPPGITT_NB
-  metadata.requiresManualTimeReview = true
+  metadata.requiresManualTimeReview = ex.endTimeProvenance !== 'api_inferred_end'
   if (ex.inferredEndTime) {
     metadata.inferredEndTime = true
   }

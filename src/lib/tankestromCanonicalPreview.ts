@@ -18,6 +18,12 @@ import {
   embeddedScheduleChildReviewListTimeClock,
   tryDeriveOppmoteStartFromSegmentNotes,
 } from './tankestromEmbeddedChildNotesPresentation'
+import {
+  readTankestromSegmentDurationFacts,
+  resolveTankestromApiInferredEnd,
+  segmentEndTimeSourceIsExplicit,
+  type SegmentEndTimeProvenance,
+} from './tankestromSegmentDurationFacts'
 
 const HM24 = /^([01]\d|2[0-3]):[0-5]\d$/
 const SYNTHETIC_CLOCK = new Set(['00:00', '06:00', '23:59'])
@@ -67,6 +73,12 @@ function segmentEndIsCanonicalExportCandidate(
   if (endMin <= startMin || endMin - startMin > MAX_REASONABLE_CANONICAL_SPAN_MINUTES) return null
   if (latestHighlight && endMin < hmStringToMinutes(latestHighlight)) return null
   if (sourceText && sourceMentionsTimeAsTentativeWindow(raw, sourceText)) return null
+
+  const durationFacts = readTankestromSegmentDurationFacts(segment)
+  if (segmentEndTimeSourceIsExplicit(durationFacts) && durationFacts.inferredEndTime !== true) {
+    return raw
+  }
+
   if (sourceText && sourceConfirmsConcreteProgramTime(sourceText, raw)) return raw
   const segStart = segment.start?.trim().slice(0, 5) ?? ''
   if (segStart && HM24.test(segStart) && segStart === canonicalStart) {
@@ -82,6 +94,9 @@ export type CanonicalEmbeddedChildExportTimes = {
   end: string
   inferredEndTime: boolean
   usesSyntheticLayoutEnd: boolean
+  endTimeProvenance: SegmentEndTimeProvenance
+  /** Videreføres til persist-metadata når satt (API eller mapped fallback). */
+  endTimeSource?: string
   embeddedScheduleChildExportTimePolicyUsed: EmbeddedScheduleChildExportTimePolicy
   embeddedScheduleChildExportDerivedMeetingTimeApplied: boolean
   embeddedScheduleChildExportDurationSuppressed: boolean
@@ -103,6 +118,7 @@ export function resolveCanonicalEmbeddedChildExportTimes(
     end: '',
     inferredEndTime: false,
     usesSyntheticLayoutEnd: false,
+    endTimeProvenance: 'local_conservative_fallback',
     embeddedScheduleChildExportTimePolicyUsed: 'no_safe_segment_clock_default_slot',
     embeddedScheduleChildExportDerivedMeetingTimeApplied: false,
     embeddedScheduleChildExportDurationSuppressed: false,
@@ -114,6 +130,7 @@ export function resolveCanonicalEmbeddedChildExportTimes(
   const sourceText = preview.sourceTextForValidation
   const latestHighlight = latestConfirmedHighlightTime(preview.normalized.highlights, sourceText)
   const derivedFromOppmote = preview.displayTimeOrigin === 'derived_oppmote'
+  const durationFacts = readTankestromSegmentDurationFacts(segment)
 
   const confirmedEnd = segmentEndIsCanonicalExportCandidate(segment, start, latestHighlight, sourceText)
   if (confirmedEnd) {
@@ -122,7 +139,28 @@ export function resolveCanonicalEmbeddedChildExportTimes(
       end: confirmedEnd,
       inferredEndTime: false,
       usesSyntheticLayoutEnd: false,
+      endTimeProvenance: 'source_confirmed_end',
+      endTimeSource: durationFacts.endTimeSource ?? 'explicit',
       embeddedScheduleChildExportTimePolicyUsed: 'segment_pair_sanitized',
+      embeddedScheduleChildExportDerivedMeetingTimeApplied: derivedFromOppmote,
+      embeddedScheduleChildExportDurationSuppressed: false,
+      embeddedScheduleChildExportSyntheticTimeSkipped: false,
+      embeddedScheduleChildExportTimeNormalized: true,
+    }
+  }
+
+  const apiInferred = resolveTankestromApiInferredEnd(segment, start, {
+    latestConfirmedHighlightHm: latestHighlight,
+  })
+  if (apiInferred) {
+    return {
+      start,
+      end: apiInferred.end,
+      inferredEndTime: apiInferred.inferredEndTime,
+      usesSyntheticLayoutEnd: apiInferred.usesSyntheticLayoutEnd,
+      endTimeProvenance: 'api_inferred_end',
+      endTimeSource: apiInferred.endTimeSource,
+      embeddedScheduleChildExportTimePolicyUsed: 'segment_start_conservative_end',
       embeddedScheduleChildExportDerivedMeetingTimeApplied: derivedFromOppmote,
       embeddedScheduleChildExportDurationSuppressed: false,
       embeddedScheduleChildExportSyntheticTimeSkipped: false,
@@ -137,6 +175,8 @@ export function resolveCanonicalEmbeddedChildExportTimes(
       end,
       inferredEndTime: true,
       usesSyntheticLayoutEnd: true,
+      endTimeProvenance: 'local_conservative_fallback',
+      endTimeSource: 'fallback_duration',
       embeddedScheduleChildExportTimePolicyUsed: 'segment_start_conservative_end',
       embeddedScheduleChildExportDerivedMeetingTimeApplied: derivedFromOppmote,
       embeddedScheduleChildExportDurationSuppressed: false,
@@ -151,6 +191,8 @@ export function resolveCanonicalEmbeddedChildExportTimes(
     end,
     inferredEndTime: true,
     usesSyntheticLayoutEnd: true,
+    endTimeProvenance: 'local_conservative_fallback',
+    endTimeSource: 'fallback_duration',
     embeddedScheduleChildExportTimePolicyUsed: 'segment_start_conservative_end',
     embeddedScheduleChildExportDerivedMeetingTimeApplied: derivedFromOppmote,
     embeddedScheduleChildExportDurationSuppressed: false,

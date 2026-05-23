@@ -234,6 +234,26 @@ export function parseEmbeddedScheduleFromMetadata(
     if (details.timeWindowCandidates.length > 0) seg.timeWindowCandidates = details.timeWindowCandidates
     if (typeof o.kind === 'string' && o.kind.trim()) seg.kind = o.kind.trim()
     if (o.isConditional === true) seg.isConditional = true
+    if (typeof o.inferredEndTime === 'boolean') seg.inferredEndTime = o.inferredEndTime
+    if (typeof o.endTimeSource === 'string' && o.endTimeSource.trim()) {
+      seg.endTimeSource = o.endTimeSource.trim()
+    }
+    if (typeof o.startTimeSource === 'string' && o.startTimeSource.trim()) {
+      seg.startTimeSource = o.startTimeSource.trim()
+    }
+    if (typeof o.activityDurationMinutes === 'number' && Number.isFinite(o.activityDurationMinutes)) {
+      seg.activityDurationMinutes = Math.max(0, Math.round(o.activityDurationMinutes))
+    }
+    if (typeof o.afterBufferMinutes === 'number' && Number.isFinite(o.afterBufferMinutes)) {
+      seg.afterBufferMinutes = Math.max(0, Math.round(o.afterBufferMinutes))
+    }
+    const tp = typeof o.timePrecision === 'string' ? o.timePrecision.trim() : ''
+    if (tp === 'timed' || tp === 'date_only' || tp === 'start_only' || tp === 'end_only') {
+      seg.timePrecision = tp
+    }
+    if (o.timeComputation && typeof o.timeComputation === 'object' && !Array.isArray(o.timeComputation)) {
+      seg.timeComputation = o.timeComputation as Record<string, unknown>
+    }
     if (o.userEditedTitle === true) seg.userEditedTitle = true
     if (typeof o.titleOverride === 'string' && o.titleOverride.trim()) {
       seg.titleOverride = o.titleOverride.trim()
