@@ -2232,18 +2232,11 @@ function importDraftFromProposal(
   taskSourceLabelHint?: string
 ): TankestromImportDraft {
   if (item.kind === 'event') {
-<<<<<<< Updated upstream
-    return {
-      importKind: 'event',
-      event: buildEventDraftFromProposal(item, validPersonIds, people, defaultPersonId),
-    }
-=======
-    const eventDraft = buildEventDraftFromProposal(item, validPersonIds, defaultPersonId)
+    const eventDraft = buildEventDraftFromProposal(item, validPersonIds, people, defaultPersonId)
     if (item.event.start && !item.event.end) {
       return { importKind: 'task', task: taskDraftFromEventDraft(eventDraft, people, validPersonIds) }
     }
     return { importKind: 'event', event: eventDraft }
->>>>>>> Stashed changes
   }
   return {
     importKind: 'task',

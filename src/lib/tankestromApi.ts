@@ -353,7 +353,6 @@ function parseEventPayload(raw: unknown): PortalEventPayload {
   if (!isRecord(raw)) throw new Error('Ugyldig svar: event-payload mangler')
   const date = asString(raw.date, 'event.date')
   if (!isDateKey(date)) throw new Error('Ugyldig svar: event.date må være YYYY-MM-DD')
-<<<<<<< Updated upstream
   const startRaw = rawEventTimeInput(raw.start)
   const endRaw = rawEventTimeInput(raw.end)
   const startTime = startRaw !== undefined ? normalizeImportTime(startRaw) : null
@@ -368,16 +367,6 @@ function parseEventPayload(raw: unknown): PortalEventPayload {
     rawTitle.slice(titleSepIdx + 1).trim().length >= 3
       ? rawTitle.slice(titleSepIdx + 1).trim()
       : rawTitle
-=======
-  const startRaw = asOptionalString(raw.start)
-  const startHm = startRaw !== undefined ? (startRaw.length > 5 ? startRaw.slice(11, 16) : startRaw) : undefined
-  const start = startHm !== undefined && isHm(startHm) ? startHm : ''
-  const endRaw = asOptionalString(raw.end)
-  const endHm = endRaw !== undefined ? (endRaw.length > 5 ? endRaw.slice(11, 16) : endRaw) : undefined
-  const end = endHm !== undefined && isHm(endHm) ? endHm : ''
-  const personId = asOptionalString(raw.personId) ?? ''
-  const title = cleanEventTitle(asString(raw.title, 'event.title'))
->>>>>>> Stashed changes
   const out: PortalEventPayload = {
     date,
     personId,
@@ -1007,12 +996,7 @@ async function analyzeWithTankestrom(analyzePayload: AnalyzePayload): Promise<Po
   const responseText = await res.text()
   let responseJson: unknown = null
   try {
-<<<<<<< Updated upstream
     responseJson = responseText ? JSON.parse(responseText) : null
-=======
-    json = text ? JSON.parse(text) : null
-    console.log('Tankestrøm raw response:', JSON.stringify(json, null, 2))
->>>>>>> Stashed changes
   } catch {
     responseJson = null
   }
