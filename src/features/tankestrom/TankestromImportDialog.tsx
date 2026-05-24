@@ -194,10 +194,12 @@ function confidenceBadgeCompactStyle(confidence: number): { label: string; class
 function notesPreviewSnippet(notes: string, maxChars = 140): string {
   let raw = notes.replace(/\r\n/g, '\n').trim()
   if (!raw) return ''
-  const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean)
+  let lines = raw.split('\n').map((l) => l.trim()).filter(Boolean)
+  lines = lines.filter((l) => !/^Match debug:/i.test(l))
   if (lines.length > 0 && /^fra:\s*/i.test(lines[0] ?? '')) {
-    raw = lines.slice(1).join('\n').trim()
+    lines = lines.slice(1)
   }
+  raw = lines.join('\n').trim()
   const t = raw.replace(/\s+/g, ' ').trim()
   if (!t) return ''
   if (t.length <= maxChars) return t
