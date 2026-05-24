@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient'
 import type {
   PortalEventPayload,
+  PortalEventProposal,
   PortalImportProposalBundle,
   PortalImportProvenance,
   PortalProposalItem,
@@ -330,10 +331,29 @@ function collectTaskDetailTextBlocks(raw: Record<string, unknown>): string[] {
   return dedupeNoteBlocks(out)
 }
 
+const EVENT_TITLE_PREFIXES = [
+  'Informasjon til foreldre \u2013 ',
+  'Informasjon til foreldre - ',
+  'Beskjed fra ',
+  'Melding til foreldre \u2013 ',
+  'Melding til foreldre - ',
+]
+
+function cleanEventTitle(title: string): string {
+  const lower = title.toLowerCase()
+  for (const prefix of EVENT_TITLE_PREFIXES) {
+    if (lower.startsWith(prefix.toLowerCase())) {
+      return title.slice(prefix.length)
+    }
+  }
+  return title
+}
+
 function parseEventPayload(raw: unknown): PortalEventPayload {
   if (!isRecord(raw)) throw new Error('Ugyldig svar: event-payload mangler')
   const date = asString(raw.date, 'event.date')
   if (!isDateKey(date)) throw new Error('Ugyldig svar: event.date må være YYYY-MM-DD')
+<<<<<<< Updated upstream
   const startRaw = rawEventTimeInput(raw.start)
   const endRaw = rawEventTimeInput(raw.end)
   const startTime = startRaw !== undefined ? normalizeImportTime(startRaw) : null
@@ -348,6 +368,16 @@ function parseEventPayload(raw: unknown): PortalEventPayload {
     rawTitle.slice(titleSepIdx + 1).trim().length >= 3
       ? rawTitle.slice(titleSepIdx + 1).trim()
       : rawTitle
+=======
+  const startRaw = asOptionalString(raw.start)
+  const startHm = startRaw !== undefined ? (startRaw.length > 5 ? startRaw.slice(11, 16) : startRaw) : undefined
+  const start = startHm !== undefined && isHm(startHm) ? startHm : ''
+  const endRaw = asOptionalString(raw.end)
+  const endHm = endRaw !== undefined ? (endRaw.length > 5 ? endRaw.slice(11, 16) : endRaw) : undefined
+  const end = endHm !== undefined && isHm(endHm) ? endHm : ''
+  const personId = asOptionalString(raw.personId) ?? ''
+  const title = cleanEventTitle(asString(raw.title, 'event.title'))
+>>>>>>> Stashed changes
   const out: PortalEventPayload = {
     date,
     personId,
@@ -783,6 +813,16 @@ export function parsePortalImportProposalBundle(data: unknown): PortalImportProp
       'Ugyldig svar: items må inneholde minst ett forslag, eller toppnivåfeltet schoolProfile / schoolProfileProposal / schoolWeekOverlayProposal må være satt'
     )
   }
+  const eventItems = items.filter((i): i is PortalEventProposal => i.kind === 'event')
+  if (eventItems.length >= 2) {
+    const noteValues = eventItems.map((i) => i.event.notes ?? '')
+    const first = noteValues[0]!
+    if (first && noteValues.every((n) => n === first)) {
+      for (const ev of eventItems) {
+        ev.event.notes = ''
+      }
+    }
+  }
   assertBundleItemKindsCoherent(items)
   const secondaryCandidates = parseSecondaryCandidatesField(data)
   return { schemaVersion: '1.0.0', provenance, items, schoolWeekOverlayProposal, secondaryCandidates }
@@ -967,7 +1007,12 @@ async function analyzeWithTankestrom(analyzePayload: AnalyzePayload): Promise<Po
   const responseText = await res.text()
   let responseJson: unknown = null
   try {
+<<<<<<< Updated upstream
     responseJson = responseText ? JSON.parse(responseText) : null
+=======
+    json = text ? JSON.parse(text) : null
+    console.log('Tankestrøm raw response:', JSON.stringify(json, null, 2))
+>>>>>>> Stashed changes
   } catch {
     responseJson = null
   }
