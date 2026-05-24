@@ -340,7 +340,14 @@ function parseEventPayload(raw: unknown): PortalEventPayload {
   const endTime = endRaw !== undefined ? normalizeImportTime(endRaw) : null
 
   const personId = asEventPersonId(raw.personId)
-  const title = asString(raw.title, 'event.title')
+  const rawTitle = asString(raw.title, 'event.title')
+  const titleSepIdx = rawTitle.search(/[–\-]/)
+  const title =
+    titleSepIdx > 0 &&
+    /^(informasjon|brev|beskjed|melding)\s+(til foreldre|fra\s+\w)/i.test(rawTitle.slice(0, titleSepIdx).trim()) &&
+    rawTitle.slice(titleSepIdx + 1).trim().length >= 3
+      ? rawTitle.slice(titleSepIdx + 1).trim()
+      : rawTitle
   const out: PortalEventPayload = {
     date,
     personId,

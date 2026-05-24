@@ -3887,19 +3887,6 @@ export function TankestromImportDialog({
                           <p className="mt-0.5 text-[10px] leading-snug text-zinc-600 sm:mt-1 sm:text-[11px]">
                             {summaryMetaLine}
                           </p>
-                          {import.meta.env.DEV && u.importKind === 'event' ? (
-                            <p className="mt-1 rounded border border-dashed border-zinc-300 bg-zinc-50 px-2 py-1 font-mono text-[10px] leading-snug text-zinc-800">
-                              Match debug: proposalId={pid} · candidates=
-                              {existingEventMatchForCard?.importMatchTrace?.diagnosticRowCount ?? '—'} · anchored=
-                              {existingEventMatchForCard?.importMatchTrace?.anchoredInputCount ?? '—'} · bestScore=
-                              {existingEventMatchForCard?.importMatchTrace?.bestScoreSeen ?? '—'} · rejected=
-                              {String(
-                                existingEventMatchForCard?.importMatchTrace?.topRejectedReason ??
-                                  existingEventMatchForCard?.rejectReason ??
-                                  (existingEventMatchForCard ? '—' : 'no_match_entry')
-                              )}
-                            </p>
-                          ) : null}
                           {embeddedParentReviewSummary?.text ? (
                             <p
                               className="mt-1.5 line-clamp-2 text-[11px] leading-snug text-zinc-700 sm:mt-2 sm:text-[12px]"
