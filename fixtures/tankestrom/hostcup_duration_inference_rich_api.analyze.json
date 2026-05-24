@@ -3,9 +3,9 @@
   "provenance": {
     "sourceSystem": "tankestrom",
     "sourceType": "live_capture",
-    "generatorVersion": "live-preview-regression-v1",
-    "generatedAt": "2026-05-22T14:00:00.000Z",
-    "importRunId": "e2e-hostcup-live-narrative"
+    "generatorVersion": "live-preview-regression-v1-api-duration",
+    "generatedAt": "2026-05-22T15:00:00.000Z",
+    "importRunId": "e2e-hostcup-live-narrative-api-duration"
   },
   "items": [
     {
@@ -29,6 +29,19 @@
               "date": "2026-09-18",
               "title": "Fredag",
               "start": "10:00",
+              "end": "18:45",
+              "inferredEndTime": true,
+              "endTimeSource": "computed_from_duration_and_aftertime",
+              "activityDurationMinutes": 45,
+              "afterBufferMinutes": 30,
+              "timePrecision": "start_only",
+              "timeComputation": {
+                "start": "17:30",
+                "durationMinutes": 45,
+                "afterBufferMinutes": 30,
+                "end": "18:45",
+                "expression": "17:30 + 45 min kamp + 30 min etter = 18:45"
+              },
               "tankestromHighlights": [
                 { "time": "10:00", "label": "Første kamp (foreløpig)", "type": "match" }
               ],
@@ -39,6 +52,9 @@
               "title": "Lørdag",
               "start": "08:30",
               "end": "16:00",
+              "endTimeSource": "explicit_end_time",
+              "inferredEndTime": false,
+              "timePrecision": "timed",
               "tankestromHighlights": [
                 { "time": "08:30", "label": "Oppmøte før første kamp", "type": "meeting" },
                 { "time": "09:15", "label": "Første kamp", "type": "match" },
@@ -53,6 +69,7 @@
               "title": "Søndag",
               "isConditional": true,
               "start": "12:00",
+              "timePrecision": "date_only",
               "timeWindowCandidates": [
                 {
                   "start": "10:00",

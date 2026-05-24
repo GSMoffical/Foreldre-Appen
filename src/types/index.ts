@@ -232,6 +232,19 @@ export interface EmbeddedScheduleSegment {
   kind?: string;
   /** True når punktet er usikkert eller avhengig av f.eks. tidligere kamper (sluttspill). */
   isConditional?: boolean;
+  /** Tankestrom: sluttid er estimert/utledet (ikke eksplisitt i kilden). */
+  inferredEndTime?: boolean;
+  /** Tankestrom: hvordan start/slutt ble bestemt (f.eks. computed_from_duration). */
+  endTimeSource?: string;
+  startTimeSource?: string;
+  /** Varighet for hovedaktivitet (minutter), f.eks. kamp 2×20 + pause. */
+  activityDurationMinutes?: number;
+  /** Buffer etter aktivitet (minutter), f.eks. garderobe/opprydding. */
+  afterBufferMinutes?: number;
+  /** Precision når bare start eller slutt er pålitelig. */
+  timePrecision?: 'timed' | 'date_only' | 'start_only' | 'end_only';
+  /** Valgfri forklaring av tidsberegning fra Tankestrom. */
+  timeComputation?: Record<string, unknown>;
 }
 
 export type TankestromScheduleHighlightType = 'match' | 'meeting' | 'deadline' | 'note' | 'other'

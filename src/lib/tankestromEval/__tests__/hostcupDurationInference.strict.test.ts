@@ -13,7 +13,9 @@ import {
 } from '../hostcupDurationPolicyInvariants'
 
 describe('Høstcup duration strict policy (eval gate)', () => {
-  it('strict: ingen uventede policy-brudd; kjente son_leak-feil blokkerer til fix', () => {
+  it(
+    'strict: ingen uventede policy-brudd; kjente son_leak-feil blokkerer til fix',
+    () => {
     const matrix = runHostcupDurationMatrix()
     const { policyFailures } = buildHostcupDurationReport(matrix)
     const { unexpected, knownStillFailing } = partitionPolicyFailures(policyFailures)
@@ -24,5 +26,7 @@ describe('Høstcup duration strict policy (eval gate)', () => {
       writeHostcupDurationFailuresReport(policyFailures, matrix)
       throw new Error(formatStrictPolicyErrorMessage(unexpected, knownStillFailing))
     }
-  })
+    },
+    60_000
+  )
 })

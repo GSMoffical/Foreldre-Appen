@@ -569,16 +569,34 @@ function enrichOppmoteLabelFromSource(time: string, label: string, sourceText: s
 function pickKampLabelFromSource(time: string, sourceText: string): string | null {
   const text = sourceText.replace(/\r\n/g, '\n')
   const sentences = splitSentencesNorwegian(text)
-  const timeRe = new RegExp(`\\b${time.replace(/[:]/g, '\\:')}\\b`)
-  let best: { label: string; specificity: number } | null = null
+  const timeEscaped = time.replace(/[:]/g, '\\:')
+  let best: { label: string; specificity: number; proximity: number } | null = null
   for (const sentence of sentences) {
+    const timeRe = new RegExp(`\\b${timeEscaped}\\b`)
     if (!timeRe.test(sentence)) continue
+    const timePos = sentence.search(new RegExp(`\\b${timeEscaped}\\b`))
+    if (timePos < 0) continue
+    const distinctTimes = new Set(
+      [...sentence.matchAll(/\b([01]?\d|2[0-3]):([0-5]\d)\b/g)].map((x) =>
+        padHmFromMatch(x[1]!, x[2]!)
+      )
+    )
+    const preferProximity = distinctTimes.size > 1
     for (const cand of KAMP_CANDIDATES) {
-      if (cand.test.test(sentence)) {
-        if (!best || cand.specificity > best.specificity) {
-          best = { label: cand.label, specificity: cand.specificity }
+      const re = new RegExp(cand.test.source, cand.test.flags)
+      const match = re.exec(sentence)
+      if (match && typeof match.index === 'number') {
+        const proximity = Math.abs(match.index - timePos)
+        const better =
+          !best ||
+          (preferProximity
+            ? proximity < best.proximity ||
+              (proximity === best.proximity && cand.specificity > best.specificity)
+            : cand.specificity > best.specificity ||
+              (cand.specificity === best.specificity && proximity < best.proximity))
+        if (better) {
+          best = { label: cand.label, specificity: cand.specificity, proximity }
         }
-        break
       }
     }
   }
@@ -595,6 +613,8 @@ export type HighlightSourceTextValidation = {
       | 'kamp_signal_at_time'
       | 'no_oppmote_evidence'
       | 'tentative_segment_without_explicit_time'
+      | 'tentative_highlight_label'
+      | 'tentative_time_window_only'
       | 'time_not_in_day_section_with_explicit_times'
   }>
 }
@@ -636,6 +656,106 @@ const DAY_SECTION_EVIDENCE_MIN_DISTINCT_TIMES = 2
  * Mønstrene er bevisst konservative: de matcher fraser som beskriver at
  * _selve programmet/dagen_ er foreløpig, ikke ordet «foreløpig» løsrevet.
  */
+/** Highlight-label som uttrykkelig er foreløpig/usikker — aldri confirmed programtid. */
+export function highlightLabelIsTentative(label: string): boolean {
+  return /\b(?:foreløpig|forelopig|usikker|tentative)\b/i.test(label.trim())
+}
+
+const TENTATIVE_TIME_SENTENCE_MARKERS: RegExp[] = [
+  /\bmellom\b/i,
+  /\ben\s+gang\s+mellom\b/i,
+  /\bforventet\s+tidsvindu\b/i,
+  /\btrolig\b/i,
+  /\bsenere\s+på\s+dagen\b/i,
+  /\bvet\s+ikke\s+nøyaktig\b/i,
+  /\bikke\s+nøyaktig\s+tidspunkt\b/i,
+  /\bdetaljert\s+\S+\s+program\s+kommer\s+senere\b/i,
+  /\bendelig\s+tid\s+kommer\s+senere\b/i,
+]
+
+/**
+ * Klokkeslett som kun nevnes i usikkert tidsvindu / foreløpig kontekst
+ * (f.eks. «mellom kl. 10:00 og 12:00») skal ikke bli confirmed highlight/displayTime.
+ */
+export function sourceMentionsTimeAsTentativeWindow(
+  time: string,
+  sourceText: string | undefined
+): boolean {
+  if (!time || !sourceText?.trim()) return false
+  const hm = time.trim().slice(0, 5)
+  const text = sourceText.replace(/\r\n/g, '\n')
+  for (const sentenceRaw of splitSentencesNorwegian(text)) {
+    const sentence = stripLeadingBullet(sentenceRaw)
+    const timeRe = new RegExp(`\\b${hm.replace(/[:]/g, '\\:')}\\b`)
+    if (!timeRe.test(sentence)) continue
+    if (TENTATIVE_TIME_SENTENCE_MARKERS.some((re) => re.test(sentence))) return true
+    const timesInSentence = [...sentence.matchAll(/\b([01]?\d|2[0-3]):([0-5]\d)\b/g)]
+    if (timesInSentence.length >= 2 && /\bmellom\b/i.test(sentence)) return true
+  }
+  return false
+}
+
+/** Oppmøte utledet fra «X min før kampstart/første kamp» + anker-tid i dagseksjon. */
+function isDerivedOppmoteFromOffsetInSource(time: string, sourceText: string): boolean {
+  const scoped = sourceText.trim()
+  if (!scoped) return false
+  const offsetMatch = /(\d{1,3})\s*min(?:utter|utt)?\s+f[øo]r\s+(?:kampstart|f[øo]rste\s+kamp|kamp)\b/i.exec(
+    scoped
+  )
+  if (!offsetMatch) return false
+  const offset = parseInt(offsetMatch[1]!, 10)
+  if (!Number.isFinite(offset) || offset < 5 || offset > 180) return false
+  const hm = time.trim().slice(0, 5)
+  if (!isHm(hm)) return false
+  const timeRe = /\b([01]?\d|2[0-3]):([0-5]\d)\b/g
+  let m: RegExpExecArray | null
+  while ((m = timeRe.exec(scoped)) !== null) {
+    const kampHm = padHmFromMatch(m[1]!, m[2]!)
+    const intent = classifyTimeIntentInSourceText(kampHm, scoped)
+    if (intent !== 'kamp' && intent !== 'both') continue
+    const derived = minutesToHm(hmToMinutes(kampHm) - offset)
+    if (derived === hm) return true
+  }
+  return false
+}
+
+/** Oppmøte utledet fra «X min før hver kamp» + kamp-tider i samme dagseksjon. */
+function isDerivedOppmoteBeforeKampInSource(time: string, sourceText: string): boolean {
+  const scoped = sourceText.trim()
+  if (!scoped) return false
+  const offsetMatch = /(\d{1,3})\s*min(?:utter|utt)?\s+f[øo]r\s+hver\s+kamp/i.exec(scoped)
+  if (!offsetMatch) return false
+  const offset = parseInt(offsetMatch[1]!, 10)
+  if (!Number.isFinite(offset) || offset < 5 || offset > 180) return false
+  const hm = time.trim().slice(0, 5)
+  if (!isHm(hm)) return false
+  const timeRe = /\b([01]?\d|2[0-3]):([0-5]\d)\b/g
+  let m: RegExpExecArray | null
+  while ((m = timeRe.exec(scoped)) !== null) {
+    const kampHm = padHmFromMatch(m[1]!, m[2]!)
+    if (classifyTimeIntentInSourceText(kampHm, scoped) !== 'kamp') continue
+    const derived = minutesToHm(hmToMinutes(kampHm) - offset)
+    if (derived === hm) return true
+  }
+  return false
+}
+
+/** Bekreftet programtid i dagsspesifikk kilde — ikke bare nevnt i tidsvindu. */
+export function sourceConfirmsConcreteProgramTime(
+  sourceText: string | undefined,
+  hm: string | null | undefined
+): boolean {
+  if (!hm || !HM.test(hm.trim().slice(0, 5))) return false
+  const t = hm.trim().slice(0, 5)
+  const scoped = (sourceText ?? '').trim()
+  if (!scoped) return false
+  if (sourceMentionsTimeAsTentativeWindow(t, scoped)) return false
+  if (sourceContainsTime(scoped, t)) return true
+  return (
+    isDerivedOppmoteBeforeKampInSource(t, scoped) || isDerivedOppmoteFromOffsetInSource(t, scoped)
+  )
+}
+
 export function classifyConditionalIntentFromSourceText(sourceText: string | undefined): boolean {
   if (!sourceText) return false
   const text = sourceText.toLowerCase()
@@ -697,6 +817,14 @@ export function correctMislabeledHighlightsAgainstSourceText(
     countDistinctTimesInSourceText(text) >= DAY_SECTION_EVIDENCE_MIN_DISTINCT_TIMES
   const out: TankestromScheduleHighlight[] = []
   for (const h of highlights) {
+    if (highlightLabelIsTentative(h.label)) {
+      dropped.push({ time: h.time, label: h.label, reason: 'tentative_highlight_label' })
+      continue
+    }
+    if (text && sourceMentionsTimeAsTentativeWindow(h.time, text)) {
+      dropped.push({ time: h.time, label: h.label, reason: 'tentative_time_window_only' })
+      continue
+    }
     const type = h.type ?? inferTypeFromLabel(h.label)
     const labelKind = classifyHighlightLabel(h.label)
     const treatAsOppmote = type === 'meeting' || labelKind === 'oppmote'
@@ -753,6 +881,15 @@ export function correctMislabeledHighlightsAgainstSourceText(
     }
     if (intent === 'oppmote' || intent === 'both') {
       if (dayHasExplicitTimeEvidence && !sourceContainsTime(text, h.time)) {
+        if (
+          isDerivedOppmoteBeforeKampInSource(h.time, text) ||
+          isDerivedOppmoteFromOffsetInSource(h.time, text)
+        ) {
+          const label = enrichOppmoteLabelFromSource(h.time, h.label, text)
+          out.push({ ...h, label, type: 'meeting' })
+          if (label !== h.label) relabeled.push({ time: h.time, from: h.label, to: label })
+          continue
+        }
         dropped.push({
           time: h.time,
           label: h.label,
@@ -772,6 +909,15 @@ export function correctMislabeledHighlightsAgainstSourceText(
     // Samme lekkasje-regel for oppmøte-highlights: dagseksjonen har flere
     // konkrete tider, men denne er ikke nevnt der → drop.
     if (dayHasExplicitTimeEvidence && !sourceContainsTime(text, h.time)) {
+      if (
+        isDerivedOppmoteBeforeKampInSource(h.time, text) ||
+        isDerivedOppmoteFromOffsetInSource(h.time, text)
+      ) {
+        const label = enrichOppmoteLabelFromSource(h.time, h.label, text)
+        out.push({ ...h, label, type: 'meeting' })
+        if (label !== h.label) relabeled.push({ time: h.time, from: h.label, to: label })
+        continue
+      }
       dropped.push({
         time: h.time,
         label: h.label,
@@ -790,7 +936,7 @@ function inferOppmoteFallbackFromNotes(
   notes: string[],
   sourceTextForValidation?: string
 ): { time: string; label: string; type: TankestromScheduleHighlightType } | null {
-  const text = notes.join('\n')
+  const text = [notes.join('\n'), sourceTextForValidation ?? ''].filter(Boolean).join('\n')
   const offsetMatch = /(\d{1,3})\s*min(?:utter|utt)?\s+f[øo]r\s+(?:kampstart|f[øo]rste\s+kamp|kamp)/i.exec(text)
   if (!offsetMatch) return null
   const offset = parseInt(offsetMatch[1]!, 10)
@@ -822,6 +968,10 @@ function filterHighlightForDisplay(
     return null
   }
   if (isInstructionalOrPracticalHighlight(label)) {
+    removedHighlights.push(`${h.time} ${label}`)
+    return null
+  }
+  if (highlightLabelIsTentative(label)) {
     removedHighlights.push(`${h.time} ${label}`)
     return null
   }
@@ -900,7 +1050,10 @@ function mergeTimeWindowHighlights(
       if (lastLab && normalizeTextKey(lastLab) !== normalizeTextKey(firstLab)) {
         combined = `${firstLab} – ${lastLab}`
       }
-      summaries.push({ timeRange: `${tMin}–${tMax}`, label: combined, tentative: false })
+      const tentative =
+        /\b(?:foreløpig|forelopig|usikker|tentative|mellom)\b/i.test(combined) ||
+        TENTATIVE_TIME_SENTENCE_MARKERS.some((re) => re.test(combined))
+      summaries.push({ timeRange: `${tMin}–${tMax}`, label: combined, tentative })
       for (const b of block) consumedIdx.add(b.idx)
       i = j
       continue
@@ -1016,6 +1169,21 @@ function monthIndexFromToken(token: string | undefined): number | null {
   return null
 }
 
+type NarrativeWeekdayMatch = { start: number; weekdayIndex: number }
+
+function collectNarrativeWeekdayMatches(text: string): NarrativeWeekdayMatch[] {
+  const re = new RegExp(String.raw`(^|\n)\s*(${HEADER_WEEKDAY_ALT})\b`, 'gi')
+  const out: NarrativeWeekdayMatch[] = []
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
+    const weekdayIndex = weekdayIndexFromToken(m[2])
+    if (weekdayIndex === null) continue
+    const leadLen = (m[1] ?? '').length
+    out.push({ start: m.index + leadLen, weekdayIndex })
+  }
+  return out
+}
+
 function collectDayHeaderMatches(text: string): DayHeaderMatch[] {
   const out: DayHeaderMatch[] = []
   STRICT_DAY_HEADER_RE.lastIndex = 0
@@ -1089,6 +1257,19 @@ export function extractDaySectionForScheduleValidation(
   const dayOfMonth = parseInt(dStr!, 10)
   const weekdayIndex = dayOfWeekFromIsoDate(isoDate)
   if (!Number.isFinite(monthIndex) || !Number.isFinite(dayOfMonth)) return ''
+  if (weekdayIndex !== null) {
+    const narrative = collectNarrativeWeekdayMatches(text)
+    if (narrative.length >= 2) {
+      const matchIdx = narrative.findIndex((h) => h.weekdayIndex === weekdayIndex)
+      if (matchIdx >= 0) {
+        const sectionStart = narrative[matchIdx]!.start
+        const sectionEnd =
+          matchIdx + 1 < narrative.length ? narrative[matchIdx + 1]!.start : text.length
+        return text.slice(sectionStart, sectionEnd).trim()
+      }
+    }
+  }
+
   const headers = collectDayHeaderMatches(text)
   if (headers.length === 0) return ''
   const matchIdx = headers.findIndex((h) => {
@@ -1167,6 +1348,14 @@ function extractLabelFromSentenceWithTime(sentence: string, time: string, fallba
  * uten å fabrikkere nye labels. Kun setninger som starter med kamp/oppmøte-nøkkelord brukes,
  * og kun klokkeslett som ikke allerede finnes i highlights.
  */
+function shouldAugmentHighlightsFromSource(sourceText: string | undefined): boolean {
+  const t = (sourceText ?? '').trim()
+  if (!t) return false
+  if (countDistinctTimesInSourceText(t) >= 2) return true
+  if (/(?:fredag|lørdag|søndag)\b.{0,120}\bkl\./i.test(t)) return true
+  return t.length >= 160
+}
+
 export function augmentHighlightsFromSourceText(
   highlights: TankestromScheduleHighlight[],
   sourceText: string | undefined
@@ -1183,20 +1372,28 @@ export function augmentHighlightsFromSourceText(
       padHmFromMatch(x[1]!, x[2]!)
     )
     if (new Set(timesInSentence).size > 1) continue
+    if (TENTATIVE_TIME_SENTENCE_MARKERS.some((re) => re.test(sentence))) continue
     let m: RegExpExecArray | null
     timeRe.lastIndex = 0
     while ((m = timeRe.exec(sentence)) !== null) {
       const time = padHmFromMatch(m[1]!, m[2]!)
       if (existingTimes.has(time)) continue
+      if (sourceMentionsTimeAsTentativeWindow(time, text)) continue
       const leading = sentenceLeadingIntent(sentence)
-      if (leading === 'oppmote') {
+      const intent = classifyTimeIntentInSourceText(time, sentence)
+      if (leading === 'oppmote' || intent === 'oppmote') {
         const label = extractLabelFromSentenceWithTime(sentence, time, 'Oppmøte')
         added.push({ time, label, type: 'meeting' })
         existingTimes.add(time)
         continue
       }
-      if (leading === 'kamp') {
-        const kampLabel = pickKampLabelFromSource(time, sentence) ?? 'Kamp'
+      if (leading === 'kamp' || intent === 'kamp' || intent === 'both') {
+        let kampLabel = pickKampLabelFromSource(time, sentence) ?? pickKampLabelFromSource(time, text)
+        if (!kampLabel || kampLabel === 'Kamp') {
+          if (/\bf[øo]rste\s+kamp\b/i.test(sentence)) kampLabel = 'Første kamp'
+          else if (/\bandre\s+kamp\b/i.test(sentence)) kampLabel = 'Andre kamp'
+          else kampLabel = kampLabel ?? 'Kamp'
+        }
         added.push({ time, label: kampLabel, type: 'match' })
         existingTimes.add(time)
       }
@@ -1408,7 +1605,9 @@ export function normalizeTankestromScheduleDetails(input: {
       timeWindowSummaries.push({
         timeRange: `${start}–${end}`,
         label: typeof c.label === 'string' ? c.label.trim() : '',
-        tentative: Boolean(c.tentative ?? input.tentativeTimeWindow),
+        tentative: Boolean(
+          c.tentative ?? input.tentativeTimeWindow ?? input.isConditionalSegment === true
+        ),
       })
     }
   } else if (timeWindowSummaries.length > 0 && input.tentativeTimeWindow) {
@@ -1423,8 +1622,15 @@ export function normalizeTankestromScheduleDetails(input: {
   const validated = correctMislabeledHighlightsAgainstSourceText(preValidationHighlights, sourceTextForValidation, {
     isConditionalSegment: input.isConditionalSegment === true,
   })
-  const augmented = augmentHighlightsFromSourceText(validated.highlights, sourceTextForValidation)
+  const augmented = shouldAugmentHighlightsFromSource(sourceTextForValidation)
+    ? augmentHighlightsFromSourceText(validated.highlights, sourceTextForValidation)
+    : validated.highlights
   let highlights = augmented
+
+  const derivedOppmote = inferOppmoteFallbackFromNotes(notes, sourceTextForValidation)
+  if (derivedOppmote && !highlights.some((h) => h.time === derivedOppmote.time)) {
+    highlights = [...highlights, derivedOppmote].sort((a, b) => a.time.localeCompare(b.time))
+  }
 
   const canAddFallback =
     highlights.length === 0 &&
@@ -1439,8 +1645,9 @@ export function normalizeTankestromScheduleDetails(input: {
       countDistinctTimesInSourceText(scoped) >= DAY_SECTION_EVIDENCE_MIN_DISTINCT_TIMES
     const fbAllowedInSource =
       input.isConditionalSegment === true
-        ? sourceContainsTime(scoped, fbTime)
-        : !dayMeaningful || sourceContainsTime(scoped, fbTime)
+        ? sourceConfirmsConcreteProgramTime(scoped, fbTime)
+        : (!dayMeaningful || sourceConfirmsConcreteProgramTime(scoped, fbTime)) &&
+          !sourceMentionsTimeAsTentativeWindow(fbTime, scoped)
     if (fbAllowedInSource) {
       const oppmoteFallback = inferOppmoteFallbackFromNotes(notes, sourceTextForValidation)
       if (oppmoteFallback) {
@@ -1461,9 +1668,15 @@ export function normalizeTankestromScheduleDetails(input: {
   if (input.isConditionalSegment === true) {
     const scoped = sourceTextForValidation?.trim() ?? ''
     highlights = scoped
-      ? highlights.filter((h) => sourceContainsTime(scoped, h.time))
+      ? highlights.filter((h) => sourceConfirmsConcreteProgramTime(scoped, h.time))
       : []
   }
+
+  highlights = highlights.filter(
+    (h) =>
+      !highlightLabelIsTentative(h.label) &&
+      !sourceMentionsTimeAsTentativeWindow(h.time, sourceTextForValidation)
+  )
 
   const bringPartition = partitionTankestromBringItemsForPreview(bringItems)
   bringItems = dedupeBringItemsList(bringPartition.concreteBring)

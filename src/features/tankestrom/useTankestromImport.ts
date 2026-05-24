@@ -39,6 +39,7 @@ import {
 import {
   buildEmbeddedChildCanonicalPreview,
   canonicalSegmentIsImportSelectable,
+  resolveCanonicalEmbeddedChildExportTimes,
   type TankestromEmbeddedChildCanonicalPreview,
 } from '../../lib/tankestromCanonicalPreview'
 import {
@@ -756,27 +757,26 @@ function buildEmbeddedChildEventDraft(
   let start = ''
   let end = ''
   let exportTimes: ReturnType<typeof resolveEmbeddedScheduleSegmentTimesForCalendarExport> | null = null
+  let canonicalTimes: ReturnType<typeof resolveCanonicalEmbeddedChildExportTimes> | null = null
 
   if (preview) {
     if (preview.isImportSelectable) {
-      const seed = preview.editSeed
-      start = seed.start ? normalizeTimeInput(seed.start) : ''
-      end = seed.end ? normalizeTimeInput(seed.end) : ''
-      if (start && end) {
-        exportTimes = {
-          start,
-          end,
-          embeddedScheduleChildExportTimePolicyUsed: 'segment_start_conservative_end',
-          embeddedScheduleChildExportDerivedMeetingTimeApplied: preview.displayTimeOrigin === 'derived_oppmote',
-          embeddedScheduleChildExportDurationSuppressed: false,
-          embeddedScheduleChildExportSyntheticTimeSkipped: false,
-          embeddedScheduleChildExportTimeNormalized: true,
-          usesSyntheticLayoutEnd: false,
-        }
-      } else if (start) {
-        exportTimes = resolveEmbeddedScheduleSegmentTimesForCalendarExport(segment, timeOpts)
-        start = normalizeTimeInput(exportTimes.start)
-        end = normalizeTimeInput(exportTimes.end)
+      canonicalTimes = resolveCanonicalEmbeddedChildExportTimes(preview, segment, timeOpts)
+      start = canonicalTimes.start ? normalizeTimeInput(canonicalTimes.start) : ''
+      end = canonicalTimes.end ? normalizeTimeInput(canonicalTimes.end) : ''
+      exportTimes = {
+        start,
+        end,
+        embeddedScheduleChildExportTimePolicyUsed:
+          canonicalTimes.embeddedScheduleChildExportTimePolicyUsed,
+        embeddedScheduleChildExportDerivedMeetingTimeApplied:
+          canonicalTimes.embeddedScheduleChildExportDerivedMeetingTimeApplied,
+        embeddedScheduleChildExportDurationSuppressed:
+          canonicalTimes.embeddedScheduleChildExportDurationSuppressed,
+        embeddedScheduleChildExportSyntheticTimeSkipped:
+          canonicalTimes.embeddedScheduleChildExportSyntheticTimeSkipped,
+        embeddedScheduleChildExportTimeNormalized: canonicalTimes.embeddedScheduleChildExportTimeNormalized,
+        usesSyntheticLayoutEnd: canonicalTimes.usesSyntheticLayoutEnd,
       }
     }
   } else {
@@ -812,12 +812,16 @@ function buildEmbeddedChildEventDraft(
     start,
     end,
     notes,
-    embeddedScheduleExport: exportTimes?.usesSyntheticLayoutEnd
-      ? {
-          usesSyntheticLayoutEnd: true,
-          policy: exportTimes.embeddedScheduleChildExportTimePolicyUsed,
-        }
-      : undefined,
+    embeddedScheduleExport:
+      exportTimes?.usesSyntheticLayoutEnd || canonicalTimes?.inferredEndTime
+        ? {
+            usesSyntheticLayoutEnd: canonicalTimes?.usesSyntheticLayoutEnd ?? true,
+            policy: exportTimes!.embeddedScheduleChildExportTimePolicyUsed,
+            inferredEndTime: canonicalTimes?.inferredEndTime === true,
+            endTimeSource: canonicalTimes?.endTimeSource,
+            endTimeProvenance: canonicalTimes?.endTimeProvenance,
+          }
+        : undefined,
   }
 }
 
@@ -847,7 +851,7 @@ function structuredDetailsFromSegment(
   opts?: { originalImportText?: string }
 ): NormalizedTankestromScheduleDetails {
   const bring = [...(segment.bringItems ?? []), ...(segment.packingItems ?? [])]
-  const tw =
+  const twFromObject =
     segment.timeWindow && typeof segment.timeWindow === 'object' && !Array.isArray(segment.timeWindow)
       ? [
           {
@@ -858,6 +862,10 @@ function structuredDetailsFromSegment(
           },
         ]
       : undefined
+  const tw =
+    Array.isArray(segment.timeWindowCandidates) && segment.timeWindowCandidates.length > 0
+      ? segment.timeWindowCandidates
+      : twFromObject
 
   const segHighlights = mapSegmentTankestromHighlights(segment)
   const segNotesList = [...(segment.tankestromNotes ?? [])]
@@ -1859,9 +1867,15 @@ function applyEmbeddedScheduleExportTimeMetadata(
   if (!ex?.usesSyntheticLayoutEnd) return
   metadata.timePrecision = 'start_only'
   metadata.layoutEndOnly = true
-  metadata.endTimeSource = embeddedExportEndTimeSourceForPolicy(ex.policy)
+  metadata.endTimeSource =
+    typeof ex.endTimeSource === 'string' && ex.endTimeSource.trim()
+      ? ex.endTimeSource.trim()
+      : embeddedExportEndTimeSourceForPolicy(ex.policy)
   metadata.displayTimeLabel = CALENDAR_SLUTTID_IKKE_OPPGITT_NB
-  metadata.requiresManualTimeReview = true
+  metadata.requiresManualTimeReview = ex.endTimeProvenance !== 'api_inferred_end'
+  if (ex.inferredEndTime) {
+    metadata.inferredEndTime = true
+  }
 }
 
 /** Persist når utkast har start men ingen slutt — kalender får estimert varighet. */
@@ -1886,10 +1900,15 @@ function applyEventTimingMetadataForPersist(metadata: Record<string, unknown>, d
 function reconcileEmbeddedExportAfterDraftMerge(
   draftEv: TankestromEventDraft,
   segment: EmbeddedScheduleSegment,
-  childProposalId: string
+  childProposalId: string,
+  opts?: {
+    canonicalPreview?: TankestromEmbeddedChildCanonicalPreview
+  }
 ): TankestromEventDraft {
   if (!draftEv.embeddedScheduleExport?.usesSyntheticLayoutEnd) return draftEv
-  const resolved = resolveEmbeddedScheduleSegmentTimesForCalendarExport(segment, { childProposalId })
+  const resolved = opts?.canonicalPreview
+    ? resolveCanonicalEmbeddedChildExportTimes(opts.canonicalPreview, segment, { childProposalId })
+    : resolveEmbeddedScheduleSegmentTimesForCalendarExport(segment, { childProposalId })
   if (!resolved.usesSyntheticLayoutEnd) {
     const { embeddedScheduleExport: _e, ...rest } = draftEv
     return rest as TankestromEventDraft
@@ -1902,6 +1921,24 @@ function reconcileEmbeddedExportAfterDraftMerge(
     return rest as TankestromEventDraft
   }
   return draftEv
+}
+
+function buildEmbeddedChildCanonicalPreviewForPersist(
+  parentDraft: Pick<TankestromEventDraft, 'title'>,
+  segment: EmbeddedScheduleSegment,
+  childProposalId: string,
+  siblingTitlesBlob: string,
+  originalImportText?: string
+): TankestromEmbeddedChildCanonicalPreview {
+  const parentCardTitle = normalizeEmbeddedScheduleParentDisplayTitle(parentDraft.title.trim()).title
+  const displayTitle = embeddedScheduleChildTitleForReview(parentCardTitle, segment, siblingTitlesBlob)
+  return buildEmbeddedChildCanonicalPreviewForReview(
+    segment,
+    parentCardTitle,
+    displayTitle,
+    childProposalId,
+    { originalImportText }
+  )
 }
 
 function buildPersistTimes(draft: TankestromEventDraft): { start: string; end: string } {
@@ -3115,13 +3152,27 @@ export function useTankestromImport({
       })
       if (!mergedSegment) return false
       const segmentForChild = mergedSegment
+      const rows = embeddedScheduleReviewRowsByParentId[parentProposalId] ?? []
+      const siblingTitlesBlob = rows
+        .map((r) => (r.origIndex === origIndex ? segmentForChild : r.segment).title.trim())
+        .join('\n')
+      const childId = makeEmbeddedChildProposalId(parentProposalId, origIndex)
 
       setDraftByProposalId((prev) => {
         const parentDraftEntry = prev[parentProposalId]
         if (!parentDraftEntry || parentDraftEntry.importKind !== 'event') return prev
-        const childId = makeEmbeddedChildProposalId(parentProposalId, origIndex)
+        const canonicalPreview = buildEmbeddedChildCanonicalPreviewForPersist(
+          parentDraftEntry.event,
+          segmentForChild,
+          childId,
+          siblingTitlesBlob,
+          lastAnalyzedTextRef.current
+        )
         const baseChild = buildEmbeddedChildEventDraft(parentDraftEntry.event, segmentForChild, {
+          childProposalId: childId,
+          siblingTitlesBlob,
           originalImportText: lastAnalyzedTextRef.current,
+          canonicalPreview,
         })
         const prevChild = prev[childId]
         let personId = baseChild.personId
@@ -3142,7 +3193,7 @@ export function useTankestromImport({
       })
       return true
     },
-    [validPersonIds]
+    [embeddedScheduleReviewRowsByParentId, validPersonIds]
   )
 
   const updateEventDraft = useCallback((proposalId: string, patch: Partial<TankestromEventDraft>) => {
@@ -4357,10 +4408,18 @@ export function useTankestromImport({
               notes: rawP.notes.trim(),
             }
             const siblingTitlesBlob = rows.map((r) => r.segment.title.trim()).join('\n')
+            const canonicalPreview = buildEmbeddedChildCanonicalPreviewForPersist(
+              parentDraft,
+              row.segment,
+              id,
+              siblingTitlesBlob,
+              lastAnalyzedTextRef.current
+            )
             const slice = buildEmbeddedChildEventDraft(parentDraft, row.segment, {
               childProposalId: id,
               siblingTitlesBlob,
               originalImportText: lastAnalyzedTextRef.current,
+              canonicalPreview,
             })
             let draftEv: TankestromEventDraft = {
               ...slice,
@@ -4388,7 +4447,9 @@ export function useTankestromImport({
                 reminderMinutes: ce.reminderMinutes,
               }
             }
-            draftEv = reconcileEmbeddedExportAfterDraftMerge(draftEv, row.segment, id)
+            draftEv = reconcileEmbeddedExportAfterDraftMerge(draftEv, row.segment, id, {
+              canonicalPreview,
+            })
             const preflightEmb = preflightEventValidationErrors(id, id, draftEv, validPersonIds)
             if (preflightEmb.length > 0) {
               recordGroupedExportValidation(id, 'event', 'createEvent', preflightEmb, draftEv.date)
@@ -5154,10 +5215,18 @@ export function useTankestromImport({
             .join('\n')
           for (const row of segmentsToExport) {
               const childProposalId = makeEmbeddedChildProposalId(parentProposal.proposalId, row.origIndex)
+              const canonicalPreview = buildEmbeddedChildCanonicalPreviewForPersist(
+                draft,
+                row.segment,
+                childProposalId,
+                siblingTitlesBlobForExport,
+                lastAnalyzedTextRef.current
+              )
               const slice = buildEmbeddedChildEventDraft(draft, row.segment, {
                 childProposalId,
                 siblingTitlesBlob: siblingTitlesBlobForExport,
                 originalImportText: lastAnalyzedTextRef.current,
+                canonicalPreview,
               })
               let draftEv: TankestromEventDraft = {
                 ...slice,
@@ -5169,7 +5238,9 @@ export function useTankestromImport({
                 location: slice.location.trim(),
                 notes: slice.notes.trim(),
               }
-              draftEv = reconcileEmbeddedExportAfterDraftMerge(draftEv, row.segment, childProposalId)
+              draftEv = reconcileEmbeddedExportAfterDraftMerge(draftEv, row.segment, childProposalId, {
+                canonicalPreview,
+              })
               const childPreflight = preflightEventValidationErrors(
                 childProposalId,
                 childProposalId,
