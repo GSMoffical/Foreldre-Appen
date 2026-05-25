@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient'
 import type {
   PortalEventPayload,
+  PortalEventProposal,
   PortalImportProposalBundle,
   PortalImportProvenance,
   PortalProposalItem,
@@ -330,6 +331,24 @@ function collectTaskDetailTextBlocks(raw: Record<string, unknown>): string[] {
   return dedupeNoteBlocks(out)
 }
 
+const EVENT_TITLE_PREFIXES = [
+  'Informasjon til foreldre \u2013 ',
+  'Informasjon til foreldre - ',
+  'Beskjed fra ',
+  'Melding til foreldre \u2013 ',
+  'Melding til foreldre - ',
+]
+
+function cleanEventTitle(title: string): string {
+  const lower = title.toLowerCase()
+  for (const prefix of EVENT_TITLE_PREFIXES) {
+    if (lower.startsWith(prefix.toLowerCase())) {
+      return title.slice(prefix.length)
+    }
+  }
+  return title
+}
+
 function parseEventPayload(raw: unknown): PortalEventPayload {
   if (!isRecord(raw)) throw new Error('Ugyldig svar: event-payload mangler')
   const date = asString(raw.date, 'event.date')
@@ -340,7 +359,14 @@ function parseEventPayload(raw: unknown): PortalEventPayload {
   const endTime = endRaw !== undefined ? normalizeImportTime(endRaw) : null
 
   const personId = asEventPersonId(raw.personId)
-  const title = asString(raw.title, 'event.title')
+  const rawTitle = asString(raw.title, 'event.title')
+  const titleSepIdx = rawTitle.search(/[–\-]/)
+  const title =
+    titleSepIdx > 0 &&
+    /^(informasjon|brev|beskjed|melding)\s+(til foreldre|fra\s+\w)/i.test(rawTitle.slice(0, titleSepIdx).trim()) &&
+    rawTitle.slice(titleSepIdx + 1).trim().length >= 3
+      ? rawTitle.slice(titleSepIdx + 1).trim()
+      : rawTitle
   const out: PortalEventPayload = {
     date,
     personId,
@@ -775,6 +801,16 @@ export function parsePortalImportProposalBundle(data: unknown): PortalImportProp
     throw new Error(
       'Ugyldig svar: items må inneholde minst ett forslag, eller toppnivåfeltet schoolProfile / schoolProfileProposal / schoolWeekOverlayProposal må være satt'
     )
+  }
+  const eventItems = items.filter((i): i is PortalEventProposal => i.kind === 'event')
+  if (eventItems.length >= 2) {
+    const noteValues = eventItems.map((i) => i.event.notes ?? '')
+    const first = noteValues[0]!
+    if (first && noteValues.every((n) => n === first)) {
+      for (const ev of eventItems) {
+        ev.event.notes = ''
+      }
+    }
   }
   assertBundleItemKindsCoherent(items)
   const secondaryCandidates = parseSecondaryCandidatesField(data)
