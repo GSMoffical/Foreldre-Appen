@@ -931,7 +931,9 @@ function throwTankestromAnalyzeFailure(httpStatus: number, responseText: string,
   throw new Error(getTankestromAnalyzeErrorMessage(httpStatus, responseText, payload))
 }
 
-async function analyzeWithTankestrom(analyzePayload: AnalyzePayload): Promise<PortalImportProposalBundle> {
+export type TankestromV2RawResult = { __v2: true; data: unknown; version: string }
+
+async function analyzeWithTankestrom(analyzePayload: AnalyzePayload): Promise<PortalImportProposalBundle | TankestromV2RawResult> {
   const urlRaw = import.meta.env.VITE_TANKESTROM_ANALYZE_URL
   const url = typeof urlRaw === 'string' ? urlRaw.trim() : ''
   if (!url) {
@@ -1025,6 +1027,10 @@ async function analyzeWithTankestrom(analyzePayload: AnalyzePayload): Promise<Po
 
   const json = responseJson
 
+  if (isRecord(json) && typeof json.version === 'string' && json.version.startsWith('2.')) {
+    return { __v2: true as const, data: json, version: json.version }
+  }
+
   const dbgText = analyzePayload.kind === 'text' && isTankestromConsoleDebugEnabled()
 
   const normalized = normalizeTankestromAnalyzeHttpJson(json)
@@ -1105,12 +1111,12 @@ export function mergePortalImportProposalBundles(bundles: PortalImportProposalBu
  * Laster opp fil til analyse-backend og returnerer typet forslagspakke.
  * Krever VITE_TANKESTROM_ANALYZE_URL og innlogget Supabase-session.
  */
-export async function analyzeDocumentWithTankestrom(file: File): Promise<PortalImportProposalBundle> {
+export async function analyzeDocumentWithTankestrom(file: File): Promise<PortalImportProposalBundle | TankestromV2RawResult> {
   return analyzeWithTankestrom({ kind: 'file', file })
 }
 
 /** Analyse av ren tekst (MVP) med samme backend-endepunkt og svarformat. */
-export async function analyzeTextWithTankestrom(text: string): Promise<PortalImportProposalBundle> {
+export async function analyzeTextWithTankestrom(text: string): Promise<PortalImportProposalBundle | TankestromV2RawResult> {
   const normalized = text.trim()
   if (!normalized) throw new Error('Skriv inn tekst før du analyserer.')
   return analyzeWithTankestrom({ kind: 'text', text: normalized })
