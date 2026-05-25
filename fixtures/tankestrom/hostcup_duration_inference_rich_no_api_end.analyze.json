@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "1.0.0",
+  "provenance": {
+    "sourceSystem": "tankestrom",
+    "sourceType": "live_capture",
+    "generatorVersion": "no-api-end-v1",
+    "generatedAt": "2026-05-22T16:00:00.000Z",
+    "importRunId": "e2e-hostcup-no-api-end"
+  },
+  "items": [
+    {
+      "proposalId": "9ea4dc6a-a6d3-45a7-b0df-1f4275e8a503",
+      "kind": "event",
+      "sourceId": "e2e",
+      "originalSourceType": "pasted_text",
+      "confidence": 0.92,
+      "event": {
+        "date": "2026-09-18",
+        "personId": "",
+        "title": "Høstcupen 2026 – 18.–20. september 2026",
+        "start": "00:00",
+        "end": "23:59",
+        "metadata": {
+          "isArrangementParent": true,
+          "exportAsCalendarEvent": false,
+          "endDate": "2026-09-20",
+          "embeddedSchedule": [
+            {
+              "date": "2026-09-18",
+              "title": "Fredag",
+              "start": "10:00",
+              "endTimeSource": "missing_or_unreadable",
+              "tankestromHighlights": [
+                { "time": "10:00", "label": "Første kamp (foreløpig)", "type": "match" }
+              ],
+              "notes": ""
+            },
+            {
+              "date": "2026-09-19",
+              "title": "Lørdag",
+              "start": "08:30",
+              "endTimeSource": "computed_from_duration",
+              "tankestromHighlights": [
+                { "time": "08:30", "label": "Oppmøte før første kamp", "type": "meeting" },
+                { "time": "09:15", "label": "Første kamp", "type": "match" },
+                { "time": "13:55", "label": "Oppmøte før andre kamp", "type": "meeting" },
+                { "time": "14:40", "label": "Andre kamp", "type": "match" },
+                { "time": "10:00", "label": "Første kamp (foreløpig)", "type": "match" }
+              ],
+              "notes": ""
+            },
+            {
+              "date": "2026-09-20",
+              "title": "Søndag",
+              "isConditional": true,
+              "start": "12:00",
+              "timeWindowCandidates": [
+                {
+                  "start": "10:00",
+                  "end": "12:00",
+                  "label": "A-sluttspill (foreløpig)",
+                  "tentative": true
+                }
+              ],
+              "notes": "Sluttspill avhenger av resultater. Første kamp en gang mellom kl. 10:00 og 12:00.",
+              "tankestromHighlights": [{ "time": "12:00", "label": "foreløpig", "type": "other" }]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "proposalId": "c3d4e5f6-a7b8-4c9d-8e7f-6a5b4c3d2e1f",
+      "kind": "task",
+      "sourceId": "e2e",
+      "originalSourceType": "pasted_text",
+      "confidence": 0.9,
+      "task": {
+        "title": "Svar om deltakelse – Høstcupen",
+        "date": "2026-09-08",
+        "dueTime": "21:00",
+        "notes": "Svar innen tirsdag 8. september kl. 21:00."
+      }
+    }
+  ]
+}

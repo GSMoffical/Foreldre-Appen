@@ -331,24 +331,6 @@ function collectTaskDetailTextBlocks(raw: Record<string, unknown>): string[] {
   return dedupeNoteBlocks(out)
 }
 
-const EVENT_TITLE_PREFIXES = [
-  'Informasjon til foreldre \u2013 ',
-  'Informasjon til foreldre - ',
-  'Beskjed fra ',
-  'Melding til foreldre \u2013 ',
-  'Melding til foreldre - ',
-]
-
-function cleanEventTitle(title: string): string {
-  const lower = title.toLowerCase()
-  for (const prefix of EVENT_TITLE_PREFIXES) {
-    if (lower.startsWith(prefix.toLowerCase())) {
-      return title.slice(prefix.length)
-    }
-  }
-  return title
-}
-
 function parseEventPayload(raw: unknown): PortalEventPayload {
   if (!isRecord(raw)) throw new Error('Ugyldig svar: event-payload mangler')
   const date = asString(raw.date, 'event.date')

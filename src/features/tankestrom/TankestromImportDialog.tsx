@@ -76,12 +76,14 @@ import {
   scanNotesBodyForLanguage,
   taskIndicatesForeignLanguageMismatchWithTrack,
   buildEmbeddedChildCanonicalPreviewForReview,
+  draftHasFrontendCanonicalEstimatedEnd,
   draftHasStartWithoutKnownEnd,
   type TankestromPendingFile,
   type TankestromImportSuccess,
 } from './useTankestromImport'
 import {
   formatTankestromImportCardValidationBanner,
+  formatTankestromEstimatedEndReviewHint,
   formatTankestromMissingEndReviewHint,
   norwegianWeekdayLowercase,
   summarizeEmbeddedChildrenImportValidation,
@@ -3563,8 +3565,12 @@ export function TankestromImportDialog({
                   const suppressChildInlineBanners =
                     embeddedChildrenValidationSummary?.suppressPerChildDuplicateBanners === true
                   const parentMissingEndHint =
-                    checked && u.importKind === 'event' && draftHasStartWithoutKnownEnd(u.event)
-                      ? formatTankestromMissingEndReviewHint(norwegianWeekdayLowercase(u.event.date))
+                    checked && u.importKind === 'event'
+                      ? draftHasFrontendCanonicalEstimatedEnd(u.event)
+                        ? formatTankestromEstimatedEndReviewHint(norwegianWeekdayLowercase(u.event.date))
+                        : draftHasStartWithoutKnownEnd(u.event)
+                          ? formatTankestromMissingEndReviewHint(norwegianWeekdayLowercase(u.event.date))
+                          : null
                       : null
                   const showCardValidationAlerts =
                     checked &&
@@ -4180,11 +4186,16 @@ export function TankestromImportDialog({
                                                 weekdayNb: norwegianWeekdayLowercase(row.segment.date),
                                               })
                                               const endHint =
-                                                cd?.importKind === 'event' &&
-                                                draftHasStartWithoutKnownEnd(cd.event)
-                                                  ? formatTankestromMissingEndReviewHint(
-                                                      norwegianWeekdayLowercase(row.segment.date)
-                                                    )
+                                                cd?.importKind === 'event'
+                                                  ? draftHasFrontendCanonicalEstimatedEnd(cd.event)
+                                                    ? formatTankestromEstimatedEndReviewHint(
+                                                        norwegianWeekdayLowercase(row.segment.date)
+                                                      )
+                                                    : draftHasStartWithoutKnownEnd(cd.event)
+                                                      ? formatTankestromMissingEndReviewHint(
+                                                          norwegianWeekdayLowercase(row.segment.date)
+                                                        )
+                                                      : null
                                                   : null
                                               if (!line && !endHint) return null
                                               return (

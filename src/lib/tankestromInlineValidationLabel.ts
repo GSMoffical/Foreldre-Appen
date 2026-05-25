@@ -1,6 +1,7 @@
 import type { TankestromImportDraft } from '../features/tankestrom/types'
 import {
   collectTankestromEventExportValidationIssues,
+  TANKESTROM_ESTIMATED_END_REVIEW_HINT_NB,
   TANKESTROM_MISSING_END_REVIEW_HINT_NB,
   type TankestromExportValidationCode,
   type TankestromExportValidationIssue,
@@ -103,6 +104,12 @@ export type FormatTankestromImportCardValidationBannerOptions = {
 export function formatTankestromMissingEndReviewHint(weekdayNb?: string): string {
   const day = weekdayNb ? ` på ${weekdayNb}` : ''
   return `${TANKESTROM_MISSING_END_REVIEW_HINT_NB}${day}`
+}
+
+/** Mild amber-linje når sluttid er estimert fra canonical (kamp+75 / start+90). */
+export function formatTankestromEstimatedEndReviewHint(weekdayNb?: string): string {
+  const day = weekdayNb ? ` på ${weekdayNb}` : ''
+  return `${TANKESTROM_ESTIMATED_END_REVIEW_HINT_NB}${day}`
 }
 
 /**

@@ -19,19 +19,21 @@ import {
   tryDeriveOppmoteStartFromSegmentNotes,
 } from './tankestromEmbeddedChildNotesPresentation'
 import {
+  FRONTEND_CANONICAL_FALLBACK_END_SOURCE,
   readTankestromSegmentDurationFacts,
   resolveTankestromApiInferredEnd,
   segmentEndTimeSourceIsExplicit,
+  segmentHasTrustedApiEnd,
   type SegmentEndTimeProvenance,
 } from './tankestromSegmentDurationFacts'
 
 const HM24 = /^([01]\d|2[0-3]):[0-5]\d$/
 const SYNTHETIC_CLOCK = new Set(['00:00', '06:00', '23:59'])
-/** Typical match block (2×20 + pause) plus hall exit buffer — e.g. 17:30 → ~18:45. */
-const CANONICAL_MATCH_END_BUFFER_MINUTES = 75
-const CONSERVATIVE_SLOT_FROM_START_MINUTES = 60
+/** Siste kamp + hall/opprydding — f.eks. 17:30 → 18:45, 14:40 → 15:55. */
+const CANONICAL_KAMP_END_BUFFER_MINUTES = 75
+/** Kun oppmøte/start uten kamp-highlight. */
+const CANONICAL_START_ONLY_END_MINUTES = 90
 const MAX_REASONABLE_CANONICAL_SPAN_MINUTES = 12 * 60
-const MIN_END_AFTER_LAST_HIGHLIGHT_MINUTES = 30
 
 function hmStringToMinutes(hm: string): number {
   const [h, m] = hm.split(':').map((x) => parseInt(x, 10))
@@ -46,14 +48,30 @@ function addMinutesToHmClamp(hm: string, addMinutes: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
-function latestConfirmedHighlightTime(
+function confirmedHighlights(
+  highlights: NormalizedTankestromScheduleDetails['highlights'],
+  sourceText?: string
+): NormalizedTankestromScheduleDetails['highlights'] {
+  return sourceText
+    ? highlights.filter((h) => sourceConfirmsProgramTime(sourceText, h.time.slice(0, 5)))
+    : highlights
+}
+
+function highlightIsKamp(h: { label: string; type?: string }): boolean {
+  const t = (h.type ?? '').trim().toLowerCase()
+  if (t === 'match') return true
+  const s = h.label.toLocaleLowerCase('nb-NO')
+  if (s.includes('oppmøte') || /\bmøte\b/.test(s)) return false
+  return s.includes('kamp') || s.includes('match')
+}
+
+/** Siste bekreftede kamp-highlight (ignorerer oppmøte/notat). */
+function lastConfirmedKampHighlightTime(
   highlights: NormalizedTankestromScheduleDetails['highlights'],
   sourceText?: string
 ): string | null {
-  const confirmed = sourceText
-    ? highlights.filter((h) => sourceConfirmsProgramTime(sourceText, h.time.slice(0, 5)))
-    : highlights
-  const times = confirmed
+  const times = confirmedHighlights(highlights, sourceText)
+    .filter(highlightIsKamp)
     .map((h) => h.time.trim().slice(0, 5))
     .filter((t) => HM24.test(t))
     .sort()
@@ -63,7 +81,7 @@ function latestConfirmedHighlightTime(
 function segmentEndIsCanonicalExportCandidate(
   segment: EmbeddedScheduleSegment,
   canonicalStart: string,
-  latestHighlight: string | null,
+  lastKampHighlight: string | null,
   sourceText?: string
 ): string | null {
   const raw = segment.end?.trim().slice(0, 5) ?? ''
@@ -71,22 +89,50 @@ function segmentEndIsCanonicalExportCandidate(
   const endMin = hmStringToMinutes(raw)
   const startMin = hmStringToMinutes(canonicalStart)
   if (endMin <= startMin || endMin - startMin > MAX_REASONABLE_CANONICAL_SPAN_MINUTES) return null
-  if (latestHighlight && endMin < hmStringToMinutes(latestHighlight)) return null
+  if (lastKampHighlight && endMin < hmStringToMinutes(lastKampHighlight)) return null
   if (sourceText && sourceMentionsTimeAsTentativeWindow(raw, sourceText)) return null
 
   const durationFacts = readTankestromSegmentDurationFacts(segment)
-  if (segmentEndTimeSourceIsExplicit(durationFacts) && durationFacts.inferredEndTime !== true) {
+  if (segmentHasTrustedApiEnd(durationFacts)) {
+    const src = (durationFacts.endTimeSource ?? '').trim().toLowerCase()
+    const isExplicitNonInferred =
+      segmentEndTimeSourceIsExplicit(durationFacts) && durationFacts.inferredEndTime !== true
+    if (isExplicitNonInferred) return raw
+    if (durationFacts.inferredEndTime === true || src.includes('computed')) {
+      return null
+    }
     return raw
   }
 
   if (sourceText && sourceConfirmsConcreteProgramTime(sourceText, raw)) return raw
-  const segStart = segment.start?.trim().slice(0, 5) ?? ''
-  if (segStart && HM24.test(segStart) && segStart === canonicalStart) {
-    if (!latestHighlight || endMin >= hmStringToMinutes(latestHighlight) + MIN_END_AFTER_LAST_HIGHLIGHT_MINUTES) {
-      return raw
-    }
-  }
   return null
+}
+
+function buildFrontendCanonicalFallbackTimes(
+  start: string,
+  highlights: NormalizedTankestromScheduleDetails['highlights'],
+  sourceText: string | undefined,
+  derivedFromOppmote: boolean
+): CanonicalEmbeddedChildExportTimes {
+  const lastKamp = lastConfirmedKampHighlightTime(highlights, sourceText)
+  const end =
+    lastKamp && hmStringToMinutes(lastKamp) >= hmStringToMinutes(start)
+      ? addMinutesToHmClamp(lastKamp, CANONICAL_KAMP_END_BUFFER_MINUTES)
+      : addMinutesToHmClamp(start, CANONICAL_START_ONLY_END_MINUTES)
+
+  return {
+    start,
+    end,
+    inferredEndTime: true,
+    usesSyntheticLayoutEnd: true,
+    endTimeProvenance: 'frontend_canonical_fallback',
+    endTimeSource: FRONTEND_CANONICAL_FALLBACK_END_SOURCE,
+    embeddedScheduleChildExportTimePolicyUsed: 'segment_start_conservative_end',
+    embeddedScheduleChildExportDerivedMeetingTimeApplied: derivedFromOppmote,
+    embeddedScheduleChildExportDurationSuppressed: false,
+    embeddedScheduleChildExportSyntheticTimeSkipped: false,
+    embeddedScheduleChildExportTimeNormalized: true,
+  }
 }
 
 export type CanonicalEmbeddedChildExportTimes = {
@@ -118,7 +164,7 @@ export function resolveCanonicalEmbeddedChildExportTimes(
     end: '',
     inferredEndTime: false,
     usesSyntheticLayoutEnd: false,
-    endTimeProvenance: 'local_conservative_fallback',
+    endTimeProvenance: 'frontend_canonical_fallback',
     embeddedScheduleChildExportTimePolicyUsed: 'no_safe_segment_clock_default_slot',
     embeddedScheduleChildExportDerivedMeetingTimeApplied: false,
     embeddedScheduleChildExportDurationSuppressed: false,
@@ -128,11 +174,11 @@ export function resolveCanonicalEmbeddedChildExportTimes(
   if (!HM24.test(start)) return empty
 
   const sourceText = preview.sourceTextForValidation
-  const latestHighlight = latestConfirmedHighlightTime(preview.normalized.highlights, sourceText)
+  const lastKampHighlight = lastConfirmedKampHighlightTime(preview.normalized.highlights, sourceText)
   const derivedFromOppmote = preview.displayTimeOrigin === 'derived_oppmote'
   const durationFacts = readTankestromSegmentDurationFacts(segment)
 
-  const confirmedEnd = segmentEndIsCanonicalExportCandidate(segment, start, latestHighlight, sourceText)
+  const confirmedEnd = segmentEndIsCanonicalExportCandidate(segment, start, lastKampHighlight, sourceText)
   if (confirmedEnd) {
     return {
       start,
@@ -150,7 +196,7 @@ export function resolveCanonicalEmbeddedChildExportTimes(
   }
 
   const apiInferred = resolveTankestromApiInferredEnd(segment, start, {
-    latestConfirmedHighlightHm: latestHighlight,
+    latestConfirmedHighlightHm: lastKampHighlight,
   })
   if (apiInferred) {
     return {
@@ -168,37 +214,12 @@ export function resolveCanonicalEmbeddedChildExportTimes(
     }
   }
 
-  if (latestHighlight && hmStringToMinutes(latestHighlight) >= hmStringToMinutes(start)) {
-    const end = addMinutesToHmClamp(latestHighlight, CANONICAL_MATCH_END_BUFFER_MINUTES)
-    return {
-      start,
-      end,
-      inferredEndTime: true,
-      usesSyntheticLayoutEnd: true,
-      endTimeProvenance: 'local_conservative_fallback',
-      endTimeSource: 'fallback_duration',
-      embeddedScheduleChildExportTimePolicyUsed: 'segment_start_conservative_end',
-      embeddedScheduleChildExportDerivedMeetingTimeApplied: derivedFromOppmote,
-      embeddedScheduleChildExportDurationSuppressed: false,
-      embeddedScheduleChildExportSyntheticTimeSkipped: false,
-      embeddedScheduleChildExportTimeNormalized: true,
-    }
-  }
-
-  const end = addMinutesToHmClamp(start, CONSERVATIVE_SLOT_FROM_START_MINUTES)
-  return {
+  return buildFrontendCanonicalFallbackTimes(
     start,
-    end,
-    inferredEndTime: true,
-    usesSyntheticLayoutEnd: true,
-    endTimeProvenance: 'local_conservative_fallback',
-    endTimeSource: 'fallback_duration',
-    embeddedScheduleChildExportTimePolicyUsed: 'segment_start_conservative_end',
-    embeddedScheduleChildExportDerivedMeetingTimeApplied: derivedFromOppmote,
-    embeddedScheduleChildExportDurationSuppressed: false,
-    embeddedScheduleChildExportSyntheticTimeSkipped: false,
-    embeddedScheduleChildExportTimeNormalized: true,
-  }
+    preview.normalized.highlights,
+    sourceText,
+    derivedFromOppmote
+  )
 }
 
 export type CanonicalDisplayTimeOrigin =
