@@ -108,7 +108,7 @@ function App() {
   const { notifications: inboxNotifications, unreadCount: inboxUnreadCount, markAllRead: markInboxRead, dismiss: dismissNotification } = useNotifications(user?.id ?? null)
   const [isAdding, setIsAdding] = useState(false)
   const [addFlowSaved, setAddFlowSaved] = useState(false)
-  /** When set, AddEventSheet targets this date (e.g. måned → langt trykk) instead of selectedDate */
+  /** When set, AddEventSheet targets this date (e.g. mÃ¥ned â†’ langt trykk) instead of selectedDate */
   const [addEventDateOverride, setAddEventDateOverride] = useState<string | null>(null)
   const [editingEvent, setEditingEvent] = useState<{ event: Event; date: string; scope: 'this' | 'all' } | null>(null)
   const [isAddingTask, setIsAddingTask] = useState(false)
@@ -232,30 +232,30 @@ function App() {
       createdTaskCount > 0
     const detail = (() => {
       if (calendarShortfall) {
-        return `${promisedEvents} kalenderhendelse(r) ble ikke opprettet. ${createdTaskCount} gjøremål ble lagt til.`
+        return `${promisedEvents} kalenderhendelse(r) ble ikke opprettet. ${createdTaskCount} gjÃ¸remÃ¥l ble lagt til.`
       }
       if (createdTaskCount > 0 && createdEventCount === 0) {
         const firstTask = success.createdTasks[0]
-        return firstTask ? firstTask.title : `${createdTaskCount} gjøremål`
+        return firstTask ? firstTask.title : `${createdTaskCount} gjÃ¸remÃ¥l`
       }
       if (success.arrangementTitle && createdEventCount > 1) {
-        return `${success.arrangementTitle} · ${createdEventCount} hendelser`
+        return `${success.arrangementTitle} Â· ${createdEventCount} hendelser`
       }
       if (createdEventCount === 1 && firstEvent) {
         return `${new Date(`${firstEvent.date}T12:00:00`).toLocaleDateString('nb-NO', {
           weekday: 'short',
           day: 'numeric',
           month: 'long',
-        })} · ${(firstEvent.start ?? '').trim() && (firstEvent.end ?? '').trim() ? `${firstEvent.start}–${firstEvent.end}` : 'Tid ikke avklart'}`
+        })} Â· ${(firstEvent.start ?? '').trim() && (firstEvent.end ?? '').trim() ? `${firstEvent.start}â€“${firstEvent.end}` : 'Tid ikke avklart'}`
       }
       if (createdEventCount > 1) return `${createdEventCount} hendelser`
-      if (createdTaskCount > 0) return `${createdTaskCount} gjøremål`
-      return 'Import fullført'
+      if (createdTaskCount > 0) return `${createdTaskCount} gjÃ¸remÃ¥l`
+      return 'Import fullfÃ¸rt'
     })()
     const title = calendarShortfall
-      ? 'Gjøremål importert, men kalenderhendelser mangler'
+      ? 'GjÃ¸remÃ¥l importert, men kalenderhendelser mangler'
       : createdTaskCount > 0 && createdEventCount === 0
-        ? 'Gjøremål lagt til'
+        ? 'GjÃ¸remÃ¥l lagt til'
         : partial
           ? 'Delvis importert'
           : 'Importert til kalenderen'
@@ -377,7 +377,7 @@ function App() {
         <MobileFrame>
           <div className="flex h-full w-full min-w-0 max-w-full flex-col items-center justify-center gap-3 overflow-x-hidden text-zinc-500">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
-            <p className="text-sm">Loading…</p>
+            <p className="text-sm">Loadingâ€¦</p>
           </div>
         </MobileFrame>
       </AppShell>
@@ -590,8 +590,8 @@ function App() {
               className="pointer-events-none fixed inset-x-0 z-[50] flex justify-center px-3"
               style={{ bottom: 'calc(72px + env(safe-area-inset-bottom, 0px))' }}
             >
-              <div className="flex w-full max-w-[390px] items-center gap-3 rounded-2xl border-2 border-brandTeal/30 bg-brandTeal px-3 py-2.5 text-white shadow-planner">
-                <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug">Varslet din partner om «{notifyToast}»</p>
+              <div className="flex w-full max-w-[390px] items-center gap-3 rounded-2xl border-2 border-synkaPrimary/30 bg-synkaPrimary px-3 py-2.5 text-white shadow-planner">
+                <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug">Varslet din partner om Â«{notifyToast}Â»</p>
               </div>
             </div>
           )}
@@ -611,7 +611,7 @@ function App() {
                   className={`w-full max-w-[390px] rounded-2xl border px-3 py-2.5 shadow-planner ${
                     tankestromToast.variant === 'warning'
                       ? 'border-amber-300 bg-amber-50'
-                      : 'border-brandTeal/30 bg-white'
+                      : 'border-synkaPrimary/30 bg-white'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -625,16 +625,16 @@ function App() {
                       className="rounded-md px-1 text-zinc-500 hover:bg-zinc-100"
                       aria-label="Lukk importbekreftelse"
                     >
-                      ×
+                      Ã—
                     </button>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={jumpToImportedCalendar}
-                      className="rounded-full bg-brandTeal px-3 py-1.5 text-[11px] font-semibold text-white"
+                      className="rounded-full bg-synkaPrimary px-3 py-1.5 text-[11px] font-semibold text-white"
                     >
-                      {tankestromToast.openTasks ? 'Åpne gjøremål' : 'Se i kalenderen'}
+                      {tankestromToast.openTasks ? 'Ã…pne gjÃ¸remÃ¥l' : 'Se i kalenderen'}
                     </button>
                     {tankestromToast.undoEvents && tankestromToast.undoEvents.length > 0 && (
                       <button

@@ -11,9 +11,9 @@ import { getParticipantPeople } from '../lib/eventParticipants'
 
 interface LogisticsScreenProps {
   weekLayoutData: WeekDayLayout[]
-  /** While the week’s events are loading from the server */
+  /** While the weekâ€™s events are loading from the server */
   loading?: boolean
-  /** Same resolved “deg” person as family filter (optional fallback inside) */
+  /** Same resolved â€œdegâ€ person as family filter (optional fallback inside) */
   mePersonId?: PersonId | null
   onJumpToEvent: (date: string, event: Event) => void
   onAssignTransport: (
@@ -39,13 +39,13 @@ interface PersonTransportStats {
 }
 
 const NB_DAYS: Record<number, string> = {
-  0: 'Søndag',
+  0: 'SÃ¸ndag',
   1: 'Mandag',
   2: 'Tirsdag',
   3: 'Onsdag',
   4: 'Torsdag',
   5: 'Fredag',
-  6: 'Lørdag',
+  6: 'LÃ¸rdag',
 }
 
 function formatDayHeader(dateKey: string): string {
@@ -65,9 +65,9 @@ function formatWeekRange(weekData: WeekDayLayout[]): string {
     'jul', 'aug', 'sep', 'okt', 'nov', 'des',
   ]
   if (first.getMonth() === last.getMonth()) {
-    return `${fDay}.–${lDay}. ${months[first.getMonth()]}`
+    return `${fDay}.â€“${lDay}. ${months[first.getMonth()]}`
   }
-  return `${fDay}. ${months[first.getMonth()]}–${lDay}. ${months[last.getMonth()]}`
+  return `${fDay}. ${months[first.getMonth()]}â€“${lDay}. ${months[last.getMonth()]}`
 }
 
 function personById(people: Person[], id?: PersonId): Person | null {
@@ -185,14 +185,14 @@ export function LogisticsScreen({
                   onClick={() => onChangeWeek(-1)}
                   className="rounded-full border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-50"
                 >
-                  ‹ Forrige
+                  â€¹ Forrige
                 </button>
                 <button
                   type="button"
                   onClick={() => onChangeWeek(1)}
                   className="rounded-full border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-50"
                 >
-                  Neste ›
+                  Neste â€º
                 </button>
               </div>
             )}
@@ -205,7 +205,7 @@ export function LogisticsScreen({
                 onClick={() => setFilterMode('all')}
                 className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
                   filterMode === 'all'
-                    ? 'bg-brandTeal text-white shadow-planner-sm'
+                    ? 'bg-synkaPrimary text-white shadow-planner-sm'
                     : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                 }`}
               >
@@ -216,7 +216,7 @@ export function LogisticsScreen({
                 onClick={() => setFilterMode('mine')}
                 className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
                   filterMode === 'mine'
-                    ? 'bg-brandTeal text-white shadow-planner-sm'
+                    ? 'bg-synkaPrimary text-white shadow-planner-sm'
                     : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                 }`}
               >
@@ -240,7 +240,7 @@ export function LogisticsScreen({
                     <span className="font-medium text-zinc-800">{s.person.name}</span>
                     <span className="text-zinc-500">
                       {s.dropoffs > 0 && <span>{s.dropoffs}L</span>}
-                      {s.dropoffs > 0 && s.pickups > 0 && ' · '}
+                      {s.dropoffs > 0 && s.pickups > 0 && ' Â· '}
                       {s.pickups > 0 && <span>{s.pickups}H</span>}
                     </span>
                   </div>
@@ -276,7 +276,7 @@ export function LogisticsScreen({
                         onClick={() => setUnassignedDay(day.date)}
                         className={`rounded-full px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
                           isActive
-                            ? 'bg-brandTeal text-white shadow-planner-sm'
+                            ? 'bg-synkaPrimary text-white shadow-planner-sm'
                             : count > 0
                               ? 'border border-zinc-200 bg-white text-zinc-700 shadow-sm'
                               : 'border border-zinc-100 bg-white/50 text-zinc-400'

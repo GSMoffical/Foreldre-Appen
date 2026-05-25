@@ -19,7 +19,7 @@ export function FamilyFilterBar({ selectedPersonIds, onFilterChange, mePersonId 
     return (
       <div className="px-4 pb-2 pt-2 text-center">
         <p className="text-[13px] text-zinc-600">
-          Ingen familiemedlemmer ennå. Gå til <span className="font-medium text-zinc-800">Innstillinger</span> for å
+          Ingen familiemedlemmer ennÃ¥. GÃ¥ til <span className="font-medium text-zinc-800">Innstillinger</span> for Ã¥
           legge til foreldre og barn.
         </p>
       </div>
@@ -65,7 +65,7 @@ export function FamilyFilterBar({ selectedPersonIds, onFilterChange, mePersonId 
             type="button"
             layout
             onClick={() => handleTap(person.id)}
-            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-body-sm font-medium transition-colors touch-manipulation ${isMe ? 'ring-2 ring-offset-1 ring-brandNavy/30' : ''}`}
+            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-body-sm font-medium transition-colors touch-manipulation ${isMe ? 'ring-2 ring-offset-1 ring-synkaNavy/30' : ''}`}
             style={{
               backgroundColor: active ? person.colorTint : 'rgb(241 245 249)',
               color: active ? person.colorAccent : 'rgb(113 113 122)',
@@ -74,7 +74,7 @@ export function FamilyFilterBar({ selectedPersonIds, onFilterChange, mePersonId 
             }}
             whileTap={{ scale: 0.97 }}
             aria-pressed={active}
-            aria-label={isMe ? `${person.name} (deg)` : `Filtrer på ${person.name}`}
+            aria-label={isMe ? `${person.name} (deg)` : `Filtrer pÃ¥ ${person.name}`}
           >
             <span>{person.name}</span>
             {isMe && <span className="text-[10px] font-normal opacity-80">deg</span>}

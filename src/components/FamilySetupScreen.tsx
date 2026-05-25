@@ -28,7 +28,7 @@ interface FamilySetupScreenProps {
 
 /**
  * First-run screen shown to new users who have no children in their family yet.
- * School schedule detail is intentionally deferred — users can set it in Settings.
+ * School schedule detail is intentionally deferred â€” users can set it in Settings.
  * Success is handled automatically: once addPerson resolves, App.tsx detects
  * hasChildren = true and dismisses this screen without any explicit callback.
  */
@@ -54,7 +54,7 @@ export function FamilySetupScreen({ onSkip }: FamilySetupScreenProps) {
       await addPerson({ name: trimmed, colorTint, colorAccent, memberKind: 'child' })
       logEvent('family_setup_child_added', { name: trimmed })
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Noe gikk galt. Prøv igjen.')
+      setError(err instanceof Error ? err.message : 'Noe gikk galt. PrÃ¸v igjen.')
       setSaving(false)
     }
   }
@@ -72,10 +72,10 @@ export function FamilySetupScreen({ onSkip }: FamilySetupScreenProps) {
       <div className="flex flex-1 flex-col px-5 pb-12 pt-14">
 
         <div className="mb-8">
-          <p className="text-[12px] font-semibold uppercase tracking-wide text-brandTeal">Kom i gang</p>
-          <h1 className="mt-1 text-[22px] font-bold text-zinc-900">Legg til første barn</h1>
+          <p className="text-[12px] font-semibold uppercase tracking-wide text-synkaPrimary">Kom i gang</p>
+          <h1 className="mt-1 text-[22px] font-bold text-zinc-900">Legg til fÃ¸rste barn</h1>
           <p className="mt-2 text-[14px] leading-relaxed text-zinc-600">
-            ForeldrePortalen er bygd rundt barna. Legg til minst ett barn for å få skolerute i
+            ForeldrePortalen er bygd rundt barna. Legg til minst ett barn for Ã¥ fÃ¥ skolerute i
             bakgrunnen, filtrering per person og familiekoordinering.
           </p>
         </div>
@@ -115,14 +115,14 @@ export function FamilySetupScreen({ onSkip }: FamilySetupScreenProps) {
 
           <p className="rounded-xl bg-zinc-50 px-3.5 py-2.5 text-[12px] leading-relaxed text-zinc-500">
             Skolerute og timeplan settes opp fra{' '}
-            <span className="font-medium text-zinc-600">Innstillinger → Familie</span> etterpå — du
-            kan hoppe over det nå.
+            <span className="font-medium text-zinc-600">Innstillinger â†’ Familie</span> etterpÃ¥ â€” du
+            kan hoppe over det nÃ¥.
           </p>
 
           {error && <p className="text-[13px] text-red-500">{error}</p>}
 
           <button type="submit" disabled={saving} className={btnPrimary}>
-            {saving ? 'Lagrer…' : 'Legg til barn og fortsett →'}
+            {saving ? 'Lagrerâ€¦' : 'Legg til barn og fortsett â†’'}
           </button>
         </form>
 
@@ -132,10 +132,10 @@ export function FamilySetupScreen({ onSkip }: FamilySetupScreenProps) {
             onClick={handleSkip}
             className="text-[13px] text-zinc-400 transition hover:text-zinc-600"
           >
-            Hopp over for nå
+            Hopp over for nÃ¥
           </button>
           <p className="text-[11px] text-zinc-400">
-            Du kan legge til barn fra Innstillinger når som helst.
+            Du kan legge til barn fra Innstillinger nÃ¥r som helst.
           </p>
         </div>
       </div>

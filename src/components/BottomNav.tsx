@@ -7,7 +7,7 @@ interface BottomNavProps {
   active: NavTab
   onSelect?: (tab: NavTab) => void
   logisticsNotifyCount?: number
-  /** The last active calendar tab — used to restore context when returning from tasks/settings. */
+  /** The last active calendar tab â€” used to restore context when returning from tasks/settings. */
   lastCalendarTab?: 'today' | 'week' | 'month'
 }
 
@@ -16,7 +16,7 @@ const VIEW_CYCLE: NavTab[] = ['today', 'week', 'month']
 function viewLabel(tab: NavTab): string {
   if (tab === 'today') return 'I dag'
   if (tab === 'week') return 'Uke'
-  if (tab === 'month') return 'Måned'
+  if (tab === 'month') return 'MÃ¥ned'
   return 'I dag'
 }
 
@@ -29,8 +29,8 @@ function nextViewLabel(tab: 'today' | 'week' | 'month'): string {
 export function BottomNav({ active, onSelect, logisticsNotifyCount = 0, lastCalendarTab = 'today' }: BottomNavProps) {
   const base =
     'relative z-0 flex flex-1 items-center justify-center overflow-visible rounded-lg py-3 text-[14px] font-semibold transition-colors'
-  const inactiveText = 'text-zinc-500'
-  const activeText = 'text-brandNavy'
+  const inactiveText = 'text-synkaNavy/50'
+  const activeText = 'text-white'
 
   const calendarActive = active !== 'settings' && active !== 'logistics'
   const currentView = calendarActive ? active : lastCalendarTab
@@ -61,37 +61,37 @@ export function BottomNav({ active, onSelect, logisticsNotifyCount = 0, lastCale
                 cycleView()
               }
             }}
-            className={`${base} ${calendarActive ? activeText : inactiveText} hover:bg-brandSky/25`}
+            className={`${base} ${calendarActive ? activeText : inactiveText} hover:bg-synkaCream/25`}
           >
             {calendarActive && (
               <motion.div
                 layoutId="bottom-nav-indicator"
-                className="pointer-events-none absolute inset-0 z-20 rounded-lg border-2 border-brandNavy bg-brandSky shadow-planner-sm"
+                className="pointer-events-none absolute inset-0 z-20 rounded-lg bg-synkaPrimary shadow-planner-sm"
                 style={{ zIndex: 30 }}
                 transition={springSnappy}
               />
             )}
             <span className="relative z-[40] inline-flex items-center gap-1">
               {calendarActive ? nextViewLabel(currentView) : viewLabel(currentView)}
-              <span className="text-[11px] opacity-60" aria-hidden>↻</span>
+              <span className="text-[11px] opacity-60" aria-hidden>â†»</span>
             </span>
           </button>
           <button
             id="onb-tasks-tab"
             type="button"
             onClick={() => onSelect?.('logistics')}
-            className={`${base} ${active === 'logistics' ? activeText : inactiveText} hover:bg-brandSky/25`}
+            className={`${base} ${active === 'logistics' ? activeText : inactiveText} hover:bg-synkaCream/25`}
           >
             {active === 'logistics' && (
               <motion.div
                 layoutId="bottom-nav-indicator"
-                className="pointer-events-none absolute inset-0 z-20 rounded-lg border-2 border-brandNavy bg-brandSky shadow-planner-sm"
+                className="pointer-events-none absolute inset-0 z-20 rounded-lg bg-synkaPrimary shadow-planner-sm"
                 style={{ zIndex: 30 }}
                 transition={springSnappy}
               />
             )}
             <span className="relative z-[40] inline-flex items-center gap-1.5">
-              Gjøremål
+              GjÃ¸remÃ¥l
               {logisticsNotifyCount > 0 && (
                 <span
                   aria-label={`${logisticsNotifyCount} uleste varsler`}
@@ -105,12 +105,12 @@ export function BottomNav({ active, onSelect, logisticsNotifyCount = 0, lastCale
           <button
             type="button"
             onClick={() => onSelect?.('settings')}
-            className={`${base} ${active === 'settings' ? activeText : inactiveText} hover:bg-brandSky/25`}
+            className={`${base} ${active === 'settings' ? activeText : inactiveText} hover:bg-synkaCream/25`}
           >
             {active === 'settings' && (
               <motion.div
                 layoutId="bottom-nav-indicator"
-                className="pointer-events-none absolute inset-0 z-20 rounded-lg border-2 border-brandNavy bg-brandSky shadow-planner-sm"
+                className="pointer-events-none absolute inset-0 z-20 rounded-lg bg-synkaPrimary shadow-planner-sm"
                 style={{ zIndex: 30 }}
                 transition={springSnappy}
               />

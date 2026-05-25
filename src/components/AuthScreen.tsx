@@ -62,7 +62,7 @@ export function AuthScreen() {
         }
       }
       if (password.length < MIN_PASSWORD_LENGTH) {
-        setError(`Passordet må være minst ${MIN_PASSWORD_LENGTH} tegn.`)
+        setError(`Passordet mÃ¥ vÃ¦re minst ${MIN_PASSWORD_LENGTH} tegn.`)
         return
       }
       if (password !== confirmPassword) {
@@ -83,12 +83,12 @@ export function AuthScreen() {
           displayName: name.trim(),
           familyName: inviteParam ? null : familyName.trim() || null,
         })
-        setSuccess('Konto opprettet. Sjekk e-posten din for bekreftelseslenke – deretter kan du logge inn her.')
+        setSuccess('Konto opprettet. Sjekk e-posten din for bekreftelseslenke â€“ deretter kan du logge inn her.')
         setPassword('')
         setConfirmPassword('')
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Noe gikk galt. Prøv igjen.')
+      setError(err instanceof Error ? err.message : 'Noe gikk galt. PrÃ¸v igjen.')
     } finally {
       setLoading(false)
     }
@@ -98,19 +98,19 @@ export function AuthScreen() {
     <div className="flex h-full min-h-0 w-full min-w-0 max-w-full flex-col overflow-x-hidden">
       {inviteParam && (
         <div className="mx-3 mt-2 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-[12px] text-zinc-800" role="status">
-          Du har blitt invitert til en familie. Logg inn eller opprett konto for å akseptere invitasjonen.
+          Du har blitt invitert til en familie. Logg inn eller opprett konto for Ã¥ akseptere invitasjonen.
         </div>
       )}
       <header className="flex flex-col px-4 pt-3 pb-4 bg-white rounded-b-[32px] border-b border-zinc-200">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="font-display text-[22px] font-bold text-brandNavy drop-shadow-[0_3px_0_rgba(255,255,255,0.9)]">
+            <h1 className="font-display text-[22px] font-bold text-synkaNavy drop-shadow-[0_3px_0_rgba(255,255,255,0.9)]">
               ForeldrePortalen
             </h1>
             <p className="mt-1 text-[12px] text-zinc-700">
               {mode === 'signin'
-                ? 'Logg inn for å se familiens ukeplan.'
-                : 'Opprett konto for å dele kalender med andre foreldre.'}
+                ? 'Logg inn for Ã¥ se familiens ukeplan.'
+                : 'Opprett konto for Ã¥ dele kalender med andre foreldre.'}
             </p>
           </div>
           <div className="relative h-14 w-14 overflow-hidden rounded-[24px] bg-white border border-zinc-200 shadow-card">
@@ -124,16 +124,16 @@ export function AuthScreen() {
       </header>
 
       <div className="mt-3 flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden px-3 pb-4">
-        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden rounded-[32px] border-2 border-brandNavy/15 bg-white px-6 pb-4 pt-6 shadow-planner">
+        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden rounded-[32px] border-2 border-synkaNavy/15 bg-white px-6 pb-4 pt-6 shadow-planner">
           <form className="space-y-4" onSubmit={handleSubmit} noValidate>
             {inviteParam && (
               <fieldset className="space-y-2">
-                <legend className="text-[12px] font-medium text-zinc-700">Når du blir med i familien, er du:</legend>
+                <legend className="text-[12px] font-medium text-zinc-700">NÃ¥r du blir med i familien, er du:</legend>
                 <div className="grid grid-cols-2 gap-2">
                   <label
                     className={`flex cursor-pointer items-center justify-center rounded-full border px-3 py-2 text-[13px] font-medium transition ${
                       effectiveInviteMemberKind === 'parent'
-                        ? 'border-brandTeal bg-brandTeal/10 text-brandNavy'
+                        ? 'border-synkaPrimary bg-synkaPrimary/10 text-synkaNavy'
                         : 'border-zinc-200 text-zinc-700'
                     }`}
                   >
@@ -153,7 +153,7 @@ export function AuthScreen() {
                   <label
                     className={`flex cursor-pointer items-center justify-center rounded-full border px-3 py-2 text-[13px] font-medium transition ${
                       effectiveInviteMemberKind === 'child'
-                        ? 'border-brandTeal bg-brandTeal/10 text-brandNavy'
+                        ? 'border-synkaPrimary bg-synkaPrimary/10 text-synkaNavy'
                         : 'border-zinc-200 text-zinc-700'
                     }`}
                   >
@@ -196,7 +196,7 @@ export function AuthScreen() {
                     }}
                   />
                   <p className="text-[11px] text-zinc-500">
-                    Hvem du er i familien – vises i appen
+                    Hvem du er i familien â€“ vises i appen
                   </p>
                 </div>
                 {!inviteParam && (
@@ -218,7 +218,7 @@ export function AuthScreen() {
                       }}
                     />
                     <p className="text-[11px] text-zinc-500">
-                      Navnet på familien – vises øverst i appen
+                      Navnet pÃ¥ familien â€“ vises Ã¸verst i appen
                     </p>
                   </div>
                 )}
@@ -302,9 +302,9 @@ export function AuthScreen() {
             <button
               type="submit"
               disabled={loading}
-              className="mt-2 w-full rounded-full bg-brandTeal py-2.5 text-[15px] font-semibold text-white shadow-planner transition hover:brightness-95 disabled:opacity-70 focus:outline-none focus:ring-2 focus:ring-brandTeal focus:ring-offset-2 active:translate-y-px active:shadow-planner-press"
+              className="mt-2 w-full rounded-full bg-synkaPrimary py-2.5 text-[15px] font-semibold text-white shadow-planner transition hover:brightness-95 disabled:opacity-70 focus:outline-none focus:ring-2 focus:ring-synkaPrimary focus:ring-offset-2 active:translate-y-px active:shadow-planner-press"
             >
-              {loading ? 'Vennligst vent…' : mode === 'signin' ? 'Logg inn' : 'Opprett konto'}
+              {loading ? 'Vennligst ventâ€¦' : mode === 'signin' ? 'Logg inn' : 'Opprett konto'}
             </button>
           </form>
 

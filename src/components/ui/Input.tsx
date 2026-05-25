@@ -48,7 +48,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 )
 Input.displayName = 'Input'
 
-// ── Textarea variant ──────────────────────────────────────────────────────────
+// â”€â”€ Textarea variant â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface TextareaProps
   extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
@@ -104,7 +104,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     }, [autoResize, minRowsSafe, maxRowsSafe, props.value])
 
     const base =
-      'w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 placeholder-zinc-400 outline-none resize-none transition focus:border-brandTeal focus:bg-white focus:ring-1 focus:ring-brandTeal/20'
+      'w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 placeholder-zinc-400 outline-none resize-none transition focus:border-synkaPrimary focus:bg-white focus:ring-1 focus:ring-synkaPrimary/20'
     return (
       <div className="space-y-1">
         {label && (

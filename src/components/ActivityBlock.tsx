@@ -61,10 +61,10 @@ export function ActivityBlock({
   const leftPercent = block.totalColumns > 1 ? (block.columnIndex / block.totalColumns) * 100 : 0
   const rawHeight = block.heightPx
   const compactThresholdPx = 44
-  /** Below this, stacked title+time is cramped — use a single horizontal row instead */
+  /** Below this, stacked title+time is cramped â€” use a single horizontal row instead */
   const stackedShortThresholdPx = 58
   const tallThresholdPx = 72
-  /** Not enough vertical space for a readable title line + padding → show color only */
+  /** Not enough vertical space for a readable title line + padding â†’ show color only */
   const blankBelowPx = 18
   /** Enough for one title line, not for title + time in one row */
   const titleOnlyBelowPx = 32
@@ -196,7 +196,7 @@ export function ActivityBlock({
     <motion.div
       initial={false}
       animate={controls}
-      className={`absolute z-[2] flex min-w-0 overflow-hidden rounded-block text-left shadow-planner-sm touch-manipulation transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandTeal/50 focus-visible:ring-offset-2 ${
+      className={`absolute z-[2] flex min-w-0 overflow-hidden rounded-block text-left shadow-planner-sm touch-manipulation transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-synkaPrimary/50 focus-visible:ring-offset-2 ${
         showBlank
           ? 'p-0'
           : showTitleOnly
@@ -207,7 +207,7 @@ export function ActivityBlock({
                 : 'px-2.5 py-1.5'
               : 'px-3 py-2'
       } ${isDragging ? 'z-50 cursor-grabbing opacity-90 shadow-card' : 'cursor-pointer'} ${
-        isHighlighted ? 'ring-2 ring-brandTeal/70 ring-offset-1' : ''
+        isHighlighted ? 'ring-2 ring-synkaPrimary/70 ring-offset-1' : ''
       }`}
       style={{
         top: block.topPx + dragOffsetY,
@@ -248,7 +248,7 @@ export function ActivityBlock({
           </div>
         </div>
       )}
-      {/* Shimmer sweep when commit is pending: a bright band slides left → right */}
+      {/* Shimmer sweep when commit is pending: a bright band slides left â†’ right */}
       {isPendingCommit && (
         <motion.div
           className="pointer-events-none absolute inset-0 overflow-hidden rounded-block z-10"
@@ -324,7 +324,7 @@ export function ActivityBlock({
             </span>
             <span className="shrink-0 text-right text-[10px] font-medium tabular-nums leading-none text-zinc-600">
               {formatCalendarEventTimeLabel(block)}
-              {participants.length > 1 ? ` ·${participants.length}` : ''}
+              {participants.length > 1 ? ` Â·${participants.length}` : ''}
             </span>
           </span>
         ) : isMedium ? (

@@ -88,7 +88,7 @@ export function SettingsScreen({
       <h2 className="text-[20px] font-semibold text-zinc-900">Innstillinger</h2>
       <div className={`mt-5 ${cardSection} p-4`}>
         <p className={typSectionCap}>Konto</p>
-        <p className="mt-1.5 text-[13px] text-zinc-800 break-all">{user?.email ?? '—'}</p>
+        <p className="mt-1.5 text-[13px] text-zinc-800 break-all">{user?.email ?? 'â€”'}</p>
         <p className="mt-1.5 text-[12px] text-zinc-500">
           {isCalendarOwner ? (
             <>Du er <span className="font-medium text-zinc-700">eier</span> av denne kalenderen.</>
@@ -102,12 +102,12 @@ export function SettingsScreen({
         <p className={typSectionCap}>Rettigheter</p>
         <ul className="mt-2.5 space-y-2 text-[13px] text-zinc-600">
           <li className="flex gap-2">
-            <span className="mt-px shrink-0 text-zinc-300">·</span>
+            <span className="mt-px shrink-0 text-zinc-300">Â·</span>
             <span><span className="font-medium text-zinc-800">Eier</span> kan invitere, legge til eller fjerne familiemedlemmer, og slette alle hendelser samlet.</span>
           </li>
           <li className="flex gap-2">
-            <span className="mt-px shrink-0 text-zinc-300">·</span>
-            <span><span className="font-medium text-zinc-800">Invitert forelder</span> ser samme kalender og kan legge til, endre og slette hendelser, men kan ikke administrere familiemedlemmer eller sende invitasjoner. Du kan endre navn og farge på deg selv under Familie.</span>
+            <span className="mt-px shrink-0 text-zinc-300">Â·</span>
+            <span><span className="font-medium text-zinc-800">Invitert forelder</span> ser samme kalender og kan legge til, endre og slette hendelser, men kan ikke administrere familiemedlemmer eller sende invitasjoner. Du kan endre navn og farge pÃ¥ deg selv under Familie.</span>
           </li>
         </ul>
       </div>
@@ -126,16 +126,16 @@ export function SettingsScreen({
           <div className="min-w-0 flex-1">
             <p className={typSectionCap}>Personvern</p>
             <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
-              Kalenderen kan inneholde <span className="font-medium text-zinc-800">navn på barn</span>,{' '}
-              <span className="font-medium text-zinc-800">skole og hendelser</span>, tider og steder. Tenk deg om før du
+              Kalenderen kan inneholde <span className="font-medium text-zinc-800">navn pÃ¥ barn</span>,{' '}
+              <span className="font-medium text-zinc-800">skole og hendelser</span>, tider og steder. Tenk deg om fÃ¸r du
               skriver inn noe du ikke vil at andre skal se.
             </p>
             <p className="mt-2.5 text-[13px] leading-relaxed text-zinc-600">
-              Data lagres hos vår databasetjeneste (Supabase) og knyttes til kontoen din. Det du legger inn er synlig for
+              Data lagres hos vÃ¥r databasetjeneste (Supabase) og knyttes til kontoen din. Det du legger inn er synlig for
               deg og for andre du deler familien med. Vi bruker ikke innholdet til reklame og selger det ikke videre.
             </p>
             <p className="mt-2.5 text-[12px] text-zinc-400">
-              Ved å bruke appen godtar du at du er ansvarlig for opplysningene du registrerer. Ta kontakt med den som
+              Ved Ã¥ bruke appen godtar du at du er ansvarlig for opplysningene du registrerer. Ta kontakt med den som
               administrerer familien hvis du vil slette konto eller data.
             </p>
           </div>
@@ -146,12 +146,12 @@ export function SettingsScreen({
         <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
           <p className={typSectionCap}>Delt familie</p>
           <p className="mt-2 text-[13px] text-zinc-600">
-            Du ser på og redigerer en familie du ble invitert til. Hendelser kan du endre som vanlig; familien og
-            invitasjoner håndteres av eieren. For å gå tilbake til din egen kalender, forlat familien.
+            Du ser pÃ¥ og redigerer en familie du ble invitert til. Hendelser kan du endre som vanlig; familien og
+            invitasjoner hÃ¥ndteres av eieren. For Ã¥ gÃ¥ tilbake til din egen kalender, forlat familien.
           </p>
           {confirmUnlink ? (
             <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3.5 space-y-3">
-              <p className="text-[13px] font-medium text-amber-900">Forlate delt familie og gå tilbake til din egen kalender?</p>
+              <p className="text-[13px] font-medium text-amber-900">Forlate delt familie og gÃ¥ tilbake til din egen kalender?</p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setConfirmUnlink(false)} className={`flex-1 ${btnSecondary}`}>Avbryt</button>
                 <button type="button" onClick={handleUnlink} className="flex-1 rounded-2xl bg-amber-600 py-3 text-body font-semibold text-white hover:bg-amber-700">Forlat</button>
@@ -173,7 +173,7 @@ export function SettingsScreen({
         <div className={`mt-4 ${cardSection} p-4`}>
           <p className={typSectionCap}>Inviter til familien</p>
           <p className="mt-2 text-[13px] text-zinc-600">
-            La den andre <span className="font-medium text-zinc-700">forelderen</span> få tilgang til samme kalender. Du kan også opprette
+            La den andre <span className="font-medium text-zinc-700">forelderen</span> fÃ¥ tilgang til samme kalender. Du kan ogsÃ¥ opprette
             lenke rett etter at du har lagt til en forelder under Familie.
           </p>
           {!inviteLink ? (
@@ -216,7 +216,7 @@ export function SettingsScreen({
                 </button>
               </div>
               <p className="text-[11px] text-zinc-400">
-                Lenken utløper om 7 dager. Trykk «Vis aktiv lenke» for å vise den igjen etter at du har skjult den.
+                Lenken utlÃ¸per om 7 dager. Trykk Â«Vis aktiv lenkeÂ» for Ã¥ vise den igjen etter at du har skjult den.
               </p>
             </div>
           )}
@@ -225,9 +225,9 @@ export function SettingsScreen({
 
       {onOpenTankestromImport && (
         <div className={`mt-4 ${cardSection} p-4`}>
-          <p className={typSectionCap}>Tankestrøm</p>
+          <p className={typSectionCap}>TankestrÃ¸m</p>
           <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
-            Last opp dokument eller bilde og få forslag til kalenderhendelser. Du godkjenner før noe lagres.
+            Last opp dokument eller bilde og fÃ¥ forslag til kalenderhendelser. Du godkjenner fÃ¸r noe lagres.
           </p>
           <button
             type="button"
@@ -235,7 +235,7 @@ export function SettingsScreen({
             onClick={onOpenTankestromImport}
             className="mt-3 rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-[13px] font-medium text-zinc-800 hover:bg-zinc-50"
           >
-            Importer fra Tankestrøm…
+            Importer fra TankestrÃ¸mâ€¦
           </button>
         </div>
       )}
@@ -244,19 +244,19 @@ export function SettingsScreen({
         <p className={typSectionCap}>Varsler</p>
         {notifStatus === 'granted' ? (
           <p className="mt-2 text-[13px] text-zinc-600">
-            Varsler er skrudd på. Påminnelser dukker opp før hendelser.
+            Varsler er skrudd pÃ¥. PÃ¥minnelser dukker opp fÃ¸r hendelser.
           </p>
         ) : notifStatus === 'denied' ? (
           <p className="mt-2 text-[13px] text-rose-600">
-            Varsler er blokkert. Skru dem på i nettleserens innstillinger.
+            Varsler er blokkert. Skru dem pÃ¥ i nettleserens innstillinger.
           </p>
         ) : notifStatus === 'unsupported' ? (
           <p className="mt-2 text-[13px] text-zinc-500">
-            Nettleservarsler er ikke støttet her.
+            Nettleservarsler er ikke stÃ¸ttet her.
           </p>
         ) : (
           <button type="button" onClick={handleEnableNotifications} className={`mt-2 ${btnPrimaryPill}`}>
-            Skru på påminnelser
+            Skru pÃ¥ pÃ¥minnelser
           </button>
         )}
       </div>
@@ -267,7 +267,7 @@ export function SettingsScreen({
           <div className="min-w-0 flex-1">
             <p className="text-[13px] font-medium text-zinc-800">Lett vibrasjon ved lagring</p>
             <p className="mt-0.5 text-[12px] leading-relaxed text-zinc-500">
-              Kort vibrasjon når du legger til eller lagrer en hendelse. Fungerer på mange Android-telefoner; iOS støtter
+              Kort vibrasjon nÃ¥r du legger til eller lagrer en hendelse. Fungerer pÃ¥ mange Android-telefoner; iOS stÃ¸tter
               ofte ikke vibrasjon fra nettleser.
             </p>
           </div>
@@ -277,7 +277,7 @@ export function SettingsScreen({
             aria-checked={hapticsEnabled}
             onClick={() => setHapticsEnabled(!hapticsEnabled)}
             className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
-              hapticsEnabled ? 'bg-brandTeal' : 'bg-zinc-300'
+              hapticsEnabled ? 'bg-synkaPrimary' : 'bg-zinc-300'
             }`}
           >
             <span
@@ -294,7 +294,7 @@ export function SettingsScreen({
       </div>
 
       <div className="mt-6 rounded-2xl border border-rose-100 bg-rose-50/40 p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-rose-500">Fareområde</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-rose-500">FareomrÃ¥de</p>
         <p className="mt-2 text-[13px] text-zinc-600">
           {canClearAllEvents
             ? 'Sletter alle hendelser for familien fra databasen. Alle som deler kalenderen mister dem i appen. Kan ikke angres.'
@@ -326,13 +326,13 @@ export function SettingsScreen({
       {onRestartOnboarding && (
         <div className={`mt-4 ${cardSection} p-4`}>
           <p className={typSectionCap}>Hjelp</p>
-          <p className="mt-2 text-[13px] text-zinc-600">Vil du se gjennomgangen av appen på nytt?</p>
+          <p className="mt-2 text-[13px] text-zinc-600">Vil du se gjennomgangen av appen pÃ¥ nytt?</p>
           <button
             type="button"
             onClick={onRestartOnboarding}
             className="mt-3 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-[13px] font-medium text-zinc-700 hover:bg-zinc-50"
           >
-            Vis gjennomgang på nytt
+            Vis gjennomgang pÃ¥ nytt
           </button>
         </div>
       )}

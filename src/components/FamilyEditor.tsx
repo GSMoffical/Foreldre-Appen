@@ -106,7 +106,7 @@ function PersonForm({
               onClick={() => setMemberKind('parent')}
               className={`flex-1 rounded-xl border-2 px-3 py-2.5 text-left text-[13px] font-medium transition ${
                 memberKind === 'parent'
-                  ? 'border-brandNavy bg-brandSky/40 text-brandNavy'
+                  ? 'border-synkaNavy bg-synkaCream/40 text-synkaNavy'
                   : 'border-zinc-200 bg-white text-zinc-700'
               }`}
             >
@@ -120,7 +120,7 @@ function PersonForm({
               onClick={() => setMemberKind('child')}
               className={`flex-1 rounded-xl border-2 px-3 py-2.5 text-left text-[13px] font-medium transition ${
                 memberKind === 'child'
-                  ? 'border-brandNavy bg-brandSky/40 text-brandNavy'
+                  ? 'border-synkaNavy bg-synkaCream/40 text-synkaNavy'
                   : 'border-zinc-200 bg-white text-zinc-700'
               }`}
             >
@@ -199,7 +199,7 @@ function PersonForm({
           disabled={saving}
           className={`flex-1 ${btnPrimary}`}
         >
-          {saving ? 'Lagrer…' : saveLabel}
+          {saving ? 'Lagrerâ€¦' : saveLabel}
         </button>
       </div>
     </form>
@@ -252,8 +252,8 @@ export function FamilyEditor({ onPersonRemoved }: FamilyEditorProps) {
           <p className="font-medium text-zinc-800">Invitert forelder</p>
           <p className="mt-1 text-zinc-600">
             Du kan legge til og endre hendelser i kalenderen. Familiemedlemmer administreres av{' '}
-            <span className="font-medium text-zinc-700">eieren av kalenderen</span>. Du kan redigere navn og farge på{' '}
-            <span className="font-medium text-zinc-700">deg selv</span> med «Rediger» på din rad.
+            <span className="font-medium text-zinc-700">eieren av kalenderen</span>. Du kan redigere navn og farge pÃ¥{' '}
+            <span className="font-medium text-zinc-700">deg selv</span> med Â«RedigerÂ» pÃ¥ din rad.
           </p>
         </div>
       )}
@@ -341,7 +341,7 @@ export function FamilyEditor({ onPersonRemoved }: FamilyEditorProps) {
                     canManageFamilyMembers &&
                     (!mePersonId || p.id !== mePersonId) && (
                       <span className="mt-0.5 block text-[11px] font-normal text-zinc-500">
-                        Ingen konto koblet ennå
+                        Ingen konto koblet ennÃ¥
                       </span>
                     )}
                 </span>
@@ -358,7 +358,7 @@ export function FamilyEditor({ onPersonRemoved }: FamilyEditorProps) {
                     disabled={!!adding || !!editingId || inviteLoadingForId === p.id}
                     className="rounded-xl border border-emerald-200 bg-white px-2.5 py-1 text-caption font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 focus:outline-none"
                   >
-                    {inviteLoadingForId === p.id ? 'Henter…' : expandedInviteForId === p.id ? 'Skjul lenke' : 'Vis invitasjonslenke'}
+                    {inviteLoadingForId === p.id ? 'Henterâ€¦' : expandedInviteForId === p.id ? 'Skjul lenke' : 'Vis invitasjonslenke'}
                   </button>
                 )}
               {canEditFamilyMember(p.id) && (

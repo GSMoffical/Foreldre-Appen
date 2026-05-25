@@ -45,8 +45,8 @@ interface AddEventSheetProps {
 }
 
 const NB_WEEKDAYS: Record<number, string> = {
-  0: 'Søndag', 1: 'Mandag', 2: 'Tirsdag', 3: 'Onsdag',
-  4: 'Torsdag', 5: 'Fredag', 6: 'Lørdag',
+  0: 'SÃ¸ndag', 1: 'Mandag', 2: 'Tirsdag', 3: 'Onsdag',
+  4: 'Torsdag', 5: 'Fredag', 6: 'LÃ¸rdag',
 }
 const NB_MONTHS: Record<number, string> = {
   0: 'januar', 1: 'februar', 2: 'mars', 3: 'april',
@@ -68,15 +68,15 @@ function repeatLabel(r: RepeatFrequency, customDays: number): string {
   if (r === 'daily') return 'Daglig'
   if (r === 'weekly') return 'Ukentlig'
   if (r === 'biweekly') return 'Hver 2. uke'
-  if (r === 'custom') return customDays > 0 ? `Hver ${customDays}. dag` : 'Tilpasset…'
+  if (r === 'custom') return customDays > 0 ? `Hver ${customDays}. dag` : 'Tilpassetâ€¦'
   return 'Ingen'
 }
 
 function reminderLabel(m: number | undefined): string {
   if (m == null) return 'Ingen'
-  if (m < 60) return `${m} min før`
+  if (m < 60) return `${m} min fÃ¸r`
   const hours = m / 60
-  return `${hours} t før`
+  return `${hours} t fÃ¸r`
 }
 
 function Dropdown({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
@@ -213,23 +213,23 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
       return
     }
     if (!isAllDay && (!start || !end || start === end)) {
-      setError('Starttid og sluttid kan ikke være like.')
+      setError('Starttid og sluttid kan ikke vÃ¦re like.')
       return
     }
     if (allDayEndDate && allDayEndDate < date) {
-      setError('Sluttdato kan ikke være før startdato.')
+      setError('Sluttdato kan ikke vÃ¦re fÃ¸r startdato.')
       return
     }
     if (repeat !== 'none' && endDate && endDate < date) {
-      setError('Sluttdato må være lik eller etter startdato.')
+      setError('Sluttdato mÃ¥ vÃ¦re lik eller etter startdato.')
       return
     }
     if (repeat === 'custom' && customIntervalDays < 1) {
-      setError('Tilpasset intervall må være minst 1 dag.')
+      setError('Tilpasset intervall mÃ¥ vÃ¦re minst 1 dag.')
       return
     }
     if (selectedPersonIds.length === 0) {
-      setError('Velg minst én person.')
+      setError('Velg minst Ã©n person.')
       return
     }
     const primaryPersonId = selectedPersonIds[0]
@@ -360,14 +360,14 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
             onClick={() => { setIsAllDay((v) => !v); setError(null) }}
             className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-[13px] font-medium transition-colors ${
               isAllDay
-                ? 'border-brandTeal/40 bg-brandTeal/8 text-brandNavy'
+                ? 'border-synkaPrimary/40 bg-synkaPrimary/8 text-synkaNavy'
                 : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-100'
             }`}
           >
             <span>Heldagshendelse</span>
             <span
               className={`inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-                isAllDay ? 'bg-brandTeal' : 'bg-zinc-300'
+                isAllDay ? 'bg-synkaPrimary' : 'bg-zinc-300'
               }`}
             >
               <span
@@ -432,7 +432,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
             </svg>
-            {showMore ? 'Skjul ekstradetaljer' : 'Mer (gjentak, påminnelse, transport)'}
+            {showMore ? 'Skjul ekstradetaljer' : 'Mer (gjentak, pÃ¥minnelse, transport)'}
           </button>
 
           {showMore && (
@@ -479,7 +479,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
                         <button
                           type="button"
                           onClick={() => setRepeatOpen(false)}
-                          className="ml-auto rounded-full bg-brandTeal px-3 py-1 text-[12px] font-medium text-white shadow-planner-sm"
+                          className="ml-auto rounded-full bg-synkaPrimary px-3 py-1 text-[12px] font-medium text-white shadow-planner-sm"
                         >
                           Ferdig
                         </button>
@@ -508,7 +508,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
 
               {/* Reminder dropdown */}
               <div className="space-y-1">
-                <label className={inputLabel}>Påminnelse</label>
+                <label className={inputLabel}>PÃ¥minnelse</label>
                 <div className="relative">
                   <button
                     type="button"
@@ -527,12 +527,12 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
                   <Dropdown open={reminderOpen} onClose={() => { setReminderOpen(false); setShowCustomReminder(false) }}>
                     {[
                       { value: undefined as number | undefined, label: 'Ingen' },
-                      { value: 5, label: '5 minutter før' },
-                      { value: 15, label: '15 minutter før' },
-                      { value: 30, label: '30 minutter før' },
-                      { value: 60, label: '1 time før' },
-                      { value: 120, label: '2 timer før' },
-                      { value: 1440, label: '24 timer før' },
+                      { value: 5, label: '5 minutter fÃ¸r' },
+                      { value: 15, label: '15 minutter fÃ¸r' },
+                      { value: 30, label: '30 minutter fÃ¸r' },
+                      { value: 60, label: '1 time fÃ¸r' },
+                      { value: 120, label: '2 timer fÃ¸r' },
+                      { value: 1440, label: '24 timer fÃ¸r' },
                     ].map((opt) => (
                       <DropdownItem
                         key={String(opt.value)}
@@ -543,7 +543,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
                     ))}
                     <DropdownItem
                       key="custom"
-                      label="Tilpasset…"
+                      label="Tilpassetâ€¦"
                       active={false}
                       onClick={() => setShowCustomReminder(true)}
                     />
@@ -557,11 +557,11 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
                           onChange={(e) => setCustomReminderInput(Math.max(1, parseInt(e.target.value) || 1))}
                           className="w-16 rounded-lg border border-zinc-200 px-2 py-1 text-center text-[13px] outline-none focus:border-zinc-400"
                         />
-                        <span className="text-[13px] text-zinc-600">min før</span>
+                        <span className="text-[13px] text-zinc-600">min fÃ¸r</span>
                         <button
                           type="button"
                           onClick={() => { setReminderMinutes(customReminderInput); setShowCustomReminder(false); setReminderOpen(false) }}
-                          className="ml-auto rounded-full bg-brandTeal px-3 py-1 text-[12px] font-medium text-white shadow-planner-sm"
+                          className="ml-auto rounded-full bg-synkaPrimary px-3 py-1 text-[12px] font-medium text-white shadow-planner-sm"
                         >
                           Ferdig
                         </button>
@@ -573,7 +573,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
 
               {reminderMinutes !== undefined && notifPermission !== 'granted' && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12px] text-amber-800">
-                  <p>Påminnelsen virker ikke uten varslingstillatelse.</p>
+                  <p>PÃ¥minnelsen virker ikke uten varslingstillatelse.</p>
                   {notifPermission !== 'denied' && (
                     <button
                       type="button"
@@ -644,7 +644,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
               disabled={saving}
               className={`flex-1 ${btnPrimary}`}
             >
-              {saving ? 'Lagrer…' : 'Legg til'}
+              {saving ? 'Lagrerâ€¦' : 'Legg til'}
             </button>
           </div>
         </form>

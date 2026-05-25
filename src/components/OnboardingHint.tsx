@@ -44,7 +44,7 @@ export function OnboardingHint({ hintId, children, autoDismissMs = 5000 }: Onboa
           aria-live="polite"
         >
           <svg
-            className="mt-0.5 h-4 w-4 shrink-0 text-brandTeal"
+            className="mt-0.5 h-4 w-4 shrink-0 text-synkaPrimary"
             fill="none"
             viewBox="0 0 24 24"
             strokeWidth={2}

@@ -103,7 +103,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
         transition={springDialog}
         role="dialog"
         aria-modal="true"
-        aria-label={isEdit ? 'Rediger gjøremål' : 'Nytt gjøremål'}
+        aria-label={isEdit ? 'Rediger gjÃ¸remÃ¥l' : 'Nytt gjÃ¸remÃ¥l'}
       >
         <div className={`${sheetHandle} relative`}>
           <div className={sheetHandleBar} aria-hidden />
@@ -120,7 +120,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
         </div>
 
         <form onSubmit={handleSubmit} className={sheetFormBody}>
-          <h2 className={sheetTitle}>{isEdit ? 'Rediger gjøremål' : 'Nytt gjøremål'}</h2>
+          <h2 className={sheetTitle}>{isEdit ? 'Rediger gjÃ¸remÃ¥l' : 'Nytt gjÃ¸remÃ¥l'}</h2>
           <div className="space-y-1.5">
             <label className={inputLabel} htmlFor="task-title">Tittel *</label>
             <input
@@ -129,7 +129,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Hva skal gjøres?"
+              placeholder="Hva skal gjÃ¸res?"
               required
               className={inputBase}
             />
@@ -236,7 +236,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
                   id="task-notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Valgfritt…"
+                  placeholder="Valgfrittâ€¦"
                   rows={3}
                   className={textareaBase}
                 />
@@ -247,7 +247,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
                   htmlFor="task-month-view"
                   className={`flex-1 cursor-pointer select-none ${inputLabel}`}
                 >
-                  Vis i månedsoversikt
+                  Vis i mÃ¥nedsoversikt
                 </label>
                 <button
                   id="task-month-view"
@@ -255,8 +255,8 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
                   role="switch"
                   aria-checked={showInMonthView}
                   onClick={() => setShowInMonthView((v) => !v)}
-                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brandTeal/50 ${
-                    showInMonthView ? 'bg-brandTeal' : 'bg-zinc-300'
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-synkaPrimary/50 ${
+                    showInMonthView ? 'bg-synkaPrimary' : 'bg-zinc-300'
                   }`}
                 >
                   <span
@@ -284,7 +284,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
               Avbryt
             </button>
             <button type="submit" disabled={!title.trim() || saving} className={`flex-1 ${btnPrimary}`}>
-              {saving ? 'Lagrer…' : isEdit ? 'Lagre endringer' : 'Legg til gjøremål'}
+              {saving ? 'Lagrerâ€¦' : isEdit ? 'Lagre endringer' : 'Legg til gjÃ¸remÃ¥l'}
             </button>
           </div>
         </form>

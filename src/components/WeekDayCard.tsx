@@ -25,9 +25,9 @@ export function WeekDayCard({ day, isSelected, onSelect, variants, openTaskCount
       variants={variants}
       className={`relative flex min-h-[44px] min-w-0 flex-1 basis-0 flex-col items-center justify-center rounded-card border-2 py-2 touch-manipulation transition-shadow ${
         isSelected
-          ? 'border-brandNavy bg-brandSky shadow-planner'
+          ? 'border-synkaNavy bg-synkaCream shadow-planner'
           : isToday
-            ? 'border-brandTeal/30 bg-brandTeal/8'
+            ? 'border-synkaPrimary/30 bg-synkaPrimary/8'
             : 'border-transparent bg-transparent'
       }`}
       whileTap={{ scale: 0.98, transition: springSnappy }}
@@ -36,14 +36,14 @@ export function WeekDayCard({ day, isSelected, onSelect, variants, openTaskCount
     >
       <span
         className={`text-caption font-medium uppercase tracking-wide ${
-          isSelected ? 'text-zinc-600' : isToday ? 'text-brandTeal' : 'text-zinc-400'
+          isSelected ? 'text-zinc-600' : isToday ? 'text-synkaPrimary' : 'text-zinc-400'
         }`}
       >
         {day.dayAbbr}
       </span>
       <span
         className={`font-display mt-0.5 text-heading font-semibold ${
-          isSelected ? 'text-brandNavy' : isToday ? 'text-brandTeal' : 'text-zinc-500'
+          isSelected ? 'text-synkaNavy' : isToday ? 'text-synkaPrimary' : 'text-zinc-500'
         }`}
       >
         {dateNum}
@@ -67,7 +67,7 @@ export function WeekDayCard({ day, isSelected, onSelect, variants, openTaskCount
         {openTaskCount > 0 && (
           <span
             className="h-1.5 w-1.5 rounded-sm bg-amber-400"
-            title="Gjøremål"
+            title="GjÃ¸remÃ¥l"
             aria-hidden
           />
         )}

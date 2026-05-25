@@ -14,9 +14,9 @@ import {
 
 function reminderLabel(m: number | undefined): string {
   if (m == null) return 'Ingen'
-  if (m < 60) return `${m} min før`
+  if (m < 60) return `${m} min fÃ¸r`
   const hours = m / 60
-  return `${hours} t før`
+  return `${hours} t fÃ¸r`
 }
 
 function ReminderDropdown({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
@@ -67,7 +67,7 @@ function ReminderDropdownField({ reminderMinutes, setReminderMinutes }: { remind
   const [customMinutes, setCustomMinutes] = useState(60)
   return (
     <div className="space-y-1">
-      <label className={inputLabel}>Påminnelse</label>
+      <label className={inputLabel}>PÃ¥minnelse</label>
       <div className="relative">
         <button
           type="button"
@@ -86,12 +86,12 @@ function ReminderDropdownField({ reminderMinutes, setReminderMinutes }: { remind
         <ReminderDropdown open={open} onClose={() => { setOpen(false); setShowCustom(false) }}>
           {[
             { value: undefined as number | undefined, label: 'Ingen' },
-            { value: 5, label: '5 minutter før' },
-            { value: 15, label: '15 minutter før' },
-            { value: 30, label: '30 minutter før' },
-            { value: 60, label: '1 time før' },
-            { value: 120, label: '2 timer før' },
-            { value: 1440, label: '24 timer før' },
+            { value: 5, label: '5 minutter fÃ¸r' },
+            { value: 15, label: '15 minutter fÃ¸r' },
+            { value: 30, label: '30 minutter fÃ¸r' },
+            { value: 60, label: '1 time fÃ¸r' },
+            { value: 120, label: '2 timer fÃ¸r' },
+            { value: 1440, label: '24 timer fÃ¸r' },
           ].map((opt) => (
             <DropdownItem
               key={String(opt.value)}
@@ -102,7 +102,7 @@ function ReminderDropdownField({ reminderMinutes, setReminderMinutes }: { remind
           ))}
           <DropdownItem
             key="custom"
-            label="Tilpasset…"
+            label="Tilpassetâ€¦"
             active={false}
             onClick={() => setShowCustom(true)}
           />
@@ -116,11 +116,11 @@ function ReminderDropdownField({ reminderMinutes, setReminderMinutes }: { remind
                 onChange={(e) => setCustomMinutes(Math.max(1, parseInt(e.target.value) || 1))}
                 className="w-16 rounded-lg border border-zinc-200 px-2 py-1 text-center text-[13px] outline-none focus:border-zinc-400"
               />
-              <span className="text-[13px] text-zinc-600">min før</span>
+              <span className="text-[13px] text-zinc-600">min fÃ¸r</span>
               <button
                 type="button"
                 onClick={() => { setReminderMinutes(customMinutes); setShowCustom(false); setOpen(false) }}
-                className="ml-auto rounded-full bg-brandTeal px-3 py-1 text-[12px] font-medium text-white shadow-planner-sm"
+                className="ml-auto rounded-full bg-synkaPrimary px-3 py-1 text-[12px] font-medium text-white shadow-planner-sm"
               >
                 Ferdig
               </button>
@@ -271,7 +271,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
       return
     }
     if (!isAllDay && (!start || !end || start === end)) {
-      setError('Starttid og sluttid kan ikke være like.')
+      setError('Starttid og sluttid kan ikke vÃ¦re like.')
       return
     }
     if (!eventDate) {
@@ -279,7 +279,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
       return
     }
     if (selectedPersonIds.length === 0) {
-      setError('Velg minst én person.')
+      setError('Velg minst Ã©n person.')
       return
     }
     setSaving(true)
@@ -431,14 +431,14 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
             onClick={() => { setIsAllDay((v) => !v); setError(null) }}
             className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-[13px] font-medium transition-colors ${
               isAllDay
-                ? 'border-brandTeal/40 bg-brandTeal/8 text-brandNavy'
+                ? 'border-synkaPrimary/40 bg-synkaPrimary/8 text-synkaNavy'
                 : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-100'
             }`}
           >
             <span>Heldagshendelse</span>
             <span
               className={`inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-                isAllDay ? 'bg-brandTeal' : 'bg-zinc-300'
+                isAllDay ? 'bg-synkaPrimary' : 'bg-zinc-300'
               }`}
             >
               <span
@@ -503,7 +503,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
             </svg>
-            {showMore ? 'Skjul detaljer' : 'Mer detaljer (sted, notater, påminnelse, transport)'}
+            {showMore ? 'Skjul detaljer' : 'Mer detaljer (sted, notater, pÃ¥minnelse, transport)'}
           </button>
 
           {showMore && (
@@ -597,7 +597,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
               Avbryt
             </button>
             <button type="submit" disabled={saving} className={`flex-1 ${btnPrimary}`}>
-              {saving ? 'Lagrer…' : 'Lagre'}
+              {saving ? 'Lagrerâ€¦' : 'Lagre'}
             </button>
           </div>
         </form>

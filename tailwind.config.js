@@ -4,25 +4,28 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Person-coded: tint (bg) and accent (border/active)
-        emma: { tint: '#dcfce7', accent: '#16a34a' }, // fresh green
-        leo: { tint: '#fef9c3', accent: '#ca8a04' }, // warm amber
-        mom: { tint: '#fef2f2', accent: '#e11d48' }, // soft rose
-        dad: { tint: '#ffedd5', accent: '#ea580c' }, // orange
-        family: { tint: '#f5f5f4', accent: '#57534e' }, // warm neutral
-        // Brand palette (non‑blue, warm neutrals)
-        brandSky: '#f0fdf4',      // light teal-green (green-50)
-        brandSkyDeep: '#dcfce7',  // deeper teal-green (green-100)
-        brandTeal: '#1aab50',     // green accent — toned from green-500 for calmer feel
-        brandNavy: '#292524',     // dark warm neutral
-        brandSun: '#facc15',
+        // Person-coded: tints of Synka brand palette
+        emma: { tint: '#c8ecea', accent: '#166b4f' }, // synkaTealLight / synkaPrimary
+        leo:  { tint: '#fef9d4', accent: '#c9920a' }, // yellow tint / amber
+        mom:  { tint: '#fce8e2', accent: '#e05a3a' }, // coral tint / synkaCoral
+        dad:  { tint: '#d4ede8', accent: '#0f4d38' }, // teal tint / synkaPrimaryDark
+        family: { tint: '#faf0e4', accent: '#6b5a45' }, // synkaCream / warm brown
+        // Synka brand palette
+        synkaPrimary:     '#166b4f',
+        synkaPrimaryDark: '#0f4d38',
+        synkaTeal:        '#7bc7c4',
+        synkaTealLight:   '#c8ecea',
+        synkaYellow:      '#f5c842',
+        synkaCream:       '#faf0e4',
+        synkaCreamDeep:   '#f5ebe0',
+        synkaNavy:        '#0f1e2b',
+        synkaCoral:       '#e05a3a',
         // RGB triplets in index.css so `bg-surface/95` etc. work with time-of-day tint
         surface: 'rgb(var(--color-surface-rgb) / <alpha-value>)',
         muted: '#71717a',
       },
       fontFamily: {
-        sans: ['"Source Sans 3"', 'system-ui', 'sans-serif'],
-        display: ['Literata', 'Georgia', 'serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       fontSize: {

@@ -10,9 +10,9 @@ export function DailyStatusLine({ unresolvedCollisionCount, remainingCount, comp
   const text = buildDailyStatusText(unresolvedCollisionCount, remainingCount)
 
   return (
-    <div className="mx-4 mt-2 rounded-full bg-brandNavy/5 px-3 py-1.5 text-[12px] font-medium text-brandNavy">
+    <div className="mx-4 mt-2 rounded-full bg-synkaNavy/5 px-3 py-1.5 text-[12px] font-medium text-synkaNavy">
       {text}
-      {completedCount > 0 ? ` · ${completedCount} ferdige` : ''}
+      {completedCount > 0 ? ` Â· ${completedCount} ferdige` : ''}
     </div>
   )
 }

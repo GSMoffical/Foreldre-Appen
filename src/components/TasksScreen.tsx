@@ -7,11 +7,11 @@ import type { WeekDayLayout } from '../hooks/useScheduleState'
 import { useFamily } from '../context/FamilyContext'
 import { todayKeyOslo } from '../lib/osloCalendar'
 
-// ── Date helpers ───────────────────────────────────────────────────────────────
+// â”€â”€ Date helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const NB_DAYS: Record<number, string> = {
-  0: 'Søndag', 1: 'Mandag', 2: 'Tirsdag', 3: 'Onsdag',
-  4: 'Torsdag', 5: 'Fredag', 6: 'Lørdag',
+  0: 'SÃ¸ndag', 1: 'Mandag', 2: 'Tirsdag', 3: 'Onsdag',
+  4: 'Torsdag', 5: 'Fredag', 6: 'LÃ¸rdag',
 }
 
 function formatDayLabel(dateKey: string): string {
@@ -19,7 +19,7 @@ function formatDayLabel(dateKey: string): string {
   return `${NB_DAYS[d.getDay()] ?? ''} ${d.getDate()}.`
 }
 
-// ── Public interface (unchanged) ───────────────────────────────────────────────
+// â”€â”€ Public interface (unchanged) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface InboxNotification {
   id: string
@@ -45,7 +45,7 @@ export interface TasksScreenProps {
   onDismissNotification?: (id: string) => void
 }
 
-// ── Internal types ─────────────────────────────────────────────────────────────
+// â”€â”€ Internal types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface DayGroup {
   date: string
@@ -67,7 +67,7 @@ interface TaskItemProps {
   onNotify?: () => void
 }
 
-// ── Micro icon components (keeps JSX readable) ─────────────────────────────────
+// â”€â”€ Micro icon components (keeps JSX readable) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function PencilIcon() {
   return (
@@ -93,7 +93,7 @@ function BellIcon() {
   )
 }
 
-// ── Task card ──────────────────────────────────────────────────────────────────
+// â”€â”€ Task card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function TaskItem({ task, child, assignee, onComplete, onUndoComplete, onEdit, onDelete, onNotify }: TaskItemProps) {
   const isDone = !!task.completedAt
@@ -130,7 +130,7 @@ function TaskItem({ task, child, assignee, onComplete, onUndoComplete, onEdit, o
             </svg>
           </div>
         ) : (
-          <div className="h-5 w-5 rounded-full border-2 border-zinc-300 transition-colors hover:border-brandTeal" />
+          <div className="h-5 w-5 rounded-full border-2 border-zinc-300 transition-colors hover:border-synkaPrimary" />
         )}
       </button>
 
@@ -155,7 +155,7 @@ function TaskItem({ task, child, assignee, onComplete, onUndoComplete, onEdit, o
           ) : null}
         </div>
 
-        {/* Metadata row — only on open tasks */}
+        {/* Metadata row â€” only on open tasks */}
         {!isDone && (task.dueTime || primaryPerson) && (
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
             {task.dueTime && (
@@ -174,7 +174,7 @@ function TaskItem({ task, child, assignee, onComplete, onUndoComplete, onEdit, o
                 />
                 <span className="text-[12px] text-zinc-500">{primaryPerson.name}</span>
                 {showSecondPerson && (
-                  <span className="text-[12px] text-zinc-400">→ {assignee!.name}</span>
+                  <span className="text-[12px] text-zinc-400">â†’ {assignee!.name}</span>
                 )}
               </span>
             )}
@@ -188,15 +188,15 @@ function TaskItem({ task, child, assignee, onComplete, onUndoComplete, onEdit, o
         )}
       </div>
 
-      {/* Icon action buttons — less visual noise than text chips */}
+      {/* Icon action buttons â€” less visual noise than text chips */}
       <div className="flex shrink-0 items-center gap-0.5">
         {!isDone && onNotify && (
           <button
             type="button"
             onClick={onNotify}
-            className="rounded-xl p-1.5 text-zinc-300 transition hover:bg-zinc-100 hover:text-brandTeal"
+            className="rounded-xl p-1.5 text-zinc-300 transition hover:bg-zinc-100 hover:text-synkaPrimary"
             aria-label="Varsle partner"
-            title="Varsle partner om gjøremålet"
+            title="Varsle partner om gjÃ¸remÃ¥let"
           >
             <BellIcon />
           </button>
@@ -224,12 +224,12 @@ function TaskItem({ task, child, assignee, onComplete, onUndoComplete, onEdit, o
   )
 }
 
-// ── Section header variants ────────────────────────────────────────────────────
+// â”€â”€ Section header variants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
- * overdue — rose accent, communicates urgency
- * today   — teal accent, communicates currency
- * neutral — plain zinc, used for upcoming day labels
+ * overdue â€” rose accent, communicates urgency
+ * today   â€” teal accent, communicates currency
+ * neutral â€” plain zinc, used for upcoming day labels
  */
 function SectionLabel({
   label,
@@ -243,8 +243,8 @@ function SectionLabel({
   if (variant === 'neutral') {
     return <h3 className={`mb-3 ${typSectionCap}`}>{label}</h3>
   }
-  const dot = variant === 'overdue' ? 'bg-rose-500' : 'bg-brandTeal'
-  const text = variant === 'overdue' ? 'text-rose-600' : 'text-brandTeal'
+  const dot = variant === 'overdue' ? 'bg-rose-500' : 'bg-synkaPrimary'
+  const text = variant === 'overdue' ? 'text-rose-600' : 'text-synkaPrimary'
   return (
     <div className="mb-3 flex items-center gap-2">
       <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
@@ -254,12 +254,12 @@ function SectionLabel({
   )
 }
 
-// ── Relative time helper ──────────────────────────────────────────────────────
+// â”€â”€ Relative time helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function formatRelativeTime(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime()
   const minutes = Math.floor(diff / 60_000)
-  if (minutes < 1) return 'Nå nettopp'
+  if (minutes < 1) return 'NÃ¥ nettopp'
   if (minutes < 60) return `${minutes} min siden`
   const hours = Math.floor(minutes / 60)
   if (hours < 24) return `${hours} t siden`
@@ -267,7 +267,7 @@ function formatRelativeTime(isoString: string): string {
   return `${days} d siden`
 }
 
-// ── Notification inbox strip ───────────────────────────────────────────────────
+// â”€â”€ Notification inbox strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface NotificationStripProps {
   notifications: InboxNotification[]
@@ -300,18 +300,18 @@ function NotificationStrip({ notifications, onMarkAllRead, onDismiss }: Notifica
       <button
         type="button"
         onClick={handleExpand}
-        className="mx-4 mb-3 flex w-[calc(100%-2rem)] items-center gap-2 rounded-xl border border-brandTeal/30 bg-brandTeal/8 px-3 py-2 text-left transition hover:bg-brandTeal/15"
-        aria-label={`${notifications.length} uleste partnervarsler. Trykk for å vise.`}
+        className="mx-4 mb-3 flex w-[calc(100%-2rem)] items-center gap-2 rounded-xl border border-synkaPrimary/30 bg-synkaPrimary/8 px-3 py-2 text-left transition hover:bg-synkaPrimary/15"
+        aria-label={`${notifications.length} uleste partnervarsler. Trykk for Ã¥ vise.`}
       >
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brandTeal text-white">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-synkaPrimary text-white">
           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
           </svg>
         </span>
-        <span className="flex-1 text-[13px] font-medium text-brandTeal">
+        <span className="flex-1 text-[13px] font-medium text-synkaPrimary">
           {notifications.length === 1 ? '1 nytt varsel' : `${notifications.length} nye varsler`} fra din partner
         </span>
-        <svg className="h-4 w-4 shrink-0 text-brandTeal/60" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+        <svg className="h-4 w-4 shrink-0 text-synkaPrimary/60" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
         </svg>
       </button>
@@ -319,9 +319,9 @@ function NotificationStrip({ notifications, onMarkAllRead, onDismiss }: Notifica
   }
 
   return (
-    <div className="mx-4 mb-3 overflow-hidden rounded-xl border border-brandTeal/20 bg-brandTeal/8">
+    <div className="mx-4 mb-3 overflow-hidden rounded-xl border border-synkaPrimary/20 bg-synkaPrimary/8">
       <div className="flex items-center justify-between px-3 py-2">
-        <span className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-brandTeal">
+        <span className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-synkaPrimary">
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
           </svg>
@@ -339,7 +339,7 @@ function NotificationStrip({ notifications, onMarkAllRead, onDismiss }: Notifica
       {snapshot.length === 0 ? (
         <p className="px-3 pb-3 text-[13px] text-zinc-400">Ingen varsler</p>
       ) : (
-        <div className="divide-y divide-brandTeal/10">
+        <div className="divide-y divide-synkaPrimary/10">
           {snapshot.map((n) => (
             <div key={n.id} className="flex items-start gap-2 px-3 py-2">
               <p className="min-w-0 flex-1 text-[13px] leading-snug text-zinc-700">{n.body}</p>
@@ -364,7 +364,7 @@ function NotificationStrip({ notifications, onMarkAllRead, onDismiss }: Notifica
   )
 }
 
-// ── Main screen ────────────────────────────────────────────────────────────────
+// â”€â”€ Main screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const OVERDUE_RECENT_DAYS = 7
 
@@ -465,19 +465,19 @@ export function TasksScreen({
   return (
     <div className="mt-3 flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden pb-4">
       <OnboardingHint hintId="tasks_page">
-        Her samles alle gjøremålene dine for uken. Merk dem ferdige direkte i listen. Bruk «+ Nytt gjøremål» for å legge til nye.
+        Her samles alle gjÃ¸remÃ¥lene dine for uken. Merk dem ferdige direkte i listen. Bruk Â«+ Nytt gjÃ¸remÃ¥lÂ» for Ã¥ legge til nye.
       </OnboardingHint>
 
       <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto scrollbar-none">
         {/* Screen header */}
         <div className={screenHeaderRow}>
-          <h2 className={typHeading}>Gjøremål</h2>
+          <h2 className={typHeading}>GjÃ¸remÃ¥l</h2>
           <button type="button" onClick={openAddTask} className={btnPrimaryPill}>
-            + Nytt gjøremål
+            + Nytt gjÃ¸remÃ¥l
           </button>
         </div>
 
-        {/* Notification inbox strip — only visible when there are unread notifications */}
+        {/* Notification inbox strip â€” only visible when there are unread notifications */}
         {inboxNotifications.length > 0 && onMarkInboxRead && onDismissNotification && (
           <NotificationStrip
             notifications={inboxNotifications}
@@ -487,7 +487,7 @@ export function TasksScreen({
         )}
 
         {!hasAnything ? (
-          /* ── Empty state ──────────────────────────────────────────────────── */
+          /* â”€â”€ Empty state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
           <div className="flex flex-col items-center px-6 py-16 text-center">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100">
               <svg
@@ -504,19 +504,19 @@ export function TasksScreen({
                 />
               </svg>
             </div>
-            <h3 className="text-[16px] font-semibold text-zinc-700">Ingen gjøremål denne uken</h3>
+            <h3 className="text-[16px] font-semibold text-zinc-700">Ingen gjÃ¸remÃ¥l denne uken</h3>
             <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-400">
-              Legg til noe du trenger å huske på.
+              Legg til noe du trenger Ã¥ huske pÃ¥.
             </p>
             <button type="button" onClick={openAddTask} className={`mt-5 ${btnPrimaryPill}`}>
-              + Nytt gjøremål
+              + Nytt gjÃ¸remÃ¥l
             </button>
           </div>
         ) : (
-          /* ── Task sections ────────────────────────────────────────────────── */
+          /* â”€â”€ Task sections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
           <div className="space-y-6 px-4 pb-2">
 
-            {/* Forfalt — past days with open tasks, capped to last 7 days by default */}
+            {/* Forfalt â€” past days with open tasks, capped to last 7 days by default */}
             {overdueGroups.length > 0 && (() => {
               const cutoff = new Date(today)
               cutoff.setDate(cutoff.getDate() - OVERDUE_RECENT_DAYS)
@@ -585,7 +585,7 @@ export function TasksScreen({
               </section>
             )}
 
-            {/* Kommende — one section per future day */}
+            {/* Kommende â€” one section per future day */}
             {upcomingGroups.map((group) => (
               <section key={group.date}>
                 <SectionLabel label={group.label} variant="neutral" />
@@ -593,7 +593,7 @@ export function TasksScreen({
               </section>
             ))}
 
-            {/* Ferdige — collapsed by default */}
+            {/* Ferdige â€” collapsed by default */}
             {allCompleted.length > 0 && (
               <section className={hasOpenTasks ? 'border-t border-zinc-100 pt-5' : ''}>
                 <button

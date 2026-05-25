@@ -45,7 +45,7 @@ export function TodayActionStrip({
   const [showConflictHelp, setShowConflictHelp] = useState(false)
 
   return (
-    <div className="mx-4 mt-2 rounded-card border border-brandNavy/10 bg-white px-3.5 py-3 shadow-soft md:px-4 md:py-3.5">
+    <div className="mx-4 mt-2 rounded-card border border-synkaNavy/10 bg-white px-3.5 py-3 shadow-soft md:px-4 md:py-3.5">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 md:text-[12px]">I dag</p>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -96,7 +96,7 @@ export function TodayActionStrip({
             <p className="text-[14px] font-semibold text-zinc-900 md:text-[15px]">{nextEvent?.title}</p>
             <p className="mt-0.5 text-[12px] text-zinc-600 md:text-[13px]">
               {formatTimeRange(nextEvent!.start, nextEvent!.end)}
-              {who !== 'Ukjent' ? ` · ${who}` : ''}
+              {who !== 'Ukjent' ? ` Â· ${who}` : ''}
             </p>
           </button>
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -141,7 +141,7 @@ export function TodayActionStrip({
           )}
         </>
       ) : (
-        <p className="mt-1 text-[12px] text-zinc-600">Ingen neste hendelse akkurat nå.</p>
+        <p className="mt-1 text-[12px] text-zinc-600">Ingen neste hendelse akkurat nÃ¥.</p>
       )}
     </div>
   )

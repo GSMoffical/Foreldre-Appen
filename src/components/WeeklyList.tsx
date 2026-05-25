@@ -51,7 +51,7 @@ export function WeeklyList({ weekLayoutData, onSelectEvent, onDeleteEvent, onAdd
                         type="button"
                         onClick={() => onAddEventForDay(day.date)}
                         aria-label={`Legg til hendelse ${day.dayLabel}`}
-                        className="flex h-6 w-6 items-center justify-center rounded-full text-[18px] font-light leading-none text-zinc-400 transition hover:bg-brandTeal/10 hover:text-brandTeal"
+                        className="flex h-6 w-6 items-center justify-center rounded-full text-[18px] font-light leading-none text-zinc-400 transition hover:bg-synkaPrimary/10 hover:text-synkaPrimary"
                       >
                         +
                       </button>
@@ -112,7 +112,7 @@ export function WeeklyList({ weekLayoutData, onSelectEvent, onDeleteEvent, onAdd
                                 {formatCalendarEventTimeLabel(e)}
                               </span>
                               {namesLine !== 'Ukjent' && (
-                                <span className="text-[11px] font-medium text-zinc-500">· {namesLine}</span>
+                                <span className="text-[11px] font-medium text-zinc-500">Â· {namesLine}</span>
                               )}
                               {e.location && (
                                 <span className="text-[12px] text-zinc-600">

@@ -91,12 +91,12 @@ export function UndoProvider({ children }: { children: ReactNode }) {
               bottom: 'calc(72px + env(safe-area-inset-bottom, 0px))',
             }}
           >
-            <div className="pointer-events-auto flex w-full max-w-[390px] items-center justify-between gap-3 rounded-2xl border-2 border-brandNavy/20 bg-brandNavy px-3 py-2.5 text-white shadow-planner">
+            <div className="pointer-events-auto flex w-full max-w-[390px] items-center justify-between gap-3 rounded-2xl border-2 border-synkaNavy/20 bg-synkaNavy px-3 py-2.5 text-white shadow-planner">
               <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug">{payload.message}</p>
               <button
                 type="button"
                 onClick={() => void runUndo()}
-                className="shrink-0 rounded-full bg-white px-3 py-1.5 text-[13px] font-semibold text-brandNavy shadow-sm transition hover:bg-brandSky focus:outline-none focus:ring-2 focus:ring-brandSky focus:ring-offset-2 focus:ring-offset-brandNavy"
+                className="shrink-0 rounded-full bg-white px-3 py-1.5 text-[13px] font-semibold text-synkaNavy shadow-sm transition hover:bg-synkaCream focus:outline-none focus:ring-2 focus:ring-synkaCream focus:ring-offset-2 focus:ring-offset-synkaNavy"
               >
                 Angre
               </button>
@@ -120,7 +120,7 @@ export function UndoProvider({ children }: { children: ReactNode }) {
             }}
           >
             <div className="pointer-events-none flex w-full max-w-[390px] items-center gap-3 rounded-2xl border-2 border-rose-400/30 bg-rose-600 px-3 py-2.5 text-white shadow-planner">
-              <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug">Angre mislyktes — prøv igjen.</p>
+              <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug">Angre mislyktes â€” prÃ¸v igjen.</p>
             </div>
           </motion.div>
         )}

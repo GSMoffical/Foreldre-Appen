@@ -17,7 +17,7 @@ const base =
 
 const variants: Record<ButtonVariant, string> = {
   primary:
-    'bg-brandTeal text-white shadow-planner-sm hover:brightness-95 active:shadow-planner-press focus:ring-brandTeal/40',
+    'bg-synkaPrimary text-white shadow-planner-sm hover:brightness-95 active:shadow-planner-press focus:ring-synkaPrimary/40',
   secondary:
     'border border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 active:bg-zinc-100 focus:ring-zinc-300/60',
   danger:

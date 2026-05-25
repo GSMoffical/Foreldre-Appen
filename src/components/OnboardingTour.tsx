@@ -13,16 +13,16 @@ interface OnboardingTourProps {
 const RING_PAD = 8
 /** Distance of the hint card from the top of the viewport when placed at top (px) */
 const CARD_TOP_OFFSET = 16
-/** Distance of the hint card from the bottom of the viewport — must clear the 72 px BottomNav (px) */
+/** Distance of the hint card from the bottom of the viewport â€” must clear the 72 px BottomNav (px) */
 const CARD_BOTTOM_OFFSET = 88
-/** Screen-height fraction above which a ring is considered "in the lower half" (0–1) */
+/** Screen-height fraction above which a ring is considered "in the lower half" (0â€“1) */
 const LOWER_HALF_THRESHOLD = 0.52
 /** Estimated card height used to vertically center the card (px) */
 const CARD_ESTIMATED_HEIGHT = 272
 
 /**
  * Measures the bounding rect of a DOM element by ID.
- * Retries via requestAnimationFrame (up to ~25 frames ≈ 400 ms) so elements
+ * Retries via requestAnimationFrame (up to ~25 frames â‰ˆ 400 ms) so elements
  * that are freshly mounted (e.g. after a tab navigation) are reliably found.
  */
 function useRingRect(targetId: string | null) {
@@ -103,9 +103,9 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
 
   /**
    * Card placement priority:
-   * 1. Explicit step.cardPlacement — evaluated on first render, no flash.
-   * 2. Measurement heuristic — ring center below LOWER_HALF_THRESHOLD → top.
-   * 3. Default — bottom (card sits above BottomNav).
+   * 1. Explicit step.cardPlacement â€” evaluated on first render, no flash.
+   * 2. Measurement heuristic â€” ring center below LOWER_HALF_THRESHOLD â†’ top.
+   * 3. Default â€” bottom (card sits above BottomNav).
    */
   const ringCenterY = ringRect ? ringRect.top + ringRect.height / 2 : 0
   const screenH = typeof window !== 'undefined' ? window.innerHeight : 800
@@ -127,7 +127,7 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
 
   return (
     <>
-      {/* Transparent click-blocker — prevents interaction with the app during the tour */}
+      {/* Transparent click-blocker â€” prevents interaction with the app during the tour */}
       <div className="fixed inset-0 z-[90] pointer-events-auto" aria-hidden />
 
       {/* Spotlight ring.
@@ -148,11 +148,11 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
           aria-hidden
         />
       ) : (
-        /* No target element — fall back to a plain full-screen dim */
+        /* No target element â€” fall back to a plain full-screen dim */
         <div className="pointer-events-none fixed inset-0 z-[91] bg-black/45" aria-hidden />
       )}
 
-      {/* Demo block — shown on move-blocks step so users have a concrete block to look at */}
+      {/* Demo block â€” shown on move-blocks step so users have a concrete block to look at */}
       {step.id === 'move-blocks' && ringRect && (
         <div
           aria-hidden
@@ -171,7 +171,7 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
             <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgb(59 207 197)' }}>Eksempel</p>
             <div className="flex items-center justify-between gap-2">
               <p className="truncate text-[13px] font-semibold text-zinc-900">Fotball trening</p>
-              <p className="shrink-0 text-[11px] tabular-nums text-zinc-500">15:00–16:30</p>
+              <p className="shrink-0 text-[11px] tabular-nums text-zinc-500">15:00â€“16:30</p>
             </div>
             {/* Drag handle */}
             <div className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-white/50 bg-white/70 shadow-sm">
@@ -202,7 +202,7 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
           aria-label={step.title}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-brandTeal">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-synkaPrimary">
               {currentStepIndex + 1} / {tourSteps.length}
             </span>
             <button
@@ -223,16 +223,16 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
               onClick={enableExtraTips}
               className="mt-3 w-full rounded-xl border border-zinc-200 bg-white py-2 text-[13px] font-medium text-zinc-700 transition hover:bg-zinc-50 active:translate-y-px"
             >
-              Lær mer (ekstra tips)
+              LÃ¦r mer (ekstra tips)
             </button>
           )}
 
           <button
             type="button"
             onClick={advance}
-            className="mt-3 w-full rounded-xl bg-brandTeal py-2.5 text-[14px] font-semibold text-white shadow-planner transition hover:brightness-95 active:translate-y-px"
+            className="mt-3 w-full rounded-xl bg-synkaPrimary py-2.5 text-[14px] font-semibold text-white shadow-planner transition hover:brightness-95 active:translate-y-px"
           >
-            {isLast ? 'Ferdig! 🎉' : 'Neste →'}
+            {isLast ? 'Ferdig! ðŸŽ‰' : 'Neste â†’'}
           </button>
 
           {/* Step progress dots */}
@@ -241,7 +241,7 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
               <div
                 key={i}
                 className={`h-1.5 rounded-full transition-all duration-200 ${
-                  i === currentStepIndex ? 'w-5 bg-brandTeal' : 'w-1.5 bg-zinc-200'
+                  i === currentStepIndex ? 'w-5 bg-synkaPrimary' : 'w-1.5 bg-zinc-200'
                 }`}
               />
             ))}

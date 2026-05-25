@@ -38,16 +38,16 @@ export function WorkProfileFields({ value, onChange }: WorkProfileFieldsProps) {
     <div className="space-y-3 rounded-xl border border-zinc-200 bg-white/80 px-3 py-3">
       <p className="text-[12px] font-medium text-zinc-800">Arbeidstid (bakgrunn i ukesvisning)</p>
       <p className="text-[11px] leading-relaxed text-zinc-600">
-        Vises svakt bak møter og andre avtaler. Enkel mal — tilpass etter behov.
+        Vises svakt bak mÃ¸ter og andre avtaler. Enkel mal â€” tilpass etter behov.
       </p>
       {!enabled ? (
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={applyStandardWeek}
-            className="rounded-full bg-brandSky px-3 py-1.5 text-[12px] font-medium text-brandNavy"
+            className="rounded-full bg-synkaCream px-3 py-1.5 text-[12px] font-medium text-synkaNavy"
           >
-            Bruk 09:00–17:00 man–fre
+            Bruk 09:00â€“17:00 manâ€“fre
           </button>
         </div>
       ) : (
@@ -66,7 +66,7 @@ export function WorkProfileFields({ value, onChange }: WorkProfileFieldsProps) {
                     }
                     className="rounded-lg border border-zinc-200 px-2 py-1 text-[12px]"
                   />
-                  <span className="text-zinc-400">–</span>
+                  <span className="text-zinc-400">â€“</span>
                   <input
                     type="time"
                     value={row?.end ?? '17:00'}
