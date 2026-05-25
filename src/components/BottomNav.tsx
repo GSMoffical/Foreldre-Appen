@@ -71,7 +71,7 @@ export function BottomNav({ active, onSelect, logisticsNotifyCount = 0, lastCale
                 transition={springSnappy}
               />
             )}
-            <span className="relative z-[40] inline-flex items-center gap-1">
+            <span className={`relative z-[40] inline-flex items-center gap-1${calendarActive ? ' text-white' : ''}`}>
               {calendarActive ? nextViewLabel(currentView) : viewLabel(currentView)}
               <span className="text-[11px] opacity-60" aria-hidden>â†»</span>
             </span>
