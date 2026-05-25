@@ -86,11 +86,6 @@ function isTaskIntent(v: unknown): v is TaskIntent {
   return v === 'must_do' || v === 'can_help'
 }
 
-export function testParseTankestromV2(rawJson: string, people: Person[] = []) {
-  const json = JSON.parse(rawJson)
-  return parseTankestromV2Response(json, people)
-}
-
 export function parseTankestromV2Response(
   json: unknown,
   people: Person[]
@@ -136,7 +131,7 @@ export function parseTankestromV2Response(
         end,
         ...(item.notes?.trim() ? { notes: item.notes.trim() } : {}),
         ...(item.location?.trim() ? { location: item.location.trim() } : {}),
-        ...(item.recurrence?.trim() ? { recurrenceGroupId: item.recurrence.trim() } : {}),
+        ...(typeof item.recurrence === 'string' && item.recurrence.trim() ? { recurrenceGroupId: item.recurrence.trim() } : {}),
       }
       events.push({ event, date: item.date.trim(), confidence })
     } else if (item.kind === 'task') {

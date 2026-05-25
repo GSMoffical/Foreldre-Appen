@@ -2489,7 +2489,15 @@ function v2ToSyntheticBundle(
   const importRunId = Math.random().toString(36).slice(2, 10)
   const items: PortalProposalItem[] = []
 
+  const recurrenceKeyToUUID = new Map<string, string>()
   parsed.events.forEach(({ event, date, confidence }, i) => {
+    let resolvedRecurrenceGroupId: string | undefined
+    if (event.recurrenceGroupId) {
+      if (!recurrenceKeyToUUID.has(event.recurrenceGroupId)) {
+        recurrenceKeyToUUID.set(event.recurrenceGroupId, crypto.randomUUID())
+      }
+      resolvedRecurrenceGroupId = recurrenceKeyToUUID.get(event.recurrenceGroupId)
+    }
     items.push({
       proposalId: `v2-event-${i}`,
       kind: 'event',
@@ -2504,7 +2512,7 @@ function v2ToSyntheticBundle(
         end: event.end,
         ...(event.notes ? { notes: event.notes } : {}),
         ...(event.location ? { location: event.location } : {}),
-        ...(event.recurrenceGroupId ? { recurrenceGroupId: event.recurrenceGroupId } : {}),
+        ...(resolvedRecurrenceGroupId ? { recurrenceGroupId: resolvedRecurrenceGroupId } : {}),
       },
     } satisfies PortalEventProposal)
   })
