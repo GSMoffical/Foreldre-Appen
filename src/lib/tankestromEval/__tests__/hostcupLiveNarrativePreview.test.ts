@@ -132,21 +132,23 @@ describe('hostcup live narrative — draft/persist bruker canonical tider', () =
       expect(fri.draftStart).not.toBe('10:00')
       expect(fri.draftEnd).toBe('18:45')
       expect(fri.editSeedStart).toBe(fri.draftStart)
-      expect(fri.endTimeProvenance).toBe('local_conservative_fallback')
-      expect(fri.endTimeSource).toBe('fallback_duration')
+      expect(fri.endTimeProvenance).toBe('frontend_canonical_fallback')
+      expect(fri.endTimeSource).toBe('frontend_canonical_fallback')
       expect(fri.draftInferredEndTime).toBe(true)
     })
   })
 
-  it('lørdag: draft start 08:30 med bekreftet eller estimert slutt', () => {
+  it('lørdag: draft start 08:30, estimert slutt 15:55 (siste kamp 14:40 + 75 min)', () => {
     const r = runHostcupLiveNarrativePreviewCase()
     assertLivePreview(r, () => {
       const lor = day(r, '2026-09-19')
       expect(lor.draftStart).toBe('08:30')
       expect(lor.draftStart).not.toBe('10:00')
       expect(lor.editSeedStart).toBe('08:30')
-      expect(lor.draftEnd).toBe('16:00')
-      expect(lor.endTimeProvenance).toBe('source_confirmed_end')
+      expect(lor.draftEnd).toBe('15:55')
+      expect(lor.endTimeProvenance).toBe('frontend_canonical_fallback')
+      expect(lor.endTimeSource).toBe('frontend_canonical_fallback')
+      expect(lor.draftInferredEndTime).toBe(true)
     })
   })
 
@@ -187,6 +189,31 @@ describe('hostcup live narrative — Tankestrom API duration-felt', () => {
       expect(lor.draftEnd).toBe('16:00')
       expect(lor.endTimeProvenance).toBe('source_confirmed_end')
       expect(lor.draftInferredEndTime).toBe(false)
+    })
+  })
+})
+
+describe('hostcup live narrative — frontend fallback uten pålitelig API-slutt', () => {
+  it('importerer med estimert slutt når Tankestrom mangler end/buffer', () => {
+    const r = runHostcupLiveNarrativePreviewCase({
+      analyzeJson: 'hostcup_duration_inference_rich_no_api_end.analyze.json',
+    })
+    assertLivePreview(r, () => {
+      const fri = day(r, '2026-09-18')
+      const lor = day(r, '2026-09-19')
+      const son = day(r, '2026-09-20')
+      expect(fri.draftStart).toBe('16:40')
+      expect(fri.draftEnd).toBe('18:45')
+      expect(fri.endTimeProvenance).toBe('frontend_canonical_fallback')
+      expect(lor.draftStart).toBe('08:30')
+      expect(lor.draftEnd).toBe('15:55')
+      expect(lor.endTimeProvenance).toBe('frontend_canonical_fallback')
+      expect(son.draftStart).toBe('')
+      expect(son.selected).toBe(false)
+      expect(r.embeddedChildSelectedCount).toBe(2)
+      for (const d of [fri, lor]) {
+        expect(d.validationBlockers).not.toContain('missing_end_time')
+      }
     })
   })
 })

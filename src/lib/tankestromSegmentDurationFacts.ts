@@ -33,7 +33,11 @@ export type TankestromSegmentDurationFacts = {
 export type SegmentEndTimeProvenance =
   | 'source_confirmed_end'
   | 'api_inferred_end'
-  | 'local_conservative_fallback'
+  | 'frontend_canonical_fallback'
+
+export const FRONTEND_CANONICAL_FALLBACK_END_SOURCE = 'frontend_canonical_fallback'
+
+const UNTRUSTED_API_END_SOURCES = new Set(['missing_or_unreadable', 'missing', 'layout_only'])
 
 export function readTankestromSegmentDurationFacts(
   segment: EmbeddedScheduleSegment
@@ -116,13 +120,24 @@ function durationMinutesFromTimeComputation(
   return { activity, afterBuffer, end }
 }
 
-function apiHasDurationEvidence(facts: TankestromSegmentDurationFacts): boolean {
-  if (segmentEndTimeSourceIsApiComputed(facts)) return true
-  if (facts.inferredEndTime === true && (facts.activityDurationMinutes != null || facts.timeComputation)) {
+/** Trusted API end: eksplisitt slutt eller computed med buffer-evidence. */
+export function segmentHasTrustedApiEnd(facts: TankestromSegmentDurationFacts): boolean {
+  const src = endTimeSourceNorm(facts)
+  if (UNTRUSTED_API_END_SOURCES.has(src)) return false
+  if (segmentEndTimeSourceIsExplicit(facts) && facts.inferredEndTime !== true) return true
+  if (segmentEndTimeSourceIsApiComputed(facts)) {
+    const tc = durationMinutesFromTimeComputation(facts.timeComputation)
+    const afterBuffer = facts.afterBufferMinutes ?? tc.afterBuffer ?? 0
+    return afterBuffer > 0 || facts.activityDurationMinutes != null || tc.activity != null
+  }
+  if (facts.inferredEndTime === true && facts.activityDurationMinutes != null && facts.afterBufferMinutes != null) {
     return true
   }
-  if (facts.activityDurationMinutes != null && facts.afterBufferMinutes != null) return true
   return false
+}
+
+function apiHasDurationEvidence(facts: TankestromSegmentDurationFacts): boolean {
+  return segmentHasTrustedApiEnd(facts)
 }
 
 function computeEndFromDurationParts(

@@ -5,6 +5,7 @@ import { buildEmbeddedChildCanonicalPreview } from '../tankestromCanonicalPrevie
 import {
   resolveTankestromApiInferredEnd,
   readTankestromSegmentDurationFacts,
+  segmentHasTrustedApiEnd,
 } from '../tankestromSegmentDurationFacts'
 import { normalizeTankestromScheduleDetails } from '../tankestromScheduleDetails'
 
@@ -20,6 +21,19 @@ function minimalPreviewForSegment(
 }
 
 describe('tankestromSegmentDurationFacts', () => {
+  it('computed_from_duration uten buffer er ikke trusted API', () => {
+    const seg: EmbeddedScheduleSegment = {
+      date: '2026-09-19',
+      title: 'Lørdag',
+      start: '08:30',
+      endTimeSource: 'computed_from_duration',
+    }
+    expect(segmentHasTrustedApiEnd(readTankestromSegmentDurationFacts(seg))).toBe(false)
+    expect(
+      resolveTankestromApiInferredEnd(seg, '08:30', { latestConfirmedHighlightHm: '14:40' })
+    ).toBeNull()
+  })
+
   it('leser duration-felt fra segment', () => {
     const seg: EmbeddedScheduleSegment = {
       date: '2026-09-18',
@@ -117,8 +131,8 @@ describe('tankestromSegmentDurationFacts', () => {
     const times = resolveCanonicalEmbeddedChildExportTimes(preview, seg)
     expect(times.start).toBe('16:40')
     expect(times.end).toBe('18:45')
-    expect(times.endTimeProvenance).toBe('local_conservative_fallback')
-    expect(times.endTimeSource).toBe('fallback_duration')
+    expect(times.endTimeProvenance).toBe('frontend_canonical_fallback')
+    expect(times.endTimeSource).toBe('frontend_canonical_fallback')
     expect(times.inferredEndTime).toBe(true)
   })
 })

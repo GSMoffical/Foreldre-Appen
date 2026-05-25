@@ -126,6 +126,7 @@ import {
 const TANKESTROM_IMPORT_PERSIST_DEBUG = isTankestromConsoleDebugEnabled()
 /** Kun informativ i UI — blokkerer ikke import når starttid finnes. */
 export const TANKESTROM_MISSING_END_REVIEW_HINT_NB = 'Sluttid ikke oppgitt – estimert ved import.'
+export const TANKESTROM_ESTIMATED_END_REVIEW_HINT_NB = 'Sluttid estimert'
 const INFERRED_END_SLOT_MINUTES = 60
 const DATE_ONLY_FALLBACK_START = '09:00'
 const DATE_ONLY_FALLBACK_END = '09:30'
@@ -1871,11 +1872,22 @@ function applyEmbeddedScheduleExportTimeMetadata(
     typeof ex.endTimeSource === 'string' && ex.endTimeSource.trim()
       ? ex.endTimeSource.trim()
       : embeddedExportEndTimeSourceForPolicy(ex.policy)
-  metadata.displayTimeLabel = CALENDAR_SLUTTID_IKKE_OPPGITT_NB
-  metadata.requiresManualTimeReview = ex.endTimeProvenance !== 'api_inferred_end'
+  const isFrontendFallback = ex.endTimeSource === 'frontend_canonical_fallback'
+  metadata.displayTimeLabel = isFrontendFallback
+    ? TANKESTROM_ESTIMATED_END_REVIEW_HINT_NB
+    : CALENDAR_SLUTTID_IKKE_OPPGITT_NB
+  metadata.requiresManualTimeReview =
+    ex.endTimeProvenance !== 'api_inferred_end' && ex.endTimeProvenance !== 'frontend_canonical_fallback'
   if (ex.inferredEndTime) {
     metadata.inferredEndTime = true
   }
+}
+
+/** Sluttid estimert av canonical fallback (kamp+75 / start+90) — vis mild hint, ikke rød blokker. */
+export function draftHasFrontendCanonicalEstimatedEnd(
+  d: Pick<TankestromEventDraft, 'embeddedScheduleExport'>
+): boolean {
+  return d.embeddedScheduleExport?.endTimeSource === 'frontend_canonical_fallback'
 }
 
 /** Persist når utkast har start men ingen slutt — kalender får estimert varighet. */
