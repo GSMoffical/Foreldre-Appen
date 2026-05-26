@@ -6,7 +6,7 @@ import { useFamily } from '../context/FamilyContext'
 import { useConfirmClose } from '../hooks/useConfirmClose'
 import {
   inputBase, textareaBase, inputLabel, typLabel,
-  btnPrimary, btnSecondary, btnDanger,
+  btnSecondary, btnDanger,
   sheetPanel, sheetHandle, sheetHandleBar, sheetFormBody,
   sheetTitle, btnDisclosure, personChipActive, personChipInactive,
   dropdownTrigger,
@@ -356,7 +356,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
             type="button"
             onClick={guardedClose}
             aria-label="Lukk"
-            className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 touch-manipulation"
+            className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-full text-synkaNavy/40 transition hover:bg-black/5 hover:text-synkaNavy/70 touch-manipulation"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -596,7 +596,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
             <button type="button" onClick={guardedClose} className={`flex-1 ${btnSecondary}`}>
               Avbryt
             </button>
-            <button type="submit" disabled={saving} className={`flex-1 ${btnPrimary}`}>
+            <button type="submit" disabled={saving} className="flex-1 h-12 rounded-pill bg-synkaPrimary text-white font-semibold transition disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-synkaPrimary/40 touch-manipulation select-none">
               {saving ? 'Lagrer…' : 'Lagre'}
             </button>
           </div>

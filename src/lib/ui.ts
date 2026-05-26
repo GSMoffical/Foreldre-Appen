@@ -21,7 +21,7 @@ export const typBodyMuted = 'text-body text-zinc-500'
 /** Small body (13px) */
 export const typBodySm = 'text-body-sm text-zinc-700'
 /** Form field labels (12px medium) */
-export const typLabel = 'text-label font-medium text-zinc-600'
+export const typLabel = 'text-[11px] font-medium uppercase tracking-wide text-synkaNavy/60'
 /** Timestamps, metadata, captions (11px) */
 export const typCaption = 'text-caption text-zinc-400'
 /** Section separator label â€” ALL CAPS (11px) */
@@ -71,18 +71,18 @@ export const btnGhost =
 // â”€â”€ Inputs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** Standard text input â€” use on all form fields */
 export const inputBase =
-  'w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-3 text-body text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-synkaPrimary focus:bg-white focus:ring-1 focus:ring-synkaPrimary/20 disabled:opacity-60'
+  'w-full rounded-[10px] border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-synkaPrimary focus:bg-white focus:ring-1 focus:ring-synkaPrimary/20 disabled:opacity-60'
 
 /** Multi-line textarea */
 export const textareaBase =
-  'w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-3 text-body text-zinc-900 placeholder-zinc-400 outline-none resize-none transition focus:border-synkaPrimary focus:bg-white focus:ring-1 focus:ring-synkaPrimary/20'
+  'w-full rounded-[10px] border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 placeholder-zinc-400 outline-none resize-none transition focus:border-synkaPrimary focus:bg-white focus:ring-1 focus:ring-synkaPrimary/20'
 
 /** Select / dropdown â€” matches inputBase */
 export const selectBase =
-  'w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-3 text-body text-zinc-900 outline-none transition focus:border-synkaPrimary focus:bg-white focus:ring-1 focus:ring-synkaPrimary/20 bg-white'
+  'w-full rounded-[10px] border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 outline-none transition focus:border-synkaPrimary focus:bg-white focus:ring-1 focus:ring-synkaPrimary/20'
 
 /** Field label (sits above the input) */
-export const inputLabel = 'mb-1.5 block text-label font-medium text-zinc-600'
+export const inputLabel = 'mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-synkaNavy/60'
 /** Hint text below input */
 export const inputHint = 'mt-1 text-caption text-zinc-400'
 /** Validation error below input */
@@ -91,14 +91,14 @@ export const inputError = 'mt-1 text-caption text-rose-600'
 // â”€â”€ Bottom sheet container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** Outer sheet panel â€” pair with `rounded-t-sheet shadow-sheet` */
 export const sheetPanel =
-  'pointer-events-auto flex w-full min-h-[52dvh] max-h-[min(92dvh,920px)] flex-col overflow-y-auto overflow-x-hidden rounded-t-sheet bg-white shadow-sheet scrollbar-none'
+  'pointer-events-auto flex w-full min-h-[52dvh] max-h-[min(92dvh,920px)] flex-col overflow-y-auto overflow-x-hidden rounded-t-sheet bg-synkaCream shadow-sheet scrollbar-none'
 
 /** Sticky drag-handle bar at top of sheet */
 export const sheetHandle =
-  'sticky top-0 z-10 flex shrink-0 justify-center bg-white pt-2.5 pb-1'
+  'sticky top-0 z-10 flex shrink-0 justify-center bg-synkaCream pt-2.5 pb-1'
 
 /** The drag indicator pill */
-export const sheetHandleBar = 'h-1 w-10 rounded-full bg-zinc-100'
+export const sheetHandleBar = 'h-1 w-10 rounded-full bg-synkaPrimary/20'
 
 /** Body padding for form sheets */
 export const sheetFormBody =
@@ -123,7 +123,7 @@ export const cardList = 'rounded-2xl border border-zinc-100 bg-white'
 
 // â”€â”€ Sheet typography helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** Primary title inside a sheet (h2) */
-export const sheetTitle = 'text-[18px] font-semibold text-zinc-900'
+export const sheetTitle = 'text-[18px] font-semibold text-synkaNavy'
 /** Date / context subtitle below a sheet title */
 export const sheetSubtitle = 'text-body-sm text-zinc-500'
 
@@ -135,15 +135,15 @@ export const btnDisclosure =
 // â”€â”€ Person selector chips (inside sheets) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** Selected person chip */
 export const personChipActive =
-  'rounded-full px-3 py-1 text-caption font-semibold bg-synkaNavy text-white transition'
+  'rounded-pill px-3 py-1 text-caption font-semibold bg-synkaPrimary text-white transition'
 /** Unselected person chip */
 export const personChipInactive =
-  'rounded-full px-3 py-1 text-caption font-medium bg-zinc-100 text-zinc-700 hover:bg-zinc-200 transition'
+  'rounded-pill border border-synkaNavy/20 px-3 py-1 text-caption font-medium bg-synkaCream text-synkaNavy/70 transition'
 
 // â”€â”€ Custom dropdown trigger (acts like a <select> but needs chevron) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** Button that opens a custom listbox dropdown â€” visually matches inputBase */
 export const dropdownTrigger =
-  'flex w-full items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-3 text-body text-zinc-900 outline-none transition hover:border-zinc-300 focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20'
+  'flex w-full items-center justify-between rounded-[10px] border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 outline-none transition hover:border-synkaNavy/30 focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20'
 
 // â”€â”€ Screen layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** Outer screen column wrapper */

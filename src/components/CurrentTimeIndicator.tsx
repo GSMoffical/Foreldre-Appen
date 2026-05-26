@@ -18,14 +18,8 @@ export function CurrentTimeIndicator({
       style={{ top: y, transform: 'translateY(-50%)' }}
       aria-hidden
     >
-      <div
-        className="h-2.5 w-2.5 shrink-0 rounded-full"
-        style={{ backgroundColor: 'rgb(239 68 68 / 0.80)' }}
-      />
-      <div
-        className="h-[1.5px] flex-1"
-        style={{ backgroundColor: 'rgb(239 68 68 / 0.40)' }}
-      />
+      <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-synkaCoral" />
+      <div className="h-[1.5px] flex-1 bg-synkaCoral/40" />
     </div>
   )
 }

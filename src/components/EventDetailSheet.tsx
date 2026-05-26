@@ -2,7 +2,7 @@
 import { motion } from 'framer-motion'
 import { springDialog } from '../lib/motion'
 import { Button } from './ui/Button'
-import { inputBase, sheetPanel, sheetHandle, sheetHandleBar, sheetDetailBody, sheetSubtitle, btnSecondary, btnDanger } from '../lib/ui'
+import { inputBase, sheetPanel, sheetHandle, sheetDetailBody, sheetSubtitle, btnSecondary, btnDanger } from '../lib/ui'
 import type { EmbeddedScheduleSegment, Event } from '../types'
 import { groupEmbeddedScheduleByDate, parseEmbeddedScheduleFromMetadata } from '../lib/embeddedSchedule'
 import {
@@ -212,18 +212,18 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={springDialog}
-          className={sheetPanel}
+          className={`${sheetPanel} !bg-synkaCream`}
           role="dialog"
           aria-modal="true"
           aria-label="Hendelsesdetaljer"
         >
-        <div className={`${sheetHandle} relative`}>
-          <div className={sheetHandleBar} aria-hidden />
+        <div className={`${sheetHandle} !bg-synkaCream relative`}>
+          <div className="h-1 w-10 rounded-full bg-synkaPrimary/20" aria-hidden />
           <button
             type="button"
             onClick={onClose}
             aria-label="Lukk"
-            className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 touch-manipulation"
+            className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-full text-synkaNavy/40 transition hover:bg-zinc-100 hover:text-synkaNavy/70 touch-manipulation"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -255,18 +255,18 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
               })()}
             </p>
           ) : null}
-          <h2 className="mt-1 text-[22px] font-bold text-zinc-900 leading-tight">{event.title}</h2>
+          <h2 className="mt-1 text-[22px] font-semibold text-synkaPrimary leading-tight">{event.title}</h2>
           {isAllDay ? (
-            <p className="mt-2 text-body font-medium text-synkaNavy">
+            <p className="mt-2 text-body font-medium text-synkaNavy/70">
               Heldags{eventEndDate && eventEndDate !== date ? ` · t.o.m. ${eventEndDate}` : ''}
             </p>
           ) : isDateOnly ? (
-            <p className="mt-2 text-body font-medium text-zinc-700">
+            <p className="mt-2 text-body font-medium text-synkaNavy/70">
               {(event.metadata?.displayTimeLabel as string | undefined) ?? 'Tid ikke avklart'}
             </p>
           ) : (
             <>
-              <p className="mt-2 text-body text-zinc-700">{formatCalendarEventTimeLabel(event)}</p>
+              <p className="mt-2 text-body text-synkaNavy/70">{formatCalendarEventTimeLabel(event)}</p>
               {endTimeIsComputed ? (
                 <p className="mt-1 text-[12px] leading-snug text-zinc-500">Sluttid er beregnet</p>
               ) : null}
@@ -338,7 +338,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
             <p className="mt-1 text-caption font-semibold text-indigo-500">Gjentakende hendelse</p>
           )}
           {event.location && (
-            <p className="mt-3 text-body-sm text-zinc-600">
+            <p className="mt-3 text-body-sm text-synkaNavy/70">
               <span className="font-medium">Sted:</span> {event.location}
             </p>
           )}
@@ -454,10 +454,10 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
           ) : (
             <>
               <div className="mt-6 flex gap-2">
-                <Button variant="secondary" fullWidth={false} className="flex-1" onClick={handleEditClick}>
+                <Button variant="ghost" fullWidth={false} className="flex-1 border border-synkaPrimary !text-synkaPrimary" onClick={handleEditClick}>
                   Rediger
                 </Button>
-                <Button variant="danger" fullWidth={false} className="flex-1" disabled={deleting} onClick={handleDeleteClick}>
+                <Button variant="ghost" fullWidth={false} className="flex-1 border border-synkaCoral !text-synkaCoral" disabled={deleting} onClick={handleDeleteClick}>
                   {deleting ? 'Sletter…' : 'Slett'}
                 </Button>
               </div>

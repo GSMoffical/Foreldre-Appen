@@ -61,7 +61,7 @@ export function TimelineGrid({
   const dayEndMin = TIMELINE_END_HOUR * 60
   const showLine = showCurrentTime && isToday && nowMin >= dayStartMin && nowMin < dayEndMin
   const isWeek = variant === 'week'
-  const hourLineClass = isWeek ? 'border-zinc-50' : 'border-zinc-100'
+  const hourLineClass = 'border-synkaNavy/6'
 
   return (
     <div

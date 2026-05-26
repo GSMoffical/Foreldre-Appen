@@ -196,7 +196,7 @@ export function ActivityBlock({
     <motion.div
       initial={false}
       animate={controls}
-      className={`absolute z-[2] flex min-w-0 overflow-hidden rounded-block text-left shadow-planner-sm touch-manipulation transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-synkaPrimary/50 focus-visible:ring-offset-2 ${
+      className={`absolute z-[2] flex min-w-0 overflow-hidden rounded-[12px] text-left shadow-planner-sm touch-manipulation transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-synkaPrimary/50 focus-visible:ring-offset-2 ${
         showBlank
           ? 'p-0'
           : showTitleOnly
@@ -235,10 +235,11 @@ export function ActivityBlock({
       whileTap={isDragging ? undefined : { scale: 0.98 }}
       aria-label={`${primaryPerson.name}, ${block.title}, ${formatCalendarEventTimeLabel(block)}`}
     >
+      <div className="pointer-events-none absolute inset-0 bg-synkaCream/30" aria-hidden />
       {/* Segmented left stripe showing all participants */}
       {participants.length > 0 && (
         <div
-          className="pointer-events-none absolute left-0 top-0 bottom-0 w-[6px] overflow-hidden rounded-l-block"
+          className="pointer-events-none absolute left-0 top-0 bottom-0 w-[6px] overflow-hidden rounded-l-[12px]"
           aria-hidden
         >
           <div className="flex h-full w-full">
@@ -251,7 +252,7 @@ export function ActivityBlock({
       {/* Shimmer sweep when commit is pending: a bright band slides left → right */}
       {isPendingCommit && (
         <motion.div
-          className="pointer-events-none absolute inset-0 overflow-hidden rounded-block z-10"
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-[12px] z-10"
           aria-hidden
         >
           <motion.div
@@ -308,7 +309,7 @@ export function ActivityBlock({
               style={{ backgroundColor: primaryPerson.colorAccent }}
               aria-hidden
             />
-            <span className="min-w-0 flex-1 truncate text-caption font-semibold leading-tight tracking-tight text-zinc-900">
+            <span className="min-w-0 flex-1 truncate text-caption font-semibold leading-tight tracking-tight text-synkaNavy">
               {block.title}
             </span>
           </span>
@@ -319,35 +320,32 @@ export function ActivityBlock({
               style={{ backgroundColor: primaryPerson.colorAccent }}
               aria-hidden
             />
-            <span className="min-w-0 flex-1 truncate text-caption font-semibold leading-normal tracking-tight text-zinc-900">
+            <span className="min-w-0 flex-1 truncate text-caption font-semibold leading-normal tracking-tight text-synkaNavy">
               {block.title}
             </span>
-            <span className="shrink-0 text-right text-[10px] font-medium tabular-nums leading-none text-zinc-600">
+            <span className="shrink-0 text-right text-[11px] font-medium tabular-nums leading-none text-synkaNavy/50">
               {formatCalendarEventTimeLabel(block)}
               {participants.length > 1 ? ` ·${participants.length}` : ''}
             </span>
           </span>
         ) : isMedium ? (
           <>
-            <span className="min-w-0 max-w-full truncate text-body-sm font-semibold leading-tight text-zinc-900">
+            <span className="min-w-0 max-w-full truncate text-body-sm font-semibold leading-tight text-synkaNavy">
               {block.title}
             </span>
-            <span className="mt-0.5 min-w-0 max-w-full truncate whitespace-nowrap text-caption tabular-nums text-zinc-500">
+            <span className="mt-0.5 min-w-0 max-w-full truncate whitespace-nowrap text-[11px] tabular-nums text-synkaNavy/50 uppercase tracking-wide">
               {formatCalendarEventTimeLabel(block)}
             </span>
           </>
         ) : (
           <>
-            <span
-              className="shrink-0 text-caption font-semibold uppercase tracking-wider"
-              style={{ color: primaryPerson.colorAccent }}
-            >
+            <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-synkaNavy/50">
               {primaryPerson.name}
             </span>
-            <span className="mt-0.5 min-w-0 max-w-full truncate text-subheading font-semibold leading-snug text-zinc-900">
+            <span className="mt-0.5 min-w-0 max-w-full truncate text-subheading font-semibold leading-snug text-synkaNavy">
               {block.title}
             </span>
-            <span className="mt-0.5 min-w-0 max-w-full truncate whitespace-nowrap text-caption tabular-nums text-zinc-500">
+            <span className="mt-0.5 min-w-0 max-w-full truncate whitespace-nowrap text-[11px] tabular-nums text-synkaNavy/50 uppercase tracking-wide">
               {formatCalendarEventTimeLabel(block)}
             </span>
           </>
