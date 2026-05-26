@@ -85,7 +85,7 @@ export function SettingsScreen({
 
   return (
     <div className="flex w-full min-w-0 max-w-full flex-col px-4 pt-5 pb-10">
-      <h2 className="text-[20px] font-semibold text-zinc-900">Innstillinger</h2>
+      <h2 className="text-[20px] font-semibold text-synkaNavy">Innstillinger</h2>
       <div className={`mt-5 ${cardSection} p-4`}>
         <p className={typSectionCap}>Konto</p>
         <p className="mt-1.5 text-[13px] text-zinc-800 break-all">{user?.email ?? '—'}</p>
@@ -233,7 +233,7 @@ export function SettingsScreen({
             type="button"
             data-testid="tankestrom-import-open"
             onClick={onOpenTankestromImport}
-            className="mt-3 rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-[13px] font-medium text-zinc-800 hover:bg-zinc-50"
+            className="mt-3 rounded-[12px] border border-synkaTeal/40 bg-synkaTeal/20 px-4 py-2.5 text-[13px] font-medium text-synkaPrimary hover:bg-synkaTeal/30 transition"
           >
             Importer fra Tankestrøm…
           </button>
@@ -293,8 +293,8 @@ export function SettingsScreen({
         <FamilyEditor onPersonRemoved={onPersonRemoved} />
       </div>
 
-      <div className="mt-6 rounded-2xl border border-rose-100 bg-rose-50/40 p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-rose-500">Fareområde</p>
+      <div className="mt-6 rounded-[12px] border border-synkaCoral/20 bg-synkaCoral/5 p-4">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-synkaCoral/70">Fareområde</p>
         <p className="mt-2 text-[13px] text-zinc-600">
           {canClearAllEvents
             ? 'Sletter alle hendelser for familien fra databasen. Alle som deler kalenderen mister dem i appen. Kan ikke angres.'
@@ -304,8 +304,8 @@ export function SettingsScreen({
           clearDone ? (
             <p className="mt-3 text-[13px] font-medium text-emerald-700">Alle hendelser er slettet.</p>
           ) : confirmClear ? (
-            <div className="mt-3 rounded-xl border border-rose-200 bg-white p-3.5 space-y-3">
-              <p className="text-[13px] font-medium text-rose-800">Slette alle hendelser? Dette kan ikke angres.</p>
+            <div className="mt-3 rounded-xl border border-synkaCoral/20 bg-white p-3.5 space-y-3">
+              <p className="text-[13px] font-medium text-synkaCoral">Slette alle hendelser? Dette kan ikke angres.</p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setConfirmClear(false)} className={`flex-1 ${btnSecondary}`}>Avbryt</button>
                 <button type="button" onClick={handleClearAllEvents} className={`flex-1 ${btnDanger}`}>Slett alt</button>
@@ -315,7 +315,7 @@ export function SettingsScreen({
             <button
               type="button"
               onClick={() => setConfirmClear(true)}
-              className="mt-3 rounded-xl border border-rose-200 bg-white px-4 py-2 text-[13px] font-medium text-rose-600 hover:bg-rose-50"
+              className="mt-3 rounded-xl border border-synkaCoral/20 bg-white px-4 py-2 text-[13px] font-medium text-synkaCoral hover:bg-synkaCoral/5"
             >
               Slett alle hendelser
             </button>
@@ -340,7 +340,7 @@ export function SettingsScreen({
       <button
         type="button"
         onClick={() => signOut()}
-        className="mt-8 w-full rounded-2xl border border-zinc-200 bg-white py-3 text-[14px] font-medium text-zinc-600 hover:bg-zinc-50 active:bg-zinc-100"
+        className="mt-8 w-full rounded-2xl border border-synkaCoral/20 bg-white/50 py-3 text-[14px] font-medium text-synkaCoral hover:bg-synkaCoral/5 active:bg-synkaCoral/10"
       >
         Logg ut
       </button>

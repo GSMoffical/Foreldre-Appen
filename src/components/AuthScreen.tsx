@@ -1,6 +1,5 @@
 ﻿import { useState, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
-import logo from '../assets/logo.svg'
 
 const MIN_PASSWORD_LENGTH = 6
 const INVITE_MEMBER_KIND_KEY = 'invite-member-kind'
@@ -95,226 +94,190 @@ export function AuthScreen() {
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 max-w-full flex-col overflow-x-hidden">
+    <div className="flex min-h-full w-full flex-col items-center justify-center bg-synkaCream px-6 py-12">
       {inviteParam && (
-        <div className="mx-3 mt-2 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-[12px] text-zinc-800" role="status">
+        <div className="mb-6 w-full max-w-sm rounded-[10px] border border-synkaTeal/30 bg-synkaTeal/10 px-4 py-2.5 text-[12px] text-synkaNavy/80" role="status">
           Du har blitt invitert til en familie. Logg inn eller opprett konto for å akseptere invitasjonen.
         </div>
       )}
-      <header className="flex flex-col px-4 pt-3 pb-4 bg-white rounded-b-[32px] border-b border-zinc-200">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="font-display text-[22px] font-bold text-synkaNavy drop-shadow-[0_3px_0_rgba(255,255,255,0.9)]">
-              ForeldrePortalen
-            </h1>
-            <p className="mt-1 text-[12px] text-zinc-700">
-              {mode === 'signin'
-                ? 'Logg inn for å se familiens ukeplan.'
-                : 'Opprett konto for å dele kalender med andre foreldre.'}
-            </p>
-          </div>
-          <div className="relative h-14 w-14 overflow-hidden rounded-[24px] bg-white border border-zinc-200 shadow-card">
-            <img
-              src={logo}
-              alt="ForeldrePortalen logo"
-              className="h-full w-full object-cover"
-            />
-          </div>
-        </div>
-      </header>
 
-      <div className="mt-3 flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden px-3 pb-4">
-        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden rounded-[32px] border-2 border-synkaNavy/15 bg-white px-6 pb-4 pt-6 shadow-planner">
-          <form className="space-y-4" onSubmit={handleSubmit} noValidate>
-            {inviteParam && (
-              <fieldset className="space-y-2">
-                <legend className="text-[12px] font-medium text-zinc-700">Når du blir med i familien, er du:</legend>
-                <div className="grid grid-cols-2 gap-2">
-                  <label
-                    className={`flex cursor-pointer items-center justify-center rounded-full border px-3 py-2 text-[13px] font-medium transition ${
-                      effectiveInviteMemberKind === 'parent'
-                        ? 'border-synkaPrimary bg-synkaPrimary/10 text-synkaNavy'
-                        : 'border-zinc-200 text-zinc-700'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="invite-member-kind"
-                      value="parent"
-                      checked={effectiveInviteMemberKind === 'parent'}
-                      onChange={() => {
-                        setInviteMemberKind('parent')
-                        clearMessages()
-                      }}
-                      className="sr-only"
-                    />
-                    Voksen
-                  </label>
-                  <label
-                    className={`flex cursor-pointer items-center justify-center rounded-full border px-3 py-2 text-[13px] font-medium transition ${
-                      effectiveInviteMemberKind === 'child'
-                        ? 'border-synkaPrimary bg-synkaPrimary/10 text-synkaNavy'
-                        : 'border-zinc-200 text-zinc-700'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="invite-member-kind"
-                      value="child"
-                      checked={effectiveInviteMemberKind === 'child'}
-                      onChange={() => {
-                        setInviteMemberKind('child')
-                        clearMessages()
-                      }}
-                      className="sr-only"
-                    />
-                    Barn
-                  </label>
-                </div>
-                <p className="text-[11px] text-zinc-500">
-                  Dette styrer hvilken type profil som opprettes i den delte familien.
-                </p>
-              </fieldset>
-            )}
-            {mode === 'signup' && (
-              <>
-                <div className="space-y-1">
-                  <label className="text-[12px] font-medium text-zinc-700" htmlFor="auth-name">
-                    Ditt navn
-                  </label>
+      {/* S-mark */}
+      <img src="/synka-mark.svg" alt="Synka" className="w-32 h-32" />
+
+      {/* Wordmark */}
+      <p className="mt-3 text-[32px] font-bold leading-none text-synkaPrimary">synka</p>
+
+      {/* Tagline */}
+      <p className="mt-2 text-[14px] text-synkaNavy/60">
+        Mindre kaos. Mer tid{' '}
+        <span className="font-medium text-synkaTeal">sammen.</span>
+      </p>
+
+      <div className="mt-8 w-full max-w-sm">
+        <form className="space-y-4" onSubmit={handleSubmit} noValidate>
+          {inviteParam && (
+            <fieldset className="space-y-2">
+              <legend className="text-[11px] font-medium uppercase tracking-wide text-synkaNavy/60">
+                Når du blir med i familien, er du:
+              </legend>
+              <div className="grid grid-cols-2 gap-2">
+                <label
+                  className={`flex cursor-pointer items-center justify-center rounded-[10px] border px-3 py-2.5 text-[13px] font-medium transition ${
+                    effectiveInviteMemberKind === 'parent'
+                      ? 'border-synkaPrimary bg-synkaPrimary/10 text-synkaNavy'
+                      : 'border-synkaNavy/15 bg-white/60 text-synkaNavy/70'
+                  }`}
+                >
                   <input
-                    id="auth-name"
-                    type="text"
-                    autoComplete="name"
-                    required
-                    placeholder="F.eks. Anne eller Ola"
-                    className="w-full rounded-full border border-zinc-200 px-3 py-2.5 text-[14px] text-zinc-900 outline-none focus:border-zinc-800 focus:ring-2 focus:ring-zinc-500/60"
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value)
-                      clearMessages()
-                    }}
+                    type="radio"
+                    name="invite-member-kind"
+                    value="parent"
+                    checked={effectiveInviteMemberKind === 'parent'}
+                    onChange={() => { setInviteMemberKind('parent'); clearMessages() }}
+                    className="sr-only"
                   />
-                  <p className="text-[11px] text-zinc-500">
-                    Hvem du er i familien – vises i appen
-                  </p>
-                </div>
-                {!inviteParam && (
-                  <div className="space-y-1">
-                    <label className="text-[12px] font-medium text-zinc-700" htmlFor="auth-family-name">
-                      Familienavn
-                    </label>
-                    <input
-                      id="auth-family-name"
-                      type="text"
-                      autoComplete="off"
-                      required
-                      placeholder="F.eks. Olsen eller Hansen"
-                      className="w-full rounded-full border border-zinc-200 px-3 py-2.5 text-[14px] text-zinc-900 outline-none focus:border-zinc-800 focus:ring-2 focus:ring-zinc-500/60"
-                      value={familyName}
-                      onChange={(e) => {
-                        setFamilyName(e.target.value)
-                        clearMessages()
-                      }}
-                    />
-                    <p className="text-[11px] text-zinc-500">
-                      Navnet på familien – vises øverst i appen
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
-            <div className="space-y-1">
-              <label className="text-[12px] font-medium text-zinc-700" htmlFor="auth-email">
-                E-post
-              </label>
-              <input
-                id="auth-email"
-                type="email"
-                autoComplete="email"
-                required
-                className="w-full rounded-full border border-zinc-200 px-3 py-2.5 text-[14px] text-zinc-900 outline-none focus:border-zinc-800 focus:ring-2 focus:ring-zinc-500/60 aria-[invalid]:border-red-400"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value)
-                  clearMessages()
-                }}
-                aria-invalid={!!error}
-                aria-describedby={error ? 'auth-error' : undefined}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[12px] font-medium text-zinc-700" htmlFor="auth-password">
-                Passord
-              </label>
-              <input
-                id="auth-password"
-                type="password"
-                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-                required
-                minLength={mode === 'signup' ? MIN_PASSWORD_LENGTH : undefined}
-                className="w-full rounded-full border border-zinc-200 px-3 py-2.5 text-[14px] text-zinc-900 outline-none focus:border-zinc-800 focus:ring-2 focus:ring-zinc-500/60 aria-[invalid]:border-red-400"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value)
-                  clearMessages()
-                }}
-                aria-invalid={!!error}
-              />
-              {mode === 'signup' && (
-                <p className="text-[11px] text-zinc-500">
-                  Minst {MIN_PASSWORD_LENGTH} tegn
-                </p>
-              )}
-            </div>
-            {mode === 'signup' && (
-              <div className="space-y-1">
-                <label className="text-[12px] font-medium text-zinc-700" htmlFor="auth-confirm-password">
-                  Gjenta passord
+                  Voksen
+                </label>
+                <label
+                  className={`flex cursor-pointer items-center justify-center rounded-[10px] border px-3 py-2.5 text-[13px] font-medium transition ${
+                    effectiveInviteMemberKind === 'child'
+                      ? 'border-synkaPrimary bg-synkaPrimary/10 text-synkaNavy'
+                      : 'border-synkaNavy/15 bg-white/60 text-synkaNavy/70'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="invite-member-kind"
+                    value="child"
+                    checked={effectiveInviteMemberKind === 'child'}
+                    onChange={() => { setInviteMemberKind('child'); clearMessages() }}
+                    className="sr-only"
+                  />
+                  Barn
+                </label>
+              </div>
+            </fieldset>
+          )}
+
+          {mode === 'signup' && (
+            <>
+              <div className="space-y-1.5">
+                <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-synkaNavy/60" htmlFor="auth-name">
+                  Ditt navn
                 </label>
                 <input
-                  id="auth-confirm-password"
-                  type="password"
-                  autoComplete="new-password"
+                  id="auth-name"
+                  type="text"
+                  autoComplete="name"
                   required
-                  className="w-full rounded-full border border-zinc-200 px-3 py-2.5 text-[14px] text-zinc-900 outline-none focus:border-zinc-800 focus:ring-2 focus:ring-zinc-500/60 aria-[invalid]:border-red-400"
-                  value={confirmPassword}
-                  onChange={(e) => {
-                    setConfirmPassword(e.target.value)
-                    clearMessages()
-                  }}
-                  aria-invalid={!!(error && error.includes('Passordene'))}
+                  placeholder="F.eks. Anne eller Ola"
+                  className="w-full rounded-[10px] border border-synkaNavy/15 bg-white/70 px-4 py-3 text-[14px] text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20"
+                  value={name}
+                  onChange={(e) => { setName(e.target.value); clearMessages() }}
                 />
+                <p className="text-[11px] text-synkaNavy/40">Hvem du er i familien – vises i appen</p>
               </div>
+              {!inviteParam && (
+                <div className="space-y-1.5">
+                  <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-synkaNavy/60" htmlFor="auth-family-name">
+                    Familienavn
+                  </label>
+                  <input
+                    id="auth-family-name"
+                    type="text"
+                    autoComplete="off"
+                    required
+                    placeholder="F.eks. Olsen eller Hansen"
+                    className="w-full rounded-[10px] border border-synkaNavy/15 bg-white/70 px-4 py-3 text-[14px] text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20"
+                    value={familyName}
+                    onChange={(e) => { setFamilyName(e.target.value); clearMessages() }}
+                  />
+                  <p className="text-[11px] text-synkaNavy/40">Navnet på familien – vises øverst i appen</p>
+                </div>
+              )}
+            </>
+          )}
+
+          <div className="space-y-1.5">
+            <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-synkaNavy/60" htmlFor="auth-email">
+              E-post
+            </label>
+            <input
+              id="auth-email"
+              type="email"
+              autoComplete="email"
+              required
+              className="w-full rounded-[10px] border border-synkaNavy/15 bg-white/70 px-4 py-3 text-[14px] text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 aria-[invalid]:border-synkaCoral"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); clearMessages() }}
+              aria-invalid={!!error}
+              aria-describedby={error ? 'auth-error' : undefined}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-synkaNavy/60" htmlFor="auth-password">
+              Passord
+            </label>
+            <input
+              id="auth-password"
+              type="password"
+              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+              required
+              minLength={mode === 'signup' ? MIN_PASSWORD_LENGTH : undefined}
+              className="w-full rounded-[10px] border border-synkaNavy/15 bg-white/70 px-4 py-3 text-[14px] text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 aria-[invalid]:border-synkaCoral"
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); clearMessages() }}
+              aria-invalid={!!error}
+            />
+            {mode === 'signup' && (
+              <p className="text-[11px] text-synkaNavy/40">Minst {MIN_PASSWORD_LENGTH} tegn</p>
             )}
+          </div>
 
-            {error && (
-              <p id="auth-error" className="text-[12px] text-red-600" role="alert">
-                {error}
-              </p>
-            )}
-            {success && (
-              <p className="text-[12px] text-zinc-700" role="status">
-                {success}
-              </p>
-            )}
+          {mode === 'signup' && (
+            <div className="space-y-1.5">
+              <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-synkaNavy/60" htmlFor="auth-confirm-password">
+                Gjenta passord
+              </label>
+              <input
+                id="auth-confirm-password"
+                type="password"
+                autoComplete="new-password"
+                required
+                className="w-full rounded-[10px] border border-synkaNavy/15 bg-white/70 px-4 py-3 text-[14px] text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 aria-[invalid]:border-synkaCoral"
+                value={confirmPassword}
+                onChange={(e) => { setConfirmPassword(e.target.value); clearMessages() }}
+                aria-invalid={!!(error && error.includes('Passordene'))}
+              />
+            </div>
+          )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="mt-2 w-full rounded-full bg-synkaPrimary py-2.5 text-[15px] font-semibold text-white shadow-planner transition hover:brightness-95 disabled:opacity-70 focus:outline-none focus:ring-2 focus:ring-synkaPrimary focus:ring-offset-2 active:translate-y-px active:shadow-planner-press"
-            >
-              {loading ? 'Vennligst vent…' : mode === 'signin' ? 'Logg inn' : 'Opprett konto'}
-            </button>
-          </form>
+          {error && (
+            <p id="auth-error" className="text-[12px] text-synkaCoral" role="alert">
+              {error}
+            </p>
+          )}
+          {success && (
+            <p className="text-[12px] text-synkaTeal" role="status">
+              {success}
+            </p>
+          )}
 
-        </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="mt-2 h-12 w-full rounded-pill bg-synkaPrimary text-[16px] font-semibold text-white transition disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-synkaPrimary/40 touch-manipulation select-none"
+          >
+            {loading ? 'Vennligst vent…' : mode === 'signin' ? 'Logg inn' : 'Opprett konto'}
+          </button>
+        </form>
 
-        <div className="mt-4 border border-zinc-200 bg-zinc-50 rounded-[24px] px-4 py-3 text-center text-[12px] text-zinc-800">
+        <div className="mt-5 text-center text-[13px] text-synkaNavy/50">
           {mode === 'signin' ? (
             <button
               type="button"
-              className="font-semibold underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-zinc-300 rounded"
+              className="font-semibold text-synkaPrimary transition hover:text-synkaPrimary/70 focus:outline-none"
               onClick={() => switchMode('signup')}
             >
               Ny bruker? Opprett konto
@@ -322,7 +285,7 @@ export function AuthScreen() {
           ) : (
             <button
               type="button"
-              className="font-semibold underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-zinc-300 rounded"
+              className="font-semibold text-synkaPrimary transition hover:text-synkaPrimary/70 focus:outline-none"
               onClick={() => switchMode('signin')}
             >
               Har du allerede en konto? Logg inn

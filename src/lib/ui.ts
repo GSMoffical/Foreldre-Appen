@@ -25,7 +25,7 @@ export const typLabel = 'text-[11px] font-medium uppercase tracking-wide text-sy
 /** Timestamps, metadata, captions (11px) */
 export const typCaption = 'text-caption text-zinc-400'
 /** Section separator label â€” ALL CAPS (11px) */
-export const typSectionCap = 'text-caption font-semibold uppercase tracking-wider text-zinc-400'
+export const typSectionCap = 'text-[11px] font-medium uppercase tracking-wide text-synkaPrimary/60'
 
 // â”€â”€ Buttons â€” full-width (sheets & forms) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Use these for primary actions inside sheets and form footers.
@@ -113,7 +113,7 @@ export const sheetDetailBody =
 export const cardBase = 'rounded-card border border-zinc-100 bg-white shadow-card'
 
 /** Settings-style section card */
-export const cardSection = 'rounded-2xl border border-zinc-100 bg-white shadow-soft'
+export const cardSection = 'rounded-[12px] border border-synkaNavy/10 bg-white/50 shadow-soft'
 
 /** Inset / nested surface (slightly recessed) */
 export const cardInset = 'rounded-2xl border border-zinc-100 bg-zinc-50/60'

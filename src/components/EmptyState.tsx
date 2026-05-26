@@ -1,4 +1,3 @@
-import { btnPrimary } from '../lib/ui'
 
 interface EmptyStateProps {
   /** When provided, shows a primary CTA to add an event */
@@ -38,10 +37,11 @@ export function EmptyState({ onAddEvent, context = 'day', variant = 'default' }:
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center px-6 py-14 text-center">
-      <p className="text-subheading font-semibold text-zinc-900">
+      <img src="/synka-mark.svg" alt="" className="w-20 h-20 opacity-40" />
+      <p className="mt-4 text-subheading font-semibold text-synkaNavy/60">
         {isWeek ? 'Ingen hendelser denne uken' : 'Ingen hendelser denne dagen'}
       </p>
-      <p className="mt-1 text-body-sm text-zinc-600">
+      <p className="mt-1 text-body-sm text-synkaNavy/40">
         {onAddEvent
           ? (isWeek ? 'Legg til en hendelse for å komme i gang.' : 'Legg noe inn i planen.')
           : 'Prøv en annen dag eller juster filtrene.'}
@@ -50,7 +50,7 @@ export function EmptyState({ onAddEvent, context = 'day', variant = 'default' }:
         <button
           type="button"
           onClick={onAddEvent}
-          className={`mt-5 max-w-[200px] ${btnPrimary}`}
+          className="mt-5 rounded-pill bg-synkaPrimary px-6 py-2.5 text-body font-semibold text-white transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-synkaPrimary/40 touch-manipulation"
         >
           Legg til hendelse
         </button>
