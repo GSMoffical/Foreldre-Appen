@@ -249,7 +249,7 @@ export function MonthView({
         <button
           type="button"
           onClick={prevMonth}
-          className="justify-self-start rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+          className="justify-self-start rounded-md p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
           aria-label="Forrige måned"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -262,7 +262,7 @@ export function MonthView({
         <button
           type="button"
           onClick={nextMonth}
-          className="justify-self-end rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+          className="justify-self-end rounded-md p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
           aria-label="Neste måned"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -348,7 +348,7 @@ export function MonthView({
                             }
                           : undefined
                       }
-                      className={`relative z-0 flex aspect-square min-h-0 select-none flex-col items-center justify-center rounded-xl border-2 text-[14px] font-medium transition-colors [-webkit-touch-callout:none] ${
+                      className={`relative z-0 flex aspect-square min-h-0 select-none flex-col items-center justify-center rounded-lg border-2 text-[14px] font-medium transition-colors [-webkit-touch-callout:none] ${
                         isSelected
                           ? 'border-synkaPrimary bg-synkaPrimary font-semibold text-white shadow-planner-sm'
                           : isToday
@@ -358,24 +358,24 @@ export function MonthView({
                     >
                       {dayNum}
                       {isToday && !isSelected && (
-                        <span className="pointer-events-none absolute top-0.5 left-0.5 z-[1] h-1.5 w-1.5 rounded-full bg-synkaYellow" aria-hidden />
+                        <span className="pointer-events-none absolute top-0.5 left-0.5 z-[1] h-1.5 w-1.5 rounded-pill bg-synkaYellow" aria-hidden />
                       )}
                       {norwegianDay && (
                         <span
-                          className="pointer-events-none absolute right-1 top-1 z-[1] h-1.5 w-1.5 rounded-full bg-amber-500/90"
+                          className="pointer-events-none absolute right-1 top-1 z-[1] h-1.5 w-1.5 rounded-pill bg-amber-500/90"
                           aria-hidden
                         />
                       )}
                       {hasEvents && (
                         <span
-                          className={`pointer-events-none absolute bottom-1 left-1/2 z-[1] h-1 w-1 -translate-x-1/2 rounded-full ${
+                          className={`pointer-events-none absolute bottom-1 left-1/2 z-[1] h-1 w-1 -translate-x-1/2 rounded-pill ${
                             isSelected ? 'bg-white' : 'bg-synkaPrimary'
                           }`}
                         />
                       )}
                       {hasHighlightedTask && (
                         <span
-                          className={`pointer-events-none absolute bottom-1 right-1 z-[1] h-1.5 w-1.5 rounded-full ${
+                          className={`pointer-events-none absolute bottom-1 right-1 z-[1] h-1.5 w-1.5 rounded-pill ${
                             isSelected ? 'bg-white/70' : 'bg-rose-500'
                           }`}
                           aria-hidden
@@ -391,7 +391,7 @@ export function MonthView({
 
         {getEventsForDate && (
           <section
-            className="relative z-0 mx-auto mt-4 w-full max-w-md shrink-0 rounded-[12px] border border-synkaNavy/10 bg-white/50 px-3 py-3 shadow-soft"
+            className="relative z-0 mx-auto mt-4 w-full max-w-md shrink-0 rounded-md border border-synkaNavy/10 bg-white/50 px-3 py-3 shadow-soft"
             aria-label="Oppsummering for valgt dag"
           >
             <p className="text-[11px] font-medium uppercase tracking-wide text-synkaPrimary/60">Valgt dag</p>
@@ -426,7 +426,7 @@ export function MonthView({
 
         {getEventsForDate && (
           <section
-            className="relative z-0 mx-auto mt-6 w-full max-w-md shrink-0 rounded-[12px] border border-synkaNavy/10 bg-white/50 px-3 py-3 shadow-soft"
+            className="relative z-0 mx-auto mt-6 w-full max-w-md shrink-0 rounded-md border border-synkaNavy/10 bg-white/50 px-3 py-3 shadow-soft"
             aria-label="Agenda for måneden"
           >
             <h3 className="text-[11px] font-medium uppercase tracking-wide text-synkaPrimary/60">Agenda for måneden</h3>
@@ -458,7 +458,7 @@ export function MonthView({
                                     <button
                                       type="button"
                                       onClick={() => onSelectEvent?.(ev, day.date)}
-                                      className={`relative z-0 flex w-full items-start gap-2 rounded-xl border border-synkaNavy/10 bg-white/50 px-2.5 py-2 text-left shadow-sm transition hover:bg-white/80 ${onSelectEvent ? 'cursor-pointer' : 'cursor-default'}`}
+                                      className={`relative z-0 flex w-full items-start gap-2 rounded-lg border border-synkaNavy/10 bg-white/50 px-2.5 py-2 text-left shadow-sm transition hover:bg-white/80 ${onSelectEvent ? 'cursor-pointer' : 'cursor-default'}`}
                                     >
                                       <span className="shrink-0 pt-0.5 text-[11px] font-semibold tabular-nums text-zinc-600">
                                         {ev.metadata?.isAllDay ? 'Heldags' : ev.start}

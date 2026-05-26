@@ -1,5 +1,5 @@
 ﻿import { useState } from 'react'
-import { inputBase, btnPrimary, btnSecondary, btnRowAction, btnPrimaryPill, cardInset } from '../lib/ui'
+import { inputBase, btnPrimary, btnSecondary, btnRowAction, cardInset } from '../lib/ui'
 import type { ChildSchoolProfile, MemberKind, ParentWorkProfile, Person } from '../types'
 import { useFamily } from '../context/FamilyContext'
 import { usePermissions } from '../hooks/usePermissions'
@@ -104,7 +104,7 @@ function PersonForm({
             <button
               type="button"
               onClick={() => setMemberKind('parent')}
-              className={`flex-1 rounded-xl border-2 px-3 py-2.5 text-left text-[13px] font-medium transition ${
+              className={`flex-1 rounded-lg border-2 px-3 py-2.5 text-left text-[13px] font-medium transition ${
                 memberKind === 'parent'
                   ? 'border-synkaNavy bg-synkaCream/40 text-synkaNavy'
                   : 'border-zinc-200 bg-white text-zinc-700'
@@ -118,7 +118,7 @@ function PersonForm({
             <button
               type="button"
               onClick={() => setMemberKind('child')}
-              className={`flex-1 rounded-xl border-2 px-3 py-2.5 text-left text-[13px] font-medium transition ${
+              className={`flex-1 rounded-lg border-2 px-3 py-2.5 text-left text-[13px] font-medium transition ${
                 memberKind === 'child'
                   ? 'border-synkaNavy bg-synkaCream/40 text-synkaNavy'
                   : 'border-zinc-200 bg-white text-zinc-700'
@@ -134,7 +134,7 @@ function PersonForm({
       )}
 
       {mode === 'edit' && initial && (
-        <p className="rounded-lg bg-zinc-100 px-3 py-2 text-[12px] text-zinc-700">
+        <p className="rounded-md bg-zinc-100 px-3 py-2 text-[12px] text-zinc-700">
           Type: <span className="font-semibold">{initial.memberKind === 'parent' ? 'Forelder' : 'Barn'}</span>
         </p>
       )}
@@ -161,7 +161,7 @@ function PersonForm({
                 setColorTint(tint)
                 setColorAccent(accent)
               }}
-              className="h-8 w-8 rounded-full border-2 transition-transform hover:scale-110"
+              className="h-8 w-8 rounded-pill border-2 transition-transform hover:scale-110"
               style={{
                 backgroundColor: tint,
                 borderColor: colorAccent === accent ? accent : 'transparent',
@@ -264,7 +264,7 @@ export function FamilyEditor({ onPersonRemoved }: FamilyEditorProps) {
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className={btnPrimaryPill}
+            className="rounded-pill bg-synkaPrimary px-4 py-2 text-sm font-medium text-white transition hover:brightness-95"
           >
             Legg til person
           </button>
@@ -323,12 +323,12 @@ export function FamilyEditor({ onPersonRemoved }: FamilyEditorProps) {
         {people.map((p) => (
           <li
             key={p.id}
-            className="rounded-xl border border-zinc-200 bg-white shadow-soft"
+            className="rounded-lg border border-zinc-200 bg-white shadow-soft"
           >
           <div className="flex items-center justify-between px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <span
-                className="h-8 w-8 shrink-0 rounded-full"
+                className="h-8 w-8 shrink-0 rounded-pill"
                 style={{ backgroundColor: p.colorTint, border: `2px solid ${p.colorAccent}` }}
                 aria-hidden
               />
@@ -356,7 +356,7 @@ export function FamilyEditor({ onPersonRemoved }: FamilyEditorProps) {
                     type="button"
                     onClick={() => void showInviteForParent(p.id)}
                     disabled={!!adding || !!editingId || inviteLoadingForId === p.id}
-                    className="rounded-xl border border-emerald-200 bg-white px-2.5 py-1 text-caption font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 focus:outline-none"
+                    className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1 text-caption font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 focus:outline-none"
                   >
                     {inviteLoadingForId === p.id ? 'Henter…' : expandedInviteForId === p.id ? 'Skjul lenke' : 'Vis invitasjonslenke'}
                   </button>
@@ -386,7 +386,7 @@ export function FamilyEditor({ onPersonRemoved }: FamilyEditorProps) {
                       await removePerson(p.id)
                       onPersonRemoved?.(p.id)
                     }}
-                    className="rounded-xl border border-rose-200 bg-white px-2.5 py-1 text-caption font-medium text-rose-600 hover:bg-rose-50 focus:outline-none"
+                    className="rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-caption font-medium text-rose-600 hover:bg-rose-50 focus:outline-none"
                   >Fjern</button>
                 </div>
               ) : canManageFamilyMembers ? (
@@ -394,7 +394,7 @@ export function FamilyEditor({ onPersonRemoved }: FamilyEditorProps) {
                   type="button"
                   onClick={() => setConfirmRemoveId(p.id)}
                   disabled={!!adding || !!editingId || (mePersonId != null && p.id === mePersonId)}
-                  className="rounded-xl border border-rose-200 bg-white px-2.5 py-1 text-caption font-medium text-rose-500 hover:bg-rose-50 disabled:opacity-50 focus:outline-none"
+                  className="rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-caption font-medium text-rose-500 hover:bg-rose-50 disabled:opacity-50 focus:outline-none"
                 >
                   Fjern
                 </button>
@@ -407,7 +407,7 @@ export function FamilyEditor({ onPersonRemoved }: FamilyEditorProps) {
               <input
                 readOnly
                 value={inviteUrlByPersonId[p.id]}
-                className="w-full break-all rounded-lg border border-emerald-100 bg-white px-3 py-1.5 text-[12px] text-zinc-700"
+                className="w-full break-all rounded-md border border-emerald-100 bg-white px-3 py-1.5 text-[12px] text-zinc-700"
                 aria-label="Invitasjonslenke"
               />
               <div className="mt-2 flex flex-wrap items-center gap-2">

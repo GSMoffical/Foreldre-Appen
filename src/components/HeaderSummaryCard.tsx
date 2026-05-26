@@ -1,4 +1,4 @@
-import type { Event } from '../types'
+﻿import type { Event } from '../types'
 import { useFamily } from '../context/FamilyContext'
 import { formatParticipantNamesLine } from '../lib/eventParticipants'
 
@@ -19,7 +19,7 @@ export function HeaderSummaryCard({ nextEvent, minutesUntilNext }: HeaderSummary
       : `Starter om ${Math.floor(minutesUntilNext / 60)} t ${minutesUntilNext % 60} min`
 
   return (
-    <div className="mx-4 mb-2 rounded-card bg-white py-2.5 pl-4 pr-4 shadow-soft">
+    <div className="mx-4 mb-2 rounded-xl bg-white py-2.5 pl-4 pr-4 shadow-soft">
       <p className="text-micro font-semibold uppercase tracking-wider text-zinc-500">
         Neste
       </p>

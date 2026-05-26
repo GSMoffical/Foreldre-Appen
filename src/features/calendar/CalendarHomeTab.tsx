@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+﻿import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FamilyFilterBar } from '../../components/FamilyFilterBar'
 import { SearchBar } from '../../components/SearchBar'
@@ -147,7 +147,7 @@ export function CalendarHomeTab({
             <button
               type="button"
               onClick={() => handleChangeWeek(-1)}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 shadow-soft transition hover:bg-zinc-50 active:bg-zinc-100 touch-manipulation"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 shadow-soft transition hover:bg-zinc-50 active:bg-zinc-100 touch-manipulation"
               aria-label="Forrige uke"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
@@ -159,14 +159,14 @@ export function CalendarHomeTab({
               type="button"
               onClick={handleJumpToToday}
               aria-label="Hopp til i dag"
-              className="shrink-0 rounded-xl border border-zinc-200 bg-white px-2.5 py-1.5 text-caption font-medium text-zinc-600 shadow-soft transition hover:bg-zinc-50 active:bg-zinc-100 touch-manipulation"
+              className="shrink-0 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-caption font-medium text-zinc-600 shadow-soft transition hover:bg-zinc-50 active:bg-zinc-100 touch-manipulation"
             >
               I dag
             </button>
             <button
               type="button"
               onClick={() => handleChangeWeek(1)}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 shadow-soft transition hover:bg-zinc-50 active:bg-zinc-100 touch-manipulation"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 shadow-soft transition hover:bg-zinc-50 active:bg-zinc-100 touch-manipulation"
               aria-label="Neste uke"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
@@ -246,7 +246,7 @@ export function CalendarHomeTab({
             <button
               type="button"
               onClick={() => setShowTodayPanel((v) => !v)}
-              className="flex w-full items-center gap-2 rounded-xl px-1 py-1.5 text-left transition hover:bg-zinc-50"
+              className="flex w-full items-center gap-2 rounded-lg px-1 py-1.5 text-left transition hover:bg-zinc-50"
             >
               <span className="text-caption font-semibold uppercase tracking-wider text-zinc-400">I dag</span>
               <span className="min-w-0 flex-1 truncate text-caption text-zinc-400">
@@ -364,7 +364,7 @@ export function CalendarHomeTab({
           />
         )}
         {!showListView && unspecifiedEvents.length > 0 && (
-          <div className="mt-1 rounded-xl border border-zinc-200 bg-zinc-50/70 px-3 py-2">
+          <div className="mt-1 rounded-lg border border-zinc-200 bg-zinc-50/70 px-3 py-2">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
               Uspesifiserte hendelser
             </p>

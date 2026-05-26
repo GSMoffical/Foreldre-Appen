@@ -136,7 +136,7 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
           Separate from the click-blocker so its pointer-events-none keeps the ring visual-only. */}
       {ringRect ? (
         <div
-          className="pointer-events-none fixed z-[91] rounded-xl"
+          className="pointer-events-none fixed z-[91] rounded-lg"
           style={{
             top: ringRect.top - RING_PAD,
             left: ringRect.left - RING_PAD,
@@ -165,7 +165,7 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
           }}
         >
           <div
-            className="relative h-full overflow-hidden rounded-xl px-3 py-2 shadow-planner-sm"
+            className="relative h-full overflow-hidden rounded-lg px-3 py-2 shadow-planner-sm"
             style={{ backgroundColor: 'rgb(220 246 244)', borderLeft: '6px solid rgb(59 207 197)' }}
           >
             <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgb(59 207 197)' }}>Eksempel</p>
@@ -174,14 +174,14 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
               <p className="shrink-0 text-[11px] tabular-nums text-zinc-500">15:00–16:30</p>
             </div>
             {/* Drag handle */}
-            <div className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-white/50 bg-white/70 shadow-sm">
+            <div className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-pill border border-white/50 bg-white/70 shadow-sm">
               <svg className="h-3.5 w-3.5 text-zinc-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 6h8M8 12h8M8 18h8" />
               </svg>
             </div>
             {/* Pulse ring to draw attention to the drag handle */}
             <div
-              className="absolute bottom-0.5 right-0.5 h-8 w-8 animate-ping rounded-full opacity-25"
+              className="absolute bottom-0.5 right-0.5 h-8 w-8 animate-ping rounded-pill opacity-25"
               style={{ backgroundColor: 'rgb(59 207 197)' }}
             />
           </div>
@@ -192,7 +192,7 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
       <AnimatePresence mode="wait">
         <motion.div
           key={step.id}
-          className="fixed inset-x-4 z-[93] rounded-2xl bg-white p-5 shadow-2xl"
+          className="fixed inset-x-4 z-[93] rounded-lg bg-white p-5 shadow-2xl"
           style={cardPosition}
           initial={{ y: cardCenter ? 0 : cardAtTop ? -16 : 16, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -221,7 +221,7 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
             <button
               type="button"
               onClick={enableExtraTips}
-              className="mt-3 w-full rounded-xl border border-zinc-200 bg-white py-2 text-[13px] font-medium text-zinc-700 transition hover:bg-zinc-50 active:translate-y-px"
+              className="mt-3 w-full rounded-lg border border-zinc-200 bg-white py-2 text-[13px] font-medium text-zinc-700 transition hover:bg-zinc-50 active:translate-y-px"
             >
               Lær mer (ekstra tips)
             </button>
@@ -230,7 +230,7 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
           <button
             type="button"
             onClick={advance}
-            className="mt-3 w-full rounded-xl bg-synkaPrimary py-2.5 text-[14px] font-semibold text-white shadow-planner transition hover:brightness-95 active:translate-y-px"
+            className="mt-3 w-full rounded-lg bg-synkaPrimary py-2.5 text-[14px] font-semibold text-white shadow-planner transition hover:brightness-95 active:translate-y-px"
           >
             {isLast ? 'Ferdig! ðŸŽ‰' : 'Neste →'}
           </button>
@@ -240,7 +240,7 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
             {tourSteps.map((_, i) => (
               <div
                 key={i}
-                className={`h-1.5 rounded-full transition-all duration-200 ${
+                className={`h-1.5 rounded-pill transition-all duration-200 ${
                   i === currentStepIndex ? 'w-5 bg-synkaPrimary' : 'w-1.5 bg-zinc-200'
                 }`}
               />

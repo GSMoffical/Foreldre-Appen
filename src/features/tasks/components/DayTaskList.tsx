@@ -1,4 +1,4 @@
-import type { Task, Person } from '../../../types'
+﻿import type { Task, Person } from '../../../types'
 import { taskIntentBadgeClassName, taskIntentLabelNb } from '../../../lib/taskIntent'
 import { useFamily } from '../../../context/FamilyContext'
 
@@ -27,7 +27,7 @@ function TaskRow({ task, people, onComplete, onUndoComplete, onEdit, onDelete }:
 
   return (
     <div
-      className={`flex items-start gap-2.5 rounded-xl border px-2.5 py-2 transition-colors ${
+      className={`flex items-start gap-2.5 rounded-lg border px-2.5 py-2 transition-colors ${
         isDone ? 'border-zinc-100 bg-zinc-50/60' : 'border bg-white'
       }`}
       style={!isDone && primaryPerson ? {
@@ -47,13 +47,13 @@ function TaskRow({ task, people, onComplete, onUndoComplete, onEdit, onDelete }:
         aria-label={isDone ? 'Angre ferdig' : 'Merk som ferdig'}
       >
         {isDone ? (
-          <div className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500">
+          <div className="flex h-4 w-4 items-center justify-center rounded-pill bg-emerald-500">
             <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
             </svg>
           </div>
         ) : (
-          <div className="h-4 w-4 rounded-full border-2 border-zinc-300 transition-colors hover:border-brandTeal" />
+          <div className="h-4 w-4 rounded-pill border-2 border-zinc-300 transition-colors hover:border-brandTeal" />
         )}
       </button>
 
@@ -69,7 +69,7 @@ function TaskRow({ task, people, onComplete, onUndoComplete, onEdit, onDelete }:
           </p>
           {!isDone && (task.taskIntent ?? 'must_do') === 'can_help' ? (
             <span
-              className={`shrink-0 rounded-full border px-1.5 py-px text-[9px] font-semibold ${taskIntentBadgeClassName(
+              className={`shrink-0 rounded-pill border px-1.5 py-px text-[9px] font-semibold ${taskIntentBadgeClassName(
                 'can_help'
               )}`}
             >
@@ -86,7 +86,7 @@ function TaskRow({ task, people, onComplete, onUndoComplete, onEdit, onDelete }:
             {primaryPerson && (
               <span className="inline-flex items-center gap-1">
                 <span
-                  className="h-2 w-2 shrink-0 rounded-full"
+                  className="h-2 w-2 shrink-0 rounded-pill"
                   style={{ backgroundColor: primaryPerson.colorAccent }}
                 />
                 <span className="text-[11px] text-zinc-400">{primaryPerson.name}</span>
@@ -102,7 +102,7 @@ function TaskRow({ task, people, onComplete, onUndoComplete, onEdit, onDelete }:
           <button
             type="button"
             onClick={() => onEdit(task)}
-            className="rounded-lg p-1 text-zinc-300 transition hover:bg-zinc-100 hover:text-zinc-500"
+            className="rounded-md p-1 text-zinc-300 transition hover:bg-zinc-100 hover:text-zinc-500"
             aria-label="Rediger"
           >
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -113,7 +113,7 @@ function TaskRow({ task, people, onComplete, onUndoComplete, onEdit, onDelete }:
         <button
           type="button"
           onClick={() => onDelete(task)}
-          className="rounded-lg p-1 text-zinc-300 transition hover:bg-rose-50 hover:text-rose-400"
+          className="rounded-md p-1 text-zinc-300 transition hover:bg-rose-50 hover:text-rose-400"
           aria-label="Slett gjøremål"
         >
           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">

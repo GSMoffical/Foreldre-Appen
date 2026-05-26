@@ -1,4 +1,4 @@
-import { forwardRef } from 'react'
+﻿import { forwardRef } from 'react'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'neutral' | 'ghost'
 export type ButtonSize = 'sm' | 'md' | 'lg'
@@ -29,9 +29,9 @@ const variants: Record<ButtonVariant, string> = {
 }
 
 const sizes: Record<ButtonSize, string> = {
-  sm: 'rounded-xl px-3.5 py-2 text-body-sm',
-  md: 'rounded-2xl px-5 py-3 text-body',
-  lg: 'rounded-2xl px-5 py-3.5 text-subheading',
+  sm: 'rounded-lg px-3.5 py-2 text-body-sm',
+  md: 'rounded-lg px-5 py-3 text-body',
+  lg: 'rounded-lg px-5 py-3.5 text-subheading',
 }
 
 const defaultWidth: Record<ButtonSize, boolean> = {

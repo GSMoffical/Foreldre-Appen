@@ -51,7 +51,7 @@ export function WeeklyList({ weekLayoutData, onSelectEvent, onDeleteEvent, onAdd
                         type="button"
                         onClick={() => onAddEventForDay(day.date)}
                         aria-label={`Legg til hendelse ${day.dayLabel}`}
-                        className="flex h-6 w-6 items-center justify-center rounded-full text-[18px] font-light leading-none text-zinc-400 transition hover:bg-synkaPrimary/10 hover:text-synkaPrimary"
+                        className="flex h-6 w-6 items-center justify-center rounded-pill text-[18px] font-light leading-none text-zinc-400 transition hover:bg-synkaPrimary/10 hover:text-synkaPrimary"
                       >
                         +
                       </button>
@@ -73,7 +73,7 @@ export function WeeklyList({ weekLayoutData, onSelectEvent, onDeleteEvent, onAdd
                 </div>
               )}
               {events.length === 0 && !day.allDayEvents?.length ? (
-                <div className="rounded-[12px] border border-synkaNavy/8 bg-white/60 px-4 py-3 text-[13px] text-synkaNavy/50 shadow-soft">
+                <div className="rounded-md border border-synkaNavy/8 bg-white/60 px-4 py-3 text-[13px] text-synkaNavy/50 shadow-soft">
                   Ingen hendelser.
                 </div>
               ) : events.length === 0 ? null : (
@@ -89,7 +89,7 @@ export function WeeklyList({ weekLayoutData, onSelectEvent, onDeleteEvent, onAdd
                         key={e.id}
                         type="button"
                         onClick={() => onSelectEvent(e, day.date)}
-                        className="w-full overflow-hidden rounded-[12px] bg-white/60 text-left shadow-soft transition-shadow hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-synkaPrimary/20 focus-visible:ring-offset-2"
+                        className="w-full overflow-hidden rounded-md bg-white/60 text-left shadow-soft transition-shadow hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-synkaPrimary/20 focus-visible:ring-offset-2"
                         style={{
                           backgroundColor: tint,
                           borderLeftWidth: 6,

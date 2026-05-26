@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
+﻿import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import type { Event } from '../types'
 import { formatTime } from '../lib/time'
 import { useFamily } from '../context/FamilyContext'
@@ -88,13 +88,13 @@ export function SearchBar({ open, onOpenChange, weekLayoutData, onJumpToDate, on
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Søk i hendelser denne uken..."
-            className="flex-1 min-w-0 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-[13px] outline-none focus:border-zinc-400"
+            className="flex-1 min-w-0 rounded-pill border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-[13px] outline-none focus:border-zinc-400"
           />
         )}
         <button
           type="button"
           onClick={() => onOpenChange(!open)}
-          className="shrink-0 rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+          className="shrink-0 rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
           aria-label={open ? 'Lukk søk' : 'Søk i hendelser'}
         >
           {open ? (
@@ -111,7 +111,7 @@ export function SearchBar({ open, onOpenChange, weekLayoutData, onJumpToDate, on
 
       {open && query.trim() && dropPos && (
         <div
-          className="fixed z-50 max-h-56 overflow-y-auto overflow-x-hidden rounded-xl border border-zinc-200 bg-white shadow-card"
+          className="fixed z-50 max-h-56 overflow-y-auto overflow-x-hidden rounded-lg border border-zinc-200 bg-white shadow-card"
           style={{ top: dropPos.top, left: dropPos.left, width: dropPos.width }}
         >
           {results.length === 0 ? (
@@ -135,13 +135,13 @@ export function SearchBar({ open, onOpenChange, weekLayoutData, onJumpToDate, on
                     {plist.slice(0, 3).map((p) => (
                       <span
                         key={p.id}
-                        className="h-2 w-2 rounded-full"
+                        className="h-2 w-2 rounded-pill"
                         style={{ backgroundColor: p.colorAccent }}
                         aria-hidden
                       />
                     ))}
                     {plist.length === 0 && (
-                      <span className="h-2 w-2 rounded-full bg-zinc-400" aria-hidden />
+                      <span className="h-2 w-2 rounded-pill bg-zinc-400" aria-hidden />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">

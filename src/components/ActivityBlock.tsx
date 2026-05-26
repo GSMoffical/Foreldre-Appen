@@ -196,7 +196,7 @@ export function ActivityBlock({
     <motion.div
       initial={false}
       animate={controls}
-      className={`absolute z-[2] flex min-w-0 overflow-hidden rounded-[12px] text-left shadow-planner-sm touch-manipulation transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-synkaPrimary/50 focus-visible:ring-offset-2 ${
+      className={`absolute z-[2] flex min-w-0 overflow-hidden rounded-md text-left shadow-planner-sm touch-manipulation transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-synkaPrimary/50 focus-visible:ring-offset-2 ${
         showBlank
           ? 'p-0'
           : showTitleOnly
@@ -252,7 +252,7 @@ export function ActivityBlock({
       {/* Shimmer sweep when commit is pending: a bright band slides left → right */}
       {isPendingCommit && (
         <motion.div
-          className="pointer-events-none absolute inset-0 overflow-hidden rounded-[12px] z-10"
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-md z-10"
           aria-hidden
         >
           <motion.div
@@ -290,13 +290,13 @@ export function ActivityBlock({
             {participants.slice(0, 4).map((p) => (
               <span
                 key={p.id}
-                className="h-1.5 w-1.5 rounded-full"
+                className="h-1.5 w-1.5 rounded-pill"
                 style={{ backgroundColor: p.colorAccent }}
                 aria-hidden
               />
             ))}
             {participants.length > 4 && (
-              <span className="rounded-full bg-white/70 px-1 text-[10px] font-semibold text-zinc-700">
+              <span className="rounded-pill bg-white/70 px-1 text-[10px] font-semibold text-zinc-700">
                 +{participants.length - 4}
               </span>
             )}
@@ -305,7 +305,7 @@ export function ActivityBlock({
         {showBlank ? null : showTitleOnly ? (
           <span className="flex min-h-0 min-w-0 flex-1 items-center gap-1.5 overflow-hidden pr-7">
             <span
-              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              className="h-1.5 w-1.5 shrink-0 rounded-pill"
               style={{ backgroundColor: primaryPerson.colorAccent }}
               aria-hidden
             />
@@ -316,7 +316,7 @@ export function ActivityBlock({
         ) : useShortRow && showTitleAndTime ? (
           <span className="flex min-h-0 min-w-0 flex-1 items-center gap-1.5 overflow-hidden pr-7">
             <span
-              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              className="h-1.5 w-1.5 shrink-0 rounded-pill"
               style={{ backgroundColor: primaryPerson.colorAccent }}
               aria-hidden
             />
@@ -356,7 +356,7 @@ export function ActivityBlock({
           type="button"
           aria-label="Flytt hendelse"
           title="Flytt hendelse"
-          className={`absolute inline-flex items-center justify-center rounded-full border border-white/40 bg-white/45 text-zinc-600 backdrop-blur-sm transition hover:bg-white/75 ${
+          className={`absolute inline-flex items-center justify-center rounded-pill border border-white/40 bg-white/45 text-zinc-600 backdrop-blur-sm transition hover:bg-white/75 ${
             useShortRow || showTitleOnly ? 'right-1 top-1/2 h-5 w-5 -translate-y-1/2' : 'bottom-1.5 right-1.5 h-6 w-6'
           }`}
           style={{

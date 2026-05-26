@@ -183,14 +183,14 @@ export function LogisticsScreen({
                 <button
                   type="button"
                   onClick={() => onChangeWeek(-1)}
-                  className="rounded-full border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-50"
+                  className="rounded-pill border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-50"
                 >
                   ‹ Forrige
                 </button>
                 <button
                   type="button"
                   onClick={() => onChangeWeek(1)}
-                  className="rounded-full border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-50"
+                  className="rounded-pill border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-50"
                 >
                   Neste ›
                 </button>
@@ -203,7 +203,7 @@ export function LogisticsScreen({
               <button
                 type="button"
                 onClick={() => setFilterMode('all')}
-                className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                className={`rounded-pill px-3 py-1.5 text-[12px] font-medium transition-colors ${
                   filterMode === 'all'
                     ? 'bg-synkaPrimary text-white shadow-planner-sm'
                     : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
@@ -214,7 +214,7 @@ export function LogisticsScreen({
               <button
                 type="button"
                 onClick={() => setFilterMode('mine')}
-                className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                className={`rounded-pill px-3 py-1.5 text-[12px] font-medium transition-colors ${
                   filterMode === 'mine'
                     ? 'bg-synkaPrimary text-white shadow-planner-sm'
                     : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
@@ -231,10 +231,10 @@ export function LogisticsScreen({
                 {visibleStats.map((s) => (
                   <div
                     key={s.person.id}
-                    className="flex items-center gap-2 rounded-full bg-zinc-100 px-3 py-1.5 text-[12px]"
+                    className="flex items-center gap-2 rounded-pill bg-zinc-100 px-3 py-1.5 text-[12px]"
                   >
                     <span
-                      className="h-2.5 w-2.5 rounded-full shrink-0"
+                      className="h-2.5 w-2.5 rounded-pill shrink-0"
                       style={{ backgroundColor: s.person.colorAccent }}
                     />
                     <span className="font-medium text-zinc-800">{s.person.name}</span>
@@ -262,7 +262,7 @@ export function LogisticsScreen({
         ) : (
           <>
             {totalUnassigned > 0 && minePersonId && (
-              <section className="mb-6 rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4">
+              <section className="mb-6 rounded-lg border border-zinc-200 bg-zinc-50/80 p-4">
                 <h3 className="text-[13px] font-semibold text-zinc-800">Ufordelt</h3>
                 <p className="mt-0.5 text-[11px] text-zinc-500">Velg dag og ta start eller slutt.</p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
@@ -274,7 +274,7 @@ export function LogisticsScreen({
                         key={day.date}
                         type="button"
                         onClick={() => setUnassignedDay(day.date)}
-                        className={`rounded-full px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
+                        className={`rounded-pill px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
                           isActive
                             ? 'bg-synkaPrimary text-white shadow-planner-sm'
                             : count > 0
@@ -370,19 +370,19 @@ function TransportRowCard({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-start gap-3 rounded-xl border border-zinc-100 bg-white px-3 py-2.5 text-left transition-colors hover:border-zinc-200 hover:bg-zinc-50/50 active:bg-zinc-100"
+      className="flex w-full items-start gap-3 rounded-lg border border-zinc-100 bg-white px-3 py-2.5 text-left transition-colors hover:border-zinc-200 hover:bg-zinc-50/50 active:bg-zinc-100"
     >
       <span className="mt-0.5 flex shrink-0 gap-0.5">
         {plist.slice(0, 4).map((p) => (
           <span
             key={p.id}
-            className="h-2.5 w-2.5 rounded-full"
+            className="h-2.5 w-2.5 rounded-pill"
             style={{ backgroundColor: p.colorAccent }}
             aria-hidden
           />
         ))}
         {plist.length === 0 && (
-          <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" aria-hidden />
+          <span className="h-2.5 w-2.5 rounded-pill bg-zinc-300" aria-hidden />
         )}
       </span>
       <div className="min-w-0 flex-1">
@@ -399,7 +399,7 @@ function TransportRowCard({
           {row.dropoffPerson && (
             <span className="flex items-center gap-1">
               <span
-                className="inline-block h-1.5 w-1.5 rounded-full"
+                className="inline-block h-1.5 w-1.5 rounded-pill"
                 style={{ backgroundColor: row.dropoffPerson.colorAccent }}
               />
               <span className="text-zinc-800 font-medium">L</span>
@@ -409,7 +409,7 @@ function TransportRowCard({
           {row.pickupPerson && (
             <span className="flex items-center gap-1">
               <span
-                className="inline-block h-1.5 w-1.5 rounded-full"
+                className="inline-block h-1.5 w-1.5 rounded-pill"
                 style={{ backgroundColor: row.pickupPerson.colorAccent }}
               />
               <span className="text-zinc-800 font-medium">H</span>
@@ -453,17 +453,17 @@ function UnassignedRowCard({
         : `${plist[0].name} +${plist.length - 1}`
 
   return (
-    <div className="flex w-full items-start gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 shadow-sm">
+    <div className="flex w-full items-start gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 shadow-sm">
       <span className="mt-0.5 flex shrink-0 gap-0.5">
         {plist.slice(0, 4).map((p) => (
           <span
             key={p.id}
-            className="h-2.5 w-2.5 rounded-full"
+            className="h-2.5 w-2.5 rounded-pill"
             style={{ backgroundColor: p.colorAccent }}
             aria-hidden
           />
         ))}
-        {plist.length === 0 && <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" aria-hidden />}
+        {plist.length === 0 && <span className="h-2.5 w-2.5 rounded-pill bg-zinc-300" aria-hidden />}
       </span>
       <div className="min-w-0 flex-1">
         <button
@@ -496,17 +496,17 @@ function UnassignedRowCard({
           <button
             type="button"
             onClick={() => onAssign('dropoff')}
-            className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-1.5 text-zinc-800 hover:bg-zinc-200 active:bg-zinc-300"
+            className="inline-flex items-center gap-1 rounded-pill bg-zinc-100 px-2.5 py-1.5 text-zinc-800 hover:bg-zinc-200 active:bg-zinc-300"
           >
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-zinc-700" aria-hidden />
+            <span className="inline-block h-1.5 w-1.5 rounded-pill bg-zinc-700" aria-hidden />
             Jeg kan levere
           </button>
           <button
             type="button"
             onClick={() => onAssign('pickup')}
-            className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-1.5 text-zinc-800 hover:bg-zinc-200 active:bg-zinc-300"
+            className="inline-flex items-center gap-1 rounded-pill bg-zinc-100 px-2.5 py-1.5 text-zinc-800 hover:bg-zinc-200 active:bg-zinc-300"
           >
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-zinc-400" aria-hidden />
+            <span className="inline-block h-1.5 w-1.5 rounded-pill bg-zinc-400" aria-hidden />
             Jeg kan hente
           </button>
         </div>

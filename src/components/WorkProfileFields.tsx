@@ -35,7 +35,7 @@ export function WorkProfileFields({ value, onChange }: WorkProfileFieldsProps) {
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-zinc-200 bg-white/80 px-3 py-3">
+    <div className="space-y-3 rounded-lg border border-zinc-200 bg-white/80 px-3 py-3">
       <p className="text-[12px] font-medium text-zinc-800">Arbeidstid (bakgrunn i ukesvisning)</p>
       <p className="text-[11px] leading-relaxed text-zinc-600">
         Vises svakt bak møter og andre avtaler. Enkel mal — tilpass etter behov.
@@ -45,7 +45,7 @@ export function WorkProfileFields({ value, onChange }: WorkProfileFieldsProps) {
           <button
             type="button"
             onClick={applyStandardWeek}
-            className="rounded-full bg-synkaCream px-3 py-1.5 text-[12px] font-medium text-synkaNavy"
+            className="rounded-pill bg-synkaCream px-3 py-1.5 text-[12px] font-medium text-synkaNavy"
           >
             Bruk 09:00–17:00 man–fre
           </button>
@@ -64,7 +64,7 @@ export function WorkProfileFields({ value, onChange }: WorkProfileFieldsProps) {
                     onChange={(e) =>
                       setDay(wd, e.target.value, row?.end ?? '17:00')
                     }
-                    className="rounded-lg border border-zinc-200 px-2 py-1 text-[12px]"
+                    className="rounded-md border border-zinc-200 px-2 py-1 text-[12px]"
                   />
                   <span className="text-zinc-400">–</span>
                   <input
@@ -73,7 +73,7 @@ export function WorkProfileFields({ value, onChange }: WorkProfileFieldsProps) {
                     onChange={(e) =>
                       setDay(wd, row?.start ?? '09:00', e.target.value)
                     }
-                    className="rounded-lg border border-zinc-200 px-2 py-1 text-[12px]"
+                    className="rounded-md border border-zinc-200 px-2 py-1 text-[12px]"
                   />
                 </div>
               )

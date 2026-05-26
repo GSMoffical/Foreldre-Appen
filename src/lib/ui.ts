@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Design system â€” shared Tailwind class strings.
  *
  * Import these constants instead of repeating long class lists inline.
@@ -35,19 +35,19 @@ const _btnBase =
 
 /** Primary CTA â€” full width, teal fill */
 export const btnPrimary =
-  `${_btnBase} w-full rounded-2xl bg-synkaPrimary py-3 text-body font-semibold text-white shadow-planner-sm hover:brightness-95 active:shadow-planner-press focus:ring-synkaPrimary/40`
+  `${_btnBase} w-full rounded-lg bg-synkaPrimary py-3 text-body font-semibold text-white shadow-planner-sm hover:brightness-95 active:shadow-planner-press focus:ring-synkaPrimary/40`
 
 /** Secondary CTA â€” full width, outlined */
 export const btnSecondary =
-  `${_btnBase} w-full rounded-2xl border border-zinc-200 bg-white py-3 text-body text-zinc-800 hover:bg-zinc-50 active:bg-zinc-100 focus:ring-zinc-200/60`
+  `${_btnBase} w-full rounded-lg border border-zinc-200 bg-white py-3 text-body text-zinc-800 hover:bg-zinc-50 active:bg-zinc-100 focus:ring-zinc-200/60`
 
 /** Destructive action â€” full width, red fill */
 export const btnDanger =
-  `${_btnBase} w-full rounded-2xl bg-rose-600 py-3 text-body font-semibold text-white hover:bg-rose-700 active:bg-rose-800 focus:ring-rose-500/40`
+  `${_btnBase} w-full rounded-lg bg-rose-600 py-3 text-body font-semibold text-white hover:bg-rose-700 active:bg-rose-800 focus:ring-rose-500/40`
 
 /** Neutral dismiss â€” full width, zinc fill */
 export const btnNeutral =
-  `${_btnBase} w-full rounded-2xl bg-zinc-100 py-3 text-body text-zinc-700 hover:bg-zinc-200 active:bg-zinc-300 focus:ring-zinc-200`
+  `${_btnBase} w-full rounded-lg bg-zinc-100 py-3 text-body text-zinc-700 hover:bg-zinc-200 active:bg-zinc-300 focus:ring-zinc-200`
 
 // â”€â”€ Buttons â€” inline / compact â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Use these for add buttons in screen headers, row actions, and chip-style controls.
@@ -62,24 +62,24 @@ export const btnSecondaryPill =
 
 /** Compact row action â€” ghost chip (Rediger, etc.) */
 export const btnRowAction =
-  `${_btnBase} rounded-xl border border-zinc-200 bg-white px-2.5 py-1 text-caption font-medium text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 focus:ring-zinc-200`
+  `${_btnBase} rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-caption font-medium text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 focus:ring-zinc-200`
 
 /** Text-only link button */
 export const btnGhost =
-  `${_btnBase} rounded-xl px-3 py-1.5 text-label font-medium text-synkaPrimary hover:bg-synkaPrimary/8 focus:ring-synkaPrimary/30`
+  `${_btnBase} rounded-lg px-3 py-1.5 text-label font-medium text-synkaPrimary hover:bg-synkaPrimary/8 focus:ring-synkaPrimary/30`
 
 // â”€â”€ Inputs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** Standard text input â€” use on all form fields */
 export const inputBase =
-  'w-full rounded-[10px] border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-synkaPrimary focus:bg-white focus:ring-1 focus:ring-synkaPrimary/20 disabled:opacity-60'
+  'w-full rounded-md border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-synkaPrimary focus:bg-white focus:ring-1 focus:ring-synkaPrimary/20 disabled:opacity-60'
 
 /** Multi-line textarea */
 export const textareaBase =
-  'w-full rounded-[10px] border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 placeholder-zinc-400 outline-none resize-none transition focus:border-synkaPrimary focus:bg-white focus:ring-1 focus:ring-synkaPrimary/20'
+  'w-full rounded-md border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 placeholder-zinc-400 outline-none resize-none transition focus:border-synkaPrimary focus:bg-white focus:ring-1 focus:ring-synkaPrimary/20'
 
 /** Select / dropdown â€” matches inputBase */
 export const selectBase =
-  'w-full rounded-[10px] border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 outline-none transition focus:border-synkaPrimary focus:bg-white focus:ring-1 focus:ring-synkaPrimary/20'
+  'w-full rounded-md border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 outline-none transition focus:border-synkaPrimary focus:bg-white focus:ring-1 focus:ring-synkaPrimary/20'
 
 /** Field label (sits above the input) */
 export const inputLabel = 'mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-synkaNavy/60'
@@ -89,16 +89,16 @@ export const inputHint = 'mt-1 text-caption text-zinc-400'
 export const inputError = 'mt-1 text-caption text-rose-600'
 
 // â”€â”€ Bottom sheet container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-/** Outer sheet panel â€” pair with `rounded-t-sheet shadow-sheet` */
+/** Outer sheet panel â€” pair with `rounded-t-lg shadow-sheet` */
 export const sheetPanel =
-  'pointer-events-auto flex w-full min-h-[52dvh] max-h-[min(92dvh,920px)] flex-col overflow-y-auto overflow-x-hidden rounded-t-sheet bg-synkaCream shadow-sheet scrollbar-none'
+  'pointer-events-auto flex w-full min-h-[52dvh] max-h-[min(92dvh,920px)] flex-col overflow-y-auto overflow-x-hidden rounded-t-lg bg-synkaCream shadow-sheet scrollbar-none'
 
 /** Sticky drag-handle bar at top of sheet */
 export const sheetHandle =
   'sticky top-0 z-10 flex shrink-0 justify-center bg-synkaCream pt-2.5 pb-1'
 
 /** The drag indicator pill */
-export const sheetHandleBar = 'h-1 w-10 rounded-full bg-synkaPrimary/20'
+export const sheetHandleBar = 'h-1 w-10 rounded-pill bg-synkaPrimary/20'
 
 /** Body padding for form sheets */
 export const sheetFormBody =
@@ -109,17 +109,17 @@ export const sheetDetailBody =
   'flex min-h-0 flex-1 flex-col px-5 pb-[calc(2rem+env(safe-area-inset-bottom,0px))] pt-1'
 
 // â”€â”€ Cards & surfaces â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-/** Primary content card (white, rounded-card) */
-export const cardBase = 'rounded-card border border-zinc-100 bg-white shadow-card'
+/** Primary content card (white, rounded-xl) */
+export const cardBase = 'rounded-xl border border-zinc-100 bg-white shadow-card'
 
 /** Settings-style section card */
-export const cardSection = 'rounded-[12px] border border-synkaNavy/10 bg-white/50 shadow-soft'
+export const cardSection = 'rounded-md border border-synkaNavy/10 bg-white/50 shadow-soft'
 
 /** Inset / nested surface (slightly recessed) */
-export const cardInset = 'rounded-2xl border border-zinc-100 bg-zinc-50/60'
+export const cardInset = 'rounded-lg border border-zinc-100 bg-zinc-50/60'
 
 /** Grouped list container (task groups, event lists) */
-export const cardList = 'rounded-2xl border border-zinc-100 bg-white'
+export const cardList = 'rounded-lg border border-zinc-100 bg-white'
 
 // â”€â”€ Sheet typography helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** Primary title inside a sheet (h2) */
@@ -143,7 +143,7 @@ export const personChipInactive =
 // â”€â”€ Custom dropdown trigger (acts like a <select> but needs chevron) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** Button that opens a custom listbox dropdown â€” visually matches inputBase */
 export const dropdownTrigger =
-  'flex w-full items-center justify-between rounded-[10px] border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 outline-none transition hover:border-synkaNavy/30 focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20'
+  'flex w-full items-center justify-between rounded-md border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 outline-none transition hover:border-synkaNavy/30 focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20'
 
 // â”€â”€ Screen layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** Outer screen column wrapper */

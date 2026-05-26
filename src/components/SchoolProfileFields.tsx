@@ -422,7 +422,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
 
   return (
     <div
-      className="space-y-3 rounded-xl border border-zinc-200 bg-white/80 px-3 py-3 md:px-4 md:py-4"
+      className="space-y-3 rounded-lg border border-zinc-200 bg-white/80 px-3 py-3 md:px-4 md:py-4"
       data-render-component="SchoolProfileFields"
     >
       {import.meta.env.DEV ? (
@@ -444,7 +444,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
         <select
           value={band}
           onChange={(e) => setBand(e.target.value as NorwegianGradeBand)}
-          className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-[13px] outline-none focus:border-zinc-400"
+          className="mt-1 w-full rounded-md border border-zinc-200 px-3 py-2 text-[13px] outline-none focus:border-zinc-400"
         >
           {(Object.keys(GRADE_BAND_LABELS) as NorwegianGradeBand[]).map((k) => (
             <option key={k} value={k}>
@@ -464,14 +464,14 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
           const plan = value.weekdays[wd]
           const mode = plan?.useSimpleDay !== false || !plan?.lessons?.length ? 'simple' : 'lessons'
           return (
-            <div key={wd} className="rounded-lg border border-zinc-100 bg-zinc-50/80 px-2.5 py-2.5 md:px-3 md:py-3">
+            <div key={wd} className="rounded-md border border-zinc-100 bg-zinc-50/80 px-2.5 py-2.5 md:px-3 md:py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-[12px] font-semibold text-zinc-800 md:text-[13px]">{WD_LABELS[wd]}</span>
                 <div className="flex gap-1">
                   <button
                     type="button"
                     onClick={() => setDaySimple(wd, true)}
-                    className={`min-h-9 rounded-full px-3 py-1 text-[12px] font-medium ${
+                    className={`min-h-9 rounded-pill px-3 py-1 text-[12px] font-medium ${
                       mode === 'simple' ? 'bg-synkaNavy text-white' : 'bg-white text-zinc-600'
                     }`}
                   >
@@ -480,7 +480,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                   <button
                     type="button"
                     onClick={() => setDaySimple(wd, false)}
-                    className={`min-h-9 rounded-full px-3 py-1 text-[12px] font-medium ${
+                    className={`min-h-9 rounded-pill px-3 py-1 text-[12px] font-medium ${
                       mode === 'lessons' ? 'bg-synkaNavy text-white' : 'bg-white text-zinc-600'
                     }`}
                   >
@@ -604,7 +604,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                           <button
                             type="button"
                             onClick={() => removeLesson(wd, i)}
-                            className="ml-auto inline-flex h-8 min-w-7 max-md:min-w-7 shrink-0 items-center justify-center rounded-full border border-red-200 px-1 text-[12px] font-semibold text-red-600 md:ml-0 md:min-w-8"
+                            className="ml-auto inline-flex h-8 min-w-7 max-md:min-w-7 shrink-0 items-center justify-center rounded-pill border border-red-200 px-1 text-[12px] font-semibold text-red-600 md:ml-0 md:min-w-8"
                           >
                             Ã—
                           </button>
@@ -733,7 +733,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                           onChange={(e) => updateLesson(wd, i, { customLabel: e.target.value })}
                           placeholder="Skriv inn fagnavn"
                           aria-label="Fagnavn for annet fag"
-                          className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-[13px] outline-none focus:border-zinc-400"
+                          className="w-full rounded-md border border-zinc-200 px-3 py-2 text-[13px] outline-none focus:border-zinc-400"
                         />
                       ) : null}
                       {i < (plan?.lessons?.length ?? 0) - 1 && (
@@ -742,14 +742,14 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                           <button
                             type="button"
                             onClick={() => addBreakAfterLesson(wd, i, 10)}
-                            className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700"
+                            className="rounded-pill border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700"
                           >
                             +10 min
                           </button>
                           <button
                             type="button"
                             onClick={() => addBreakAfterLesson(wd, i, 15)}
-                            className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700"
+                            className="rounded-pill border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700"
                           >
                             +15 min
                           </button>
@@ -761,7 +761,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                     <button
                       type="button"
                       onClick={() => resetDay(wd)}
-                      className="rounded-full border border-zinc-300 bg-white px-2.5 py-1 text-[11px] text-zinc-700"
+                      className="rounded-pill border border-zinc-300 bg-white px-2.5 py-1 text-[11px] text-zinc-700"
                     >
                       Nullstill dag
                     </button>
@@ -769,7 +769,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                   <button
                     type="button"
                     onClick={() => addLesson(wd)}
-                    className="min-h-9 rounded-full border border-synkaPrimary/30 px-3 py-1.5 text-[12px] font-medium text-synkaPrimary"
+                    className="min-h-9 rounded-pill border border-synkaPrimary/30 px-3 py-1.5 text-[12px] font-medium text-synkaPrimary"
                   >
                     + Legg til time
                   </button>

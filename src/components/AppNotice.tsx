@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+﻿import type { ReactNode } from 'react'
 
 type Variant = 'error' | 'success' | 'warning' | 'info'
 
@@ -23,14 +23,14 @@ export function AppNotice({
   return (
     <div
       role={variant === 'error' ? 'alert' : 'status'}
-      className={`flex items-start gap-2 rounded-2xl border px-3 py-2.5 text-[13px] leading-snug ${styles[variant]} ${className}`}
+      className={`flex items-start gap-2 rounded-lg border px-3 py-2.5 text-[13px] leading-snug ${styles[variant]} ${className}`}
     >
       <div className="min-w-0 flex-1 break-words">{children}</div>
       {onDismiss && (
         <button
           type="button"
           onClick={onDismiss}
-          className="shrink-0 rounded-full p-1 text-current opacity-70 hover:opacity-100"
+          className="shrink-0 rounded-pill p-1 text-current opacity-70 hover:opacity-100"
           aria-label="Lukk melding"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">

@@ -102,7 +102,7 @@ function TaskItem({ task, child, assignee, onComplete, onUndoComplete, onEdit, o
 
   return (
     <div
-      className={`flex items-start gap-3 rounded-[12px] border px-3.5 py-3 transition-colors ${
+      className={`flex items-start gap-3 rounded-md border px-3.5 py-3 transition-colors ${
         isDone
           ? 'border-zinc-100 bg-zinc-50/60'
           : 'border-synkaNavy/8 bg-white/60 shadow-soft'
@@ -124,13 +124,13 @@ function TaskItem({ task, child, assignee, onComplete, onUndoComplete, onEdit, o
         aria-label={isDone ? 'Angre ferdig' : 'Merk som ferdig'}
       >
         {isDone ? (
-          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500">
+          <div className="flex h-5 w-5 items-center justify-center rounded-pill bg-emerald-500">
             <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
             </svg>
           </div>
         ) : (
-          <div className="h-5 w-5 rounded-full border-2 border-zinc-300 transition-colors hover:border-synkaPrimary" />
+          <div className="h-5 w-5 rounded-pill border-2 border-zinc-300 transition-colors hover:border-synkaPrimary" />
         )}
       </button>
 
@@ -146,7 +146,7 @@ function TaskItem({ task, child, assignee, onComplete, onUndoComplete, onEdit, o
           </p>
           {!isDone && (task.taskIntent ?? 'must_do') === 'can_help' ? (
             <span
-              className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${taskIntentBadgeClassName(
+              className={`shrink-0 rounded-pill border px-2 py-0.5 text-[10px] font-semibold ${taskIntentBadgeClassName(
                 'can_help'
               )}`}
             >
@@ -159,7 +159,7 @@ function TaskItem({ task, child, assignee, onComplete, onUndoComplete, onEdit, o
         {!isDone && (task.dueTime || primaryPerson) && (
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
             {task.dueTime && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+              <span className="inline-flex items-center gap-1 rounded-pill border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
                 <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
@@ -169,7 +169,7 @@ function TaskItem({ task, child, assignee, onComplete, onUndoComplete, onEdit, o
             {primaryPerson && (
               <span className="inline-flex items-center gap-1.5">
                 <span
-                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  className="h-2.5 w-2.5 shrink-0 rounded-pill"
                   style={{ backgroundColor: primaryPerson.colorAccent }}
                 />
                 <span className="text-[12px] text-zinc-500">{primaryPerson.name}</span>
@@ -194,7 +194,7 @@ function TaskItem({ task, child, assignee, onComplete, onUndoComplete, onEdit, o
           <button
             type="button"
             onClick={onNotify}
-            className="rounded-xl p-1.5 text-zinc-300 transition hover:bg-zinc-100 hover:text-synkaPrimary"
+            className="rounded-lg p-1.5 text-zinc-300 transition hover:bg-zinc-100 hover:text-synkaPrimary"
             aria-label="Varsle partner"
             title="Varsle partner om gjøremålet"
           >
@@ -205,7 +205,7 @@ function TaskItem({ task, child, assignee, onComplete, onUndoComplete, onEdit, o
           <button
             type="button"
             onClick={onEdit}
-            className="rounded-xl p-1.5 text-zinc-300 transition hover:bg-zinc-100 hover:text-zinc-500"
+            className="rounded-lg p-1.5 text-zinc-300 transition hover:bg-zinc-100 hover:text-zinc-500"
             aria-label="Rediger"
           >
             <PencilIcon />
@@ -214,7 +214,7 @@ function TaskItem({ task, child, assignee, onComplete, onUndoComplete, onEdit, o
         <button
           type="button"
           onClick={onDelete}
-          className="rounded-xl p-1.5 text-zinc-300 transition hover:bg-rose-50 hover:text-rose-400"
+          className="rounded-lg p-1.5 text-zinc-300 transition hover:bg-rose-50 hover:text-rose-400"
           aria-label="Slett"
         >
           <TrashIcon />
@@ -247,7 +247,7 @@ function SectionLabel({
   const text = variant === 'overdue' ? 'text-rose-600' : 'text-synkaPrimary'
   return (
     <div className="mb-3 flex items-center gap-2">
-      <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
+      <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-pill ${dot}`} />
       <h3 className={`text-[11px] font-semibold uppercase tracking-wider ${text}`}>{label}</h3>
       {sublabel && <span className="ml-0.5 text-[11px] text-zinc-400">{sublabel}</span>}
     </div>
@@ -300,10 +300,10 @@ function NotificationStrip({ notifications, onMarkAllRead, onDismiss }: Notifica
       <button
         type="button"
         onClick={handleExpand}
-        className="mx-4 mb-3 flex w-[calc(100%-2rem)] items-center gap-2 rounded-xl border border-synkaPrimary/30 bg-synkaPrimary/8 px-3 py-2 text-left transition hover:bg-synkaPrimary/15"
+        className="mx-4 mb-3 flex w-[calc(100%-2rem)] items-center gap-2 rounded-lg border border-synkaPrimary/30 bg-synkaPrimary/8 px-3 py-2 text-left transition hover:bg-synkaPrimary/15"
         aria-label={`${notifications.length} uleste partnervarsler. Trykk for å vise.`}
       >
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-synkaPrimary text-white">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-pill bg-synkaPrimary text-white">
           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
           </svg>
@@ -319,7 +319,7 @@ function NotificationStrip({ notifications, onMarkAllRead, onDismiss }: Notifica
   }
 
   return (
-    <div className="mx-4 mb-3 overflow-hidden rounded-xl border border-synkaPrimary/20 bg-synkaPrimary/8">
+    <div className="mx-4 mb-3 overflow-hidden rounded-lg border border-synkaPrimary/20 bg-synkaPrimary/8">
       <div className="flex items-center justify-between px-3 py-2">
         <span className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-synkaPrimary">
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
@@ -517,7 +517,7 @@ export function TasksScreen({
                     <button
                       type="button"
                       onClick={() => setShowAllOverdue(true)}
-                      className="mb-3 flex items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-1.5 text-[12px] font-medium text-rose-500 hover:bg-rose-100 transition"
+                      className="mb-3 flex items-center gap-1.5 rounded-lg border border-rose-100 bg-rose-50 px-3 py-1.5 text-[12px] font-medium text-rose-500 hover:bg-rose-100 transition"
                     >
                       <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />

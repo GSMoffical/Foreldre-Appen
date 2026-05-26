@@ -23,7 +23,7 @@ export function WeekDayCard({ day, isSelected, onSelect, variants, openTaskCount
       type="button"
       onClick={onSelect}
       variants={variants}
-      className={`relative flex min-h-[44px] min-w-0 flex-1 basis-0 flex-col items-center justify-center rounded-card border-2 py-2 touch-manipulation transition-shadow ${
+      className={`relative flex min-h-[44px] min-w-0 flex-1 basis-0 flex-col items-center justify-center rounded-xl border-2 py-2 touch-manipulation transition-shadow ${
         isSelected
           ? 'border-transparent bg-synkaPrimary shadow-planner'
           : 'border-transparent bg-transparent'
@@ -48,19 +48,19 @@ export function WeekDayCard({ day, isSelected, onSelect, variants, openTaskCount
       </span>
       {norwegianDay && (
         <span
-          className="pointer-events-none absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-amber-500/90"
+          className="pointer-events-none absolute right-1 top-1 h-1.5 w-1.5 rounded-pill bg-amber-500/90"
           title="Helligdag eller skoleferie"
           aria-hidden
         />
       )}
       {isToday && (
-        <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-synkaYellow" aria-hidden />
+        <span className="mt-0.5 h-1.5 w-1.5 rounded-pill bg-synkaYellow" aria-hidden />
       )}
       <div className="mt-1 flex gap-0.5">
         {people.filter((p) => day.personIdsWithEvents.includes(p.id)).map((p) => (
           <span
             key={p.id}
-            className="h-1.5 w-1.5 rounded-full"
+            className="h-1.5 w-1.5 rounded-pill"
             style={{ backgroundColor: p.colorAccent }}
             aria-hidden
           />

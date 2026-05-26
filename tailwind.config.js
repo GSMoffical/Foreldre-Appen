@@ -43,10 +43,13 @@ export default {
         'caption': ['0.6875rem', { lineHeight: '1.2' }],                           // 11px
       },
       borderRadius: {
-        'card': '20px',    // large surface cards
-        'block': '16px',   // activity blocks, medium cards
-        'pill': '9999px',  // FAB-style add buttons, person chips
-        'sheet': '28px',   // bottom sheet top radius (new)
+        'none': '0',
+        'xs':   '4px',
+        'sm':   '8px',
+        'md':   '12px',
+        'lg':   '16px',
+        'xl':   '24px',
+        'pill': '999px',
       },
       boxShadow: {
         soft: '0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06)',

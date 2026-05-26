@@ -1,4 +1,4 @@
-import type { Event } from '../types'
+﻿import type { Event } from '../types'
 import { useFamily } from '../context/FamilyContext'
 import { getParticipantPeople } from '../lib/eventParticipants'
 
@@ -24,7 +24,7 @@ export function AllDayRow({ events, selectedDate: _selectedDate, onSelectEvent }
             key={ev.id}
             type="button"
             onClick={() => onSelectEvent(ev)}
-            className="inline-flex max-w-[200px] items-center gap-1.5 rounded-full border py-0.5 pl-2 pr-2.5 text-[11px] font-medium text-zinc-700 shadow-sm transition-opacity hover:opacity-80 active:scale-[0.97]"
+            className="inline-flex max-w-[200px] items-center gap-1.5 rounded-pill border py-0.5 pl-2 pr-2.5 text-[11px] font-medium text-zinc-700 shadow-sm transition-opacity hover:opacity-80 active:scale-[0.97]"
             style={{
               backgroundColor: primary?.colorTint ?? '#f4f4f5',
               borderColor: primary?.colorAccent ?? '#d4d4d8',
@@ -34,12 +34,12 @@ export function AllDayRow({ events, selectedDate: _selectedDate, onSelectEvent }
               {plist.slice(0, 3).map((p) => (
                 <span
                   key={p.id}
-                  className="h-1.5 w-1.5 rounded-full"
+                  className="h-1.5 w-1.5 rounded-pill"
                   style={{ backgroundColor: p.colorAccent }}
                 />
               ))}
               {plist.length === 0 && (
-                <span className="h-1.5 w-1.5 rounded-full bg-zinc-400" />
+                <span className="h-1.5 w-1.5 rounded-pill bg-zinc-400" />
               )}
             </span>
             <span className="truncate">{ev.title}</span>

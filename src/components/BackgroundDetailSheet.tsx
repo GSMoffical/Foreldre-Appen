@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import type {
   ChildSchoolDayPlan,
@@ -447,13 +447,13 @@ export function BackgroundDetailSheet({
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <p className="text-body-sm text-zinc-600">{formatTimeRange(event.start, event.end)}</p>
               {schoolDayOverride ? (
-                <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-800">
+                <span className="inline-flex items-center rounded-pill border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-800">
                   {schoolDayOverrideKindLabel(schoolDayOverride.kind)}
                 </span>
               ) : null}
             </div>
             {isSchool && weekOverlaySummaryLines.length > 0 ? (
-              <div className="mt-2 rounded-lg border border-indigo-200 bg-indigo-50/60 px-2.5 py-2">
+              <div className="mt-2 rounded-md border border-indigo-200 bg-indigo-50/60 px-2.5 py-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-900">Ukeoppsummering</p>
                 <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px] text-indigo-950">
                   {weekOverlaySummaryLines.map((line, idx) => (
@@ -468,7 +468,7 @@ export function BackgroundDetailSheet({
                 const conflicts = relevantForeground.filter((ev) => overlaps(r.start, r.end, ev.start, ev.end))
                 const rowItems = r.lesson ? schoolItemsByLesson.get(r.lesson) ?? [] : []
                 return (
-                  <div key={`${r.start}-${r.end}-${idx}`} className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-3">
+                  <div key={`${r.start}-${r.end}-${idx}`} className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-3">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-body-sm font-semibold text-zinc-900">{r.label}</p>
                       <p className="text-caption text-zinc-500">{formatTimeRange(r.start, r.end)}</p>
@@ -478,10 +478,10 @@ export function BackgroundDetailSheet({
                         {rowItems.map(({ event: sev, ctx }) => (
                           <li
                             key={sev.id}
-                            className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5"
+                            className="flex items-start gap-2 rounded-md border border-zinc-200 bg-white px-2.5 py-1.5"
                           >
                             <span
-                              className={`mt-0.5 inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${schoolItemTypeChipClass(ctx.itemType)}`}
+                              className={`mt-0.5 inline-flex shrink-0 items-center rounded-pill border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${schoolItemTypeChipClass(ctx.itemType)}`}
                             >
                               {schoolItemTypeLabel(ctx.itemType)}
                             </span>
@@ -498,7 +498,7 @@ export function BackgroundDetailSheet({
                       </ul>
                     ) : null}
                     {isSchool && weekOverlayDayAction?.subjectUpdates?.length ? (
-                      <div className="mt-2 rounded-lg border border-indigo-200 bg-indigo-50/70 p-2">
+                      <div className="mt-2 rounded-md border border-indigo-200 bg-indigo-50/70 p-2">
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-900">
                           {isReplaceDay ? 'Uke-overlay for erstatningsdag' : 'Uke-overlay'}
                         </p>
@@ -661,12 +661,12 @@ export function BackgroundDetailSheet({
                           const severityLabel = severity === 'hard' ? COPY.status.needsClarification : COPY.conflicts.note
                           const alternatives = buildAlternativeSlots(r.start, r.end, c.start, c.end)
                           return (
-                            <div key={c.id} className="rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+                            <div key={c.id} className="rounded-md border border-amber-200 bg-amber-50 p-2.5">
                               <div className="flex items-center justify-between gap-2">
                                 <p className="text-[12px] font-semibold text-amber-900">
                                   {COPY.conflicts.collidesWith}: {c.title} ({formatTimeRange(c.start, c.end)})
                                 </p>
-                                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                                <span className="rounded-pill bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
                                   {severityLabel}
                                 </span>
                               </div>
@@ -753,10 +753,10 @@ export function BackgroundDetailSheet({
                     return (
                       <li
                         key={sev.id}
-                        className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5"
+                        className="flex items-start gap-2 rounded-md border border-zinc-200 bg-white px-2.5 py-1.5"
                       >
                         <span
-                          className={`mt-0.5 inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${schoolItemTypeChipClass(ctx.itemType)}`}
+                          className={`mt-0.5 inline-flex shrink-0 items-center rounded-pill border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${schoolItemTypeChipClass(ctx.itemType)}`}
                         >
                           {schoolItemTypeLabel(ctx.itemType)}
                         </span>
@@ -786,7 +786,7 @@ export function BackgroundDetailSheet({
                 <p className={typSectionCap}>Uke-overlay (ikke koblet til spesifikk time)</p>
                 <ul className="mt-2 space-y-1.5">
                   {weekOverlayUnplacedUpdates.map((u, idx) => (
-                    <li key={`${u.subjectKey}-${idx}`} className="rounded-lg border border-indigo-200 bg-indigo-50/70 px-2.5 py-1.5">
+                    <li key={`${u.subjectKey}-${idx}`} className="rounded-md border border-indigo-200 bg-indigo-50/70 px-2.5 py-1.5">
                       <p className="text-[12px] font-semibold text-indigo-950">
                         {u.customLabel ? `${u.customLabel} (${u.subjectKey})` : u.subjectKey}
                       </p>
@@ -805,7 +805,7 @@ export function BackgroundDetailSheet({
                     return (
                       <li
                         key={t.id}
-                        className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5"
+                        className="flex items-start gap-2 rounded-md border border-zinc-200 bg-white px-2.5 py-1.5"
                       >
                         <span
                           className={`mt-0.5 inline-flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded border ${done ? 'border-emerald-400 bg-emerald-100 text-emerald-700' : 'border-zinc-300 bg-white text-transparent'}`}

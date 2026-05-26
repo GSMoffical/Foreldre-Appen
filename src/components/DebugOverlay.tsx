@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Developer-only floating debug panel.
  *
  * Rendered only when:
@@ -69,7 +69,7 @@ export function DebugOverlay() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         title="Debug log"
-        className="fixed bottom-[80px] left-2 z-[300] flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800/85 text-[11px] text-zinc-300 shadow-lg backdrop-blur-sm transition hover:bg-zinc-700 active:scale-95"
+        className="fixed bottom-[80px] left-2 z-[300] flex h-7 w-7 items-center justify-center rounded-pill bg-zinc-800/85 text-[11px] text-zinc-300 shadow-lg backdrop-blur-sm transition hover:bg-zinc-700 active:scale-95"
         aria-label="Toggle debug log"
       >
         {open ? 'X' : 'D'}
@@ -77,7 +77,7 @@ export function DebugOverlay() {
 
       {/* Log panel */}
       {open && (
-        <div className="fixed bottom-[116px] left-2 right-2 z-[300] flex max-h-64 flex-col overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-950/96 shadow-2xl backdrop-blur-sm">
+        <div className="fixed bottom-[116px] left-2 right-2 z-[300] flex max-h-64 flex-col overflow-hidden rounded-lg border border-zinc-700 bg-zinc-950/96 shadow-2xl backdrop-blur-sm">
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between border-b border-zinc-800 px-3 py-2">
             <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">

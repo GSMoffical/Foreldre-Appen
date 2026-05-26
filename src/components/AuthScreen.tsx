@@ -96,7 +96,7 @@ export function AuthScreen() {
   return (
     <div className="flex min-h-full w-full flex-col items-center justify-center bg-synkaCream px-6 py-12">
       {inviteParam && (
-        <div className="mb-6 w-full max-w-sm rounded-[10px] border border-synkaTeal/30 bg-synkaTeal/10 px-4 py-2.5 text-[12px] text-synkaNavy/80" role="status">
+        <div className="mb-6 w-full max-w-sm rounded-md border border-synkaTeal/30 bg-synkaTeal/10 px-4 py-2.5 text-[12px] text-synkaNavy/80" role="status">
           Du har blitt invitert til en familie. Logg inn eller opprett konto for å akseptere invitasjonen.
         </div>
       )}
@@ -122,7 +122,7 @@ export function AuthScreen() {
               </legend>
               <div className="grid grid-cols-2 gap-2">
                 <label
-                  className={`flex cursor-pointer items-center justify-center rounded-[10px] border px-3 py-2.5 text-[13px] font-medium transition ${
+                  className={`flex cursor-pointer items-center justify-center rounded-md border px-3 py-2.5 text-[13px] font-medium transition ${
                     effectiveInviteMemberKind === 'parent'
                       ? 'border-synkaPrimary bg-synkaPrimary/10 text-synkaNavy'
                       : 'border-synkaNavy/15 bg-white/60 text-synkaNavy/70'
@@ -139,7 +139,7 @@ export function AuthScreen() {
                   Voksen
                 </label>
                 <label
-                  className={`flex cursor-pointer items-center justify-center rounded-[10px] border px-3 py-2.5 text-[13px] font-medium transition ${
+                  className={`flex cursor-pointer items-center justify-center rounded-md border px-3 py-2.5 text-[13px] font-medium transition ${
                     effectiveInviteMemberKind === 'child'
                       ? 'border-synkaPrimary bg-synkaPrimary/10 text-synkaNavy'
                       : 'border-synkaNavy/15 bg-white/60 text-synkaNavy/70'
@@ -171,7 +171,7 @@ export function AuthScreen() {
                   autoComplete="name"
                   required
                   placeholder="F.eks. Anne eller Ola"
-                  className="w-full rounded-[10px] border border-synkaNavy/15 bg-white/70 px-4 py-3 text-[14px] text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20"
+                  className="w-full rounded-md border border-synkaNavy/15 bg-white/70 px-4 py-3 text-[14px] text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20"
                   value={name}
                   onChange={(e) => { setName(e.target.value); clearMessages() }}
                 />
@@ -188,7 +188,7 @@ export function AuthScreen() {
                     autoComplete="off"
                     required
                     placeholder="F.eks. Olsen eller Hansen"
-                    className="w-full rounded-[10px] border border-synkaNavy/15 bg-white/70 px-4 py-3 text-[14px] text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20"
+                    className="w-full rounded-md border border-synkaNavy/15 bg-white/70 px-4 py-3 text-[14px] text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20"
                     value={familyName}
                     onChange={(e) => { setFamilyName(e.target.value); clearMessages() }}
                   />
@@ -207,7 +207,7 @@ export function AuthScreen() {
               type="email"
               autoComplete="email"
               required
-              className="w-full rounded-[10px] border border-synkaNavy/15 bg-white/70 px-4 py-3 text-[14px] text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 aria-[invalid]:border-synkaCoral"
+              className="w-full rounded-md border border-synkaNavy/15 bg-white/70 px-4 py-3 text-[14px] text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 aria-[invalid]:border-synkaCoral"
               value={email}
               onChange={(e) => { setEmail(e.target.value); clearMessages() }}
               aria-invalid={!!error}
@@ -225,7 +225,7 @@ export function AuthScreen() {
               autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
               required
               minLength={mode === 'signup' ? MIN_PASSWORD_LENGTH : undefined}
-              className="w-full rounded-[10px] border border-synkaNavy/15 bg-white/70 px-4 py-3 text-[14px] text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 aria-[invalid]:border-synkaCoral"
+              className="w-full rounded-md border border-synkaNavy/15 bg-white/70 px-4 py-3 text-[14px] text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 aria-[invalid]:border-synkaCoral"
               value={password}
               onChange={(e) => { setPassword(e.target.value); clearMessages() }}
               aria-invalid={!!error}
@@ -245,7 +245,7 @@ export function AuthScreen() {
                 type="password"
                 autoComplete="new-password"
                 required
-                className="w-full rounded-[10px] border border-synkaNavy/15 bg-white/70 px-4 py-3 text-[14px] text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 aria-[invalid]:border-synkaCoral"
+                className="w-full rounded-md border border-synkaNavy/15 bg-white/70 px-4 py-3 text-[14px] text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 aria-[invalid]:border-synkaCoral"
                 value={confirmPassword}
                 onChange={(e) => { setConfirmPassword(e.target.value); clearMessages() }}
                 aria-invalid={!!(error && error.includes('Passordene'))}

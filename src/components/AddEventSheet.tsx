@@ -94,7 +94,7 @@ function Dropdown({ open, onClose, children }: { open: boolean; onClose: () => v
     <div
       ref={ref}
       role="listbox"
-      className="absolute left-0 right-0 top-full z-50 mt-1 rounded-xl border border-zinc-200 bg-white shadow-card overflow-hidden"
+      className="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-zinc-200 bg-white shadow-card overflow-hidden"
     >
       {children}
     </div>
@@ -299,7 +299,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
             type="button"
             onClick={guardedClose}
             aria-label="Lukk"
-            className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-full text-synkaNavy/40 transition hover:bg-black/5 hover:text-synkaNavy/70 touch-manipulation"
+            className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-pill text-synkaNavy/40 transition hover:bg-black/5 hover:text-synkaNavy/70 touch-manipulation"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -311,7 +311,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
           <p className={sheetSubtitle}>{formatDisplayDate(date)}</p>
 
           {confirming && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5 space-y-3">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3.5 space-y-3">
               <p className="text-body-sm font-medium text-amber-900">Du har ulagrede endringer. Forkaste?</p>
               <div className="flex gap-2">
                 <button type="button" onClick={cancelConfirm} className={`flex-1 ${btnSecondary}`}>Bli her</button>
@@ -358,7 +358,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
           <button
             type="button"
             onClick={() => { setIsAllDay((v) => !v); setError(null) }}
-            className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-[13px] font-medium transition-colors ${
+            className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-[13px] font-medium transition-colors ${
               isAllDay
                 ? 'border-synkaPrimary/40 bg-synkaPrimary/8 text-synkaNavy'
                 : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-100'
@@ -366,12 +366,12 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
           >
             <span>Heldagshendelse</span>
             <span
-              className={`inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+              className={`inline-flex h-5 w-9 shrink-0 items-center rounded-pill transition-colors ${
                 isAllDay ? 'bg-synkaPrimary' : 'bg-zinc-300'
               }`}
             >
               <span
-                className={`h-4 w-4 translate-x-0.5 rounded-full bg-white shadow transition-transform ${isAllDay ? 'translate-x-4' : ''}`}
+                className={`h-4 w-4 translate-x-0.5 rounded-pill bg-white shadow transition-transform ${isAllDay ? 'translate-x-4' : ''}`}
               />
             </span>
           </button>
@@ -402,7 +402,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
           )}
 
           {!isAllDay && end < start && (
-            <p className="rounded-lg bg-amber-50 px-3 py-2 text-[12px] text-amber-700">
+            <p className="rounded-md bg-amber-50 px-3 py-2 text-[12px] text-amber-700">
               Slutter neste dag kl. {end}
             </p>
           )}
@@ -473,13 +473,13 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
                           max={365}
                           value={customIntervalDays}
                           onChange={(e) => setCustomIntervalDays(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-16 rounded-lg border border-zinc-200 px-2 py-1 text-center text-[13px] outline-none focus:border-zinc-400"
+                          className="w-16 rounded-md border border-zinc-200 px-2 py-1 text-center text-[13px] outline-none focus:border-zinc-400"
                         />
                         <span className="text-[13px] text-zinc-600">dag</span>
                         <button
                           type="button"
                           onClick={() => setRepeatOpen(false)}
-                          className="ml-auto rounded-full bg-synkaPrimary px-3 py-1 text-[12px] font-medium text-white shadow-planner-sm"
+                          className="ml-auto rounded-pill bg-synkaPrimary px-3 py-1 text-[12px] font-medium text-white shadow-planner-sm"
                         >
                           Ferdig
                         </button>
@@ -555,13 +555,13 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
                           max={10080}
                           value={customReminderInput}
                           onChange={(e) => setCustomReminderInput(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-16 rounded-lg border border-zinc-200 px-2 py-1 text-center text-[13px] outline-none focus:border-zinc-400"
+                          className="w-16 rounded-md border border-zinc-200 px-2 py-1 text-center text-[13px] outline-none focus:border-zinc-400"
                         />
                         <span className="text-[13px] text-zinc-600">min før</span>
                         <button
                           type="button"
                           onClick={() => { setReminderMinutes(customReminderInput); setShowCustomReminder(false); setReminderOpen(false) }}
-                          className="ml-auto rounded-full bg-synkaPrimary px-3 py-1 text-[12px] font-medium text-white shadow-planner-sm"
+                          className="ml-auto rounded-pill bg-synkaPrimary px-3 py-1 text-[12px] font-medium text-white shadow-planner-sm"
                         >
                           Ferdig
                         </button>
@@ -572,7 +572,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
               </div>
 
               {reminderMinutes !== undefined && notifPermission !== 'granted' && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12px] text-amber-800">
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12px] text-amber-800">
                   <p>Påminnelsen virker ikke uten varslingstillatelse.</p>
                   {notifPermission !== 'denied' && (
                     <button

@@ -1,5 +1,5 @@
 ﻿import { useState } from 'react'
-import { cardSection, typSectionCap, btnSecondary, btnDanger, btnPrimaryPill } from '../lib/ui'
+import { cardSection, typSectionCap, btnSecondary, btnDanger } from '../lib/ui'
 import { useAuth } from '../context/AuthContext'
 import { useUserPreferences } from '../context/UserPreferencesContext'
 import { useFamily } from '../context/FamilyContext'
@@ -83,11 +83,27 @@ export function SettingsScreen({
     setNotifStatus(result)
   }
 
+  const SectionDots = () => (
+    <>
+      <span className="inline-block h-1.5 w-1.5 rounded-pill bg-synkaTeal" aria-hidden />
+      <span className="inline-block h-1.5 w-1.5 rounded-pill bg-synkaYellow" aria-hidden />
+    </>
+  )
+
   return (
     <div className="flex w-full min-w-0 max-w-full flex-col px-4 pt-5 pb-10">
-      <h2 className="text-[20px] font-semibold text-synkaNavy">Innstillinger</h2>
-      <div className={`mt-5 ${cardSection} p-4`}>
-        <p className={typSectionCap}>Konto</p>
+      <div className="flex items-center gap-2">
+        <span className="inline-block h-2 w-2 rounded-pill bg-synkaTeal" aria-hidden />
+        <span className="inline-block h-2 w-2 rounded-pill bg-synkaYellow" aria-hidden />
+        <h2 className="text-[20px] font-semibold text-synkaPrimary">Innstillinger</h2>
+      </div>
+
+      <div className="mt-6">
+        <FamilyEditor onPersonRemoved={onPersonRemoved} />
+      </div>
+
+      <div className={`mt-4 ${cardSection} p-4`}>
+        <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Konto</p></div>
         <p className="mt-1.5 text-[13px] text-zinc-800 break-all">{user?.email ?? '—'}</p>
         <p className="mt-1.5 text-[12px] text-zinc-500">
           {isCalendarOwner ? (
@@ -98,33 +114,131 @@ export function SettingsScreen({
         </p>
       </div>
 
+      {isLinked && (
+        <div className="mt-4 rounded-md border border-zinc-200 bg-zinc-50 p-4">
+          <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Delt familie</p></div>
+          <p className="mt-2 text-[13px] text-zinc-600">
+            Du ser på og redigerer en familie du ble invitert til. Hendelser kan du endre som vanlig; familien og
+            invitasjoner håndteres av eieren. For å gå tilbake til din egen kalender, forlat familien.
+          </p>
+          {confirmUnlink ? (
+            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3.5 space-y-3">
+              <p className="text-[13px] font-medium text-amber-900">Forlate delt familie og gå tilbake til din egen kalender?</p>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setConfirmUnlink(false)} className={`flex-1 ${btnSecondary}`}>Avbryt</button>
+                <button type="button" onClick={handleUnlink} className="flex-1 rounded-md bg-amber-600 py-3 text-body font-semibold text-white hover:bg-amber-700">Forlat</button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" onClick={() => setConfirmUnlink(true)} className="mt-3 rounded-pill border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition">
+              Forlat familie
+            </button>
+          )}
+        </div>
+      )}
+
+      {!isLinked && (
+        <div className={`mt-4 ${cardSection} p-4`}>
+          <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Inviter til familien</p></div>
+          <p className="mt-2 text-[13px] text-zinc-600">
+            La den andre <span className="font-medium text-zinc-700">forelderen</span> få tilgang til samme kalender. Du kan også opprette
+            lenke rett etter at du har lagt til en forelder under Familie.
+          </p>
+          {!inviteLink ? (
+            <div className="mt-3 flex flex-col gap-2">
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={handleCreateInvite} className="rounded-pill bg-synkaPrimary px-4 py-2 text-sm font-medium text-white transition hover:brightness-95">
+                  Opprett ny lenke
+                </button>
+                <button type="button" onClick={handleShowExistingInvite} className="rounded-pill border border-synkaNavy/20 px-4 py-2 text-sm font-medium text-synkaNavy transition hover:bg-synkaNavy/5">
+                  Vis aktiv lenke
+                </button>
+              </div>
+              {inviteLookupMessage && (
+                <p className="text-[12px] leading-relaxed text-zinc-600">{inviteLookupMessage}</p>
+              )}
+            </div>
+          ) : (
+            <div className="mt-3 flex flex-col gap-2">
+              <input type="text" readOnly value={inviteLink} className="min-w-0 w-full break-all rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-[12px] text-zinc-800" aria-label="Invitasjonslenke" />
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={handleCopyInviteLink} className="rounded-pill border border-synkaPrimary/40 px-4 py-2 text-sm font-medium text-synkaPrimary transition hover:bg-synkaPrimary/5">
+                  {inviteCopied ? 'Kopiert!' : 'Vis invitasjonslenke'}
+                </button>
+                <button type="button" onClick={() => setInviteLink(null)} className="rounded-pill border border-synkaNavy/20 px-4 py-2 text-sm font-medium text-synkaNavy transition hover:bg-synkaNavy/5">
+                  Skjul
+                </button>
+              </div>
+              <p className="text-[11px] text-zinc-400">
+                Lenken utløper om 7 dager. Trykk «Vis aktiv lenke» for å vise den igjen etter at du har skjult den.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {onOpenTankestromImport && (
+        <div className={`mt-4 ${cardSection} p-4`}>
+          <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Tankestrøm</p></div>
+          <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
+            Last opp dokument eller bilde og få forslag til kalenderhendelser. Du godkjenner før noe lagres.
+          </p>
+          <button type="button" data-testid="tankestrom-import-open" onClick={onOpenTankestromImport} className="mt-3 rounded-md border border-synkaTeal/40 bg-synkaTeal/20 px-4 py-2.5 text-[13px] font-medium text-synkaPrimary hover:bg-synkaTeal/30 transition">
+            Importer fra Tankestrøm…
+          </button>
+        </div>
+      )}
+
       <div className={`mt-4 ${cardSection} p-4`}>
-        <p className={typSectionCap}>Rettigheter</p>
-        <ul className="mt-2.5 space-y-2 text-[13px] text-zinc-600">
-          <li className="flex gap-2">
-            <span className="mt-px shrink-0 text-zinc-300">·</span>
-            <span><span className="font-medium text-zinc-800">Eier</span> kan invitere, legge til eller fjerne familiemedlemmer, og slette alle hendelser samlet.</span>
-          </li>
-          <li className="flex gap-2">
-            <span className="mt-px shrink-0 text-zinc-300">·</span>
-            <span><span className="font-medium text-zinc-800">Invitert forelder</span> ser samme kalender og kan legge til, endre og slette hendelser, men kan ikke administrere familiemedlemmer eller sende invitasjoner. Du kan endre navn og farge på deg selv under Familie.</span>
-          </li>
-        </ul>
+        <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Varsler</p></div>
+        {notifStatus === 'granted' ? (
+          <p className="mt-2 text-[13px] text-zinc-600">Varsler er skrudd på. Påminnelser dukker opp før hendelser.</p>
+        ) : notifStatus === 'denied' ? (
+          <p className="mt-2 text-[13px] text-rose-600">Varsler er blokkert. Skru dem på i nettleserens innstillinger.</p>
+        ) : notifStatus === 'unsupported' ? (
+          <p className="mt-2 text-[13px] text-zinc-500">Nettleservarsler er ikke støttet her.</p>
+        ) : (
+          <button type="button" onClick={handleEnableNotifications} className="mt-2 rounded-pill bg-synkaPrimary px-4 py-2 text-sm font-medium text-white transition hover:brightness-95">
+            Skru på påminnelser
+          </button>
+        )}
       </div>
 
       <div className={`mt-4 ${cardSection} p-4`}>
+        <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Tilbakemelding</p></div>
+        <div className="mt-3 flex items-center justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-medium text-zinc-800">Lett vibrasjon ved lagring</p>
+            <p className="mt-0.5 text-[12px] leading-relaxed text-zinc-500">
+              Kort vibrasjon når du legger til eller lagrer en hendelse. Fungerer på mange Android-telefoner; iOS støtter
+              ofte ikke vibrasjon fra nettleser.
+            </p>
+          </div>
+          <button type="button" role="switch" aria-checked={hapticsEnabled} onClick={() => setHapticsEnabled(!hapticsEnabled)} className={`relative h-7 w-12 shrink-0 rounded-pill transition-colors ${hapticsEnabled ? 'bg-synkaPrimary' : 'bg-zinc-300'}`}>
+            <span className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-pill bg-white shadow transition-transform ${hapticsEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+          </button>
+        </div>
+      </div>
+
+      {onRestartOnboarding && (
+        <div className={`mt-4 ${cardSection} p-4`}>
+          <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Hjelp</p></div>
+          <p className="mt-2 text-[13px] text-zinc-600">Vil du se gjennomgangen av appen på nytt?</p>
+          <button type="button" onClick={onRestartOnboarding} className="mt-3 rounded-pill border border-synkaNavy/20 px-4 py-2 text-sm font-medium text-synkaNavy transition hover:bg-synkaNavy/5">
+            Vis gjennomgang på nytt
+          </button>
+        </div>
+      )}
+
+      <div className={`mt-4 ${cardSection} p-4`}>
         <div className="flex items-start gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-500" aria-hidden>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pill bg-zinc-100 text-zinc-500" aria-hidden>
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
             </svg>
           </div>
           <div className="min-w-0 flex-1">
-            <p className={typSectionCap}>Personvern</p>
+            <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Personvern</p></div>
             <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
               Kalenderen kan inneholde <span className="font-medium text-zinc-800">navn på barn</span>,{' '}
               <span className="font-medium text-zinc-800">skole og hendelser</span>, tider og steder. Tenk deg om før du
@@ -142,158 +256,21 @@ export function SettingsScreen({
         </div>
       </div>
 
-      {isLinked && (
-        <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-          <p className={typSectionCap}>Delt familie</p>
-          <p className="mt-2 text-[13px] text-zinc-600">
-            Du ser på og redigerer en familie du ble invitert til. Hendelser kan du endre som vanlig; familien og
-            invitasjoner håndteres av eieren. For å gå tilbake til din egen kalender, forlat familien.
-          </p>
-          {confirmUnlink ? (
-            <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3.5 space-y-3">
-              <p className="text-[13px] font-medium text-amber-900">Forlate delt familie og gå tilbake til din egen kalender?</p>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setConfirmUnlink(false)} className={`flex-1 ${btnSecondary}`}>Avbryt</button>
-                <button type="button" onClick={handleUnlink} className="flex-1 rounded-2xl bg-amber-600 py-3 text-body font-semibold text-white hover:bg-amber-700">Forlat</button>
-              </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setConfirmUnlink(true)}
-              className="mt-3 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-[13px] font-medium text-zinc-700 hover:bg-zinc-50"
-            >
-              Forlat familie
-            </button>
-          )}
-        </div>
-      )}
-
-      {!isLinked && (
-        <div className={`mt-4 ${cardSection} p-4`}>
-          <p className={typSectionCap}>Inviter til familien</p>
-          <p className="mt-2 text-[13px] text-zinc-600">
-            La den andre <span className="font-medium text-zinc-700">forelderen</span> få tilgang til samme kalender. Du kan også opprette
-            lenke rett etter at du har lagt til en forelder under Familie.
-          </p>
-          {!inviteLink ? (
-            <div className="mt-3 flex flex-col gap-2">
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={handleCreateInvite} className={btnPrimaryPill}>
-                  Opprett ny lenke
-                </button>
-                <button
-                  type="button"
-                  onClick={handleShowExistingInvite}
-                  className="rounded-pill border border-zinc-300 bg-white px-4 py-1.5 text-body-sm font-medium text-zinc-700 hover:bg-zinc-50 transition"
-                >
-                  Vis aktiv lenke
-                </button>
-              </div>
-              {inviteLookupMessage && (
-                <p className="text-[12px] leading-relaxed text-zinc-600">{inviteLookupMessage}</p>
-              )}
-            </div>
-          ) : (
-            <div className="mt-3 flex flex-col gap-2">
-              <input
-                type="text"
-                readOnly
-                value={inviteLink}
-                className="min-w-0 w-full break-all rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-[12px] text-zinc-800"
-                aria-label="Invitasjonslenke"
-              />
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={handleCopyInviteLink} className={btnPrimaryPill}>
-                  {inviteCopied ? 'Kopiert!' : 'Kopier lenke'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setInviteLink(null)}
-                  className="rounded-pill border border-zinc-200 bg-white px-4 py-1.5 text-body-sm font-medium text-zinc-700 hover:bg-zinc-50 transition"
-                >
-                  Skjul
-                </button>
-              </div>
-              <p className="text-[11px] text-zinc-400">
-                Lenken utløper om 7 dager. Trykk «Vis aktiv lenke» for å vise den igjen etter at du har skjult den.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {onOpenTankestromImport && (
-        <div className={`mt-4 ${cardSection} p-4`}>
-          <p className={typSectionCap}>Tankestrøm</p>
-          <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
-            Last opp dokument eller bilde og få forslag til kalenderhendelser. Du godkjenner før noe lagres.
-          </p>
-          <button
-            type="button"
-            data-testid="tankestrom-import-open"
-            onClick={onOpenTankestromImport}
-            className="mt-3 rounded-[12px] border border-synkaTeal/40 bg-synkaTeal/20 px-4 py-2.5 text-[13px] font-medium text-synkaPrimary hover:bg-synkaTeal/30 transition"
-          >
-            Importer fra Tankestrøm…
-          </button>
-        </div>
-      )}
-
       <div className={`mt-4 ${cardSection} p-4`}>
-        <p className={typSectionCap}>Varsler</p>
-        {notifStatus === 'granted' ? (
-          <p className="mt-2 text-[13px] text-zinc-600">
-            Varsler er skrudd på. Påminnelser dukker opp før hendelser.
-          </p>
-        ) : notifStatus === 'denied' ? (
-          <p className="mt-2 text-[13px] text-rose-600">
-            Varsler er blokkert. Skru dem på i nettleserens innstillinger.
-          </p>
-        ) : notifStatus === 'unsupported' ? (
-          <p className="mt-2 text-[13px] text-zinc-500">
-            Nettleservarsler er ikke støttet her.
-          </p>
-        ) : (
-          <button type="button" onClick={handleEnableNotifications} className={`mt-2 ${btnPrimaryPill}`}>
-            Skru på påminnelser
-          </button>
-        )}
+        <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Rettigheter</p></div>
+        <ul className="mt-2.5 space-y-2 text-[13px] text-zinc-600">
+          <li className="flex gap-2">
+            <span className="mt-px shrink-0 text-zinc-300">·</span>
+            <span><span className="font-medium text-zinc-800">Eier</span> kan invitere, legge til eller fjerne familiemedlemmer, og slette alle hendelser samlet.</span>
+          </li>
+          <li className="flex gap-2">
+            <span className="mt-px shrink-0 text-zinc-300">·</span>
+            <span><span className="font-medium text-zinc-800">Invitert forelder</span> ser samme kalender og kan legge til, endre og slette hendelser, men kan ikke administrere familiemedlemmer eller sende invitasjoner. Du kan endre navn og farge på deg selv under Familie.</span>
+          </li>
+        </ul>
       </div>
 
-      <div className={`mt-4 ${cardSection} p-4`}>
-        <p className={typSectionCap}>Tilbakemelding</p>
-        <div className="mt-3 flex items-center justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-medium text-zinc-800">Lett vibrasjon ved lagring</p>
-            <p className="mt-0.5 text-[12px] leading-relaxed text-zinc-500">
-              Kort vibrasjon når du legger til eller lagrer en hendelse. Fungerer på mange Android-telefoner; iOS støtter
-              ofte ikke vibrasjon fra nettleser.
-            </p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={hapticsEnabled}
-            onClick={() => setHapticsEnabled(!hapticsEnabled)}
-            className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
-              hapticsEnabled ? 'bg-synkaPrimary' : 'bg-zinc-300'
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
-                hapticsEnabled ? 'translate-x-5' : 'translate-x-0'
-              }`}
-            />
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-6">
-        <FamilyEditor onPersonRemoved={onPersonRemoved} />
-      </div>
-
-      <div className="mt-6 rounded-[12px] border border-synkaCoral/20 bg-synkaCoral/5 p-4">
+      <div className="mt-6 rounded-md border border-synkaCoral/20 bg-synkaCoral/5 p-4">
         <p className="text-[11px] font-medium uppercase tracking-wide text-synkaCoral/70">Fareområde</p>
         <p className="mt-2 text-[13px] text-zinc-600">
           {canClearAllEvents
@@ -304,7 +281,7 @@ export function SettingsScreen({
           clearDone ? (
             <p className="mt-3 text-[13px] font-medium text-emerald-700">Alle hendelser er slettet.</p>
           ) : confirmClear ? (
-            <div className="mt-3 rounded-xl border border-synkaCoral/20 bg-white p-3.5 space-y-3">
+            <div className="mt-3 rounded-md border border-synkaCoral/20 bg-white p-3.5 space-y-3">
               <p className="text-[13px] font-medium text-synkaCoral">Slette alle hendelser? Dette kan ikke angres.</p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setConfirmClear(false)} className={`flex-1 ${btnSecondary}`}>Avbryt</button>
@@ -312,36 +289,14 @@ export function SettingsScreen({
               </div>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => setConfirmClear(true)}
-              className="mt-3 rounded-xl border border-synkaCoral/20 bg-white px-4 py-2 text-[13px] font-medium text-synkaCoral hover:bg-synkaCoral/5"
-            >
+            <button type="button" onClick={() => setConfirmClear(true)} className="mt-3 rounded-pill border border-synkaCoral px-4 py-2 text-[13px] font-medium text-synkaCoral transition hover:bg-synkaCoral/5">
               Slett alle hendelser
             </button>
           )
         )}
       </div>
 
-      {onRestartOnboarding && (
-        <div className={`mt-4 ${cardSection} p-4`}>
-          <p className={typSectionCap}>Hjelp</p>
-          <p className="mt-2 text-[13px] text-zinc-600">Vil du se gjennomgangen av appen på nytt?</p>
-          <button
-            type="button"
-            onClick={onRestartOnboarding}
-            className="mt-3 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-[13px] font-medium text-zinc-700 hover:bg-zinc-50"
-          >
-            Vis gjennomgang på nytt
-          </button>
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={() => signOut()}
-        className="mt-8 w-full rounded-2xl border border-synkaCoral/20 bg-white/50 py-3 text-[14px] font-medium text-synkaCoral hover:bg-synkaCoral/5 active:bg-synkaCoral/10"
-      >
+      <button type="button" onClick={() => signOut()} className="mt-8 w-full py-3 text-[14px] font-medium text-synkaCoral transition hover:bg-synkaCoral/5 active:bg-synkaCoral/10">
         Logg ut
       </button>
     </div>

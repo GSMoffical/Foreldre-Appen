@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+﻿import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { AppShell } from './components/AppShell'
 import { MobileFrame } from './components/MobileFrame'
@@ -376,7 +376,7 @@ function App() {
       <AppShell>
         <MobileFrame>
           <div className="flex h-full w-full min-w-0 max-w-full flex-col items-center justify-center gap-3 overflow-x-hidden text-zinc-500">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
+            <div className="h-8 w-8 animate-spin rounded-pill border-2 border-zinc-300 border-t-zinc-600" />
             <p className="text-sm">Loading…</p>
           </div>
         </MobileFrame>
@@ -590,7 +590,7 @@ function App() {
               className="pointer-events-none fixed inset-x-0 z-[50] flex justify-center px-3"
               style={{ bottom: 'calc(72px + env(safe-area-inset-bottom, 0px))' }}
             >
-              <div className="flex w-full max-w-[390px] items-center gap-3 rounded-2xl border-2 border-brandTeal/30 bg-brandTeal px-3 py-2.5 text-white shadow-planner">
+              <div className="flex w-full max-w-[390px] items-center gap-3 rounded-lg border-2 border-brandTeal/30 bg-brandTeal px-3 py-2.5 text-white shadow-planner">
                 <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug">Varslet din partner om «{notifyToast}»</p>
               </div>
             </div>
@@ -608,7 +608,7 @@ function App() {
                 style={{ bottom: 'calc(132px + env(safe-area-inset-bottom, 0px))' }}
               >
                 <div
-                  className={`w-full max-w-[390px] rounded-2xl border px-3 py-2.5 shadow-planner ${
+                  className={`w-full max-w-[390px] rounded-lg border px-3 py-2.5 shadow-planner ${
                     tankestromToast.variant === 'warning'
                       ? 'border-amber-300 bg-amber-50'
                       : 'border-brandTeal/30 bg-white'
@@ -632,7 +632,7 @@ function App() {
                     <button
                       type="button"
                       onClick={jumpToImportedCalendar}
-                      className="rounded-full bg-brandTeal px-3 py-1.5 text-[11px] font-semibold text-white"
+                      className="rounded-pill bg-brandTeal px-3 py-1.5 text-[11px] font-semibold text-white"
                     >
                       {tankestromToast.openTasks ? 'Åpne gjøremål' : 'Se i kalenderen'}
                     </button>
@@ -640,7 +640,7 @@ function App() {
                       <button
                         type="button"
                         onClick={() => void undoTankestromImport()}
-                        className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-zinc-700"
+                        className="rounded-pill border border-zinc-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-zinc-700"
                       >
                         Angre
                       </button>
@@ -652,7 +652,7 @@ function App() {
                           openTankestromImport('toast')
                           dismissTankestromToast()
                         }}
-                        className="rounded-full border border-amber-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-amber-900"
+                        className="rounded-pill border border-amber-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-amber-900"
                       >
                         Vis feil
                       </button>

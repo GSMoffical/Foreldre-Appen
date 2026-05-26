@@ -1,4 +1,4 @@
-import type { Person } from '../types'
+﻿import type { Person } from '../types'
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -23,7 +23,7 @@ export function ParticipantAvatarStrip({ people, max = 4, className = '' }: Part
   if (people.length === 0) {
     return (
       <span
-        className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-[9px] font-bold text-zinc-600 ${className}`}
+        className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-pill bg-zinc-200 text-[9px] font-bold text-zinc-600 ${className}`}
         aria-hidden
       >
         ?
@@ -36,7 +36,7 @@ export function ParticipantAvatarStrip({ people, max = 4, className = '' }: Part
       {shown.map((p, i) => (
         <span
           key={p.id}
-          className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-[9px] font-bold text-white shadow-sm"
+          className="flex h-6 w-6 items-center justify-center rounded-pill border-2 border-white text-[9px] font-bold text-white shadow-sm"
           style={{
             backgroundColor: p.colorAccent,
             marginLeft: i === 0 ? 0 : -6,
@@ -48,7 +48,7 @@ export function ParticipantAvatarStrip({ people, max = 4, className = '' }: Part
       ))}
       {rest > 0 && (
         <span
-          className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-zinc-500 text-[9px] font-bold text-white shadow-sm"
+          className="flex h-6 w-6 items-center justify-center rounded-pill border-2 border-white bg-zinc-500 text-[9px] font-bold text-white shadow-sm"
           style={{ marginLeft: shown.length === 0 ? 0 : -6, zIndex: 0 }}
         >
           +{rest}

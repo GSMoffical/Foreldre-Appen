@@ -1,4 +1,4 @@
-import type { KeyboardEvent, MouseEvent } from 'react'
+﻿import type { KeyboardEvent, MouseEvent } from 'react'
 import type { DragReschedulePayload, GapInfo, TimelineLayoutItem, Task } from '../types'
 import type { Event } from '../types'
 import { ActivityBlock } from './ActivityBlock'
@@ -106,7 +106,7 @@ export function TimelineGrid({
             <>
               <span className="h-2 w-2 shrink-0 rounded-sm bg-amber-400" />
               <div className="flex-1 border-t border-dashed border-amber-300" />
-              <span className="whitespace-nowrap rounded-full bg-amber-50 px-1.5 py-px text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
+              <span className="whitespace-nowrap rounded-pill bg-amber-50 px-1.5 py-px text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
                 {label}
               </span>
             </>

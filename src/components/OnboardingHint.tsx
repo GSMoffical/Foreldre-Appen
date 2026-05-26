@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { hasSeenHint, markHintSeen } from '../lib/onboarding'
 import { useAuth } from '../context/AuthContext'
@@ -37,7 +37,7 @@ export function OnboardingHint({ hintId, children, autoDismissMs = 5000 }: Onboa
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 8, opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-x-4 z-[9999] flex items-start gap-3 rounded-xl bg-zinc-900 px-4 py-3 shadow-2xl"
+          className="fixed inset-x-4 z-[9999] flex items-start gap-3 rounded-lg bg-zinc-900 px-4 py-3 shadow-2xl"
           style={{ bottom: 128 }}
           onClick={() => setVisible(false)}
           role="status"

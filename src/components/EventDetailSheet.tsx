@@ -218,12 +218,12 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
           aria-label="Hendelsesdetaljer"
         >
         <div className={`${sheetHandle} !bg-synkaCream relative`}>
-          <div className="h-1 w-10 rounded-full bg-synkaPrimary/20" aria-hidden />
+          <div className="h-1 w-10 rounded-pill bg-synkaPrimary/20" aria-hidden />
           <button
             type="button"
             onClick={onClose}
             aria-label="Lukk"
-            className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-full text-synkaNavy/40 transition hover:bg-zinc-100 hover:text-synkaNavy/70 touch-manipulation"
+            className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-pill text-synkaNavy/40 transition hover:bg-zinc-100 hover:text-synkaNavy/70 touch-manipulation"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -306,7 +306,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                         <button
                           type="button"
                           onClick={() => void onQuickAssignTransport(role, mePersonId!)}
-                          className="rounded-full bg-synkaPrimary/10 px-2.5 py-0.5 text-[12px] font-semibold text-synkaPrimary transition hover:bg-synkaPrimary/20 touch-manipulation"
+                          className="rounded-pill bg-synkaPrimary/10 px-2.5 py-0.5 text-[12px] font-semibold text-synkaPrimary transition hover:bg-synkaPrimary/20 touch-manipulation"
                         >
                           Jeg {verbNb}
                         </button>
@@ -321,7 +321,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                             <button
                               type="button"
                               onClick={() => void onQuickAssignTransport(role, mePersonId!)}
-                              className="rounded-full border border-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-500 transition hover:bg-zinc-100 touch-manipulation"
+                              className="rounded-pill border border-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-500 transition hover:bg-zinc-100 touch-manipulation"
                             >
                               Overta
                             </button>
@@ -414,7 +414,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
           )}
 
           {showDeleteConfirm && (
-            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 space-y-3">
+            <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3.5 space-y-3">
               <p className="text-body-sm font-medium text-rose-900">Slette denne hendelsen?</p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setShowDeleteConfirm(false)} className={`flex-1 ${btnSecondary}`}>Avbryt</button>
@@ -468,13 +468,13 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                     setMoveDate(date)
                     setShowMove(true)
                   }}
-                  className="mt-3 w-full rounded-2xl border border-dashed border-zinc-300 py-2.5 text-body-sm font-medium text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-700 touch-manipulation"
+                  className="mt-3 w-full rounded-lg border border-dashed border-zinc-300 py-2.5 text-body-sm font-medium text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-700 touch-manipulation"
                 >
                   Flytt til en annen dag…
                 </button>
               )}
               {onMove && showMove && (
-                <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 space-y-3">
+                <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50/80 p-4 space-y-3">
                   <p className="text-body-sm font-medium text-zinc-800">Flytt til dato</p>
                   <div className="space-y-1">
                     <label className="block text-caption font-medium text-zinc-500 mb-1">Dato</label>
@@ -519,13 +519,13 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                     setDupEnd(event.end)
                     setShowDuplicate(true)
                   }}
-                  className="mt-3 w-full rounded-2xl border border-dashed border-zinc-300 py-2.5 text-body-sm font-medium text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-700 touch-manipulation"
+                  className="mt-3 w-full rounded-lg border border-dashed border-zinc-300 py-2.5 text-body-sm font-medium text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-700 touch-manipulation"
                 >
                   Dupliser til en annen dag…
                 </button>
               )}
               {onDuplicate && showDuplicate && (
-                <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 space-y-3">
+                <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50/80 p-4 space-y-3">
                   <p className="text-body-sm font-medium text-zinc-800">Kopier til dato og tid</p>
                   <div className="space-y-1">
                     <label className="block text-caption font-medium text-zinc-500 mb-1">Dato</label>

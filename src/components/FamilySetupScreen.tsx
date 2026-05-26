@@ -101,7 +101,7 @@ export function FamilySetupScreen({ onSkip }: FamilySetupScreenProps) {
                   key={accent}
                   type="button"
                   onClick={() => { setColorTint(tint); setColorAccent(accent) }}
-                  className="h-9 w-9 rounded-full border-2 transition-transform hover:scale-110 active:scale-95"
+                  className="h-9 w-9 rounded-pill border-2 transition-transform hover:scale-110 active:scale-95"
                   style={{
                     backgroundColor: tint,
                     borderColor: colorAccent === accent ? accent : 'transparent',
@@ -113,7 +113,7 @@ export function FamilySetupScreen({ onSkip }: FamilySetupScreenProps) {
             </div>
           </div>
 
-          <p className="rounded-xl bg-zinc-50 px-3.5 py-2.5 text-[12px] leading-relaxed text-zinc-500">
+          <p className="rounded-lg bg-zinc-50 px-3.5 py-2.5 text-[12px] leading-relaxed text-zinc-500">
             Skolerute og timeplan settes opp fra{' '}
             <span className="font-medium text-zinc-600">Innstillinger → Familie</span> etterpå — du
             kan hoppe over det nå.

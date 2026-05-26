@@ -1,8 +1,8 @@
-import { Component } from 'react'
+﻿import { Component } from 'react'
 import type { ReactNode } from 'react'
 
 const Fallback = () => (
-  <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-center">
+  <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-center">
     <p className="text-[13px] font-medium text-rose-900">Kunne ikke vise forhåndsvisningen.</p>
     <p className="mt-1 text-[12px] text-rose-800">Lukk vinduet og prøv igjen, eller last siden på nytt.</p>
   </div>

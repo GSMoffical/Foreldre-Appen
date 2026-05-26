@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+﻿import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { springDialog } from '../../../lib/motion'
 import type { Task, PersonId, TaskIntent } from '../../../types'
@@ -111,7 +111,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
             type="button"
             onClick={guardedClose}
             aria-label="Lukk"
-            className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 touch-manipulation"
+            className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-pill text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 touch-manipulation"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -149,13 +149,13 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
 
           <div className="space-y-1">
             <span className={inputLabel}>Type</span>
-            <div className="flex rounded-xl border border-zinc-200 bg-zinc-50/90 p-0.5">
+            <div className="flex rounded-lg border border-zinc-200 bg-zinc-50/90 p-0.5">
               {(['must_do', 'can_help'] as const).map((intent) => (
                 <button
                   key={intent}
                   type="button"
                   onClick={() => setTaskIntent(intent)}
-                  className={`flex-1 rounded-lg px-2 py-2 text-[12px] font-semibold transition touch-manipulation ${
+                  className={`flex-1 rounded-md px-2 py-2 text-[12px] font-semibold transition touch-manipulation ${
                     taskIntent === intent
                       ? intent === 'must_do'
                         ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200/80'
@@ -255,12 +255,12 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
                   role="switch"
                   aria-checked={showInMonthView}
                   onClick={() => setShowInMonthView((v) => !v)}
-                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brandTeal/50 ${
+                  className={`relative h-6 w-11 shrink-0 rounded-pill transition-colors focus:outline-none focus:ring-2 focus:ring-brandTeal/50 ${
                     showInMonthView ? 'bg-brandTeal' : 'bg-zinc-300'
                   }`}
                 >
                   <span
-                    className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                    className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-pill bg-white shadow-sm transition-transform ${
                       showInMonthView ? 'translate-x-5' : 'translate-x-0'
                     }`}
                   />
@@ -270,7 +270,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
           )}
 
           {confirming && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5 space-y-3">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3.5 space-y-3">
               <p className="text-body-sm font-medium text-amber-900">Du har ulagrede endringer. Forkaste?</p>
               <div className="flex gap-2">
                 <button type="button" onClick={cancelConfirm} className={`flex-1 ${btnSecondary}`}>Bli her</button>

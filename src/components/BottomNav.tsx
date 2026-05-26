@@ -28,7 +28,7 @@ function nextViewLabel(tab: 'today' | 'week' | 'month'): string {
 
 export function BottomNav({ active, onSelect, logisticsNotifyCount = 0, lastCalendarTab = 'today' }: BottomNavProps) {
   const base =
-    'relative z-0 flex flex-1 items-center justify-center overflow-visible rounded-lg py-3 text-[14px] font-semibold transition-colors'
+    'relative z-0 flex flex-1 items-center justify-center overflow-visible rounded-md py-3 text-[14px] font-semibold transition-colors'
   const inactiveText = 'text-synkaNavy/50'
   const activeText = 'text-white'
 
@@ -66,7 +66,7 @@ export function BottomNav({ active, onSelect, logisticsNotifyCount = 0, lastCale
             {calendarActive && (
               <motion.div
                 layoutId="bottom-nav-indicator"
-                className="pointer-events-none absolute inset-0 z-20 rounded-lg bg-synkaPrimary shadow-planner-sm"
+                className="pointer-events-none absolute inset-0 z-20 rounded-md bg-synkaPrimary shadow-planner-sm"
                 style={{ zIndex: 30 }}
                 transition={springSnappy}
               />
@@ -84,7 +84,7 @@ export function BottomNav({ active, onSelect, logisticsNotifyCount = 0, lastCale
             {active === 'logistics' && (
               <motion.div
                 layoutId="bottom-nav-indicator"
-                className="pointer-events-none absolute inset-0 z-20 rounded-lg bg-synkaPrimary shadow-planner-sm"
+                className="pointer-events-none absolute inset-0 z-20 rounded-md bg-synkaPrimary shadow-planner-sm"
                 style={{ zIndex: 30 }}
                 transition={springSnappy}
               />
@@ -94,7 +94,7 @@ export function BottomNav({ active, onSelect, logisticsNotifyCount = 0, lastCale
               {logisticsNotifyCount > 0 && (
                 <span
                   aria-label={`${logisticsNotifyCount} uleste varsler`}
-                  className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white"
+                  className="flex h-[18px] min-w-[18px] items-center justify-center rounded-pill bg-rose-500 px-1 text-[10px] font-bold leading-none text-white"
                 >
                   {logisticsNotifyCount > 9 ? '9+' : logisticsNotifyCount}
                 </span>
@@ -109,7 +109,7 @@ export function BottomNav({ active, onSelect, logisticsNotifyCount = 0, lastCale
             {active === 'settings' && (
               <motion.div
                 layoutId="bottom-nav-indicator"
-                className="pointer-events-none absolute inset-0 z-20 rounded-lg bg-synkaPrimary shadow-planner-sm"
+                className="pointer-events-none absolute inset-0 z-20 rounded-md bg-synkaPrimary shadow-planner-sm"
                 style={{ zIndex: 30 }}
                 transition={springSnappy}
               />
