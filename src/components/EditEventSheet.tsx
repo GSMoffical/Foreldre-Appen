@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+﻿import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { springDialog } from '../lib/motion'
 import type { Event, PersonId } from '../types'
@@ -14,9 +14,9 @@ import {
 
 function reminderLabel(m: number | undefined): string {
   if (m == null) return 'Ingen'
-  if (m < 60) return `${m} min fÃ¸r`
+  if (m < 60) return `${m} min før`
   const hours = m / 60
-  return `${hours} t fÃ¸r`
+  return `${hours} t før`
 }
 
 function ReminderDropdown({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
@@ -67,7 +67,7 @@ function ReminderDropdownField({ reminderMinutes, setReminderMinutes }: { remind
   const [customMinutes, setCustomMinutes] = useState(60)
   return (
     <div className="space-y-1">
-      <label className={inputLabel}>PÃ¥minnelse</label>
+      <label className={inputLabel}>Påminnelse</label>
       <div className="relative">
         <button
           type="button"
@@ -86,12 +86,12 @@ function ReminderDropdownField({ reminderMinutes, setReminderMinutes }: { remind
         <ReminderDropdown open={open} onClose={() => { setOpen(false); setShowCustom(false) }}>
           {[
             { value: undefined as number | undefined, label: 'Ingen' },
-            { value: 5, label: '5 minutter fÃ¸r' },
-            { value: 15, label: '15 minutter fÃ¸r' },
-            { value: 30, label: '30 minutter fÃ¸r' },
-            { value: 60, label: '1 time fÃ¸r' },
-            { value: 120, label: '2 timer fÃ¸r' },
-            { value: 1440, label: '24 timer fÃ¸r' },
+            { value: 5, label: '5 minutter før' },
+            { value: 15, label: '15 minutter før' },
+            { value: 30, label: '30 minutter før' },
+            { value: 60, label: '1 time før' },
+            { value: 120, label: '2 timer før' },
+            { value: 1440, label: '24 timer før' },
           ].map((opt) => (
             <DropdownItem
               key={String(opt.value)}
@@ -102,7 +102,7 @@ function ReminderDropdownField({ reminderMinutes, setReminderMinutes }: { remind
           ))}
           <DropdownItem
             key="custom"
-            label="Tilpassetâ€¦"
+            label="Tilpasset…"
             active={false}
             onClick={() => setShowCustom(true)}
           />
@@ -116,7 +116,7 @@ function ReminderDropdownField({ reminderMinutes, setReminderMinutes }: { remind
                 onChange={(e) => setCustomMinutes(Math.max(1, parseInt(e.target.value) || 1))}
                 className="w-16 rounded-lg border border-zinc-200 px-2 py-1 text-center text-[13px] outline-none focus:border-zinc-400"
               />
-              <span className="text-[13px] text-zinc-600">min fÃ¸r</span>
+              <span className="text-[13px] text-zinc-600">min før</span>
               <button
                 type="button"
                 onClick={() => { setReminderMinutes(customMinutes); setShowCustom(false); setOpen(false) }}
@@ -271,7 +271,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
       return
     }
     if (!isAllDay && (!start || !end || start === end)) {
-      setError('Starttid og sluttid kan ikke vÃ¦re like.')
+      setError('Starttid og sluttid kan ikke være like.')
       return
     }
     if (!eventDate) {
@@ -279,7 +279,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
       return
     }
     if (selectedPersonIds.length === 0) {
-      setError('Velg minst Ã©n person.')
+      setError('Velg minst én person.')
       return
     }
     setSaving(true)
@@ -503,7 +503,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
             </svg>
-            {showMore ? 'Skjul detaljer' : 'Mer detaljer (sted, notater, pÃ¥minnelse, transport)'}
+            {showMore ? 'Skjul detaljer' : 'Mer detaljer (sted, notater, påminnelse, transport)'}
           </button>
 
           {showMore && (
@@ -597,7 +597,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
               Avbryt
             </button>
             <button type="submit" disabled={saving} className={`flex-1 ${btnPrimary}`}>
-              {saving ? 'Lagrerâ€¦' : 'Lagre'}
+              {saving ? 'Lagrer…' : 'Lagre'}
             </button>
           </div>
         </form>

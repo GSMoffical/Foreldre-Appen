@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+﻿import { useEffect, useMemo, useRef } from 'react'
 import type { ChildSchoolProfile, NorwegianGradeBand, SchoolLessonSlot, WeekdayMonFri } from '../types'
 import {
   CUSTOM_SUBJECT_KEY,
@@ -55,10 +55,10 @@ function normalizeImportedSubcategory(subjectKey: string, rawValue: string | und
   if (!raw) return undefined
   const low = raw.toLocaleLowerCase('nb-NO')
 
-  if (subjectKey === 'fremmedsprÃ¥k') {
-    const m = raw.match(/(?:fremmedsprÃ¥k|sprÃ¥k)\s*[:\-()]\s*(.+)$/i)
+  if (subjectKey === 'fremmedspråk') {
+    const m = raw.match(/(?:fremmedspråk|språk)\s*[:\-()]\s*(.+)$/i)
     if (m?.[1]?.trim()) return toTitleCaseNb(m[1])
-    if (low === 'fremmedsprÃ¥k' || low === 'sprÃ¥k' || low === 'sprak') return undefined
+    if (low === 'fremmedspråk' || low === 'språk' || low === 'sprak') return undefined
     if (/\btysk|german|deutsch\b/i.test(raw)) return 'Tysk'
     if (/\bspansk|spanish\b/i.test(raw)) return 'Spansk'
     if (/\bfransk|french\b/i.test(raw)) return 'Fransk'
@@ -66,7 +66,7 @@ function normalizeImportedSubcategory(subjectKey: string, rawValue: string | und
     if (/\brussisk|russian\b/i.test(raw)) return 'Russisk'
     if (/\barabisk|arabic\b/i.test(raw)) return 'Arabisk'
     if (/\bjapansk|japanese\b/i.test(raw)) return 'Japansk'
-    if (/\bmandarin|kinesisk|kinamÃ¥l\b/i.test(raw)) return 'Mandarin (kinesisk)'
+    if (/\bmandarin|kinesisk|kinamål\b/i.test(raw)) return 'Mandarin (kinesisk)'
     return toTitleCaseNb(raw)
   }
 
@@ -122,8 +122,8 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
           })
         }
         if (inferred && inferred.subjectKey === lesson.subjectKey && inferred.matchType === 'exact' && custom) {
-          // Samme fag to ganger: TankestrÃ¸m kan sende bÃ¥de subjectKey og label/displayLabel som samme fagnavn.
-          // Da gjÃ¸r customLabel ingen nytte og kan forvirre import-feilsÃ¸king / snapshot-diff.
+          // Samme fag to ganger: Tankestrøm kan sende både subjectKey og label/displayLabel som samme fagnavn.
+          // Da gjør customLabel ingen nytte og kan forvirre import-feilsøking / snapshot-diff.
           lesson.customLabel = undefined
           dayChanged = true
           continue
@@ -132,7 +132,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
         if (!inferred || inferred.subjectKey === lesson.subjectKey) continue
 
         // Import kan sette faktisk fag i customLabel (f.eks. "Valgfag") mens subjectKey er feil.
-        // Da lÃ¸fter vi customLabel til riktig subjectKey for Ã¥ unngÃ¥ motstrid i dropdown/felt.
+        // Da løfter vi customLabel til riktig subjectKey for å unngå motstrid i dropdown/felt.
         const before = { subjectKey: lesson.subjectKey, customLabel: lesson.customLabel }
         lesson.subjectKey = inferred.subjectKey
         if (inferred.matchType === 'exact') {
@@ -435,12 +435,12 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
       ) : null}
       <p className="text-[12px] font-medium text-zinc-800">Skolerute (bakgrunn)</p>
       <p className="text-[11px] leading-relaxed text-zinc-600">
-        Basert pÃ¥ typiske tider i norsk grunnskole (LK20) â€” tilpass lokalt. Vises svakt; avtaler og hendelser
-        legges oppÃ¥.
+        Basert på typiske tider i norsk grunnskole (LK20) — tilpass lokalt. Vises svakt; avtaler og hendelser
+        legges oppå.
       </p>
 
       <div>
-        <label className="text-[11px] font-medium text-zinc-600">Trinn / nivÃ¥</label>
+        <label className="text-[11px] font-medium text-zinc-600">Trinn / nivå</label>
         <select
           value={band}
           onChange={(e) => setBand(e.target.value as NorwegianGradeBand)}
@@ -455,8 +455,8 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
       </div>
 
       <p className="text-[11px] text-zinc-500">
-        Standard skoledag nÃ¥r ingenting annet er satt: <span className="font-medium">{gates.start}â€“{gates.end}</span>{' '}
-        (manâ€“fre).
+        Standard skoledag når ingenting annet er satt: <span className="font-medium">{gates.start}–{gates.end}</span>{' '}
+        (man–fre).
       </p>
 
       <div className="space-y-3">
@@ -535,7 +535,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
               {mode === 'lessons' && (
                 <div className="mt-2 space-y-1.5">
                   <p className="text-[11px] leading-relaxed text-zinc-500">
-                    Neste time foreslÃ¥s fra forrige sluttid. Standard varighet: {defaultLessonMinutes} min.
+                    Neste time foreslås fra forrige sluttid. Standard varighet: {defaultLessonMinutes} min.
                   </p>
                   {(plan?.lessons ?? []).map((L, i) => (
                     <div key={i} className="flex flex-col gap-1.5">
@@ -575,7 +575,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                               {s.label}
                             </option>
                           ))}
-                          <option value={CUSTOM_SUBJECT_KEY}>Annet fagâ€¦</option>
+                          <option value={CUSTOM_SUBJECT_KEY}>Annet fag…</option>
                         </select>
                         <div className="flex min-w-0 flex-nowrap items-center gap-1">
                           <input
@@ -612,14 +612,14 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                       </div>
                       {lessonUsesStructuredSubcategory(L.subjectKey) ? (
                         <div className="mt-1.5 rounded-md border border-zinc-200/90 bg-zinc-50/80 px-2 py-1.5">
-                          {L.subjectKey === 'fremmedsprÃ¥k' || L.subjectKey === 'valgfag' ? (
+                          {L.subjectKey === 'fremmedspråk' || L.subjectKey === 'valgfag' ? (
                             <>
                               <label className="block text-[11px] font-medium text-zinc-600">
                                 Velg underkategori
                               </label>
                               {(() => {
                                 const subPickPresets =
-                                  L.subjectKey === 'fremmedsprÃ¥k'
+                                  L.subjectKey === 'fremmedspråk'
                                     ? FREMMSP_LEK_SUBCATEGORY_PRESETS
                                     : VALGFAG_SUBCATEGORY_PRESETS
                                 const subSelectValue = lessonSubcategorySelectValue(
@@ -665,7 +665,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                                         }
                                       }}
                                     >
-                                      <option value="">â€” Velg â€”</option>
+                                      <option value="">— Velg —</option>
                                       {subPickPresets.map((p) => (
                                         <option key={p.value} value={p.value}>
                                           {p.label}
@@ -698,7 +698,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                                         onClick={() => applySubcategoryToSubject(L.subjectKey, applyAllValue)}
                                         className="mt-1 text-[10px] font-medium text-synkaPrimary underline underline-offset-2"
                                       >
-                                        Bruk samme for alle {L.subjectKey === 'fremmedsprÃ¥k' ? 'sprÃ¥k' : 'valgfag'}-timer
+                                        Bruk samme for alle {L.subjectKey === 'fremmedspråk' ? 'språk' : 'valgfag'}-timer
                                       </button>
                                     ) : null}
                                   </>
@@ -718,7 +718,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                                     lessonSubcategory: e.target.value.trim() || undefined,
                                   })
                                 }
-                                placeholder="Valgfritt â€” f.eks. programfagnavn"
+                                placeholder="Valgfritt — f.eks. programfagnavn"
                                 aria-label="Underkategori for generisk fagblokk"
                                 className="mt-0.5 w-full rounded border border-zinc-200 bg-white px-2 py-1.5 text-[12px] outline-none focus:border-zinc-400"
                               />

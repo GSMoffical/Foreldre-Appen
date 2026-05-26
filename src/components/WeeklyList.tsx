@@ -1,4 +1,4 @@
-import type { Event } from '../types'
+﻿import type { Event } from '../types'
 import type { WeekDayLayout } from '../hooks/useScheduleState'
 import { formatCalendarEventTimeLabel } from '../lib/schedule'
 import { useFamily } from '../context/FamilyContext'
@@ -112,7 +112,7 @@ export function WeeklyList({ weekLayoutData, onSelectEvent, onDeleteEvent, onAdd
                                 {formatCalendarEventTimeLabel(e)}
                               </span>
                               {namesLine !== 'Ukjent' && (
-                                <span className="text-[11px] font-medium text-zinc-500">Â· {namesLine}</span>
+                                <span className="text-[11px] font-medium text-zinc-500">· {namesLine}</span>
                               )}
                               {e.location && (
                                 <span className="text-[12px] text-zinc-600">

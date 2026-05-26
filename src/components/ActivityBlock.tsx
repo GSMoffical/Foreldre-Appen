@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState, useEffect, useLayoutEffect } from 'react'
+﻿import { useRef, useCallback, useState, useEffect, useLayoutEffect } from 'react'
 import { motion, useAnimation, useReducedMotion } from 'framer-motion'
 import type { DragReschedulePayload, EventLayoutBlock, PersonId } from '../types'
 import { useFamily } from '../context/FamilyContext'
@@ -61,10 +61,10 @@ export function ActivityBlock({
   const leftPercent = block.totalColumns > 1 ? (block.columnIndex / block.totalColumns) * 100 : 0
   const rawHeight = block.heightPx
   const compactThresholdPx = 44
-  /** Below this, stacked title+time is cramped â€” use a single horizontal row instead */
+  /** Below this, stacked title+time is cramped — use a single horizontal row instead */
   const stackedShortThresholdPx = 58
   const tallThresholdPx = 72
-  /** Not enough vertical space for a readable title line + padding â†’ show color only */
+  /** Not enough vertical space for a readable title line + padding → show color only */
   const blankBelowPx = 18
   /** Enough for one title line, not for title + time in one row */
   const titleOnlyBelowPx = 32
@@ -248,7 +248,7 @@ export function ActivityBlock({
           </div>
         </div>
       )}
-      {/* Shimmer sweep when commit is pending: a bright band slides left â†’ right */}
+      {/* Shimmer sweep when commit is pending: a bright band slides left → right */}
       {isPendingCommit && (
         <motion.div
           className="pointer-events-none absolute inset-0 overflow-hidden rounded-block z-10"
@@ -324,7 +324,7 @@ export function ActivityBlock({
             </span>
             <span className="shrink-0 text-right text-[10px] font-medium tabular-nums leading-none text-zinc-600">
               {formatCalendarEventTimeLabel(block)}
-              {participants.length > 1 ? ` Â·${participants.length}` : ''}
+              {participants.length > 1 ? ` ·${participants.length}` : ''}
             </span>
           </span>
         ) : isMedium ? (

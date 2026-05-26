@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { LogisticsLoadingSkeleton } from './LogisticsLoadingSkeleton'
 import type { WeekDayLayout } from '../hooks/useScheduleState'
 import type { Event, Person, PersonId } from '../types'
@@ -11,9 +11,9 @@ import { getParticipantPeople } from '../lib/eventParticipants'
 
 interface LogisticsScreenProps {
   weekLayoutData: WeekDayLayout[]
-  /** While the weekâ€™s events are loading from the server */
+  /** While the week’s events are loading from the server */
   loading?: boolean
-  /** Same resolved â€œdegâ€ person as family filter (optional fallback inside) */
+  /** Same resolved “deg” person as family filter (optional fallback inside) */
   mePersonId?: PersonId | null
   onJumpToEvent: (date: string, event: Event) => void
   onAssignTransport: (
@@ -39,13 +39,13 @@ interface PersonTransportStats {
 }
 
 const NB_DAYS: Record<number, string> = {
-  0: 'SÃ¸ndag',
+  0: 'Søndag',
   1: 'Mandag',
   2: 'Tirsdag',
   3: 'Onsdag',
   4: 'Torsdag',
   5: 'Fredag',
-  6: 'LÃ¸rdag',
+  6: 'Lørdag',
 }
 
 function formatDayHeader(dateKey: string): string {
@@ -65,9 +65,9 @@ function formatWeekRange(weekData: WeekDayLayout[]): string {
     'jul', 'aug', 'sep', 'okt', 'nov', 'des',
   ]
   if (first.getMonth() === last.getMonth()) {
-    return `${fDay}.â€“${lDay}. ${months[first.getMonth()]}`
+    return `${fDay}.–${lDay}. ${months[first.getMonth()]}`
   }
-  return `${fDay}. ${months[first.getMonth()]}â€“${lDay}. ${months[last.getMonth()]}`
+  return `${fDay}. ${months[first.getMonth()]}–${lDay}. ${months[last.getMonth()]}`
 }
 
 function personById(people: Person[], id?: PersonId): Person | null {
@@ -185,14 +185,14 @@ export function LogisticsScreen({
                   onClick={() => onChangeWeek(-1)}
                   className="rounded-full border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-50"
                 >
-                  â€¹ Forrige
+                  ‹ Forrige
                 </button>
                 <button
                   type="button"
                   onClick={() => onChangeWeek(1)}
                   className="rounded-full border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-50"
                 >
-                  Neste â€º
+                  Neste ›
                 </button>
               </div>
             )}
@@ -240,7 +240,7 @@ export function LogisticsScreen({
                     <span className="font-medium text-zinc-800">{s.person.name}</span>
                     <span className="text-zinc-500">
                       {s.dropoffs > 0 && <span>{s.dropoffs}L</span>}
-                      {s.dropoffs > 0 && s.pickups > 0 && ' Â· '}
+                      {s.dropoffs > 0 && s.pickups > 0 && ' · '}
                       {s.pickups > 0 && <span>{s.pickups}H</span>}
                     </span>
                   </div>

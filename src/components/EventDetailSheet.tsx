@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { springDialog } from '../lib/motion'
 import { Button } from './ui/Button'
@@ -32,7 +32,7 @@ interface EventDetailSheetProps {
   onDuplicate?: (targetDate: string, start: string, end: string) => void | Promise<void>
   /** Optional: move this event to a different date (keeps existing start/end times). */
   onMove?: (targetDate: string) => void | Promise<void>
-  /** The current user's PersonId â€” used to render "Jeg henter/leverer" vs "Du henter/leverer" vs "Overta". */
+  /** The current user's PersonId — used to render "Jeg henter/leverer" vs "Du henter/leverer" vs "Overta". */
   mePersonId?: string | null
   /** Quick-assign a transport role directly from the detail sheet without opening the edit form. */
   onQuickAssignTransport?: (role: 'dropoff' | 'pickup', personId: string) => Promise<void> | void
@@ -250,7 +250,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                 const docName = (event.metadata as { documentExtractedPersonName?: unknown } | undefined)
                   ?.documentExtractedPersonName
                 return typeof docName === 'string' && docName.trim() ? (
-                  <> Â· Navn i dokument: {docName.trim()}</>
+                  <> · Navn i dokument: {docName.trim()}</>
                 ) : null
               })()}
             </p>
@@ -258,7 +258,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
           <h2 className="mt-1 text-[22px] font-bold text-zinc-900 leading-tight">{event.title}</h2>
           {isAllDay ? (
             <p className="mt-2 text-body font-medium text-synkaNavy">
-              Heldags{eventEndDate && eventEndDate !== date ? ` Â· t.o.m. ${eventEndDate}` : ''}
+              Heldags{eventEndDate && eventEndDate !== date ? ` · t.o.m. ${eventEndDate}` : ''}
             </p>
           ) : isDateOnly ? (
             <p className="mt-2 text-body font-medium text-zinc-700">
@@ -271,7 +271,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                 <p className="mt-1 text-[12px] leading-snug text-zinc-500">Sluttid er beregnet</p>
               ) : null}
               {attendanceTime ? (
-                <p className="mt-1 text-[12px] leading-snug text-zinc-600">OppmÃ¸te {attendanceTime}</p>
+                <p className="mt-1 text-[12px] leading-snug text-zinc-600">Oppmøte {attendanceTime}</p>
               ) : null}
               {!hideSyntheticDuration ? <p className={sheetSubtitle}>Varighet: {durationStr}</p> : null}
               {tankestromTimeSourceIsComputedFromDuration(event.metadata?.endTimeSource) ? (
@@ -381,7 +381,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                               {timeStr ? (
                                 <span className="text-[12px] font-semibold tabular-nums text-zinc-600">{timeStr}</span>
                               ) : (
-                                <span className="text-[11px] text-zinc-400">â€”</span>
+                                <span className="text-[11px] text-zinc-400">—</span>
                               )}
                             </div>
                             <div className="min-w-0 flex-1 border-l border-zinc-200 pl-3">
@@ -418,7 +418,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
               <p className="text-body-sm font-medium text-rose-900">Slette denne hendelsen?</p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setShowDeleteConfirm(false)} className={`flex-1 ${btnSecondary}`}>Avbryt</button>
-                <button type="button" disabled={deleting} onClick={() => { setShowDeleteConfirm(false); void doDelete('this') }} className={`flex-1 ${btnDanger}`}>{deleting ? 'Sletterâ€¦' : 'Slett'}</button>
+                <button type="button" disabled={deleting} onClick={() => { setShowDeleteConfirm(false); void doDelete('this') }} className={`flex-1 ${btnDanger}`}>{deleting ? 'Sletter…' : 'Slett'}</button>
               </div>
             </div>
           )}
@@ -445,7 +445,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                   else doDelete('all')
                 }}
               >
-                {deleting ? 'Sletterâ€¦' : 'Alle i serien'}
+                {deleting ? 'Sletter…' : 'Alle i serien'}
               </Button>
               <Button variant="neutral" onClick={() => setShowSeriesChoice(null)}>
                 Avbryt
@@ -458,7 +458,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                   Rediger
                 </Button>
                 <Button variant="danger" fullWidth={false} className="flex-1" disabled={deleting} onClick={handleDeleteClick}>
-                  {deleting ? 'Sletterâ€¦' : 'Slett'}
+                  {deleting ? 'Sletter…' : 'Slett'}
                 </Button>
               </div>
               {onMove && !showMove && !showDuplicate && (
@@ -470,7 +470,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                   }}
                   className="mt-3 w-full rounded-2xl border border-dashed border-zinc-300 py-2.5 text-body-sm font-medium text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-700 touch-manipulation"
                 >
-                  Flytt til en annen dagâ€¦
+                  Flytt til en annen dag…
                 </button>
               )}
               {onMove && showMove && (
@@ -505,7 +505,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                         }
                       }}
                     >
-                      {moveSaving ? 'Flytterâ€¦' : 'Flytt'}
+                      {moveSaving ? 'Flytter…' : 'Flytt'}
                     </Button>
                   </div>
                 </div>
@@ -521,7 +521,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                   }}
                   className="mt-3 w-full rounded-2xl border border-dashed border-zinc-300 py-2.5 text-body-sm font-medium text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-700 touch-manipulation"
                 >
-                  Dupliser til en annen dagâ€¦
+                  Dupliser til en annen dag…
                 </button>
               )}
               {onDuplicate && showDuplicate && (
@@ -557,7 +557,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                     </div>
                   </div>
                   {dupStart >= dupEnd && (
-                    <p className="text-caption text-amber-600">Starttid mÃ¥ vÃ¦re fÃ¸r sluttid.</p>
+                    <p className="text-caption text-amber-600">Starttid må være før sluttid.</p>
                   )}
                   <div className="flex gap-2">
                     <Button variant="secondary" fullWidth={false} className="flex-1" size="sm" onClick={() => setShowDuplicate(false)}>
@@ -579,7 +579,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                         }
                       }}
                     >
-                      {dupSaving ? 'Kopiererâ€¦' : 'Dupliser'}
+                      {dupSaving ? 'Kopierer…' : 'Dupliser'}
                     </Button>
                   </div>
                 </div>

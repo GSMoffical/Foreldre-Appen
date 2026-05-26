@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+﻿import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { Event } from '../types'
 import { getISOWeek, getISOWeekYear } from '../lib/isoWeek'
 import { formatCalendarEventTimeLabel } from '../lib/schedule'
@@ -12,13 +12,13 @@ interface MonthViewProps {
   onSelectDate: (date: string) => void
   /** Returns true if the given date (YYYY-MM-DD) has events */
   hasEventsOnDate?: (date: string) => boolean
-  /** Visible events for a date (same filter as rest of app) â€” used for dots + day summary */
+  /** Visible events for a date (same filter as rest of app) — used for dots + day summary */
   getEventsForDate?: (date: string) => Event[]
-  /** Called when the visible calendar month changes â€” prefetch events for dots */
+  /** Called when the visible calendar month changes — prefetch events for dots */
   onVisibleMonthRange?: (startDate: string, endDate: string) => void
-  /** Long-press or secondary action (e.g. hÃ¸yreklikk) â€” open â€œlegg tilâ€ for this date without day navigation */
+  /** Long-press or secondary action (e.g. høyreklikk) — open “legg til” for this date without day navigation */
   onAddEventForDate?: (date: string) => void
-  /** Tap an event in mÃ¥neds-agenda â€” typically Ã¥pne detalj + hopp til dag */
+  /** Tap an event in måneds-agenda — typically åpne detalj + hopp til dag */
   onSelectEvent?: (event: Event, date: string) => void
   /** Returns true if the date has at least one open task flagged for month-view visibility */
   hasHighlightedTaskOnDate?: (date: string) => boolean
@@ -62,7 +62,7 @@ const MONTH_NAMES = [
   'Juli', 'August', 'September', 'Oktober', 'November', 'Desember',
 ]
 
-const DAY_HEADERS = ['Man', 'Tir', 'Ons', 'Tor', 'Fre', 'LÃ¸r', 'SÃ¸n']
+const DAY_HEADERS = ['Man', 'Tir', 'Ons', 'Tor', 'Fre', 'Lør', 'Søn']
 
 const SUMMARY_PREVIEW = 3
 
@@ -76,7 +76,7 @@ function chunkWeekRows(cells: (Date | null)[]): (Date | null)[][] {
   return rows
 }
 
-const DAY_ABBR_NB = ['sÃ¸n', 'man', 'tir', 'ons', 'tor', 'fre', 'lÃ¸r']
+const DAY_ABBR_NB = ['søn', 'man', 'tir', 'ons', 'tor', 'fre', 'lør']
 
 type AgendaDay = { date: string; events: Event[] }
 type AgendaWeek = { key: string; weekNum: number; days: AgendaDay[]; rangeLabel: string }
@@ -113,9 +113,9 @@ function buildMonthAgenda(
     const ld = new Date(last + 'T12:00:00')
     let rangeLabel: string
     if (fd.getMonth() === ld.getMonth() && fd.getFullYear() === ld.getFullYear()) {
-      rangeLabel = `${fd.getDate()}.â€“${ld.getDate()}. ${MONTH_NAMES[fd.getMonth()]}`
+      rangeLabel = `${fd.getDate()}.–${ld.getDate()}. ${MONTH_NAMES[fd.getMonth()]}`
     } else {
-      rangeLabel = `${fd.getDate()}. ${MONTH_NAMES[fd.getMonth()]} â€“ ${ld.getDate()}. ${MONTH_NAMES[ld.getMonth()]}`
+      rangeLabel = `${fd.getDate()}. ${MONTH_NAMES[fd.getMonth()]} – ${ld.getDate()}. ${MONTH_NAMES[ld.getMonth()]}`
     }
     list.push({ key, weekNum: v.weekNum, days, rangeLabel })
   }
@@ -250,7 +250,7 @@ export function MonthView({
           type="button"
           onClick={prevMonth}
           className="justify-self-start rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
-          aria-label="Forrige mÃ¥ned"
+          aria-label="Forrige måned"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
@@ -263,7 +263,7 @@ export function MonthView({
           type="button"
           onClick={nextMonth}
           className="justify-self-end rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
-          aria-label="Neste mÃ¥ned"
+          aria-label="Neste måned"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
@@ -424,17 +424,17 @@ export function MonthView({
         {getEventsForDate && (
           <section
             className="relative z-0 mx-auto mt-6 w-full max-w-md shrink-0 rounded-2xl border-2 border-synkaNavy/10 bg-synkaCream/25 px-3 py-3 shadow-planner-sm backdrop-blur-sm"
-            aria-label="Agenda for mÃ¥neden"
+            aria-label="Agenda for måneden"
           >
-            <h3 className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Agenda for mÃ¥neden</h3>
+            <h3 className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Agenda for måneden</h3>
             {monthAgenda.length === 0 ? (
-              <p className="mt-2 text-[13px] leading-relaxed text-zinc-700">Ingen hendelser denne mÃ¥neden.</p>
+              <p className="mt-2 text-[13px] leading-relaxed text-zinc-700">Ingen hendelser denne måneden.</p>
             ) : (
               <div className="mt-3 space-y-5">
                 {monthAgenda.map((week) => (
                   <div key={week.key}>
                     <p className="sticky top-0 z-10 -mx-3 border-b border-synkaNavy/10 bg-synkaCream/40 px-3 py-1.5 text-[12px] font-semibold text-synkaNavy backdrop-blur-sm">
-                      Uke {week.weekNum} Â· {week.rangeLabel}
+                      Uke {week.weekNum} · {week.rangeLabel}
                     </p>
                     <div className="mt-2 space-y-4">
                       {week.days.map((day) => {
@@ -487,7 +487,7 @@ export function MonthView({
               </div>
             )}
             <p className="mt-4 border-t border-synkaNavy/10 pt-3 text-center text-[12px] leading-snug text-zinc-600">
-              Trykk pÃ¥ en dato for Ã¥ velge den og se oppsummeringen over. Langt trykk eller hÃ¸yreklikk for Ã¥ legge til pÃ¥
+              Trykk på en dato for å velge den og se oppsummeringen over. Langt trykk eller høyreklikk for å legge til på
               den datoen.
             </p>
           </section>

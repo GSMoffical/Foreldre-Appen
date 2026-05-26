@@ -68,9 +68,7 @@ import {
   analyzeDocumentWithTankestrom,
   analyzeTextWithTankestrom,
   mergePortalImportProposalBundles,
-  type TankestromV2RawResult,
 } from '../../lib/tankestromApi'
-import { parseTankestromV2Response } from '../../lib/tankestromV2'
 import { detectLessonConflicts } from '../../lib/schoolProfileConflicts'
 import { normalizeTaskIntent, suggestTaskIntentFromTitleAndNotes } from '../../lib/taskIntent'
 import { parseTime } from '../../lib/time'
@@ -128,6 +126,7 @@ import {
 const TANKESTROM_IMPORT_PERSIST_DEBUG = isTankestromConsoleDebugEnabled()
 /** Kun informativ i UI — blokkerer ikke import når starttid finnes. */
 export const TANKESTROM_MISSING_END_REVIEW_HINT_NB = 'Sluttid ikke oppgitt – estimert ved import.'
+export const TANKESTROM_ESTIMATED_END_REVIEW_HINT_NB = 'Sluttid estimert'
 const INFERRED_END_SLOT_MINUTES = 60
 const DATE_ONLY_FALLBACK_START = '09:00'
 const DATE_ONLY_FALLBACK_END = '09:30'
@@ -821,7 +820,7 @@ function buildEmbeddedChildEventDraft(
             policy: exportTimes!.embeddedScheduleChildExportTimePolicyUsed,
             inferredEndTime: canonicalTimes?.inferredEndTime === true,
             endTimeSource: canonicalTimes?.endTimeSource,
-            endTimeProvenance: canonicalTimes?.endTimeProvenance,
+            endTimeProvenance: canonicalTimes?.endTimeProvenance as any,
           }
         : undefined,
   }
@@ -1873,11 +1872,22 @@ function applyEmbeddedScheduleExportTimeMetadata(
     typeof ex.endTimeSource === 'string' && ex.endTimeSource.trim()
       ? ex.endTimeSource.trim()
       : embeddedExportEndTimeSourceForPolicy(ex.policy)
-  metadata.displayTimeLabel = CALENDAR_SLUTTID_IKKE_OPPGITT_NB
-  metadata.requiresManualTimeReview = ex.endTimeProvenance !== 'api_inferred_end'
+  const isFrontendFallback = ex.endTimeSource === 'frontend_canonical_fallback'
+  metadata.displayTimeLabel = isFrontendFallback
+    ? TANKESTROM_ESTIMATED_END_REVIEW_HINT_NB
+    : CALENDAR_SLUTTID_IKKE_OPPGITT_NB
+  metadata.requiresManualTimeReview =
+    ex.endTimeProvenance !== 'api_inferred_end' && ex.endTimeProvenance !== 'frontend_canonical_fallback'
   if (ex.inferredEndTime) {
     metadata.inferredEndTime = true
   }
+}
+
+/** Sluttid estimert av canonical fallback (kamp+75 / start+90) — vis mild hint, ikke rød blokker. */
+export function draftHasFrontendCanonicalEstimatedEnd(
+  d: Pick<TankestromEventDraft, 'embeddedScheduleExport'>
+): boolean {
+  return d.embeddedScheduleExport?.endTimeSource === 'frontend_canonical_fallback'
 }
 
 /** Persist når utkast har start men ingen slutt — kalender får estimert varighet. */
@@ -2474,89 +2484,6 @@ export interface UseTankestromImportOptions {
     id: string,
     updates: Partial<Pick<Person, 'name' | 'colorTint' | 'colorAccent' | 'memberKind' | 'school' | 'work'>>
   ) => Promise<void>
-}
-
-function isTankestromV2RawResult(
-  r: PortalImportProposalBundle | TankestromV2RawResult
-): r is TankestromV2RawResult {
-  return '__v2' in r && (r as TankestromV2RawResult).__v2 === true
-}
-
-function v2ToSyntheticBundle(
-  parsed: ReturnType<typeof parseTankestromV2Response>,
-  version: string
-): PortalImportProposalBundle {
-  const importRunId = Math.random().toString(36).slice(2, 10)
-  const items: PortalProposalItem[] = []
-
-  const recurrenceKeyToUUID = new Map<string, string>()
-  parsed.events.forEach(({ event, date, confidence }, i) => {
-    let resolvedRecurrenceGroupId: string | undefined
-    if (event.recurrenceGroupId) {
-      if (!recurrenceKeyToUUID.has(event.recurrenceGroupId)) {
-        recurrenceKeyToUUID.set(event.recurrenceGroupId, crypto.randomUUID())
-      }
-      resolvedRecurrenceGroupId = recurrenceKeyToUUID.get(event.recurrenceGroupId)
-    }
-    items.push({
-      proposalId: `v2-event-${i}`,
-      kind: 'event',
-      sourceId: `v2-event-${i}`,
-      originalSourceType: 'tankestrom_v2',
-      confidence: confidence === 'high' ? 0.9 : 0.6,
-      event: {
-        date,
-        personId: event.personId ?? '',
-        title: event.title,
-        start: event.start,
-        end: event.end,
-        ...(event.notes ? { notes: event.notes } : {}),
-        ...(event.location ? { location: event.location } : {}),
-        ...(resolvedRecurrenceGroupId ? { recurrenceGroupId: resolvedRecurrenceGroupId } : {}),
-      },
-    } satisfies PortalEventProposal)
-  })
-
-  parsed.tasks.forEach(({ task, confidence }, i) => {
-    items.push({
-      proposalId: `v2-task-${i}`,
-      kind: 'task',
-      sourceId: `v2-task-${i}`,
-      originalSourceType: 'tankestrom_v2',
-      confidence: confidence === 'high' ? 0.9 : 0.6,
-      task: {
-        date: task.date,
-        title: task.title,
-        ...(task.notes ? { notes: task.notes } : {}),
-        ...(task.dueTime ? { dueTime: task.dueTime } : {}),
-        ...(task.assignedToPersonId ? { assignedToPersonId: task.assignedToPersonId } : {}),
-        ...(task.childPersonId ? { childPersonId: task.childPersonId } : {}),
-        taskIntent: task.taskIntent ?? 'must_do',
-      },
-    } satisfies PortalTaskProposal)
-  })
-
-  return {
-    schemaVersion: '1.0.0',
-    provenance: {
-      sourceSystem: 'tankestrom',
-      sourceType: 'tankestrom_v2',
-      generatorVersion: version,
-      generatedAt: new Date().toISOString(),
-      importRunId,
-    },
-    items,
-  }
-}
-
-function resolveV2Bundle(
-  raw: PortalImportProposalBundle | TankestromV2RawResult,
-  people: Person[]
-): PortalImportProposalBundle {
-  if (isTankestromV2RawResult(raw)) {
-    return v2ToSyntheticBundle(parseTankestromV2Response(raw.data, people), raw.version)
-  }
-  return raw
 }
 
 export function useTankestromImport({
@@ -3472,7 +3399,7 @@ export function useTankestromImport({
           : { inputMode, textCharCount: textInput.trim().length }
       )
       if (inputMode === 'text') {
-        const b = resolveV2Bundle(await analyzeTextWithTankestrom(textInput), people)
+        const b = await analyzeTextWithTankestrom(textInput) as PortalImportProposalBundle
         if (isSchoolProfileBundle(b)) {
           setImportPipelineAnalyzeSnapshot(null)
           setBundle(b)
@@ -3586,7 +3513,7 @@ export function useTankestromImport({
       for (const pf of queue) {
         patchPendingFile(pf.id, { status: 'analyzing', statusDetail: undefined })
         try {
-          const b = resolveV2Bundle(await analyzeDocumentWithTankestrom(pf.file), people)
+          const b = await analyzeDocumentWithTankestrom(pf.file) as PortalImportProposalBundle
           if (!hasAnalyzeContent(b)) {
             patchPendingFile(pf.id, {
               status: 'error',

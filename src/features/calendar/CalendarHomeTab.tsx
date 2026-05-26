@@ -129,7 +129,7 @@ export function CalendarHomeTab({
           onFilterChange={setSelectedPersonIds}
           mePersonId={mePersonId}
         />
-        {/* Controls row â€” collapses to a full-width search strip when search is open */}
+        {/* Controls row — collapses to a full-width search strip when search is open */}
         {searchOpen ? (
           /* Search mode: only the SearchBar (input + X button), full row width */
           <div className="flex items-center px-3 pb-1.5 pt-0.5">
@@ -178,7 +178,7 @@ export function CalendarHomeTab({
               id="onb-add-event"
               type="button"
               onClick={() => openAddEvent()}
-              className="shrink-0 rounded-pill bg-synkaPrimary px-3 py-1.5 text-caption font-semibold text-white shadow-planner-sm transition hover:brightness-95 active:translate-y-px active:shadow-planner-press focus:outline-none focus:ring-2 focus:ring-synkaPrimary/50 touch-manipulation"
+              className="shrink-0 rounded-pill bg-brandTeal px-3 py-1.5 text-caption font-semibold text-white shadow-planner-sm transition hover:brightness-95 active:translate-y-px active:shadow-planner-press focus:outline-none focus:ring-2 focus:ring-brandTeal/50 touch-manipulation"
             >
               + Hendelse
             </button>
@@ -186,11 +186,11 @@ export function CalendarHomeTab({
               id="onb-add-task"
               type="button"
               onClick={() => openAddTask()}
-              className="shrink-0 rounded-pill border border-synkaPrimary px-3 py-1.5 text-caption font-semibold text-synkaPrimary transition hover:bg-synkaPrimary/10 active:translate-y-px focus:outline-none focus:ring-2 focus:ring-synkaPrimary/50 touch-manipulation"
+              className="shrink-0 rounded-pill border border-brandTeal px-3 py-1.5 text-caption font-semibold text-brandTeal transition hover:bg-brandTeal/10 active:translate-y-px focus:outline-none focus:ring-2 focus:ring-brandTeal/50 touch-manipulation"
             >
-              + GjÃ¸remÃ¥l
+              + Gjøremål
             </button>
-            {/* Right-side: save indicator + search icon â€” grouped so ml-auto works */}
+            {/* Right-side: save indicator + search icon — grouped so ml-auto works */}
             <div className="ml-auto flex shrink-0 items-center gap-1.5">
               {saveFeedback && (
                 <motion.span
@@ -251,9 +251,9 @@ export function CalendarHomeTab({
               <span className="text-caption font-semibold uppercase tracking-wider text-zinc-400">I dag</span>
               <span className="min-w-0 flex-1 truncate text-caption text-zinc-400">
                 {todayEvents.length > 0 && `${todayEvents.length} ${todayEvents.length === 1 ? 'hendelse' : 'hendelser'}`}
-                {todayEvents.length > 0 && todayOpenTasks.length > 0 && ' Â· '}
+                {todayEvents.length > 0 && todayOpenTasks.length > 0 && ' · '}
                 {todayOpenTasks.length > 0 && (
-                  <span className="text-amber-500">{todayOpenTasks.length} gjÃ¸remÃ¥l</span>
+                  <span className="text-amber-500">{todayOpenTasks.length} gjøremål</span>
                 )}
               </span>
               <motion.svg
@@ -279,7 +279,7 @@ export function CalendarHomeTab({
                       <div className="space-y-1">
                         {todayEvents.map((e) => (
                           <div key={e.id} className="flex items-center gap-2">
-                            <span className="shrink-0 tabular-nums text-caption text-zinc-400">{e.start}â€“{e.end}</span>
+                            <span className="shrink-0 tabular-nums text-caption text-zinc-400">{e.start}–{e.end}</span>
                             <span className="min-w-0 truncate text-label font-medium text-zinc-800">{e.title}</span>
                           </div>
                         ))}
@@ -306,7 +306,7 @@ export function CalendarHomeTab({
         )}
         {calendarTasksWithPerson.length > 0 && (
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-3 pb-1.5 pt-0.5">
-            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-zinc-400" aria-hidden>GjÃ¸remÃ¥l</span>
+            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-zinc-400" aria-hidden>Gjøremål</span>
             {calendarTasksWithPerson.map(({ task, person }) => (
               <button
                 key={task.id}
@@ -322,7 +322,7 @@ export function CalendarHomeTab({
                     onSelectTask(task)
                   }
                 }}
-                aria-label={`Ã…pne gjÃ¸remÃ¥l: ${task.title}`}
+                aria-label={`Åpne gjøremål: ${task.title}`}
                 className={`flex shrink-0 cursor-pointer items-center gap-1.5 rounded-pill border px-2.5 py-1 text-caption font-medium transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:ring-offset-1 touch-manipulation ${
                   task.completedAt ? 'opacity-75' : ''
                 }`}
@@ -374,7 +374,7 @@ export function CalendarHomeTab({
                   <button
                     type="button"
                     className={`w-full text-left text-[12px] hover:text-zinc-900 ${
-                      highlightedEventIds?.has(event.id) ? 'rounded-md bg-synkaPrimary/10 px-1 py-0.5 text-zinc-900' : 'text-zinc-700'
+                      highlightedEventIds?.has(event.id) ? 'rounded-md bg-brandTeal/10 px-1 py-0.5 text-zinc-900' : 'text-zinc-700'
                     }`}
                     onClick={() => {
                       const anchorDate = (event.metadata as any)?.__anchorDate as string | undefined ?? selectedDate
@@ -384,7 +384,7 @@ export function CalendarHomeTab({
                     <span className="font-medium text-zinc-500">
                       {(event.metadata?.displayTimeLabel as string | undefined) ?? 'Tid ikke avklart'}
                     </span>
-                    <span className="mx-1 text-zinc-400">Â·</span>
+                    <span className="mx-1 text-zinc-400">·</span>
                     <span className="font-medium">{event.title}</span>
                   </button>
                 </li>

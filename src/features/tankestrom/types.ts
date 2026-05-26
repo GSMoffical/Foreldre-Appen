@@ -168,7 +168,7 @@ export interface TankestromEventDraft {
     inferredEndTime?: boolean
     /** Kilde for sluttid ved persist (API eller fallback). */
     endTimeSource?: string
-    endTimeProvenance?: 'source_confirmed_end' | 'api_inferred_end' | 'local_conservative_fallback'
+    endTimeProvenance?: 'source_confirmed_end' | 'api_inferred_end' | 'frontend_canonical_fallback'
   }
 }
 

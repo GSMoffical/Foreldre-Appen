@@ -1,4 +1,4 @@
-import { motion, type Variants } from 'framer-motion'
+﻿import { motion, type Variants } from 'framer-motion'
 import type { WeekDayMeta } from '../types'
 import { useFamily } from '../context/FamilyContext'
 import { springSnappy } from '../lib/motion'
@@ -67,7 +67,7 @@ export function WeekDayCard({ day, isSelected, onSelect, variants, openTaskCount
         {openTaskCount > 0 && (
           <span
             className="h-1.5 w-1.5 rounded-sm bg-amber-400"
-            title="GjÃ¸remÃ¥l"
+            title="Gjøremål"
             aria-hidden
           />
         )}

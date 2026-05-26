@@ -811,7 +811,11 @@ export function BackgroundDetailSheet({
                           className={`mt-0.5 inline-flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded border ${done ? 'border-emerald-400 bg-emerald-100 text-emerald-700' : 'border-zinc-300 bg-white text-transparent'}`}
                           aria-hidden
                         >
-                          {done ? '✓' : ''}
+                          {done ? (
+                            <svg viewBox="0 0 10 10" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <polyline points="1.5,5 4,8 8.5,2" />
+                            </svg>
+                          ) : null}
                         </span>
                         <div className="min-w-0 flex-1">
                           <p className={`truncate text-[12px] font-semibold ${done ? 'text-zinc-400 line-through' : 'text-zinc-900'}`}>

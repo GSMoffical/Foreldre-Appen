@@ -1,4 +1,4 @@
-import { LayoutGroup, motion } from 'framer-motion'
+﻿import { LayoutGroup, motion } from 'framer-motion'
 import { springSnappy } from '../lib/motion'
 
 export type NavTab = 'today' | 'week' | 'month' | 'logistics' | 'settings'
@@ -7,7 +7,7 @@ interface BottomNavProps {
   active: NavTab
   onSelect?: (tab: NavTab) => void
   logisticsNotifyCount?: number
-  /** The last active calendar tab â€” used to restore context when returning from tasks/settings. */
+  /** The last active calendar tab — used to restore context when returning from tasks/settings. */
   lastCalendarTab?: 'today' | 'week' | 'month'
 }
 
@@ -16,7 +16,7 @@ const VIEW_CYCLE: NavTab[] = ['today', 'week', 'month']
 function viewLabel(tab: NavTab): string {
   if (tab === 'today') return 'I dag'
   if (tab === 'week') return 'Uke'
-  if (tab === 'month') return 'MÃ¥ned'
+  if (tab === 'month') return 'Måned'
   return 'I dag'
 }
 
@@ -73,7 +73,6 @@ export function BottomNav({ active, onSelect, logisticsNotifyCount = 0, lastCale
             )}
             <span className={`relative z-[40] inline-flex items-center gap-1${calendarActive ? ' text-white' : ''}`}>
               {calendarActive ? nextViewLabel(currentView) : viewLabel(currentView)}
-              <span className="text-[11px] opacity-60" aria-hidden>â†»</span>
             </span>
           </button>
           <button
@@ -91,7 +90,7 @@ export function BottomNav({ active, onSelect, logisticsNotifyCount = 0, lastCale
               />
             )}
             <span className="relative z-[40] inline-flex items-center gap-1.5">
-              GjÃ¸remÃ¥l
+              Gjøremål
               {logisticsNotifyCount > 0 && (
                 <span
                   aria-label={`${logisticsNotifyCount} uleste varsler`}

@@ -76,6 +76,7 @@ import {
   scanNotesBodyForLanguage,
   taskIndicatesForeignLanguageMismatchWithTrack,
   buildEmbeddedChildCanonicalPreviewForReview,
+  draftHasFrontendCanonicalEstimatedEnd,
   draftHasStartWithoutKnownEnd,
   type TankestromPendingFile,
   type TankestromImportSuccess,
@@ -142,7 +143,7 @@ function formatEventDraftPeopleSummary(ev: TankestromEventDraft, peopleList: Per
     .filter(Boolean) as string[]
   if (names.length > 0) {
     if (names.length === 1) return names[0]!
-    if (names.length === 2) return `${names[0]!} Â· ${names[1]!}`
+    if (names.length === 2) return `${names[0]!} · ${names[1]!}`
     return `${names[0]!} +${names.length - 1}`
   }
   return 'Person ikke oppgitt'
@@ -174,7 +175,7 @@ function confidenceBadgeStyle(confidence: number): { label: string; className: s
     }
   }
   return {
-    label: `${pct}% â€“ bÃ¸r sjekkes`,
+    label: `${pct}% – bør sjekkes`,
     className: 'border-zinc-300 bg-zinc-100 text-zinc-800',
   }
 }
@@ -203,7 +204,7 @@ function notesPreviewSnippet(notes: string, maxChars = 140): string {
   const t = raw.replace(/\s+/g, ' ').trim()
   if (!t) return ''
   if (t.length <= maxChars) return t
-  return `${t.slice(0, Math.max(0, maxChars - 1))}â€¦`
+  return `${t.slice(0, Math.max(0, maxChars - 1))}…`
 }
 
 function isGenericCollapsedSourceTypeLabel(s: string): boolean {
@@ -211,15 +212,15 @@ function isGenericCollapsedSourceTypeLabel(s: string): boolean {
   return t === '' || t === 'text' || t === 'plain' || t === 'plaintext'
 }
 
-/** Ukedager (0=man â€¦ 6=sÃ¸n). */
+/** Ukedager (0=man … 6=søn). */
 const WD_LABEL_NB: Record<number, string> = {
   0: 'Mandag',
   1: 'Tirsdag',
   2: 'Onsdag',
   3: 'Torsdag',
   4: 'Fredag',
-  5: 'LÃ¸rdag',
-  6: 'SÃ¸ndag',
+  5: 'Lørdag',
+  6: 'Søndag',
 }
 
 function overlayActionLabel(action: string): string {
@@ -239,36 +240,36 @@ function normOverlayText(s: string): string {
     .replace(/\s+/g, ' ')
 }
 
-/** Kompakt sprÃ¥k-token for aggressiv filtrering i overlay-review (linjer som tydelig handler om fremmedsprÃ¥k). */
+/** Kompakt språk-token for aggressiv filtrering i overlay-review (linjer som tydelig handler om fremmedspråk). */
 const REVIEW_FOREIGN_LANG_LEXEMES: ReadonlyArray<{ canon: string; pattern: RegExp }> = [
   { canon: 'spansk', pattern: /\bspansk\b|spanish/i },
   { canon: 'tysk', pattern: /\btysk\b|tyskland|german|deutsch/i },
   { canon: 'fransk', pattern: /\bfransk\b|french/i },
   { canon: 'russisk', pattern: /\brussisk\b|russian/i },
   { canon: 'italiensk', pattern: /\bitaliensk\b|italian/i },
-  { canon: 'mandarin', pattern: /\bmandarin\b|kinesisk|kinamÃ¥l/i },
+  { canon: 'mandarin', pattern: /\bmandarin\b|kinesisk|kinamål/i },
   { canon: 'japansk', pattern: /\bjapansk\b|japanese/i },
   { canon: 'arabisk', pattern: /\barabisk\b|arabic/i },
 ]
 
-const OVERLAY_LABEL_BLOB_RE = /(hÃ¸ydepunkter|husk|notater|frister)\s*:/i
+const OVERLAY_LABEL_BLOB_RE = /(høydepunkter|husk|notater|frister)\s*:/i
 
 const OVERLAY_ADMIN_LINE_RES: RegExp[] = [
-  /fravÃ¦r/i,
-  /fravÃ¦rs/i,
-  /melde\s+fravÃ¦r/i,
-  /kontaktlÃ¦rer/i,
-  /kontakt\s*lÃ¦rer/i,
+  /fravær/i,
+  /fraværs/i,
+  /melde\s+fravær/i,
+  /kontaktlærer/i,
+  /kontakt\s*lærer/i,
   /skolemelding/i,
   /skolearena/i,
   /\bfronter\b/i,
   /its[\s-]*learning/i,
   /foresatte/i,
-  /foreldre\s+mÃ¥/i,
-  /mÃ¥\s+melde\s+seg/i,
+  /foreldre\s+må/i,
+  /må\s+melde\s+seg/i,
   /innlogging/i,
   /innsyns/i,
-  /sÃ¸knad\s+om/i,
+  /søknad\s+om/i,
 ]
 
 const SUBJECT_INVENTORY_KEYWORDS = new Set<string>(
@@ -284,10 +285,10 @@ const SUBJECT_INVENTORY_KEYWORDS = new Set<string>(
     'rle',
     'musikk',
     'kunst',
-    'hÃ¥ndverk',
-    'kroppsÃ¸ving',
+    'håndverk',
+    'kroppsøving',
     'gym',
-    'fremmedsprÃ¥k',
+    'fremmedspråk',
     'fysikk',
     'kjemi',
     'biologi',
@@ -295,7 +296,7 @@ const SUBJECT_INVENTORY_KEYWORDS = new Set<string>(
     'geografi',
     'filosofi',
     'psykologi',
-    'Ã¸konomi',
+    'økonomi',
     'programfag',
     'fellesfag',
     'valgfag',
@@ -307,7 +308,7 @@ const SUBJECT_INVENTORY_KEYWORDS = new Set<string>(
 
 const MAX_OVERLAY_WEEKLY_SUMMARY_LINE_LEN = 130
 
-/** Listevisning: litt mer plass og ev. Â«overskrift + brÃ¸dtekstÂ» ved fÃ¸rste ": " pÃ¥ lange titler. */
+/** Listevisning: litt mer plass og ev. «overskrift + brødtekst» ved første ": " på lange titler. */
 type ReviewCardTitleDisplay =
   | { kind: 'single'; text: string }
   | { kind: 'split'; headline: string; body: string }
@@ -366,14 +367,14 @@ function hasOverlayLabelBlobPattern(text: string): boolean {
 
 function stripOverlayLabelPrefixes(text: string): string {
   return text
-    .replace(/(hÃ¸ydepunkter|husk|notater|frister)\s*:/gi, ' ')
+    .replace(/(høydepunkter|husk|notater|frister)\s*:/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 }
 
 function tokensFromOverlayLine(line: string): string[] {
   return normOverlayText(line)
-    .split(/[,.;â€¢Â·|/]+|\bog\b/)
+    .split(/[,.;•·|/]+|\bog\b/)
     .map((x) => x.trim())
     .filter(Boolean)
 }
@@ -396,7 +397,7 @@ function isSubjectInventoryNoiseLine(line: string): boolean {
   }
   if (subjectHits < 3) return false
   const infoHints =
-    /\b(lekse|husk|prÃ¸ve|vurdering|innlevering|mÃ¸te|kl\.?\s*\d|klokka|Ã¸ving|kapittel|kap\.|bok|notat|mappen|ta med|glemme|avlyst|endret|flyttet)\b/i.test(
+    /\b(lekse|husk|prøve|vurdering|innlevering|møte|kl\.?\s*\d|klokka|øving|kapittel|kap\.|bok|notat|mappen|ta med|glemme|avlyst|endret|flyttet)\b/i.test(
       t
     )
   return !infoHints
@@ -565,7 +566,7 @@ const OVERLAY_PREVIEW_SECTION_ORDER = [
   'I timen',
   'Lekse',
   'Ta med',
-  'PrÃ¸ve / vurdering',
+  'Prøve / vurdering',
   'Ressurser',
   'Ekstra beskjed',
 ] as const
@@ -576,43 +577,43 @@ function overlayPreviewSectionLabel(rawKey: string, line: string): OverlayPrevie
   const trimmed = line.trim()
   const k = normOverlayText(rawKey)
   const l = normOverlayText(line)
-  /** Viktig: rÃ¥ seksjonsnÃ¸kkel fra kilden kan vÃ¦re feil (f.eks. Â«LekseÂ» pÃ¥ alt) â€” prioriter tydelig linjestart. */
-  if (/^\s*i\s+timen\s*[:.â€“â€”-]/i.test(trimmed)) return 'I timen'
-  if (/^\s*lekse\s*[:.â€“â€”-]/i.test(trimmed)) return 'Lekse'
+  /** Viktig: rå seksjonsnøkkel fra kilden kan være feil (f.eks. «Lekse» på alt) — prioriter tydelig linjestart. */
+  if (/^\s*i\s+timen\s*[:.–—-]/i.test(trimmed)) return 'I timen'
+  if (/^\s*lekse\s*[:.–—-]/i.test(trimmed)) return 'Lekse'
 
   const combined = `${k} ${l}`
 
   if (
-    /\b(lekse|hjemmelekse|hjemmearbeid|hjemme\s*arbeid|innlevering(?!\s*i timen)|forbered(?:else)?\s+til|gjÃ¸r\s+oppgave|oppgave\s+\d|lage\s+innlevering)\b/.test(
+    /\b(lekse|hjemmelekse|hjemmearbeid|hjemme\s*arbeid|innlevering(?!\s*i timen)|forbered(?:else)?\s+til|gjør\s+oppgave|oppgave\s+\d|lage\s+innlevering)\b/.test(
       l
     ) ||
-    /\b(lekse|hjemmelekse|hjemmearbeid|hjemme\s*arbeid|innlevering(?!\s*i timen)|forbered(?:else)?\s+til|gjÃ¸r\s+oppgave|oppgave\s+\d|lage\s+innlevering)\b/.test(
+    /\b(lekse|hjemmelekse|hjemmearbeid|hjemme\s*arbeid|innlevering(?!\s*i timen)|forbered(?:else)?\s+til|gjør\s+oppgave|oppgave\s+\d|lage\s+innlevering)\b/.test(
       combined
     )
   ) {
     return 'Lekse'
   }
-  if (/\b(les\s+(?:kap|kapittel|side|glossar)|les\s+hÃ¸yt|lese\s+lekse)\b/.test(combined)) return 'Lekse'
+  if (/\b(les\s+(?:kap|kapittel|side|glossar)|les\s+høyt|lese\s+lekse)\b/.test(combined)) return 'Lekse'
 
   if (
-    /\b(i timen|undervisning|arbeid\s+i timen|gjÃ¸res\s+i timen|timen:\s*|vi(?:\s+skal)?\s+jobbe|gruppearbeid|klasseromsarbeid|gjennomgang|forelesning|delebÃ¸ker|stasjons|exit\s*ticket)\b/.test(
+    /\b(i timen|undervisning|arbeid\s+i timen|gjøres\s+i timen|timen:\s*|vi(?:\s+skal)?\s+jobbe|gruppearbeid|klasseromsarbeid|gjennomgang|forelesning|delebøker|stasjons|exit\s*ticket)\b/.test(
       l
     ) ||
-    /\b(i timen|undervisning|arbeid\s+i timen|gjÃ¸res\s+i timen|timen:\s*|vi(?:\s+skal)?\s+jobbe|gruppearbeid|klasseromsarbeid|gjennomgang|forelesning|delebÃ¸ker|stasjons|exit\s*ticket)\b/.test(
+    /\b(i timen|undervisning|arbeid\s+i timen|gjøres\s+i timen|timen:\s*|vi(?:\s+skal)?\s+jobbe|gruppearbeid|klasseromsarbeid|gjennomgang|forelesning|delebøker|stasjons|exit\s*ticket)\b/.test(
       combined
     )
   ) {
     return 'I timen'
   }
 
-  if (/\b(ta med|utstyr|ha med|husk Ã¥ ta med|pakke)\b/.test(combined)) return 'Ta med'
-  if (/\b(prÃ¸ve|vurdering|test|quiz|muntlig|fremfÃ¸ring|tentamen)\b/.test(combined)) return 'PrÃ¸ve / vurdering'
+  if (/\b(ta med|utstyr|ha med|husk å ta med|pakke)\b/.test(combined)) return 'Ta med'
+  if (/\b(prøve|vurdering|test|quiz|muntlig|fremføring|tentamen)\b/.test(combined)) return 'Prøve / vurdering'
 
   if (/\b(https?:\/\/|www\.)\b/i.test(line)) return 'Ressurser'
   if (/\b(lenke til|se\s+video|fronter|itslearning|teams\.microsoft|youtube|vimeo)\b/i.test(combined)) {
     return 'Ressurser'
   }
-  if (/\b(kap(?:ittel)?\.?\s*\d+|side\s+\d+)\b/.test(l) && /\b(bok|lÃ¦rebok|tekstbok)\b/.test(combined)) {
+  if (/\b(kap(?:ittel)?\.?\s*\d+|side\s+\d+)\b/.test(l) && /\b(bok|lærebok|tekstbok)\b/.test(combined)) {
     return 'Ressurser'
   }
   if (/\b(ressurs|presentasjon|powerpoint|\bpdf\b)\b/.test(combined)) return 'Ressurser'
@@ -643,7 +644,7 @@ function previewSectionsFromSubjectUpdate(
     'I timen': [],
     Lekse: [],
     'Ta med': [],
-    'PrÃ¸ve / vurdering': [],
+    'Prøve / vurdering': [],
     Ressurser: [],
     'Ekstra beskjed': [],
   }
@@ -657,8 +658,8 @@ function previewSectionsFromSubjectUpdate(
   return out
 }
 
-/** StÃ¸y: rene fagnavn uten faktisk innhold (f.eks. Â«TyskÂ», Â«Norsk fordypningÂ»). */
-const OVERLAY_PREVIEW_SUBSTANTIVE_HINT = /\b(lekse|hjemme|innlevering|les\s|lesing|kap\.|kapittel|side\s|s\.\s*\d|prÃ¸ve|vurdering|test|quiz|muntlig|Ã¸ving|arbeid|gruppe|video|http|www|lenke|fronter|teams|kl\.?\s*\d|ta med|husk|gjÃ¸r|oppgave|forbered|timen|undervisning)\b/i
+/** Støy: rene fagnavn uten faktisk innhold (f.eks. «Tysk», «Norsk fordypning»). */
+const OVERLAY_PREVIEW_SUBSTANTIVE_HINT = /\b(lekse|hjemme|innlevering|les\s|lesing|kap\.|kapittel|side\s|s\.\s*\d|prøve|vurdering|test|quiz|muntlig|øving|arbeid|gruppe|video|http|www|lenke|fronter|teams|kl\.?\s*\d|ta med|husk|gjør|oppgave|forbered|timen|undervisning)\b/i
 
 function titleCaseNbWord(word: string): string {
   const w = word.trim()
@@ -666,7 +667,7 @@ function titleCaseNbWord(word: string): string {
   return w.charAt(0).toLocaleUpperCase('nb-NO') + w.slice(1)
 }
 
-/** Ren enkeltords fremmedsprÃ¥k-label (f.eks. Â«TyskÂ») uten katalog-treff. */
+/** Ren enkeltords fremmedspråk-label (f.eks. «Tysk») uten katalog-treff. */
 function isStandaloneForeignLanguageNoiseLine(line: string): boolean {
   const nt = normOverlayText(line)
   if (nt.length < 4 || nt.length > 14) return false
@@ -735,13 +736,13 @@ const SPECIAL_DAY_SIDE_THEME = /\b(valgfag|innsats\s+for\s+andre)\b/i
 
 function specialDayTitleKindFromText(text: string): SpecialDayTitleKind {
   const n = normOverlayText(text.replace(/\./g, ''))
-  if (/\bheldagsprÃ¸ve\b/.test(n) || /\bheldags\s*prÃ¸ve\b/.test(n)) return 'heldagsprove'
+  if (/\bheldagsprøve\b/.test(n) || /\bheldags\s*prøve\b/.test(n)) return 'heldagsprove'
   if (/\bforberedelsesdag\b/.test(n) || /\bforberedelses\s*dag\b/.test(n)) return 'forberedelsesdag'
   return null
 }
 
 /**
- * Hovedaktivitet i korpus vinner: forberedelsesdag i kildetekst skal ikke overskrives av generisk Â«HeldagsprÃ¸veÂ» i summary alene.
+ * Hovedaktivitet i korpus vinner: forberedelsesdag i kildetekst skal ikke overskrives av generisk «Heldagsprøve» i summary alene.
  */
 function inferSpecialDayKindFromCorpus(corpus: string[], base: string): SpecialDayTitleKind {
   const significant = corpus.filter((l) => l.trim() && !SPECIAL_DAY_SIDE_THEME.test(l))
@@ -750,7 +751,7 @@ function inferSpecialDayKindFromCorpus(corpus: string[], base: string): SpecialD
   for (const l of significant) {
     const n = normOverlayText(l.replace(/\./g, ''))
     if (/\bforberedelsesdag\b/.test(n) || /\bforberedelses\s*dag\b/.test(n)) sawForbered = true
-    if (/\bheldagsprÃ¸ve\b/.test(n) || /\bheldags\s*prÃ¸ve\b/.test(n)) sawHeldags = true
+    if (/\bheldagsprøve\b/.test(n) || /\bheldags\s*prøve\b/.test(n)) sawHeldags = true
   }
   if (sawForbered) return 'forberedelsesdag'
   if (sawHeldags) return 'heldagsprove'
@@ -762,7 +763,7 @@ function subjectLabelFromKey(band: NorwegianGradeBand, key: string): string {
   return cat?.label ?? key
 }
 
-/** Â«â€¦ i matematikkÂ», Â«heldagsprÃ¸ve i engelskÂ», fag fÃ¸r kolon, osv. */
+/** «… i matematikk», «heldagsprøve i engelsk», fag før kolon, osv. */
 function tryInferSubjectLabelFromLine(
   band: NorwegianGradeBand,
   raw: string
@@ -779,7 +780,7 @@ function tryInferSubjectLabelFromLine(
       if (inf) return subjectLabelFromKey(band, inf)
     }
   }
-  const head = t.split(/[:â€“â€”]/)[0]?.trim() ?? ''
+  const head = t.split(/[:–—]/)[0]?.trim() ?? ''
   const parts = head.length >= 3 ? [head] : []
   if (t.length < 120) parts.push(t)
   for (const part of parts) {
@@ -807,7 +808,7 @@ function inferSubjectLabelForSpecialDayTitle(
   const kindRe =
     kind === 'forberedelsesdag'
       ? /\bforberedelsesdag\b|\bforberedelses\s*dag\b/i
-      : /\bheldagsprÃ¸ve\b|\bheldags\s*prÃ¸ve\b/i
+      : /\bheldagsprøve\b|\bheldags\s*prøve\b/i
   const scored = [...significant].sort((a, b) => {
     const ka = kindRe.test(a) ? 1 : 0
     const kb = kindRe.test(b) ? 1 : 0
@@ -831,7 +832,7 @@ function inferSubjectLabelForSpecialDayTitle(
   return undefined
 }
 
-/** Summary/reason inneholder allerede dagstype + fag â€” ikke gjÃ¸r den mer generisk. */
+/** Summary/reason inneholder allerede dagstype + fag — ikke gjør den mer generisk. */
 function specialDaySummaryAlreadyActionSpecific(base: string, band: NorwegianGradeBand): boolean {
   const kind = specialDayTitleKindFromText(base)
   if (!kind) return false
@@ -880,7 +881,7 @@ function replaceSchoolBlockDisplaySummary(
         console.debug('[overlay preview]', {
           overlayPreviewSpecialDayTitle: hovedSidemal,
           overlayPreviewTitleSubjectSource: 'hovedmal_sidemal',
-          overlayPreviewDetectedAssessmentVariant: hovedSidemal.endsWith('sidemÃ¥l') ? 'sidemÃ¥l' : 'hovedmÃ¥l',
+          overlayPreviewDetectedAssessmentVariant: hovedSidemal.endsWith('sidemål') ? 'sidemål' : 'hovedmål',
           overlayPreviewRejectedSideTheme: rejectedSide.length,
         })
       }
@@ -891,7 +892,7 @@ function replaceSchoolBlockDisplaySummary(
   const subj = inferSubjectLabelForSpecialDayTitle(band, corpus, kind)
   if (!subj) {
     const fallback =
-      kind === 'forberedelsesdag' ? 'Forberedelsesdag' : kind === 'heldagsprove' ? 'HeldagsprÃ¸ve' : base
+      kind === 'forberedelsesdag' ? 'Forberedelsesdag' : kind === 'heldagsprove' ? 'Heldagsprøve' : base
     if (DEBUG_SCHOOL_IMPORT_PANEL) {
       console.debug('[overlay preview]', {
         overlayPreviewSpecialDayTitle: fallback,
@@ -905,7 +906,7 @@ function replaceSchoolBlockDisplaySummary(
   const show =
     kind === 'forberedelsesdag'
       ? `Forberedelsesdag i ${subj.toLocaleLowerCase('nb-NO')}`
-      : `${subj} heldagsprÃ¸ve`
+      : `${subj} heldagsprøve`
   if (DEBUG_SCHOOL_IMPORT_PANEL) {
     console.debug('[overlay preview]', {
       overlayPreviewSpecialDayTitle: show,
@@ -949,7 +950,7 @@ function SchoolWeekOverlayReviewCard({
   onChange,
 }: SchoolWeekOverlayReviewCardProps) {
   const [editingDay, setEditingDay] = useState<number | null>(null)
-  /** Lesemodus: utvid skjulte linjer uten Ã¥ gÃ¥ inn i Rediger. */
+  /** Lesemodus: utvid skjulte linjer uten å gå inn i Rediger. */
   const [readExpandedByDay, setReadExpandedByDay] = useState<Record<number, boolean>>({})
   const track =
     resolvedLanguageTrack?.trim() ||
@@ -1059,7 +1060,7 @@ function SchoolWeekOverlayReviewCard({
           className="mt-2 line-clamp-3 text-[11px] font-medium leading-snug text-indigo-950"
           title={schoolWeekSpecialSummary.text}
         >
-          <span className="font-semibold text-indigo-900/90">Ukens sÃ¦rpreg: </span>
+          <span className="font-semibold text-indigo-900/90">Ukens særpreg: </span>
           {schoolWeekSpecialSummary.text}
         </p>
       ) : null}
@@ -1118,7 +1119,7 @@ function SchoolWeekOverlayReviewCard({
               <li key={day} className="rounded-lg border border-indigo-200 bg-white/85 px-2.5 py-2">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-[12px] font-medium text-zinc-900">
-                    {WD_LABEL_NB[day] ?? `Dag ${day}`} Â· {overlayActionLabel(details.action)}
+                    {WD_LABEL_NB[day] ?? `Dag ${day}`} · {overlayActionLabel(details.action)}
                   </p>
                   {onChange ? (
                     <button
@@ -1148,7 +1149,7 @@ function SchoolWeekOverlayReviewCard({
                     />
                     <div>
                       <label className="mb-1 block text-[11px] font-medium text-zinc-700">
-                        Detaljlinjer (Ã©n per linje)
+                        Detaljlinjer (én per linje)
                       </label>
                       <Textarea
                         id={`ts-overlay-day-lines-${day}`}
@@ -1167,7 +1168,7 @@ function SchoolWeekOverlayReviewCard({
                           onChange(next)
                         }}
                         className="text-[12px]"
-                        placeholder="Skriv Ã©n punktlinje per linje"
+                        placeholder="Skriv én punktlinje per linje"
                       />
                     </div>
                   </div>
@@ -1199,7 +1200,7 @@ function SchoolWeekOverlayReviewCard({
                           'I timen': [],
                           Lekse: [],
                           'Ta med': [],
-                          'PrÃ¸ve / vurdering': [],
+                          'Prøve / vurdering': [],
                           Ressurser: [],
                           'Ekstra beskjed': [],
                         }
@@ -1273,12 +1274,12 @@ function SchoolWeekOverlayReviewCard({
                           L.customLabel,
                           L.lessonSubcategory
                         ),
-                        time: `${L.start}â€“${L.end}`,
+                        time: `${L.start}–${L.end}`,
                         sections: {
                           'I timen': [],
                           Lekse: [],
                           'Ta med': [],
-                          'PrÃ¸ve / vurdering': [],
+                          'Prøve / vurdering': [],
                           Ressurser: [],
                           'Ekstra beskjed': [],
                         },
@@ -1287,7 +1288,7 @@ function SchoolWeekOverlayReviewCard({
                         'I timen': [],
                         Lekse: [],
                         'Ta med': [],
-                        'PrÃ¸ve / vurdering': [],
+                        'Prøve / vurdering': [],
                         Ressurser: [],
                         'Ekstra beskjed': [],
                       }
@@ -1373,8 +1374,8 @@ function SchoolWeekOverlayReviewCard({
                               const t = line.trim()
                               return (
                                 isTaMedSection ||
-                                /\b(ha med|ta med|husk(?:\s+Ã¥)?)\b/i.test(t) ||
-                                /\btyskprÃ¸ve|tyskprÃ¸ven|til\s+tyskprÃ¸v/i.test(t)
+                                /\b(ha med|ta med|husk(?:\s+å)?)\b/i.test(t) ||
+                                /\btyskprøve|tyskprøven|til\s+tyskprøv/i.test(t)
                               )
                             }).length
                           )
@@ -1422,7 +1423,7 @@ function SchoolWeekOverlayReviewCard({
                               if (hit.reason.startsWith('client_signal_tysk')) {
                                 const mapped = clientOrphanTargetSectionKeyForTyskLine(finalLine, finalSection)
                                 if (mapped === 'huskTaMed') finalSection = 'Ta med'
-                                else if (mapped === 'proveVurdering') finalSection = 'PrÃ¸ve / vurdering'
+                                else if (mapped === 'proveVurdering') finalSection = 'Prøve / vurdering'
                               }
                               if (!isTautologicalOverlayPreviewLine(finalLine, finalSection)) {
                                 blocks[hit.idx]!.sections[finalSection].push(finalLine)
@@ -1439,8 +1440,8 @@ function SchoolWeekOverlayReviewCard({
                                 }
                                 if (
                                   isTaMedSection ||
-                                  /\b(ha med|ta med|husk(?:\s+Ã¥)?)\b/i.test(t) ||
-                                  /\btyskprÃ¸ve|tyskprÃ¸ven|til\s+tyskprÃ¸v/i.test(t)
+                                  /\b(ha med|ta med|husk(?:\s+å)?)\b/i.test(t) ||
+                                  /\btyskprøve|tyskprøven|til\s+tyskprøv/i.test(t)
                                 ) {
                                   overlayClientOrphanTaMedAssignedToSubject++
                                 }
@@ -1512,7 +1513,7 @@ function SchoolWeekOverlayReviewCard({
                                 }
                                 className="mt-1 block max-w-full pl-4 text-left text-[10px] font-medium text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-900"
                               >
-                                {readExpanded ? 'Vis fÃ¦rre' : `+ ${compactHiddenCount} flere linjer`}
+                                {readExpanded ? 'Vis færre' : `+ ${compactHiddenCount} flere linjer`}
                               </button>
                             ) : null}
                           </>
@@ -1600,14 +1601,14 @@ function SchoolWeekOverlayReviewCard({
 
 function describeSchoolDayPlanShort(plan: ChildSchoolDayPlan): string {
   if (plan.useSimpleDay) {
-    return `enkel dag ${plan.schoolStart ?? '?'}â€“${plan.schoolEnd ?? '?'}`
+    return `enkel dag ${plan.schoolStart ?? '?'}–${plan.schoolEnd ?? '?'}`
   }
   return `${(plan.lessons ?? []).length} timer`
 }
 
 function formatLessonSlotOneLine(L: SchoolLessonSlot): string {
-  const lab = L.customLabel ? ` Â«${L.customLabel}Â»` : ''
-  return `${L.subjectKey}${lab} Â· ${L.start}â€“${L.end}`
+  const lab = L.customLabel ? ` «${L.customLabel}»` : ''
+  return `${L.subjectKey}${lab} · ${L.start}–${L.end}`
 }
 
 /** Kompakt per-dag-oppsummering av `ChildSchoolProfile` (parsed/draft). */
@@ -1623,13 +1624,13 @@ function formatSchoolImportWeekdayDebug(profile: ChildSchoolProfile): string {
     if (plan.useSimpleDay) {
       const ss = plan.schoolStart ?? '(mangler schoolStart)'
       const se = plan.schoolEnd ?? '(mangler schoolEnd)'
-      lines.push(`${name}: Enkel dag Â· modell: ${ss}â€“${se}`)
+      lines.push(`${name}: Enkel dag · modell: ${ss}–${se}`)
     } else {
       const lessons = plan.lessons ?? []
       lines.push(`${name}: ${lessons.length} timer (Timer-modus)`)
       lessons.forEach((L, i) => {
-        const lab = L.customLabel ? ` Â«${L.customLabel}Â»` : ''
-        lines.push(`  ${i + 1}. ${L.subjectKey}${lab} Â· ${L.start}â€“${L.end}`)
+        const lab = L.customLabel ? ` «${L.customLabel}»` : ''
+        lines.push(`  ${i + 1}. ${L.subjectKey}${lab} · ${L.start}–${L.end}`)
       })
     }
   }
@@ -1638,13 +1639,13 @@ function formatSchoolImportWeekdayDebug(profile: ChildSchoolProfile): string {
 
 /**
  * Menneskelesbar diff: parsed snapshot (etter API) vs gjeldende draft.
- * Retning: Â«snapshot â†’ draftÂ» der det er avvik.
+ * Retning: «snapshot → draft» der det er avvik.
  */
 function formatSchoolImportSnapshotDraftDiff(
   snapshot: ChildSchoolProfile | null,
   draft: ChildSchoolProfile
 ): string {
-  if (!snapshot) return '(Ingen gyldig snapshot â€” kan ikke sammenligne.)'
+  if (!snapshot) return '(Ingen gyldig snapshot — kan ikke sammenligne.)'
   const lines: string[] = []
   for (let wd = 0; wd <= 4; wd++) {
     const name = WD_LABEL_NB[wd] ?? `Dag ${wd}`
@@ -1655,7 +1656,7 @@ function formatSchoolImportSnapshotDraftDiff(
       continue
     }
     if (!sPlan && dPlan) {
-      lines.push(`${name}: KUN I DRAFT Â· ${describeSchoolDayPlanShort(dPlan)}`)
+      lines.push(`${name}: KUN I DRAFT · ${describeSchoolDayPlanShort(dPlan)}`)
       if (!dPlan.useSimpleDay) {
         ;(dPlan.lessons ?? []).forEach((L, i) => {
           lines.push(`    draft time ${i + 1}: ${formatLessonSlotOneLine(L)}`)
@@ -1664,7 +1665,7 @@ function formatSchoolImportSnapshotDraftDiff(
       continue
     }
     if (sPlan && !dPlan) {
-      lines.push(`${name}: KUN I SNAPSHOT Â· ${describeSchoolDayPlanShort(sPlan)}`)
+      lines.push(`${name}: KUN I SNAPSHOT · ${describeSchoolDayPlanShort(sPlan)}`)
       if (!sPlan.useSimpleDay) {
         ;(sPlan.lessons ?? []).forEach((L, i) => {
           lines.push(`    snapshot time ${i + 1}: ${formatLessonSlotOneLine(L)}`)
@@ -1678,25 +1679,25 @@ function formatSchoolImportSnapshotDraftDiff(
       lines.push(`${name}: lik`)
       continue
     }
-    lines.push(`${name}: AVVIK (snapshot â†’ draft)`)
+    lines.push(`${name}: AVVIK (snapshot → draft)`)
     if (s.useSimpleDay !== d.useSimpleDay) {
       lines.push(
-        `  modus: ${s.useSimpleDay ? 'enkel dag' : 'timer'} â†’ ${d.useSimpleDay ? 'enkel dag' : 'timer'}`
+        `  modus: ${s.useSimpleDay ? 'enkel dag' : 'timer'} → ${d.useSimpleDay ? 'enkel dag' : 'timer'}`
       )
     }
     if (s.useSimpleDay && d.useSimpleDay) {
       if (s.schoolStart !== d.schoolStart) {
-        lines.push(`  schoolStart: Â«${s.schoolStart ?? '(mangler)'}Â» â†’ Â«${d.schoolStart ?? '(mangler)'}Â»`)
+        lines.push(`  schoolStart: «${s.schoolStart ?? '(mangler)'}» → «${d.schoolStart ?? '(mangler)'}»`)
       }
       if (s.schoolEnd !== d.schoolEnd) {
-        lines.push(`  schoolEnd: Â«${s.schoolEnd ?? '(mangler)'}Â» â†’ Â«${d.schoolEnd ?? '(mangler)'}Â»`)
+        lines.push(`  schoolEnd: «${s.schoolEnd ?? '(mangler)'}» → «${d.schoolEnd ?? '(mangler)'}»`)
       }
     }
     if (!s.useSimpleDay && !d.useSimpleDay) {
       const sl = s.lessons ?? []
       const dl = d.lessons ?? []
       if (sl.length !== dl.length) {
-        lines.push(`  antall timer: ${sl.length} â†’ ${dl.length}`)
+        lines.push(`  antall timer: ${sl.length} → ${dl.length}`)
       }
       const max = Math.max(sl.length, dl.length)
       for (let i = 0; i < max; i++) {
@@ -1712,21 +1713,21 @@ function formatSchoolImportSnapshotDraftDiff(
         }
         const bits: string[] = []
         if (a.subjectKey !== b.subjectKey) {
-          bits.push(`fag Â«${a.subjectKey}Â» â†’ Â«${b.subjectKey}Â»`)
+          bits.push(`fag «${a.subjectKey}» → «${b.subjectKey}»`)
         }
         const ac = a.customLabel ?? ''
         const bc = b.customLabel ?? ''
         if (ac !== bc) {
-          bits.push(`etikett Â«${ac || '(ingen)'}Â» â†’ Â«${bc || '(ingen)'}Â»`)
+          bits.push(`etikett «${ac || '(ingen)'}» → «${bc || '(ingen)'}»`)
         }
-        if (a.start !== b.start) bits.push(`start ${a.start} â†’ ${b.start}`)
-        if (a.end !== b.end) bits.push(`slutt ${a.end} â†’ ${b.end}`)
+        if (a.start !== b.start) bits.push(`start ${a.start} → ${b.start}`)
+        if (a.end !== b.end) bits.push(`slutt ${a.end} → ${b.end}`)
         if (bits.length > 0) lines.push(`  time ${i + 1}: ${bits.join('; ')}`)
       }
     }
   }
   if (snapshot.gradeBand !== draft.gradeBand) {
-    lines.push(`Trinn (gradeBand): snapshot Â«${snapshot.gradeBand}Â» â†’ draft Â«${draft.gradeBand}Â»`)
+    lines.push(`Trinn (gradeBand): snapshot «${snapshot.gradeBand}» → draft «${draft.gradeBand}»`)
   }
   return lines.join('\n')
 }
@@ -1752,12 +1753,12 @@ function formatNorwegianDateRangeLabel(isoStart: string, isoEnd: string): string
   const e = isoEnd.trim()
   if (s === e) return formatNorwegianDateLabel(s)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || !/^\d{4}-\d{2}-\d{2}$/.test(e)) {
-    return `${isoStart} â€“ ${isoEnd}`
+    return `${isoStart} – ${isoEnd}`
   }
   try {
     const a = new Date(`${s}T12:00:00`)
     const b = new Date(`${e}T12:00:00`)
-    if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return `${s} â€“ ${e}`
+    if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return `${s} – ${e}`
     const y1 = a.getFullYear()
     const y2 = b.getFullYear()
     const m1 = a.getMonth()
@@ -1766,16 +1767,16 @@ function formatNorwegianDateRangeLabel(isoStart: string, isoEnd: string): string
     const d2 = b.getDate()
     if (y1 === y2 && m1 === m2) {
       const month = a.toLocaleDateString('nb-NO', { month: 'long' })
-      return `${d1}.â€“${d2}. ${month} ${y1}`
+      return `${d1}.–${d2}. ${month} ${y1}`
     }
     if (y1 === y2) {
       const ma = a.toLocaleDateString('nb-NO', { month: 'long' })
       const mb = b.toLocaleDateString('nb-NO', { month: 'long' })
-      return `${d1}. ${ma} â€“ ${d2}. ${mb} ${y1}`
+      return `${d1}. ${ma} – ${d2}. ${mb} ${y1}`
     }
-    return `${formatNorwegianDateLabel(s)} â€“ ${formatNorwegianDateLabel(e)}`
+    return `${formatNorwegianDateLabel(s)} – ${formatNorwegianDateLabel(e)}`
   } catch {
-    return `${s} â€“ ${e}`
+    return `${s} – ${e}`
   }
 }
 
@@ -1815,7 +1816,7 @@ function autoGrowTextarea(node: HTMLTextAreaElement | null): void {
 }
 
 /**
- * Ekte klokkeslett for visning, eller null nÃ¥r tid mangler eller er teknisk/usikker (unngÃ¥r falsk Â«06:00Â»).
+ * Ekte klokkeslett for visning, eller null når tid mangler eller er teknisk/usikker (unngår falsk «06:00»).
  */
 function embeddedScheduleChildTimeDisplay(seg: EmbeddedScheduleSegment): {
   clock: string | null
@@ -1833,7 +1834,7 @@ function embeddedScheduleChildTimeDisplay(seg: EmbeddedScheduleSegment): {
   if (rawE && HM24.test(rawE.slice(0, 5))) {
     const e = rawE.slice(0, 5)
     if (e !== s && e !== '23:59' && e !== '24:00') {
-      return { clock: `${s}â€“${e}`, omittedSynthetic: false }
+      return { clock: `${s}–${e}`, omittedSynthetic: false }
     }
   }
   return { clock: s, omittedSynthetic: false }
@@ -1852,7 +1853,7 @@ function embeddedScheduleChildDateShort(isoDate: string): string {
 }
 
 /**
- * Tittel i utvidet delprogram-detalj: unngÃ¥ at samme forelder-Â«samlet infoÂ» gjentas pÃ¥ hvert barn.
+ * Tittel i utvidet delprogram-detalj: unngå at samme forelder-«samlet info» gjentas på hvert barn.
  */
 function embeddedScheduleChildDetailTitleForPanel(
   seg: EmbeddedScheduleSegment,
@@ -1894,24 +1895,24 @@ function embeddedScheduleChildDetailTitleForPanel(
     normalizeNotesDedupeKey(fromSeg) !== normalizeNotesDedupeKey(pt) &&
     semanticTitleCore(fromSeg) !== semanticTitleCore(pt)
   ) {
-    const refined = `${datePart} Â· ${fromSeg}`
+    const refined = `${datePart} · ${fromSeg}`
     logRefined(refined)
     return refined
   }
 
   const { clock } = embeddedScheduleChildReviewListTimeClock(seg)
   if (clock) {
-    const refined = `${datePart} Â· ${clock}`
+    const refined = `${datePart} · ${clock}`
     logRefined(refined)
     return refined
   }
 
-  const fallback = `${datePart} Â· Programpunkt`
+  const fallback = `${datePart} · Programpunkt`
   logRefined(fallback)
   return fallback
 }
 
-/** Kun segmentets egne notater â€” ikke foreldernotasjon (unngÃ¥r tekstvegg i kortet). */
+/** Kun segmentets egne notater — ikke foreldernotasjon (unngår tekstvegg i kortet). */
 function embeddedScheduleChildSegmentNotesBody(seg: EmbeddedScheduleSegment): string | null {
   const n = typeof seg.notes === 'string' ? seg.notes.trim() : ''
   return n.length > 0 ? n : null
@@ -1923,7 +1924,7 @@ function logHighlightsReviewDebug(
   ctx: Record<string, unknown>
 ): void {
   if (!import.meta.env.DEV && import.meta.env.VITE_DEBUG_SCHOOL_IMPORT !== 'true') return
-  const hadHighlights = /hÃ¸ydepunkt(?:er)?\s*:/i.test(raw)
+  const hadHighlights = /høydepunkt(?:er)?\s*:/i.test(raw)
   if (!hadHighlights && suppressed === false) return
   console.debug('[tankestrom review highlights]', {
     highlightsComparedAgainstNotes: true,
@@ -1954,7 +1955,7 @@ function flattenEmbeddedScheduleForPreview(item: PortalEventProposal): EmbeddedS
   return groupEmbeddedScheduleByDate(parsed).flatMap((g) => g.items)
 }
 
-/** Kompakt Ã©n-linjes program (preview-liste); bruker normalisert tittel og skjuler syntetiske tider. */
+/** Kompakt én-linjes program (preview-liste); bruker normalisert tittel og skjuler syntetiske tider. */
 function formatEmbeddedSchedulePreviewLine(seg: EmbeddedScheduleSegment, parentEventTitleFull?: string): string {
   const displayTitle = parentEventTitleFull?.trim()
     ? embeddedScheduleChildTitleForReview(parentEventTitleFull.trim(), seg)
@@ -1977,11 +1978,11 @@ function formatEmbeddedSchedulePreviewLine(seg: EmbeddedScheduleSegment, parentE
     }
     title = `${title} (${tankestromConditionalPreviewTitleSuffixNb()})`
   }
-  if (title.length > 42) title = `${title.slice(0, 39)}â€¦`
+  if (title.length > 42) title = `${title.slice(0, 39)}…`
   const parts = [dayAbbr]
   if (clock) parts.push(clock)
   parts.push(title)
-  return parts.join(' Â· ')
+  return parts.join(' · ')
 }
 
 function TankestromReviewConditionalBadge({
@@ -2043,9 +2044,9 @@ function TankestromEmbeddedSchedulePreview({
 }: {
   proposalId: string
   item: PortalEventProposal
-  /** NÃ¥r satt (f.eks. gjenvÃ¦rende rader etter lÃ¸sning), brukes den i stedet for metadata pÃ¥ item. */
+  /** Når satt (f.eks. gjenværende rader etter løsning), brukes den i stedet for metadata på item. */
   segmentsOverride?: EmbeddedScheduleSegment[]
-  /** RÃ¥ foreldertittel (samme som kalenderforslag) â€” brukes til barn-tittel-normalisering i programlisten. */
+  /** Rå foreldertittel (samme som kalenderforslag) — brukes til barn-tittel-normalisering i programlisten. */
   parentTitleForPreviewLines?: string
   expanded: boolean
   onToggleExpanded: () => void
@@ -2089,7 +2090,7 @@ function TankestromEmbeddedSchedulePreview({
         <button
           type="button"
           onClick={onToggleExpanded}
-          className="mt-1 text-left text-[10px] font-semibold text-synkaNavy underline decoration-synkaNavy/30 underline-offset-2 hover:decoration-synkaNavy touch-manipulation sm:text-[11px]"
+          className="mt-1 text-left text-[10px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:decoration-brandNavy touch-manipulation sm:text-[11px]"
         >
           {effectiveExpanded ? 'Skjul program' : 'Vis hele programmet'}
         </button>
@@ -2098,13 +2099,13 @@ function TankestromEmbeddedSchedulePreview({
   )
 }
 
-/** Parent med innebygd program (merged cup/turnering) â€” egen meta-linje i review. */
+/** Parent med innebygd program (merged cup/turnering) — egen meta-linje i review. */
 function isEmbeddedScheduleParentReviewCard(item: PortalProposalItem, importKind: string): boolean {
   if (item.kind !== 'event' || importKind !== 'event') return false
   return isEmbeddedScheduleParentProposalItem(item)
 }
 
-/** Kompakt kildegrunnlag fra API (original), ikke nÃ¸dvendigvis lik redigert notat. */
+/** Kompakt kildegrunnlag fra API (original), ikke nødvendigvis lik redigert notat. */
 function getSourceContextText(item: PortalEventProposal): string | null {
   const meta = item.event.metadata
   if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
@@ -2113,19 +2114,19 @@ function getSourceContextText(item: PortalEventProposal): string | null {
       const v = rec[key]
       if (typeof v === 'string' && v.trim()) {
         const s = v.trim()
-        return s.length > 200 ? `${s.slice(0, 197)}â€¦` : s
+        return s.length > 200 ? `${s.slice(0, 197)}…` : s
       }
     }
   }
   const ref = item.externalRef?.trim()
-  if (ref) return ref.length > 120 ? `Referanse: ${ref.slice(0, 117)}â€¦` : `Referanse: ${ref}`
+  if (ref) return ref.length > 120 ? `Referanse: ${ref.slice(0, 117)}…` : `Referanse: ${ref}`
   return null
 }
 
 function getSourceContextTextForItem(item: PortalProposalItem): string | null {
   if (item.kind === 'event') return getSourceContextText(item)
   const ref = item.externalRef?.trim()
-  if (ref) return ref.length > 120 ? `Referanse: ${ref.slice(0, 117)}â€¦` : `Referanse: ${ref}`
+  if (ref) return ref.length > 120 ? `Referanse: ${ref.slice(0, 117)}…` : `Referanse: ${ref}`
   return null
 }
 
@@ -2157,7 +2158,7 @@ function buildFullSourceContextDocument(item: PortalEventProposal): string | nul
   if (ref) blocks.push(`Referanse\n${ref}`)
 
   if (blocks.length === 0) return null
-  return blocks.join('\n\nâ”€â”€â”€â”€â”€â”€â”€â”€\n\n')
+  return blocks.join('\n\n────────\n\n')
 }
 
 function buildFullSourceContextDocumentForItem(item: PortalProposalItem): string | null {
@@ -2170,7 +2171,7 @@ function buildFullSourceContextDocumentForItem(item: PortalProposalItem): string
 function shouldOfferSourceExpand(full: string | null, preview: string | null): boolean {
   if (!full || !full.trim()) return false
   if (!preview || full.length > preview.length + 40) return true
-  return full.includes('\n\nâ”€â”€â”€â”€â”€â”€â”€â”€\n\n')
+  return full.includes('\n\n────────\n\n')
 }
 
 const TANKESTROM_FILE_ACCEPT =
@@ -2181,7 +2182,7 @@ function pendingFileStatusLabel(p: TankestromPendingFile): string {
     case 'ready':
       return 'Klar'
     case 'analyzing':
-      return 'Behandlerâ€¦'
+      return 'Behandler…'
     case 'done':
       return 'Ferdig'
     case 'error':
@@ -2196,7 +2197,7 @@ function pendingFileStatusClass(p: TankestromPendingFile): string {
     case 'ready':
       return 'border-zinc-200 bg-zinc-50 text-zinc-600'
     case 'analyzing':
-      return 'border-synkaPrimary/40 bg-synkaCream/30 text-synkaNavy'
+      return 'border-brandTeal/40 bg-brandSky/30 text-brandNavy'
     case 'done':
       return 'border-emerald-200 bg-emerald-50 text-emerald-900'
     case 'error':
@@ -2208,9 +2209,9 @@ function pendingFileStatusClass(p: TankestromPendingFile): string {
 
 function reminderLabel(reminderMinutes: number | undefined): string {
   if (reminderMinutes == null) return 'Ingen'
-  if (reminderMinutes < 60) return `${reminderMinutes} min fÃ¸r`
-  if (reminderMinutes % 60 === 0) return `${reminderMinutes / 60} t fÃ¸r`
-  return `${reminderMinutes} min fÃ¸r`
+  if (reminderMinutes < 60) return `${reminderMinutes} min før`
+  if (reminderMinutes % 60 === 0) return `${reminderMinutes / 60} t før`
+  return `${reminderMinutes} min før`
 }
 
 export interface TankestromImportDialogProps {
@@ -2406,7 +2407,7 @@ export function TankestromImportDialog({
     })
   }, [])
 
-  /** Full redigering for importkort â€” standard sammenslÃ¥tt for rask oversikt (sÃ¦rlig mobil). */
+  /** Full redigering for importkort — standard sammenslått for rask oversikt (særlig mobil). */
   const [reviewCardEditorOpen, setReviewCardEditorOpen] = useState<Set<string>>(() => new Set())
   const [embeddedChildReviewEditors, setEmbeddedChildReviewEditors] = useState<
     Record<string, EmbeddedChildReviewEditBuffer>
@@ -2426,7 +2427,7 @@ export function TankestromImportDialog({
       out.push({ item: it })
       for (const d of detachedEmbeddedChildren) {
         if (d.parentProposalId === it.proposalId) {
-          out.push({ item: d.proposal, detachedFromParentLabel: 'LÃ¸st fra hovedblokk' })
+          out.push({ item: d.proposal, detachedFromParentLabel: 'Løst fra hovedblokk' })
         }
       }
     }
@@ -2580,7 +2581,7 @@ export function TankestromImportDialog({
     }
     return n
   }, [selectedIds, draftByProposalId])
-  /** Samme utvalg som import/persist: oppgaver, innebygde barn, frittstÃ¥ende hendelser (ikke program-forelder uten egen rad). */
+  /** Samme utvalg som import/persist: oppgaver, innebygde barn, frittstående hendelser (ikke program-forelder uten egen rad). */
   const importSelectionSummaryText = useMemo(() => {
     let taskCount = 0
     let embeddedChildCount = 0
@@ -2620,7 +2621,7 @@ export function TankestromImportDialog({
       parts.push(`${standaloneEventCount} hendelse${standaloneEventCount === 1 ? '' : 'r'}`)
     }
     if (taskCount > 0) {
-      parts.push(`${taskCount} gjÃ¸remÃ¥l`)
+      parts.push(`${taskCount} gjøremål`)
     }
     return parts.length > 0 ? parts.join(' / ') : String(selectedIds.size)
   }, [selectedIds, draftByProposalId, primaryCalendarProposalItems])
@@ -2723,7 +2724,7 @@ export function TankestromImportDialog({
       const d = draftByProposalId[pid]
       if (!d || d.importKind !== 'task') continue
       const currentTaskChildId = d.task.childPersonId.trim()
-      // Flytt bare tasks som fortsatt fÃ¸lger global default (eller mangler barn), og behold manuelle avvik.
+      // Flytt bare tasks som fortsatt følger global default (eller mangler barn), og behold manuelle avvik.
       const shouldFollowGlobal = !currentTaskChildId || currentTaskChildId === previousGlobalChildId
       if (!shouldFollowGlobal) continue
       updateTaskDraft(pid, { childPersonId: currentGlobalChildId })
@@ -2802,7 +2803,7 @@ export function TankestromImportDialog({
         <div className="flex shrink-0 flex-col border-b border-zinc-100">
           <div className="flex items-center justify-between gap-2 px-4 py-3">
             <h2 id="tankestrom-import-title" className="text-[17px] font-semibold text-zinc-900">
-              {step === 'review' && schoolReview ? 'Timeplan fra TankestrÃ¸m' : 'Importer fra TankestrÃ¸m'}
+              {step === 'review' && schoolReview ? 'Timeplan fra Tankestrøm' : 'Importer fra Tankestrøm'}
             </h2>
             <button
               type="button"
@@ -2845,10 +2846,10 @@ export function TankestromImportDialog({
                     disabled={saveLoading || !hasPeople}
                     onClick={() => void reanalyzeFromSameInput()}
                   >
-                    Analyser pÃ¥ nytt
+                    Analyser på nytt
                   </Button>
                   <span className="min-w-0 text-[10px] leading-snug text-zinc-400">
-                    Samme {inputMode === 'file' ? 'filer' : 'tekst'} som sist â€” kjÃ¸rer analysen pÃ¥ nytt.
+                    Samme {inputMode === 'file' ? 'filer' : 'tekst'} som sist — kjører analysen på nytt.
                   </span>
                 </div>
               </div>
@@ -2862,7 +2863,7 @@ export function TankestromImportDialog({
                     Debug
                   </span>
                   <span className="text-center text-[11px] font-semibold leading-tight text-violet-950">
-                    Skole-import-feilsÃ¸k er pÃ¥ â€” du ser parsed snapshot vs draft under
+                    Skole-import-feilsøk er på — du ser parsed snapshot vs draft under
                   </span>
                 </div>
               ) : null}
@@ -2873,15 +2874,15 @@ export function TankestromImportDialog({
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4">
           {!hasPeople ? (
             <p className="text-[13px] text-zinc-600">
-              Legg til familiemedlemmer under Innstillinger fÃ¸r du kan knytte hendelser til en person.
+              Legg til familiemedlemmer under Innstillinger før du kan knytte hendelser til en person.
             </p>
           ) : step === 'pick' ? (
             <div className="space-y-4">
               <p className="text-[13px] leading-relaxed text-zinc-600">
-                Velg inputmodus og analyser innholdet. Du kan fÃ¥{' '}
+                Velg inputmodus og analyser innholdet. Du kan få{' '}
                 <span className="font-medium text-zinc-800">fast timeplan</span> (lagres som skoleprofil), eller forslag
                 som <span className="font-medium text-zinc-800">hendelser</span> og/eller{' '}
-                <span className="font-medium text-zinc-800">gjÃ¸remÃ¥l</span> â€” bytt type fÃ¸r import om nÃ¸dvendig.
+                <span className="font-medium text-zinc-800">gjøremål</span> — bytt type før import om nødvendig.
               </p>
 
               <div className="grid grid-cols-2 gap-2">
@@ -2890,7 +2891,7 @@ export function TankestromImportDialog({
                   onClick={() => setInputMode('file')}
                   className={`rounded-xl border px-3 py-2 text-[13px] font-medium transition ${
                     inputMode === 'file'
-                      ? 'border-synkaPrimary/50 bg-synkaCream/35 text-synkaNavy'
+                      ? 'border-brandTeal/50 bg-brandSky/35 text-brandNavy'
                       : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50'
                   }`}
                 >
@@ -2901,7 +2902,7 @@ export function TankestromImportDialog({
                   onClick={() => setInputMode('text')}
                   className={`rounded-xl border px-3 py-2 text-[13px] font-medium transition ${
                     inputMode === 'text'
-                      ? 'border-synkaPrimary/50 bg-synkaCream/35 text-synkaNavy'
+                      ? 'border-brandTeal/50 bg-brandSky/35 text-brandNavy'
                       : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50'
                   }`}
                 >
@@ -2913,7 +2914,7 @@ export function TankestromImportDialog({
                 <div className={`${cardSection} p-3`}>
                   <p className={typSectionCap}>Filer</p>
                   <p className="mt-1 text-[12px] leading-snug text-zinc-500">
-                    Velg flere filer pÃ¥ Ã©n gang, eller slipp dem i feltet nedenfor.
+                    Velg flere filer på én gang, eller slipp dem i feltet nedenfor.
                   </p>
                   <input
                     ref={fileInputRef}
@@ -2933,7 +2934,7 @@ export function TankestromImportDialog({
                     tabIndex={0}
                     className={`mt-3 flex min-h-[100px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-3 py-4 text-center transition sm:min-h-[112px] ${
                       fileDropActive
-                        ? 'border-synkaPrimary bg-synkaCream/25 text-synkaNavy'
+                        ? 'border-brandTeal bg-brandSky/25 text-brandNavy'
                         : 'border-zinc-200 bg-zinc-50/80 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50'
                     }`}
                     onKeyDown={(e) => {
@@ -2981,7 +2982,7 @@ export function TankestromImportDialog({
                       />
                     </svg>
                     <p className="pointer-events-none text-[13px] font-medium text-zinc-800">
-                      Slipp filer her eller trykk for Ã¥ velge
+                      Slipp filer her eller trykk for å velge
                     </p>
                     <p className="pointer-events-none mt-1 text-[11px] text-zinc-500">
                       PDF, bilder og Word-dokumenter
@@ -3056,7 +3057,7 @@ export function TankestromImportDialog({
                     </label>
                     {childrenList.length === 0 ? (
                       <p className="mt-1 text-[12px] text-amber-800">
-                        Legg til minst ett barn under Innstillinger for Ã¥ lagre uke-overlay.
+                        Legg til minst ett barn under Innstillinger for å lagre uke-overlay.
                       </p>
                     ) : (
                       <select
@@ -3073,7 +3074,7 @@ export function TankestromImportDialog({
                       </select>
                     )}
                     <p className="mt-1 text-[11px] text-zinc-500">
-                      Lagrer uke-spesifikt override pÃ¥ barnets eksisterende skoleprofil (ikke som egen kalenderaktivitet).
+                      Lagrer uke-spesifikt override på barnets eksisterende skoleprofil (ikke som egen kalenderaktivitet).
                     </p>
                   </div>
                 </>
@@ -3086,8 +3087,8 @@ export function TankestromImportDialog({
               <div className="rounded-xl border border-rose-200 bg-rose-50/80 px-3 py-3">
                 <p className="text-[12px] font-semibold text-rose-900">Erstatter hele skoleprofilen</p>
                 <p className="mt-1 text-[11px] leading-snug text-rose-800/95">
-                  Lagring overskriver barnets eksisterende faste timeplan (mandagâ€“fredag) med det du ser under. Importerte
-                  A-planer og hendelser pÃ¥virkes ikke.
+                  Lagring overskriver barnets eksisterende faste timeplan (mandag–fredag) med det du ser under. Importerte
+                  A-planer og hendelser påvirkes ikke.
                 </p>
               </div>
               <div>
@@ -3096,7 +3097,7 @@ export function TankestromImportDialog({
                 </label>
                 {childrenList.length === 0 ? (
                   <p className="mt-1 text-[12px] text-amber-800">
-                    Legg til minst ett barn under Innstillinger for Ã¥ lagre timeplanen.
+                    Legg til minst ett barn under Innstillinger for å lagre timeplanen.
                   </p>
                 ) : (
                   <select
@@ -3120,7 +3121,7 @@ export function TankestromImportDialog({
                     className="mb-2 rounded-lg border-2 border-black bg-yellow-300 px-2 py-2 text-center text-[13px] font-black uppercase tracking-widest text-black"
                     data-build-probe="SPF-LOCAL-V2"
                   >
-                    SPF-LOCAL-V2 â€” build-probe (fjern etter verifisering)
+                    SPF-LOCAL-V2 — build-probe (fjern etter verifisering)
                   </p>
                 ) : null}
                 <p className={typSectionCap}>Timeplan</p>
@@ -3141,8 +3142,8 @@ export function TankestromImportDialog({
                   <div className="mb-3 rounded-xl border border-amber-300/80 bg-amber-50 px-3 py-3">
                     <p className="text-[12px] font-semibold text-amber-950">Velg spor (parallelle timer)</p>
                     <p className="mt-1 text-[11px] leading-snug text-amber-900/95">
-                      Timeplanen viser flere mulige fag i samme tidsrom (for eksempel D1/D2 eller ulike sprÃ¥k). Dette er
-                      vanligvis ulike grupper â€” barnet har bare ett av dem. Velg det som gjelder for dette barnet. Vi
+                      Timeplanen viser flere mulige fag i samme tidsrom (for eksempel D1/D2 eller ulike språk). Dette er
+                      vanligvis ulike grupper — barnet har bare ett av dem. Velg det som gjelder for dette barnet. Vi
                       lagrer ikke flere overlappende timer for samme spor.
                     </p>
                     <ul className="mt-3 space-y-3">
@@ -3172,7 +3173,7 @@ export function TankestromImportDialog({
                                     id={fieldId}
                                     type="radio"
                                     name={lessonConflictGroupId(group)}
-                                    className="mt-0.5 h-4 w-4 shrink-0 border-zinc-300 text-synkaPrimary focus:ring-synkaPrimary/30"
+                                    className="mt-0.5 h-4 w-4 shrink-0 border-zinc-300 text-brandTeal focus:ring-brandTeal/30"
                                     onChange={() =>
                                       setSchoolProfileDraft(
                                         applyLessonConflictChoice(schoolReview.draft, group, idx)
@@ -3181,7 +3182,7 @@ export function TankestromImportDialog({
                                   />
                                   <span className="text-[13px] leading-snug text-zinc-800">{label}</span>
                                   <span className="ml-auto shrink-0 text-[11px] tabular-nums text-zinc-500">
-                                    {slot.start}â€“{slot.end}
+                                    {slot.start}–{slot.end}
                                   </span>
                                 </label>
                               )
@@ -3198,17 +3199,17 @@ export function TankestromImportDialog({
                       <span className="mr-2 inline-flex rounded bg-violet-600 px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wide text-white">
                         Debug
                       </span>
-                      FeilsÃ¸k timeplan-import (parsed snapshot vs draft)
+                      Feilsøk timeplan-import (parsed snapshot vs draft)
                     </summary>
                     <div className="mt-2 space-y-2 text-[11px] leading-snug text-zinc-800">
                       <p>
-                        RÃ¥ HTTP-body fra TankestrÃ¸m lagres ikke i klienten. Under er{' '}
+                        Rå HTTP-body fra Tankestrøm lagres ikke i klienten. Under er{' '}
                         <span className="font-medium">lag 2</span> (tolket profil rett etter parse, som JSON) og{' '}
-                        <span className="font-medium">draft</span> (det skjemaet fÃ¥r â€” ved Ã¥pning klonet fra lag 2).
+                        <span className="font-medium">draft</span> (det skjemaet får — ved åpning klonet fra lag 2).
                       </p>
                       <p className="rounded-md border border-zinc-200/90 bg-white/90 px-2 py-1.5 text-[10px] text-zinc-600">
-                        Â«Neste time foreslÃ¥s fra forrige sluttid. Standard varighet: 60 min.Â» er statisk hjelpetekst i
-                        Â«TimerÂ»-modus. Den kjÃ¸rer ikke ved import og oppretter ikke timer; den beskriver redigering nÃ¥r du
+                        «Neste time foreslås fra forrige sluttid. Standard varighet: 60 min.» er statisk hjelpetekst i
+                        «Timer»-modus. Den kjører ikke ved import og oppretter ikke timer; den beskriver redigering når du
                         endrer en sluttid.
                       </p>
                       <p className="tabular-nums">
@@ -3217,22 +3218,22 @@ export function TankestromImportDialog({
                           {schoolImportDebugPanel.draftMatchesParsedSnapshot ? 'ja' : 'nei'}
                         </span>
                         {!schoolImportDebugPanel.summariesMatch ? (
-                          <span className="text-zinc-500"> Â· Per-dag-oppsummering avviker</span>
+                          <span className="text-zinc-500"> · Per-dag-oppsummering avviker</span>
                         ) : null}
                       </p>
                       <details className="rounded-md border border-amber-200/90 bg-amber-50/50 open:bg-amber-50/70">
                         <summary className="cursor-pointer px-2 py-1.5 text-[11px] font-semibold text-amber-950">
-                          Avvik per dag og per time (snapshot â†’ draft)
+                          Avvik per dag og per time (snapshot → draft)
                         </summary>
                         <pre className="max-h-48 overflow-auto border-t border-amber-100/80 bg-white/90 p-2 text-[10px] font-mono leading-snug whitespace-pre-wrap text-zinc-900">
                           {schoolImportDebugPanel.snapshotDraftDiff}
                         </pre>
                       </details>
                       <p className="text-[10px] text-zinc-500">
-                        Tips: Ã…pne nettleserens devtools (F12) â†’ Console. Med{' '}
+                        Tips: Åpne nettleserens devtools (F12) → Console. Med{' '}
                         <code className="rounded bg-zinc-100 px-0.5">VITE_DEBUG_SCHOOL_IMPORT=true</code> logges snapshot-lengde
-                        ved import; du kan ogsÃ¥ lime inn JSON fra Â«Full JSONÂ» under i konsollen som{' '}
-                        <code className="rounded bg-zinc-100 px-0.5">JSON.parse(...)</code> for Ã¥ inspisere objekter per ukedag.
+                        ved import; du kan også lime inn JSON fra «Full JSON» under i konsollen som{' '}
+                        <code className="rounded bg-zinc-100 px-0.5">JSON.parse(...)</code> for å inspisere objekter per ukedag.
                       </p>
                       <div className="grid gap-2 sm:grid-cols-2">
                         <div>
@@ -3242,7 +3243,7 @@ export function TankestromImportDialog({
                           </pre>
                         </div>
                         <div>
-                          <p className="mb-0.5 font-medium text-zinc-700">NÃ¥vÃ¦rende draft (per dag)</p>
+                          <p className="mb-0.5 font-medium text-zinc-700">Nåværende draft (per dag)</p>
                           <pre className="max-h-36 overflow-auto rounded-md border border-zinc-200 bg-white p-2 text-[10px] font-mono whitespace-pre-wrap text-zinc-800">
                             {schoolImportDebugPanel.draftLines}
                           </pre>
@@ -3262,7 +3263,7 @@ export function TankestromImportDialog({
                         </div>
                       </details>
                       <p className="text-[10px] text-zinc-500">
-                        I Â«Enkel dagÂ» kan skjemaet vise gate-tider i feltene nÃ¥r modellen mangler schoolStart/schoolEnd â€”
+                        I «Enkel dag» kan skjemaet vise gate-tider i feltene når modellen mangler schoolStart/schoolEnd —
                         det er visningsfallback til du lagrer endring; sjekk JSON over for faktiske feltverdier.
                       </p>
                     </div>
@@ -3281,18 +3282,18 @@ export function TankestromImportDialog({
                 </p>
               ) : null}
               {!updatePerson ? (
-                <p className="text-[12px] text-amber-800">Lagring er ikke tilgjengelig. PrÃ¸v Ã¥ oppdatere appen.</p>
+                <p className="text-[12px] text-amber-800">Lagring er ikke tilgjengelig. Prøv å oppdatere appen.</p>
               ) : null}
             </div>
               ) : (
             <div className="space-y-4">
               {analyzeLoading && !bundle ? (
                 <p
-                  className="rounded-lg border border-synkaPrimary/20 bg-synkaCream/20 px-3 py-2.5 text-[13px] text-synkaNavy"
+                  className="rounded-lg border border-brandTeal/20 bg-brandSky/20 px-3 py-2.5 text-[13px] text-brandNavy"
                   role="status"
                   aria-live="polite"
                 >
-                  Analyserer pÃ¥ nytt â€¦
+                  Analyserer på nytt …
                 </p>
               ) : null}
               {schoolWeekOverlayProposal ? (
@@ -3302,7 +3303,7 @@ export function TankestromImportDialog({
                   </label>
                   {childrenList.length === 0 ? (
                     <p className="mt-1 text-[12px] text-amber-800">
-                      Legg til minst ett barn under Innstillinger for Ã¥ lagre overlay og knytte oppgaver riktig.
+                      Legg til minst ett barn under Innstillinger for å lagre overlay og knytte oppgaver riktig.
                     </p>
                   ) : (
                     <select
@@ -3319,12 +3320,12 @@ export function TankestromImportDialog({
                     </select>
                   )}
                   <p className="mt-1.5 text-[11px] text-indigo-900/90">
-                    Denne planen er nÃ¥ koblet til:{' '}
+                    Denne planen er nå koblet til:{' '}
                     <span className="font-semibold">{resolvedOverlayChildName || 'ikke valgt barn'}</span>
                     {overlayReviewLanguageTrack ? (
                       <>
                         {' '}
-                        Â· sprÃ¥kspor: <span className="font-semibold">{overlayReviewLanguageTrack}</span>
+                        · språkspor: <span className="font-semibold">{overlayReviewLanguageTrack}</span>
                       </>
                     ) : null}
                   </p>
@@ -3344,8 +3345,8 @@ export function TankestromImportDialog({
                   <p className="text-[12px] font-semibold text-emerald-950">To typer innhold</p>
                   <p className="mt-1 text-[11px] leading-snug text-emerald-900/95">
                     <span className="font-medium">Uke-overlay</span> oppdaterer skoleblokken i kalenderen for valgt barn
-                    denne uka. <span className="font-medium">Kortene under</span> blir egne hendelser eller gjÃ¸remÃ¥l â€”
-                    rediger feltene og bruk avkrysning for Ã¥ styre hva som importeres sammen med overlayen.
+                    denne uka. <span className="font-medium">Kortene under</span> blir egne hendelser eller gjøremål —
+                    rediger feltene og bruk avkrysning for å styre hva som importeres sammen med overlayen.
                   </p>
                 </div>
               ) : null}
@@ -3370,18 +3371,18 @@ export function TankestromImportDialog({
                   ) : null}
                 </div>
               ) : null}
-              <div className="rounded-xl border border-synkaNavy/15 bg-synkaCream/20 px-3 py-2.5">
-                <p className="text-[12px] font-medium leading-snug text-synkaNavy">
-                  GÃ¥ gjennom forslagene nedenfor. Kun <span className="font-semibold">avkryssede</span> kort importeres
-                  som hendelser eller gjÃ¸remÃ¥l
+              <div className="rounded-xl border border-brandNavy/15 bg-brandSky/20 px-3 py-2.5">
+                <p className="text-[12px] font-medium leading-snug text-brandNavy">
+                  Gå gjennom forslagene nedenfor. Kun <span className="font-semibold">avkryssede</span> kort importeres
+                  som hendelser eller gjøremål
                   {schoolWeekOverlayProposal
-                    ? ' â€” samme knapp lagrer ogsÃ¥ uke-overlay (huk av alt du ikke vil ha med).'
+                    ? ' — samme knapp lagrer også uke-overlay (huk av alt du ikke vil ha med).'
                     : '.'}
                 </p>
                 <dl className="mt-2 grid grid-cols-3 gap-2 text-center">
                   <div className="rounded-lg bg-white/70 px-2 py-1.5">
                     <dt className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400">Valgt</dt>
-                    <dd className="text-[15px] font-bold tabular-nums text-synkaNavy">{reviewSelectionStats.selected}</dd>
+                    <dd className="text-[15px] font-bold tabular-nums text-brandNavy">{reviewSelectionStats.selected}</dd>
                   </div>
                   <div className="rounded-lg bg-white/70 px-2 py-1.5">
                     <dt className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400">Trenger retting</dt>
@@ -3393,12 +3394,12 @@ export function TankestromImportDialog({
                   </div>
                 </dl>
                 <p className="mt-2 text-[10px] leading-snug text-zinc-500">
-                  Av {reviewSelectionStats.total} forslag Â· Â«KlareÂ» = valgt og uten valideringsfeil.
+                  Av {reviewSelectionStats.total} forslag · «Klare» = valgt og uten valideringsfeil.
                 </p>
                 {schoolWeekOverlayProposal ? (
                   <p className="mt-1 text-[10px] leading-snug text-zinc-500">
                     Oppgaver satt til valgt barn: {tasksDefaultedToGlobalChild} av {homeworkTaskItemsCount}.
-                    Per-kort Â«Gjelder barnÂ» kan brukes for avvik.
+                    Per-kort «Gjelder barn» kan brukes for avvik.
                   </p>
                 ) : null}
               </div>
@@ -3407,7 +3408,7 @@ export function TankestromImportDialog({
                 <div className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5 shadow-sm">
                   <p className="text-[12px] font-semibold text-zinc-900">Legg til selv</p>
                   <p className="mt-1 text-[10px] leading-snug text-zinc-500">
-                    Nye kort fÃ¥r samme behandling som analysen: rediger, huk av, og importer sammen med resten.
+                    Nye kort får samme behandling som analysen: rediger, huk av, og importer sammen med resten.
                   </p>
                   <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                     <Button
@@ -3419,7 +3420,7 @@ export function TankestromImportDialog({
                       disabled={analyzeLoading || saveLoading}
                       onClick={() => addManualReviewTask()}
                     >
-                      Legg til gjÃ¸remÃ¥l
+                      Legg til gjøremål
                     </Button>
                     <Button
                       type="button"
@@ -3440,12 +3441,12 @@ export function TankestromImportDialog({
                 <div className="rounded-xl border border-zinc-200/95 bg-white px-3 py-2.5 shadow-sm">
                   <p className="text-[12px] font-semibold text-zinc-900">Gjelder for</p>
                   <p className="mt-1 text-[10px] leading-snug text-zinc-500 sm:text-[11px]">
-                    Velg Ã©n eller flere personer og bruk valget pÃ¥ mange forslag samtidig.{' '}
+                    Velg én eller flere personer og bruk valget på mange forslag samtidig.{' '}
                     <span className="font-medium text-zinc-600">
                       Hendelser lagres med flere deltakere i kalenderen (som ved manuell opprettelse).
                     </span>{' '}
-                    GjÃ¸remÃ¥l: fÃ¸rste barn i utvalget blir Â«Gjelder barnÂ», ellers fÃ¸rste voksen som ansvarlig. Du kan
-                    fortsatt endre per kort under Â«RedigerÂ».
+                    Gjøremål: første barn i utvalget blir «Gjelder barn», ellers første voksen som ansvarlig. Du kan
+                    fortsatt endre per kort under «Rediger».
                   </p>
                   <div className="mt-2 flex max-h-28 flex-wrap gap-1.5 overflow-y-auto sm:max-h-none">
                     {people.map((p) => {
@@ -3457,7 +3458,7 @@ export function TankestromImportDialog({
                           onClick={() => toggleBulkPersonPick(p.id)}
                           className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition touch-manipulation ${
                             on
-                              ? 'border-synkaPrimary/80 bg-synkaPrimary/15 text-synkaNavy shadow-sm'
+                              ? 'border-brandTeal/80 bg-brandTeal/15 text-brandNavy shadow-sm'
                               : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 active:bg-zinc-100'
                           }`}
                         >
@@ -3471,9 +3472,9 @@ export function TankestromImportDialog({
                       type="button"
                       disabled={bulkPersonPick.size === 0}
                       onClick={() => applyReviewBulkPersonTargets([...bulkPersonPick], 'selected')}
-                      className="rounded-lg border border-synkaNavy/35 bg-synkaCream/20 px-3 py-2 text-[11px] font-semibold text-synkaNavy hover:bg-synkaCream/35 disabled:cursor-not-allowed disabled:opacity-45"
+                      className="rounded-lg border border-brandNavy/35 bg-brandSky/20 px-3 py-2 text-[11px] font-semibold text-brandNavy hover:bg-brandSky/35 disabled:cursor-not-allowed disabled:opacity-45"
                     >
-                      Bruk pÃ¥ valgte forslag
+                      Bruk på valgte forslag
                     </button>
                     <button
                       type="button"
@@ -3481,7 +3482,7 @@ export function TankestromImportDialog({
                       onClick={() => applyReviewBulkPersonTargets([...bulkPersonPick], 'all_calendar')}
                       className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] font-semibold text-zinc-800 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-45"
                     >
-                      Bruk pÃ¥ alle forslag
+                      Bruk på alle forslag
                     </button>
                   </div>
                 </div>
@@ -3563,8 +3564,12 @@ export function TankestromImportDialog({
                   const suppressChildInlineBanners =
                     embeddedChildrenValidationSummary?.suppressPerChildDuplicateBanners === true
                   const parentMissingEndHint =
-                    checked && u.importKind === 'event' && draftHasStartWithoutKnownEnd(u.event)
-                      ? formatTankestromMissingEndReviewHint(norwegianWeekdayLowercase(u.event.date))
+                    checked && u.importKind === 'event'
+                      ? draftHasFrontendCanonicalEstimatedEnd(u.event)
+                        ? formatTankestromMissingEndReviewHint(norwegianWeekdayLowercase(u.event.date))
+                        : draftHasStartWithoutKnownEnd(u.event)
+                          ? formatTankestromMissingEndReviewHint(norwegianWeekdayLowercase(u.event.date))
+                          : null
                       : null
                   const showCardValidationAlerts =
                     checked &&
@@ -3584,8 +3589,8 @@ export function TankestromImportDialog({
                       Boolean(ts.trim()) &&
                       hm.test(ts) &&
                       !te.trim()
-                    if (flightMissingEnd) return `${ts} Â· ${TANKESTROM_FLIGHT_MISSING_END_LABEL}`
-                    return hm.test(ts) && hm.test(te) ? formatTimeRange(ts, te) : ts && te ? `${ts}â€“${te}` : 'â€”'
+                    if (flightMissingEnd) return `${ts} · ${TANKESTROM_FLIGHT_MISSING_END_LABEL}`
+                    return hm.test(ts) && hm.test(te) ? formatTimeRange(ts, te) : ts && te ? `${ts}–${te}` : '—'
                   })()
 
                   const programPointsCount =
@@ -3712,17 +3717,17 @@ export function TankestromImportDialog({
                   const summaryMetaLine =
                     u.importKind === 'event'
                       ? embeddedScheduleParentCard
-                        ? `${formatNorwegianDateRangeLabel(u.event.date, embeddedEndDate || u.event.date)} Â· Hele dagen Â· Program: ${programPointsCount} punkter${
-                            eventPeopleSummary ? ` Â· ${eventPeopleSummary}` : ''
+                        ? `${formatNorwegianDateRangeLabel(u.event.date, embeddedEndDate || u.event.date)} · Hele dagen · Program: ${programPointsCount} punkter${
+                            eventPeopleSummary ? ` · ${eventPeopleSummary}` : ''
                           }`
-                        : `${formatNorwegianDateLabel(u.event.date)} Â· ${eventTimeSummary}${
-                            eventPeopleSummary ? ` Â· ${eventPeopleSummary}` : ''
+                        : `${formatNorwegianDateLabel(u.event.date)} · ${eventTimeSummary}${
+                            eventPeopleSummary ? ` · ${eventPeopleSummary}` : ''
                           }`
                       : `${formatNorwegianDateLabel(u.task.date)}${
-                          u.task.dueTime.trim() ? ` Â· Frist ${u.task.dueTime.trim()}` : ''
+                          u.task.dueTime.trim() ? ` · Frist ${u.task.dueTime.trim()}` : ''
                         }${
                           u.task.childPersonId && people.find((p) => p.id === u.task.childPersonId)?.name
-                            ? ` Â· ${people.find((p) => p.id === u.task.childPersonId)?.name}`
+                            ? ` · ${people.find((p) => p.id === u.task.childPersonId)?.name}`
                             : ''
                         }`
 
@@ -3823,14 +3828,14 @@ export function TankestromImportDialog({
                       key={pid}
                       className={`overflow-hidden rounded-xl border-2 transition-colors sm:rounded-2xl ${
                         checked
-                          ? 'border-synkaPrimary/50 bg-white shadow-planner-sm ring-1 ring-synkaPrimary/10'
+                          ? 'border-brandTeal/50 bg-white shadow-planner-sm ring-1 ring-brandTeal/10'
                           : 'border-zinc-200 bg-zinc-50/90 opacity-[0.88]'
                       }`}
                     >
                       <div className="flex items-start gap-1.5 border-b border-zinc-100/80 px-2 py-1.5 sm:gap-3 sm:px-4 sm:py-2.5">
                         <input
                           type="checkbox"
-                          className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-synkaPrimary focus:ring-synkaPrimary/30 sm:mt-1 sm:h-[18px] sm:w-[18px]"
+                          className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-brandTeal focus:ring-brandTeal/30 sm:mt-1 sm:h-[18px] sm:w-[18px]"
                           checked={checked}
                           onChange={() => toggleProposal(pid)}
                           aria-label={`Velg forslag: ${cardTitle}`}
@@ -3877,7 +3882,7 @@ export function TankestromImportDialog({
                               <button
                                 type="button"
                                 onClick={() => toggleReviewCardEditor(pid)}
-                                className="rounded px-1 py-0.5 text-[9px] font-semibold text-synkaNavy hover:bg-synkaCream/30 sm:text-[11px]"
+                                className="rounded px-1 py-0.5 text-[9px] font-semibold text-brandNavy hover:bg-brandSky/30 sm:text-[11px]"
                                 aria-expanded={editorOpen}
                               >
                                 {editorOpen ? 'Skjul' : 'Rediger'}
@@ -3896,14 +3901,14 @@ export function TankestromImportDialog({
                             </p>
                           ) : null}
                           {embeddedScheduleParentCard ? (
-                            <p className="mt-1 text-[10px] font-medium leading-snug text-synkaNavy sm:text-[11px]">
+                            <p className="mt-1 text-[10px] font-medium leading-snug text-brandNavy sm:text-[11px]">
                               Importerer {programImportCount} kalenderhendelser fra programmet
                             </p>
                           ) : null}
                           {import.meta.env.DEV && embeddedScheduleParentCard ? (
                             <p className="mt-1 rounded border border-dashed border-teal-200 bg-teal-50/70 px-2 py-1 font-mono text-[10px] leading-snug text-teal-900">
-                              embeddedScheduleRawCount={embeddedScheduleRawCount} Â· embeddedScheduleDedupedCount=
-                              {embeddedScheduleDedupedCount} Â· childSegmentsFoldedCount={childSegmentsFoldedCount} Â·
+                              embeddedScheduleRawCount={embeddedScheduleRawCount} · embeddedScheduleDedupedCount=
+                              {embeddedScheduleDedupedCount} · childSegmentsFoldedCount={childSegmentsFoldedCount} ·
                               childSource={childSourceTag}
                             </p>
                           ) : null}
@@ -3919,7 +3924,7 @@ export function TankestromImportDialog({
                             >
                               <p className="text-[11px] font-semibold leading-snug">{existingMatchHeadline}</p>
                               <p className="mt-1 text-[10px] leading-snug sm:text-[11px]">
-                                Kalenderen har allerede Â«{existingMatchCandidate.event.title.trim()}Â».{' '}
+                                Kalenderen har allerede «{existingMatchCandidate.event.title.trim()}».{' '}
                                 <span className="font-medium">Anbefalt:</span> oppdater eksisterende hendelse.
                                 Alternativt kan du legge inn som ny rad eller hoppe over denne importen.
                               </p>
@@ -3933,10 +3938,10 @@ export function TankestromImportDialog({
                               {existingEventLinkChoice === 'update' ? (
                                 <>
                                   <p className="mt-1.5 text-[10px] font-semibold text-teal-900 sm:text-[11px]">
-                                    Oppdaterer: Â«{existingMatchCandidate.event.title.trim()}Â»
+                                    Oppdaterer: «{existingMatchCandidate.event.title.trim()}»
                                   </p>
                                   <p className="mt-0.5 text-[10px] leading-snug text-teal-900/95 sm:text-[11px]">
-                                    Ved godkjenning lagres dette pÃ¥ eksisterende hendelse â€” det opprettes ikke et
+                                    Ved godkjenning lagres dette på eksisterende hendelse — det opprettes ikke et
                                     nytt arrangement.
                                   </p>
                                 </>
@@ -3947,12 +3952,12 @@ export function TankestromImportDialog({
                                 </p>
                               ) : (
                                 <p className="mt-1.5 text-[10px] leading-snug text-zinc-700 sm:text-[11px]">
-                                  Du har valgt Ã¥ ikke importere dette forslaget. Det tas ikke med ved godkjenning.
+                                  Du har valgt å ikke importere dette forslaget. Det tas ikke med ved godkjenning.
                                 </p>
                               )}
                               {existingMatchUpdateHints.length > 0 && existingEventLinkChoice === 'update' ? (
                                 <p className="mt-1 text-[10px] text-teal-900/90 sm:text-[11px]">
-                                  Ser ut som: {existingMatchUpdateHints.join(' Â· ')}.
+                                  Ser ut som: {existingMatchUpdateHints.join(' · ')}.
                                 </p>
                               ) : null}
                               <div className="mt-2 flex flex-col gap-1.5 sm:flex-row sm:flex-wrap">
@@ -3961,7 +3966,7 @@ export function TankestromImportDialog({
                                   disabled={!editEvent}
                                   title={
                                     !editEvent
-                                      ? 'Oppdatering er ikke tilgjengelig i denne Ã¸kten'
+                                      ? 'Oppdatering er ikke tilgjengelig i denne økten'
                                       : undefined
                                   }
                                   onClick={() =>
@@ -3972,7 +3977,7 @@ export function TankestromImportDialog({
                                   }
                                   className={`touch-manipulation rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
                                     existingEventLinkChoice === 'update'
-                                      ? 'border-synkaPrimary bg-synkaPrimary/15 text-synkaNavy ring-1 ring-synkaPrimary/25'
+                                      ? 'border-brandTeal bg-brandTeal/15 text-brandNavy ring-1 ring-brandTeal/25'
                                       : 'border-amber-300/90 bg-white text-amber-950 hover:bg-amber-100/80 disabled:cursor-not-allowed disabled:opacity-45'
                                   }`}
                                 >
@@ -4018,14 +4023,14 @@ export function TankestromImportDialog({
                             <p className="mx-3 mt-1.5 text-[10px] leading-snug text-zinc-600 sm:text-[11px]">
                               Dagene under er tilleggsdetaljer til samme arrangement
                               {existingEventLinkChoice === 'update'
-                                ? ' og blir med nÃ¥r du oppdaterer eksisterende hendelse.'
+                                ? ' og blir med når du oppdaterer eksisterende hendelse.'
                                 : existingEventLinkChoice === 'skip'
-                                  ? ' â€” valget Â«Ikke importerÂ» hopper over hele forslaget.'
-                                  : ' â€” velg Â«Oppdater eksisterendeÂ» over hvis det ikke skal bli et ekstra arrangement.'}
+                                  ? ' — valget «Ikke importer» hopper over hele forslaget.'
+                                  : ' — velg «Oppdater eksisterende» over hvis det ikke skal bli et ekstra arrangement.'}
                             </p>
                           ) : null}
                           {embeddedScheduleParentCard && item.kind === 'event' ? (
-                            <div className="mt-2 space-y-2.5 border-l-2 border-synkaPrimary/40 pl-2.5 sm:space-y-3 sm:pl-3">
+                            <div className="mt-2 space-y-2.5 border-l-2 border-brandTeal/40 pl-2.5 sm:space-y-3 sm:pl-3">
                               <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400 sm:text-[10px]">
                                 Delprogram
                               </p>
@@ -4079,9 +4084,9 @@ export function TankestromImportDialog({
                                       embeddedScheduleChildCanonicalPreviewApplied: true,
                                       embeddedScheduleChildSingleStartTimeDisplayed:
                                         Boolean(timeLabel) &&
-                                        timeLabel !== 'â€“' &&
+                                        timeLabel !== '–' &&
                                         timeLabel !== 'Tid ikke avklart' &&
-                                        !String(timeLabel).includes('â€“'),
+                                        !String(timeLabel).includes('–'),
                                       embeddedScheduleChildRenderedAsNestedBlock: true,
                                       embeddedScheduleChildTimelineLayoutApplied: true,
                                       embeddedScheduleChildTimeColumnNormalized: true,
@@ -4117,7 +4122,7 @@ export function TankestromImportDialog({
                                       <div className="flex items-start gap-2 sm:gap-2.5">
                                         <input
                                           type="checkbox"
-                                          className="mt-1.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-synkaPrimary focus:ring-synkaPrimary/30"
+                                          className="mt-1.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-brandTeal focus:ring-brandTeal/30"
                                           checked={childChecked}
                                           disabled={!checked}
                                           onChange={() => toggleProposal(childId)}
@@ -4128,7 +4133,7 @@ export function TankestromImportDialog({
                                           id={detailTriggerId}
                                           aria-expanded={delprogramDetailOpen}
                                           aria-controls={detailPanelId}
-                                          className="min-w-0 flex-1 rounded-lg text-left outline-none ring-synkaPrimary/25 transition hover:bg-zinc-50/90 focus-visible:ring-2 active:bg-zinc-50 touch-manipulation"
+                                          className="min-w-0 flex-1 rounded-lg text-left outline-none ring-brandTeal/25 transition hover:bg-zinc-50/90 focus-visible:ring-2 active:bg-zinc-50 touch-manipulation"
                                           onClick={() => toggleDelprogramChildExpanded(childId, row.segment)}
                                         >
                                           <div className="flex flex-col gap-1.5">
@@ -4140,12 +4145,12 @@ export function TankestromImportDialog({
                                                 className="text-[10px] font-medium text-zinc-300 sm:text-[11px]"
                                                 aria-hidden
                                               >
-                                                Â·
+                                                ·
                                               </span>
                                               <span
                                                 className={`inline-flex min-h-[1.375rem] shrink-0 items-center tabular-nums text-[10px] sm:min-h-0 sm:text-[11px] ${
                                                   hasConcreteTimeDisplay
-                                                    ? 'font-semibold text-synkaNavy'
+                                                    ? 'font-semibold text-brandNavy'
                                                     : row.segment.isConditional
                                                       ? 'font-medium text-zinc-500'
                                                       : 'rounded-md bg-zinc-100/70 px-2 py-0.5 font-medium text-zinc-600'
@@ -4162,7 +4167,7 @@ export function TankestromImportDialog({
                                             </p>
                                             <p className="text-[9px] font-medium leading-snug text-zinc-400 sm:text-[10px]">
                                               {delprogramDetailOpen
-                                                ? 'Trykk for Ã¥ skjule'
+                                                ? 'Trykk for å skjule'
                                                 : 'Trykk for detaljer og notater'}
                                             </p>
                                             {childChecked && !embEdit && !suppressChildInlineBanners ? (() => {
@@ -4180,11 +4185,16 @@ export function TankestromImportDialog({
                                                 weekdayNb: norwegianWeekdayLowercase(row.segment.date),
                                               })
                                               const endHint =
-                                                cd?.importKind === 'event' &&
-                                                draftHasStartWithoutKnownEnd(cd.event)
-                                                  ? formatTankestromMissingEndReviewHint(
-                                                      norwegianWeekdayLowercase(row.segment.date)
-                                                    )
+                                                cd?.importKind === 'event'
+                                                  ? draftHasFrontendCanonicalEstimatedEnd(cd.event)
+                                                    ? formatTankestromMissingEndReviewHint(
+                                                        norwegianWeekdayLowercase(row.segment.date)
+                                                      )
+                                                    : draftHasStartWithoutKnownEnd(cd.event)
+                                                      ? formatTankestromMissingEndReviewHint(
+                                                          norwegianWeekdayLowercase(row.segment.date)
+                                                        )
+                                                      : null
                                                   : null
                                               if (!line && !endHint) return null
                                               return (
@@ -4284,7 +4294,7 @@ export function TankestromImportDialog({
                                                 },
                                               }))
                                             }}
-                                            className="rounded-lg px-2 py-1 text-[9px] font-semibold text-synkaNavy underline decoration-synkaNavy/30 underline-offset-2 hover:bg-synkaCream/25 hover:decoration-synkaNavy disabled:cursor-not-allowed disabled:opacity-40 sm:text-[10px]"
+                                            className="rounded-lg px-2 py-1 text-[9px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:bg-brandSky/25 hover:decoration-brandNavy disabled:cursor-not-allowed disabled:opacity-40 sm:text-[10px]"
                                           >
                                             Rediger
                                           </button>
@@ -4299,19 +4309,19 @@ export function TankestromImportDialog({
                                               })
                                               detachEmbeddedScheduleChild(pid, row.origIndex)
                                             }}
-                                            className="rounded-lg px-2 py-1 text-[9px] font-semibold text-synkaNavy underline decoration-synkaNavy/30 underline-offset-2 hover:bg-synkaCream/25 hover:decoration-synkaNavy disabled:cursor-not-allowed disabled:opacity-40 sm:text-[10px]"
+                                            className="rounded-lg px-2 py-1 text-[9px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:bg-brandSky/25 hover:decoration-brandNavy disabled:cursor-not-allowed disabled:opacity-40 sm:text-[10px]"
                                           >
-                                            LÃ¸sne
+                                            Løsne
                                           </button>
                                         </div>
                                       </div>
                                       {embEdit ? (
                                         <div
-                                          className="mt-2 space-y-2 rounded-lg border border-synkaPrimary/30 bg-synkaCream/15 px-2 py-2 sm:px-3"
+                                          className="mt-2 space-y-2 rounded-lg border border-brandTeal/30 bg-brandSky/15 px-2 py-2 sm:px-3"
                                           role="region"
                                           aria-label="Rediger programpunkt"
                                         >
-                                          <p className="text-[9px] font-semibold uppercase tracking-wide text-synkaNavy/90 sm:text-[10px]">
+                                          <p className="text-[9px] font-semibold uppercase tracking-wide text-brandNavy/90 sm:text-[10px]">
                                             Rediger programpunkt
                                           </p>
                                           <Input
@@ -4386,7 +4396,7 @@ export function TankestromImportDialog({
                                             </label>
                                             <select
                                               id={`ts-emb-${childId}-person`}
-                                              className="w-full rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-[13px] text-zinc-900 shadow-sm focus:border-synkaPrimary focus:outline-none focus:ring-2 focus:ring-synkaPrimary/25"
+                                              className="w-full rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-[13px] text-zinc-900 shadow-sm focus:border-brandTeal focus:outline-none focus:ring-2 focus:ring-brandTeal/25"
                                               value={embEdit.personId}
                                               disabled={!checked}
                                               onChange={(e) =>
@@ -4410,7 +4420,7 @@ export function TankestromImportDialog({
                                             <div className="space-y-3">
                                               <div className="space-y-1.5">
                                                 <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[10px]">
-                                                  HÃ¸ydepunkter
+                                                  Høydepunkter
                                                 </p>
                                                 {embEdit.highlights.map((h, index) => (
                                                   <div key={`h-${index}`} className="grid grid-cols-[86px_1fr_auto] gap-1.5">
@@ -4486,9 +4496,9 @@ export function TankestromImportDialog({
                                                       }
                                                     })
                                                   }
-                                                  className="text-[10px] font-semibold text-synkaNavy underline underline-offset-2"
+                                                  className="text-[10px] font-semibold text-brandNavy underline underline-offset-2"
                                                 >
-                                                  + Legg til hÃ¸ydepunkt
+                                                  + Legg til høydepunkt
                                                 </button>
                                               </div>
                                               {(embEdit.bringItems.length > 0 || embeddedSegmentHasStructuredDetails(row.segment)) && (
@@ -4549,7 +4559,7 @@ export function TankestromImportDialog({
                                                         }
                                                       })
                                                     }
-                                                    className="text-[10px] font-semibold text-synkaNavy underline underline-offset-2"
+                                                    className="text-[10px] font-semibold text-brandNavy underline underline-offset-2"
                                                   >
                                                     + Legg til huskepunkt
                                                   </button>
@@ -4612,7 +4622,7 @@ export function TankestromImportDialog({
                                                       }
                                                     })
                                                   }
-                                                  className="text-[10px] font-semibold text-synkaNavy underline underline-offset-2"
+                                                  className="text-[10px] font-semibold text-brandNavy underline underline-offset-2"
                                                 >
                                                   + Legg til notat
                                                 </button>
@@ -4737,7 +4747,7 @@ export function TankestromImportDialog({
                                                   personId: buf.personId,
                                                 })
                                                 if (!savedOk) {
-                                                  window.alert('Kunne ikke lagre programpunktet. Lukk dialogen og prÃ¸v igjen.')
+                                                  window.alert('Kunne ikke lagre programpunktet. Lukk dialogen og prøv igjen.')
                                                   return
                                                 }
                                                 if (import.meta.env.DEV) {
@@ -4766,7 +4776,7 @@ export function TankestromImportDialog({
                                                   return n
                                                 })
                                               }}
-                                              className="rounded-lg bg-synkaNavy px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-synkaNavy/90 disabled:cursor-not-allowed disabled:opacity-45 sm:text-[12px]"
+                                              className="rounded-lg bg-brandNavy px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-brandNavy/90 disabled:cursor-not-allowed disabled:opacity-45 sm:text-[12px]"
                                             >
                                               Lagre
                                             </button>
@@ -4925,7 +4935,7 @@ export function TankestromImportDialog({
                                   }`}
                                   onClick={() => updateTaskDraft(pid, { taskIntent: 'must_do' })}
                                 >
-                                  MÃ¥ gjÃ¸re
+                                  Må gjøre
                                 </button>
                                 <button
                                   type="button"
@@ -4955,7 +4965,7 @@ export function TankestromImportDialog({
                             )}
                             {schoolWeekOverlayProposal && item.kind === 'task' ? (
                               <span className="text-[8px] font-medium text-zinc-500 normal-case sm:text-[9px]">
-                                Â· Plan
+                                · Plan
                               </span>
                             ) : null}
                             {schoolCtx ? (
@@ -4968,7 +4978,7 @@ export function TankestromImportDialog({
                                 ) : null}
                                 <span aria-hidden className="opacity-50">
                                   {' '}
-                                  Â·{' '}
+                                  ·{' '}
                                 </span>
                                 <span>{schoolItemTypeLabel(schoolCtx.itemType)}</span>
                               </span>
@@ -4979,14 +4989,14 @@ export function TankestromImportDialog({
                           ) : null}
                           {taskLangMismatch ? (
                             <p className="mt-0.5 text-[9px] leading-snug text-amber-800 sm:text-[10px]">
-                              Annen sprÃ¥ktrack.
+                              Annen språktrack.
                             </p>
                           ) : null}
                           {showCardValidationAlerts ? (
                             <div
                               className="mt-0.5 space-y-0.5"
                               role="group"
-                              aria-label="Valideringsfeil pÃ¥ importkort"
+                              aria-label="Valideringsfeil på importkort"
                             >
                               {parentCardValidationIssues.length > 0 ? (
                                 <p
@@ -5022,7 +5032,7 @@ export function TankestromImportDialog({
                               onClick={() => setProposalImportKind(pid, 'event')}
                               className={`rounded px-1.5 py-0.5 text-[9px] font-semibold transition sm:px-2 sm:text-[11px] ${
                                 u.importKind === 'event'
-                                  ? 'bg-synkaNavy text-white shadow-sm'
+                                  ? 'bg-brandNavy text-white shadow-sm'
                                   : 'text-zinc-600 hover:bg-zinc-100'
                               }`}
                             >
@@ -5034,11 +5044,11 @@ export function TankestromImportDialog({
                               onClick={() => setProposalImportKind(pid, 'task')}
                               className={`rounded px-1.5 py-0.5 text-[9px] font-semibold transition sm:px-2 sm:text-[11px] ${
                                 u.importKind === 'task'
-                                  ? 'bg-synkaNavy text-white shadow-sm'
+                                  ? 'bg-brandNavy text-white shadow-sm'
                                   : 'text-zinc-600 hover:bg-zinc-100'
                               }`}
                             >
-                              GjÃ¸remÃ¥l
+                              Gjøremål
                             </button>
                           </div>
                         </div>
@@ -5102,14 +5112,14 @@ export function TankestromImportDialog({
                                 className={`w-full rounded-2xl border bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:ring-1 disabled:opacity-50 ${
                                   eventFieldErrors.personId
                                     ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-400/20'
-                                    : 'border-zinc-200 focus:border-synkaPrimary focus:ring-synkaPrimary/20'
+                                    : 'border-zinc-200 focus:border-brandTeal focus:ring-brandTeal/20'
                                 }`}
                                 value={u.event.personId}
                                 onChange={(e) => updateEventDraft(pid, { personId: e.target.value })}
                                 disabled={disabled}
                                 aria-invalid={eventFieldErrors.personId ? true : undefined}
                               >
-                                <option value="">â€” Velg â€”</option>
+                                <option value="">— Velg —</option>
                                 {people.map((p) => (
                                   <option key={p.id} value={p.id}>
                                     {p.name}
@@ -5194,11 +5204,11 @@ export function TankestromImportDialog({
                                     htmlFor={`ts-${pid}-reminder`}
                                     className="block text-caption font-medium text-zinc-600"
                                   >
-                                    PÃ¥minnelse
+                                    Påminnelse
                                   </label>
                                   <select
                                     id={`ts-${pid}-reminder`}
-                                    className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 disabled:opacity-50"
+                                    className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
                                     value={u.event.reminderMinutes == null ? '' : String(u.event.reminderMinutes)}
                                     onChange={(e) =>
                                       updateEventDraft(pid, {
@@ -5208,12 +5218,12 @@ export function TankestromImportDialog({
                                     disabled={disabled}
                                   >
                                     <option value="">Ingen</option>
-                                    <option value="5">5 min fÃ¸r</option>
-                                    <option value="15">15 min fÃ¸r</option>
-                                    <option value="30">30 min fÃ¸r</option>
-                                    <option value="60">1 time fÃ¸r</option>
-                                    <option value="120">2 timer fÃ¸r</option>
-                                    <option value="1440">24 timer fÃ¸r</option>
+                                    <option value="5">5 min før</option>
+                                    <option value="15">15 min før</option>
+                                    <option value="30">30 min før</option>
+                                    <option value="60">1 time før</option>
+                                    <option value="120">2 timer før</option>
+                                    <option value="1440">24 timer før</option>
                                   </select>
                                   <p className="text-[11px] text-zinc-500">
                                     Valgt:{' '}
@@ -5229,7 +5239,7 @@ export function TankestromImportDialog({
                                     <label className="flex items-center gap-2 text-[12px] text-zinc-700">
                                       <input
                                         type="checkbox"
-                                        className="h-4 w-4 rounded border-zinc-300 text-synkaPrimary focus:ring-synkaPrimary/30"
+                                        className="h-4 w-4 rounded border-zinc-300 text-brandTeal focus:ring-brandTeal/30"
                                         checked={u.event.includeRecurrence}
                                         onChange={(e) =>
                                           updateEventDraft(pid, { includeRecurrence: e.target.checked })
@@ -5255,7 +5265,7 @@ export function TankestromImportDialog({
                                       </label>
                                       <select
                                         id={`ts-${pid}-dropoff`}
-                                        className="w-full rounded-xl border border-zinc-200 bg-white px-2.5 py-2 text-[13px] text-zinc-900 outline-none transition focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 disabled:opacity-50"
+                                        className="w-full rounded-xl border border-zinc-200 bg-white px-2.5 py-2 text-[13px] text-zinc-900 outline-none transition focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
                                         value={u.event.dropoffBy}
                                         onChange={(e) => updateEventDraft(pid, { dropoffBy: e.target.value })}
                                         disabled={disabled}
@@ -5277,7 +5287,7 @@ export function TankestromImportDialog({
                                       </label>
                                       <select
                                         id={`ts-${pid}-pickup`}
-                                        className="w-full rounded-xl border border-zinc-200 bg-white px-2.5 py-2 text-[13px] text-zinc-900 outline-none transition focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 disabled:opacity-50"
+                                        className="w-full rounded-xl border border-zinc-200 bg-white px-2.5 py-2 text-[13px] text-zinc-900 outline-none transition focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
                                         value={u.event.pickupBy}
                                         onChange={(e) => updateEventDraft(pid, { pickupBy: e.target.value })}
                                         disabled={disabled}
@@ -5305,7 +5315,7 @@ export function TankestromImportDialog({
                                       <>
                                         <button
                                           type="button"
-                                          className="mt-2 text-left text-[12px] font-semibold text-synkaNavy underline decoration-synkaNavy/30 underline-offset-2 hover:decoration-synkaNavy"
+                                          className="mt-2 text-left text-[12px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:decoration-brandNavy"
                                           onClick={() => toggleSourceExpanded(pid)}
                                           aria-expanded={sourceExpanded}
                                           aria-controls={`ts-source-expanded-${pid}`}
@@ -5326,7 +5336,7 @@ export function TankestromImportDialog({
                                               aria-label="Fullt kildegrunnlag fra AI"
                                             >
                                               {fullSourceDoc.length > 12000
-                                                ? `${fullSourceDoc.slice(0, 11997)}â€¦`
+                                                ? `${fullSourceDoc.slice(0, 11997)}…`
                                                 : fullSourceDoc}
                                             </div>
                                           </div>
@@ -5363,7 +5373,7 @@ export function TankestromImportDialog({
                                   }`}
                                   onClick={() => updateTaskDraft(pid, { taskIntent: 'must_do' })}
                                 >
-                                  MÃ¥ gjÃ¸re
+                                  Må gjøre
                                 </button>
                                 <button
                                   type="button"
@@ -5411,12 +5421,12 @@ export function TankestromImportDialog({
                               </label>
                               <select
                                 id={`ts-${pid}-task-child`}
-                                className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 disabled:opacity-50"
+                                className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
                                 value={u.task.childPersonId}
                                 onChange={(e) => updateTaskDraft(pid, { childPersonId: e.target.value })}
                                 disabled={disabled}
                               >
-                                <option value="">â€” Ingen â€”</option>
+                                <option value="">— Ingen —</option>
                                 {people.map((p) => (
                                   <option key={p.id} value={p.id}>
                                     {p.name}
@@ -5439,12 +5449,12 @@ export function TankestromImportDialog({
                               </label>
                               <select
                                 id={`ts-${pid}-task-assign`}
-                                className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 disabled:opacity-50"
+                                className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
                                 value={u.task.assignedToPersonId}
                                 onChange={(e) => updateTaskDraft(pid, { assignedToPersonId: e.target.value })}
                                 disabled={disabled}
                               >
-                                <option value="">â€” Ingen â€”</option>
+                                <option value="">— Ingen —</option>
                                 {people.map((p) => (
                                   <option key={p.id} value={p.id}>
                                     {p.name}
@@ -5455,12 +5465,12 @@ export function TankestromImportDialog({
                             <label className="flex items-center gap-2 text-[12px] text-zinc-700">
                               <input
                                 type="checkbox"
-                                className="h-4 w-4 rounded border-zinc-300 text-synkaPrimary focus:ring-synkaPrimary/30"
+                                className="h-4 w-4 rounded border-zinc-300 text-brandTeal focus:ring-brandTeal/30"
                                 checked={u.task.showInMonthView}
                                 onChange={(e) => updateTaskDraft(pid, { showInMonthView: e.target.checked })}
                                 disabled={disabled}
                               />
-                              Vis markÃ¸r i mÃ¥nedskalender
+                              Vis markør i månedskalender
                             </label>
                             <div className="rounded-lg border border-rose-100 bg-rose-50/50 px-2.5 py-2 sm:rounded-xl sm:px-3 sm:py-3">
                               <p className="inline-flex items-center rounded-full border border-rose-200 bg-rose-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-rose-700 sm:px-2 sm:text-[10px]">
@@ -5517,7 +5527,7 @@ export function TankestromImportDialog({
                                       <>
                                         <button
                                           type="button"
-                                          className="mt-2 text-left text-[12px] font-semibold text-synkaNavy underline decoration-synkaNavy/30 underline-offset-2 hover:decoration-synkaNavy"
+                                          className="mt-2 text-left text-[12px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:decoration-brandNavy"
                                           onClick={() => toggleSourceExpanded(pid)}
                                           aria-expanded={sourceExpanded}
                                         >
@@ -5526,7 +5536,7 @@ export function TankestromImportDialog({
                                         {sourceExpanded && fullSourceDoc ? (
                                           <div className="mt-2 max-h-32 overflow-y-auto text-[12px] whitespace-pre-wrap text-zinc-700 sm:max-h-40">
                                             {fullSourceDoc.length > 8000
-                                              ? `${fullSourceDoc.slice(0, 7997)}â€¦`
+                                              ? `${fullSourceDoc.slice(0, 7997)}…`
                                               : fullSourceDoc}
                                           </div>
                                         ) : null}
@@ -5547,15 +5557,15 @@ export function TankestromImportDialog({
               {visibleSecondaryImportCandidates.length > 0 ? (
                 <div className="mt-4 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/60 px-3 py-3 sm:mt-5">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                    Kanskje ogsÃ¥ relevant
+                    Kanskje også relevant
                   </p>
                   <p className="mt-1 text-[10px] leading-snug text-zinc-500">
-                    Mulige ekstra funn med lavere sikkerhet. Tydelige hendelser og gjÃ¸remÃ¥l vises i hovedlisten. Du
-                    kan fortsatt ta disse med som gjÃ¸remÃ¥l eller hendelse.
+                    Mulige ekstra funn med lavere sikkerhet. Tydelige hendelser og gjøremål vises i hovedlisten. Du
+                    kan fortsatt ta disse med som gjøremål eller hendelse.
                   </p>
                   <ul className="mt-3 space-y-2.5" aria-label="Usikre kandidater">
                     {visibleSecondaryImportCandidates.map((c) => {
-                      const kindHint = c.suggestedKind === 'task' ? 'GjÃ¸remÃ¥l' : 'Hendelse'
+                      const kindHint = c.suggestedKind === 'task' ? 'Gjøremål' : 'Hendelse'
                       const compactConf = confidenceBadgeCompactStyle(c.confidence)
                       return (
                         <li
@@ -5586,14 +5596,14 @@ export function TankestromImportDialog({
                               className="rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-[11px] font-semibold text-zinc-800 touch-manipulation hover:bg-zinc-50 active:bg-zinc-100"
                               onClick={() => promoteSecondaryImportCandidate(c, 'task')}
                             >
-                              GjÃ¸r til gjÃ¸remÃ¥l
+                              Gjør til gjøremål
                             </button>
                             <button
                               type="button"
                               className="rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-[11px] font-semibold text-zinc-800 touch-manipulation hover:bg-zinc-50 active:bg-zinc-100"
                               onClick={() => promoteSecondaryImportCandidate(c, 'event')}
                             >
-                              GjÃ¸r til hendelse
+                              Gjør til hendelse
                             </button>
                             <button
                               type="button"
@@ -5613,8 +5623,8 @@ export function TankestromImportDialog({
               {selectedIds.size > 0 && !canApproveSelection && (
                 <p className="text-[12px] leading-snug text-amber-900">
                   <span className="font-semibold">Noen valgte kort mangler person, dato eller tid</span> (eller har
-                  ugyldige verdier). Ã…pne Â«RedigerÂ» pÃ¥ kortene merket med rÃ¸d tekst over, eller fÃ¸lg de rÃ¸de
-                  feltmerknadene nÃ¥r redigeringspanelet er Ã¥pent.
+                  ugyldige verdier). Åpne «Rediger» på kortene merket med rød tekst over, eller følg de røde
+                  feltmerknadene når redigeringspanelet er åpent.
                 </p>
               )}
             </div>
@@ -5628,10 +5638,10 @@ export function TankestromImportDialog({
             className="shrink-0 space-y-2 border-t border-rose-100 bg-rose-50 px-4 py-3"
             role="alert"
           >
-            <p className="text-[13px] font-semibold text-rose-950">Importen ble ikke gjennomfÃ¸rt</p>
+            <p className="text-[13px] font-semibold text-rose-950">Importen ble ikke gjennomført</p>
             {lastImportAttempt?.status === 'noop_bug' ? (
               <p className="text-[12px] text-rose-900/90">
-                Det ble ikke opprettet noen hendelser eller gjÃ¸remÃ¥l.
+                Det ble ikke opprettet noen hendelser eller gjøremål.
               </p>
             ) : null}
             <p className="whitespace-pre-wrap text-[12px] leading-snug text-rose-900">{error}</p>
@@ -5655,7 +5665,7 @@ export function TankestromImportDialog({
                       <li>status: {lastImportAttempt.status}</li>
                       <li>
                         selectedProposalIds ({lastImportAttempt.debug.selectedProposalIds.length}):{' '}
-                        {lastImportAttempt.debug.selectedProposalIds.join(', ') || 'â€”'}
+                        {lastImportAttempt.debug.selectedProposalIds.join(', ') || '—'}
                       </li>
                       <li>persistPlan.length: {lastImportAttempt.debug.persistPlanLength}</li>
                       <li>attemptedPersistOps: {lastImportAttempt.debug.attemptedPersistOps}</li>
@@ -5663,7 +5673,7 @@ export function TankestromImportDialog({
                       <li>updatedEvents: {lastImportAttempt.debug.updatedEventsCount}</li>
                       <li>createdTasks: {lastImportAttempt.debug.createdTasksCount}</li>
                       <li>failures: {lastImportAttempt.debug.failuresCount}</li>
-                      <li>noopReason: {lastImportAttempt.debug.noopReason ?? 'â€”'}</li>
+                      <li>noopReason: {lastImportAttempt.debug.noopReason ?? '—'}</li>
                     </ul>
                     {lastImportAttempt.status === 'failed' || lastImportAttempt.status === 'partial_success' ? (
                       <pre className="mt-2 whitespace-pre-wrap break-all text-[9px] text-zinc-600">
@@ -5710,7 +5720,7 @@ export function TankestromImportDialog({
               disabled={!hasPeople || !canSaveSchoolProfile || analyzeLoading}
               title={
                 schoolLessonConflicts.length > 0
-                  ? 'Velg ett fag for hvert spor som kolliderer fÃ¸r du lagrer'
+                  ? 'Velg ett fag for hvert spor som kolliderer før du lagrer'
                   : undefined
               }
               onClick={() => void handleSaveSchoolProfile()}

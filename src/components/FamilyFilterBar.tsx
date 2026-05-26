@@ -1,4 +1,4 @@
-import { LayoutGroup, motion } from 'framer-motion'
+﻿import { LayoutGroup, motion } from 'framer-motion'
 import type { PersonId } from '../types'
 import { useFamily } from '../context/FamilyContext'
 
@@ -19,7 +19,7 @@ export function FamilyFilterBar({ selectedPersonIds, onFilterChange, mePersonId 
     return (
       <div className="px-4 pb-2 pt-2 text-center">
         <p className="text-[13px] text-zinc-600">
-          Ingen familiemedlemmer ennÃ¥. GÃ¥ til <span className="font-medium text-zinc-800">Innstillinger</span> for Ã¥
+          Ingen familiemedlemmer ennå. Gå til <span className="font-medium text-zinc-800">Innstillinger</span> for å
           legge til foreldre og barn.
         </p>
       </div>
@@ -74,7 +74,7 @@ export function FamilyFilterBar({ selectedPersonIds, onFilterChange, mePersonId 
             }}
             whileTap={{ scale: 0.97 }}
             aria-pressed={active}
-            aria-label={isMe ? `${person.name} (deg)` : `Filtrer pÃ¥ ${person.name}`}
+            aria-label={isMe ? `${person.name} (deg)` : `Filtrer på ${person.name}`}
           >
             <span>{person.name}</span>
             {isMe && <span className="text-[10px] font-normal opacity-80">deg</span>}

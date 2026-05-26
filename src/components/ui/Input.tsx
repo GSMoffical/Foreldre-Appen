@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
+﻿import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { inputBase, inputLabel, inputHint, inputError as inputErrorCls } from '../../lib/ui'
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -48,7 +48,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 )
 Input.displayName = 'Input'
 
-// â”€â”€ Textarea variant â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Textarea variant ──────────────────────────────────────────────────────────
 
 export interface TextareaProps
   extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {

@@ -87,7 +87,7 @@ export function SearchBar({ open, onOpenChange, weekLayoutData, onJumpToDate, on
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Søk i hendelser denne uken…"
+            placeholder="Søk i hendelser denne uken..."
             className="flex-1 min-w-0 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-[13px] outline-none focus:border-zinc-400"
           />
         )}

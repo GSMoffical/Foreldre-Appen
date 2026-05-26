@@ -1,4 +1,4 @@
-import type { Event } from '../types'
+﻿import type { Event } from '../types'
 import { formatTimeRange } from '../lib/time'
 import { useFamily } from '../context/FamilyContext'
 import { formatParticipantNamesLine } from '../lib/eventParticipants'
@@ -96,7 +96,7 @@ export function TodayActionStrip({
             <p className="text-[14px] font-semibold text-zinc-900 md:text-[15px]">{nextEvent?.title}</p>
             <p className="mt-0.5 text-[12px] text-zinc-600 md:text-[13px]">
               {formatTimeRange(nextEvent!.start, nextEvent!.end)}
-              {who !== 'Ukjent' ? ` Â· ${who}` : ''}
+              {who !== 'Ukjent' ? ` · ${who}` : ''}
             </p>
           </button>
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -141,7 +141,7 @@ export function TodayActionStrip({
           )}
         </>
       ) : (
-        <p className="mt-1 text-[12px] text-zinc-600">Ingen neste hendelse akkurat nÃ¥.</p>
+        <p className="mt-1 text-[12px] text-zinc-600">Ingen neste hendelse akkurat nå.</p>
       )}
     </div>
   )

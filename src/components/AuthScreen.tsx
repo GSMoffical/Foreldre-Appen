@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+﻿import { useState, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import logo from '../assets/logo.svg'
 
@@ -62,7 +62,7 @@ export function AuthScreen() {
         }
       }
       if (password.length < MIN_PASSWORD_LENGTH) {
-        setError(`Passordet mÃ¥ vÃ¦re minst ${MIN_PASSWORD_LENGTH} tegn.`)
+        setError(`Passordet må være minst ${MIN_PASSWORD_LENGTH} tegn.`)
         return
       }
       if (password !== confirmPassword) {
@@ -83,12 +83,12 @@ export function AuthScreen() {
           displayName: name.trim(),
           familyName: inviteParam ? null : familyName.trim() || null,
         })
-        setSuccess('Konto opprettet. Sjekk e-posten din for bekreftelseslenke â€“ deretter kan du logge inn her.')
+        setSuccess('Konto opprettet. Sjekk e-posten din for bekreftelseslenke – deretter kan du logge inn her.')
         setPassword('')
         setConfirmPassword('')
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Noe gikk galt. PrÃ¸v igjen.')
+      setError(err instanceof Error ? err.message : 'Noe gikk galt. Prøv igjen.')
     } finally {
       setLoading(false)
     }
@@ -98,7 +98,7 @@ export function AuthScreen() {
     <div className="flex h-full min-h-0 w-full min-w-0 max-w-full flex-col overflow-x-hidden">
       {inviteParam && (
         <div className="mx-3 mt-2 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-[12px] text-zinc-800" role="status">
-          Du har blitt invitert til en familie. Logg inn eller opprett konto for Ã¥ akseptere invitasjonen.
+          Du har blitt invitert til en familie. Logg inn eller opprett konto for å akseptere invitasjonen.
         </div>
       )}
       <header className="flex flex-col px-4 pt-3 pb-4 bg-white rounded-b-[32px] border-b border-zinc-200">
@@ -109,8 +109,8 @@ export function AuthScreen() {
             </h1>
             <p className="mt-1 text-[12px] text-zinc-700">
               {mode === 'signin'
-                ? 'Logg inn for Ã¥ se familiens ukeplan.'
-                : 'Opprett konto for Ã¥ dele kalender med andre foreldre.'}
+                ? 'Logg inn for å se familiens ukeplan.'
+                : 'Opprett konto for å dele kalender med andre foreldre.'}
             </p>
           </div>
           <div className="relative h-14 w-14 overflow-hidden rounded-[24px] bg-white border border-zinc-200 shadow-card">
@@ -128,7 +128,7 @@ export function AuthScreen() {
           <form className="space-y-4" onSubmit={handleSubmit} noValidate>
             {inviteParam && (
               <fieldset className="space-y-2">
-                <legend className="text-[12px] font-medium text-zinc-700">NÃ¥r du blir med i familien, er du:</legend>
+                <legend className="text-[12px] font-medium text-zinc-700">Når du blir med i familien, er du:</legend>
                 <div className="grid grid-cols-2 gap-2">
                   <label
                     className={`flex cursor-pointer items-center justify-center rounded-full border px-3 py-2 text-[13px] font-medium transition ${
@@ -196,7 +196,7 @@ export function AuthScreen() {
                     }}
                   />
                   <p className="text-[11px] text-zinc-500">
-                    Hvem du er i familien â€“ vises i appen
+                    Hvem du er i familien – vises i appen
                   </p>
                 </div>
                 {!inviteParam && (
@@ -218,7 +218,7 @@ export function AuthScreen() {
                       }}
                     />
                     <p className="text-[11px] text-zinc-500">
-                      Navnet pÃ¥ familien â€“ vises Ã¸verst i appen
+                      Navnet på familien – vises øverst i appen
                     </p>
                   </div>
                 )}
@@ -304,7 +304,7 @@ export function AuthScreen() {
               disabled={loading}
               className="mt-2 w-full rounded-full bg-synkaPrimary py-2.5 text-[15px] font-semibold text-white shadow-planner transition hover:brightness-95 disabled:opacity-70 focus:outline-none focus:ring-2 focus:ring-synkaPrimary focus:ring-offset-2 active:translate-y-px active:shadow-planner-press"
             >
-              {loading ? 'Vennligst ventâ€¦' : mode === 'signin' ? 'Logg inn' : 'Opprett konto'}
+              {loading ? 'Vennligst vent…' : mode === 'signin' ? 'Logg inn' : 'Opprett konto'}
             </button>
           </form>
 

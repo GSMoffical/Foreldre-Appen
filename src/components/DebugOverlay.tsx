@@ -72,7 +72,7 @@ export function DebugOverlay() {
         className="fixed bottom-[80px] left-2 z-[300] flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800/85 text-[11px] text-zinc-300 shadow-lg backdrop-blur-sm transition hover:bg-zinc-700 active:scale-95"
         aria-label="Toggle debug log"
       >
-        {open ? '✕' : '⚙'}
+        {open ? 'X' : 'D'}
       </button>
 
       {/* Log panel */}

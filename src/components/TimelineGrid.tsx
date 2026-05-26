@@ -99,7 +99,7 @@ export function TimelineGrid({
           const parts = task.dueTime!.split(':').map(Number)
           const topPx = (((parts[0] ?? 0) * 60 + (parts[1] ?? 0) - TIMELINE_START_HOUR * 60) / 60) * pixelsPerHour
           if (topPx < 0 || topPx > totalHeight) return null
-          const label = task.title.length > 16 ? task.title.slice(0, 15) + '…' : task.title
+          const label = task.title.length > 16 ? task.title.slice(0, 15) + '...' : task.title
           const rowClass =
             'absolute left-0 right-2 flex items-center gap-1'
           const inner = (
