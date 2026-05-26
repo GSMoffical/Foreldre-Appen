@@ -178,7 +178,7 @@ export function CalendarHomeTab({
               id="onb-add-event"
               type="button"
               onClick={() => openAddEvent()}
-              className="shrink-0 rounded-pill bg-brandTeal px-3 py-1.5 text-caption font-semibold text-white shadow-planner-sm transition hover:brightness-95 active:translate-y-px active:shadow-planner-press focus:outline-none focus:ring-2 focus:ring-brandTeal/50 touch-manipulation"
+              className="shrink-0 rounded-pill bg-synkaPrimary px-4 py-2 text-caption font-semibold text-white shadow-planner-sm transition hover:bg-synkaPrimaryDark active:translate-y-px active:shadow-planner-press focus:outline-none focus:ring-2 focus:ring-synkaPrimary/50 touch-manipulation"
             >
               + Hendelse
             </button>
@@ -186,7 +186,7 @@ export function CalendarHomeTab({
               id="onb-add-task"
               type="button"
               onClick={() => openAddTask()}
-              className="shrink-0 rounded-pill border border-brandTeal px-3 py-1.5 text-caption font-semibold text-brandTeal transition hover:bg-brandTeal/10 active:translate-y-px focus:outline-none focus:ring-2 focus:ring-brandTeal/50 touch-manipulation"
+              className="shrink-0 rounded-pill border border-synkaPrimary px-4 py-2 text-caption font-semibold text-synkaPrimary transition hover:bg-synkaCream active:translate-y-px focus:outline-none focus:ring-2 focus:ring-synkaPrimary/50 touch-manipulation"
             >
               + Gjøremål
             </button>

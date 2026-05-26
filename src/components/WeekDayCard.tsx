@@ -25,10 +25,8 @@ export function WeekDayCard({ day, isSelected, onSelect, variants, openTaskCount
       variants={variants}
       className={`relative flex min-h-[44px] min-w-0 flex-1 basis-0 flex-col items-center justify-center rounded-card border-2 py-2 touch-manipulation transition-shadow ${
         isSelected
-          ? 'border-synkaNavy bg-synkaCream shadow-planner'
-          : isToday
-            ? 'border-synkaPrimary/30 bg-synkaPrimary/8'
-            : 'border-transparent bg-transparent'
+          ? 'border-transparent bg-synkaPrimary shadow-planner'
+          : 'border-transparent bg-transparent'
       }`}
       whileTap={{ scale: 0.98, transition: springSnappy }}
       aria-pressed={isSelected}
@@ -36,14 +34,14 @@ export function WeekDayCard({ day, isSelected, onSelect, variants, openTaskCount
     >
       <span
         className={`text-caption font-medium uppercase tracking-wide ${
-          isSelected ? 'text-zinc-600' : isToday ? 'text-synkaPrimary' : 'text-zinc-400'
+          isSelected ? 'text-white' : 'text-synkaNavy/60'
         }`}
       >
         {day.dayAbbr}
       </span>
       <span
         className={`font-display mt-0.5 text-heading font-semibold ${
-          isSelected ? 'text-synkaNavy' : isToday ? 'text-synkaPrimary' : 'text-zinc-500'
+          isSelected ? 'text-white' : 'text-synkaNavy/60'
         }`}
       >
         {dateNum}
@@ -54,6 +52,9 @@ export function WeekDayCard({ day, isSelected, onSelect, variants, openTaskCount
           title="Helligdag eller skoleferie"
           aria-hidden
         />
+      )}
+      {isToday && (
+        <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-synkaYellow" aria-hidden />
       )}
       <div className="mt-1 flex gap-0.5">
         {people.filter((p) => day.personIdsWithEvents.includes(p.id)).map((p) => (
