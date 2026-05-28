@@ -1,4 +1,4 @@
-﻿import { LayoutGroup, motion } from 'framer-motion'
+import { LayoutGroup, motion } from 'framer-motion'
 import { springSnappy } from '../lib/motion'
 
 export type NavTab = 'today' | 'week' | 'month' | 'logistics' | 'settings'
@@ -28,7 +28,7 @@ function nextViewLabel(tab: 'today' | 'week' | 'month'): string {
 
 export function BottomNav({ active, onSelect, logisticsNotifyCount = 0, lastCalendarTab = 'today' }: BottomNavProps) {
   const base =
-    'relative z-0 flex flex-1 items-center justify-center overflow-visible rounded-md py-3 text-[14px] font-semibold transition-colors'
+    'relative z-0 flex flex-1 items-center justify-center overflow-visible rounded-md py-3 text-body-sm font-semibold transition-colors'
   const inactiveText = 'text-synkaNavy/50'
   const activeText = 'text-white'
 
@@ -72,7 +72,7 @@ export function BottomNav({ active, onSelect, logisticsNotifyCount = 0, lastCale
               />
             )}
             <span className={`relative z-[40] inline-flex items-center gap-1${calendarActive ? ' text-white' : ''}`}>
-              {calendarActive ? nextViewLabel(currentView) : viewLabel(currentView)}
+              {viewLabel(currentView)}
             </span>
           </button>
           <button
@@ -94,7 +94,7 @@ export function BottomNav({ active, onSelect, logisticsNotifyCount = 0, lastCale
               {logisticsNotifyCount > 0 && (
                 <span
                   aria-label={`${logisticsNotifyCount} uleste varsler`}
-                  className="flex h-[18px] min-w-[18px] items-center justify-center rounded-pill bg-rose-500 px-1 text-[10px] font-bold leading-none text-white"
+                  className="flex h-[18px] min-w-[18px] items-center justify-center rounded-pill bg-synkaCoral px-1 text-[10px] font-bold leading-none text-white"
                 >
                   {logisticsNotifyCount > 9 ? '9+' : logisticsNotifyCount}
                 </span>

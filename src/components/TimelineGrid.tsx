@@ -106,7 +106,7 @@ export function TimelineGrid({
             <>
               <span className="h-2 w-2 shrink-0 rounded-sm bg-amber-400" />
               <div className="flex-1 border-t border-dashed border-amber-300" />
-              <span className="whitespace-nowrap rounded-pill bg-amber-50 px-1.5 py-px text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
+              <span className="whitespace-nowrap rounded-pill bg-synkaYellow/10 px-1.5 py-px text-[10px] font-semibold text-synkaNavy/70 ring-1 ring-synkaYellow/30">
                 {label}
               </span>
             </>

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { hasSeenHint, markHintSeen } from '../lib/onboarding'
 import { useAuth } from '../context/AuthContext'
@@ -57,7 +57,7 @@ export function OnboardingHint({ hintId, children, autoDismissMs = 5000 }: Onboa
               d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"
             />
           </svg>
-          <p className="flex-1 text-[13px] leading-relaxed text-white/90">{children}</p>
+          <p className="flex-1 text-body-sm leading-relaxed text-white/90">{children}</p>
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setVisible(false) }}

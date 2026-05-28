@@ -1,4 +1,4 @@
-﻿import { buildDailyStatusText } from '../lib/uxStatus'
+import { buildDailyStatusText } from '../lib/uxStatus'
 
 interface DailyStatusLineProps {
   unresolvedCollisionCount: number
@@ -10,7 +10,7 @@ export function DailyStatusLine({ unresolvedCollisionCount, remainingCount, comp
   const text = buildDailyStatusText(unresolvedCollisionCount, remainingCount)
 
   return (
-    <div className="mx-4 mt-2 rounded-pill bg-synkaNavy/5 px-3 py-1.5 text-[12px] font-medium text-synkaNavy">
+    <div className="mx-4 mt-2 rounded-pill bg-synkaNavy/5 px-3 py-1.5 text-caption font-medium text-synkaNavy">
       {text}
       {completedCount > 0 ? ` · ${completedCount} ferdige` : ''}
     </div>

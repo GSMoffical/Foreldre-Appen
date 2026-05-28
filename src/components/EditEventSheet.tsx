@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { springDialog } from '../lib/motion'
 import type { Event, PersonId } from '../types'
@@ -48,7 +48,7 @@ function DropdownItem({ label, active, onClick }: { label: string; active: boole
       role="option"
       aria-selected={active}
       onClick={onClick}
-      className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] hover:bg-zinc-50 ${active ? 'font-semibold text-zinc-900' : 'text-zinc-700'}`}
+      className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-body-sm hover:bg-zinc-50 ${active ? 'font-semibold text-zinc-900' : 'text-zinc-700'}`}
     >
       {active && (
         <svg className="h-3.5 w-3.5 shrink-0 text-zinc-900" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
@@ -114,13 +114,13 @@ function ReminderDropdownField({ reminderMinutes, setReminderMinutes }: { remind
                 max={10080}
                 value={customMinutes}
                 onChange={(e) => setCustomMinutes(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-16 rounded-md border border-zinc-200 px-2 py-1 text-center text-[13px] outline-none focus:border-zinc-400"
+                className="w-16 rounded-md border border-zinc-200 px-2 py-1 text-center text-body-sm outline-none focus:border-zinc-400"
               />
-              <span className="text-[13px] text-zinc-600">min før</span>
+              <span className="text-body-sm text-zinc-600">min før</span>
               <button
                 type="button"
                 onClick={() => { setReminderMinutes(customMinutes); setShowCustom(false); setOpen(false) }}
-                className="ml-auto rounded-pill bg-synkaPrimary px-3 py-1 text-[12px] font-medium text-white shadow-planner-sm"
+                className="ml-auto rounded-pill bg-synkaPrimary px-3 py-1 text-caption font-medium text-white shadow-planner-sm"
               >
                 Ferdig
               </button>
@@ -178,7 +178,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [showMore, setShowMore] = useState(() =>
-    !!(event.location || event.notes || event.reminderMinutes != null || initialTransport?.dropoffBy || initialTransport?.pickupBy)
+    !!(event.notes || event.reminderMinutes != null || initialTransport?.dropoffBy || initialTransport?.pickupBy)
   )
   const dialogRef = useRef<HTMLDivElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
@@ -426,10 +426,23 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
             />
           </div>
 
+          <div className="space-y-1">
+            <label className={inputLabel} htmlFor="edit-location">
+              Sted (valgfritt)
+            </label>
+            <input
+              id="edit-location"
+              className={inputBase}
+              placeholder="f.eks. Parken"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+            />
+          </div>
+
           <button
             type="button"
             onClick={() => { setIsAllDay((v) => !v); setError(null) }}
-            className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-[13px] font-medium transition-colors ${
+            className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-body-sm font-medium transition-colors ${
               isAllDay
                 ? 'border-synkaPrimary/40 bg-synkaPrimary/8 text-synkaNavy'
                 : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-100'
@@ -447,18 +460,20 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
             </span>
           </button>
 
-          <div className="space-y-1">
-            <label className={inputLabel} htmlFor="edit-all-day-end">Sluttdato</label>
-            <input
-              id="edit-all-day-end"
-              type="date"
-              className={inputBase}
-              value={allDayEndDate}
-              min={eventDate}
-              onChange={(e) => setAllDayEndDate(e.target.value)}
-            />
-            <p className="text-[11px] text-zinc-500 mt-1">Velg sluttdato for flerdagers hendelser</p>
-          </div>
+          {isAllDay && (
+            <div className="space-y-1">
+              <label className={inputLabel} htmlFor="edit-all-day-end">Sluttdato</label>
+              <input
+                id="edit-all-day-end"
+                type="date"
+                className={inputBase}
+                value={allDayEndDate}
+                min={eventDate}
+                onChange={(e) => setAllDayEndDate(e.target.value)}
+              />
+              <p className="text-caption text-zinc-500 mt-1">Velg sluttdato for flerdagers hendelser</p>
+            </div>
+          )}
 
           {!isAllDay && (
             <div className="flex gap-3">
@@ -486,7 +501,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
           )}
 
           {!isAllDay && end < start && (
-            <p className="rounded-md bg-amber-50 px-3 py-2 text-[12px] text-amber-700">
+            <p className="rounded-md bg-synkaYellow/10 px-3 py-2 text-caption text-synkaNavy/70">
               Slutter neste dag kl. {end}
             </p>
           )}
@@ -503,24 +518,11 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
             </svg>
-            {showMore ? 'Skjul detaljer' : 'Mer detaljer (sted, notater, påminnelse, transport)'}
+            {showMore ? 'Skjul detaljer' : 'Mer detaljer (notater, påminnelse, transport)'}
           </button>
 
           {showMore && (
             <>
-              <div className="space-y-1">
-                <label className={inputLabel} htmlFor="edit-location">
-                  Sted (valgfritt)
-                </label>
-                <input
-                  id="edit-location"
-                  className={inputBase}
-                  placeholder="f.eks. Parken"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                />
-              </div>
-
               <div className="space-y-1">
                 <label className={inputLabel} htmlFor="edit-notes">
                   Notater (valgfritt)
@@ -590,13 +592,13 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
             </>
           )}
 
-          {error && <p className="text-caption text-rose-600">{error}</p>}
+          {error && <p className="text-caption text-synkaCoral">{error}</p>}
 
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={guardedClose} className={`flex-1 ${btnSecondary}`}>
               Avbryt
             </button>
-            <button type="submit" disabled={saving} className="flex-1 h-12 rounded-pill bg-synkaPrimary text-white font-semibold transition disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-synkaPrimary/40 touch-manipulation select-none">
+            <button type="submit" disabled={saving} className="flex-1 h-12 rounded-lg bg-synkaPrimary text-white font-semibold transition disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-synkaPrimary/40 touch-manipulation select-none">
               {saving ? 'Lagrer…' : 'Lagre'}
             </button>
           </div>

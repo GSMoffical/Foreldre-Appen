@@ -1,4 +1,4 @@
-﻿import type { Event } from '../types'
+import type { Event } from '../types'
 import type { WeekDayLayout } from '../hooks/useScheduleState'
 import { formatCalendarEventTimeLabel } from '../lib/schedule'
 import { useFamily } from '../context/FamilyContext'
@@ -34,15 +34,15 @@ export function WeeklyList({ weekLayoutData, onSelectEvent, onDeleteEvent, onAdd
               <div className="sticky top-0 z-10 -mx-4 px-4 pb-2 pt-3 bg-surface/95 backdrop-blur">
                 <div className="flex items-center justify-between">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-[12px] font-semibold uppercase tracking-wider text-synkaPrimary/60">
+                    <span className="text-caption font-semibold uppercase tracking-wider text-synkaPrimary/60">
                       {dAbbr}
                     </span>
-                    <span className="text-[18px] font-semibold tabular-nums text-synkaPrimary">
+                    <span className="text-heading font-semibold tabular-nums text-synkaPrimary">
                       {num}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[12px] font-medium text-synkaNavy/50">
+                    <span className="text-caption font-medium text-synkaNavy/50">
                       {events.length + (day.allDayEvents?.length ?? 0)}{' '}
                       {events.length + (day.allDayEvents?.length ?? 0) === 1 ? 'hendelse' : 'hendelser'}
                     </span>
@@ -51,7 +51,7 @@ export function WeeklyList({ weekLayoutData, onSelectEvent, onDeleteEvent, onAdd
                         type="button"
                         onClick={() => onAddEventForDay(day.date)}
                         aria-label={`Legg til hendelse ${day.dayLabel}`}
-                        className="flex h-6 w-6 items-center justify-center rounded-pill text-[18px] font-light leading-none text-zinc-400 transition hover:bg-synkaPrimary/10 hover:text-synkaPrimary"
+                        className="flex h-10 w-10 items-center justify-center rounded-pill text-heading font-light leading-none text-zinc-400 transition hover:bg-synkaPrimary/10 hover:text-synkaPrimary"
                       >
                         +
                       </button>
@@ -73,7 +73,7 @@ export function WeeklyList({ weekLayoutData, onSelectEvent, onDeleteEvent, onAdd
                 </div>
               )}
               {events.length === 0 && !day.allDayEvents?.length ? (
-                <div className="rounded-md border border-synkaNavy/8 bg-white/60 px-4 py-3 text-[13px] text-synkaNavy/50 shadow-soft">
+                <div className="rounded-md border border-synkaNavy/8 bg-white/60 px-4 py-3 text-body-sm text-synkaNavy/50 shadow-soft">
                   Ingen hendelser.
                 </div>
               ) : events.length === 0 ? null : (
@@ -97,25 +97,25 @@ export function WeeklyList({ weekLayoutData, onSelectEvent, onDeleteEvent, onAdd
                         }}
                       >
                         <div className="flex items-start gap-3 px-4 py-3">
-                          <div className="shrink-0 pt-0.5 text-[12px] font-semibold tabular-nums text-synkaNavy/50">
+                          <div className="shrink-0 pt-0.5 text-caption font-semibold tabular-nums text-synkaNavy/50">
                             {e.start}
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start gap-2">
                               <ParticipantAvatarStrip people={plist} className="pt-0.5" />
-                              <span className="min-w-0 truncate text-[14px] font-semibold text-synkaNavy">
+                              <span className="min-w-0 truncate text-body-sm font-semibold text-synkaNavy">
                                 {e.title}
                               </span>
                             </div>
                             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-                              <span className="text-[12px] font-medium text-zinc-600">
+                              <span className="text-caption font-medium text-zinc-600">
                                 {formatCalendarEventTimeLabel(e)}
                               </span>
                               {namesLine !== 'Ukjent' && (
-                                <span className="text-[11px] font-medium text-zinc-500">· {namesLine}</span>
+                                <span className="text-caption font-medium text-zinc-500">· {namesLine}</span>
                               )}
                               {e.location && (
-                                <span className="text-[12px] text-zinc-600">
+                                <span className="text-caption text-zinc-600">
                                   {e.location}
                                 </span>
                               )}

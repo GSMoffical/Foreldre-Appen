@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Developer-only floating debug panel.
  *
  * Rendered only when:
@@ -69,7 +69,7 @@ export function DebugOverlay() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         title="Debug log"
-        className="fixed bottom-[80px] left-2 z-[300] flex h-7 w-7 items-center justify-center rounded-pill bg-zinc-800/85 text-[11px] text-zinc-300 shadow-lg backdrop-blur-sm transition hover:bg-zinc-700 active:scale-95"
+        className="fixed bottom-[80px] left-2 z-[300] flex h-7 w-7 items-center justify-center rounded-pill bg-zinc-800/85 text-caption text-zinc-300 shadow-lg backdrop-blur-sm transition hover:bg-zinc-700 active:scale-95"
         aria-label="Toggle debug log"
       >
         {open ? 'X' : 'D'}
@@ -90,7 +90,7 @@ export function DebugOverlay() {
                 clearEventLog()
                 setEntries([])
               }}
-              className="text-[10px] text-rose-500 hover:text-rose-400"
+              className="text-[10px] text-synkaCoral hover:text-synkaCoral/70"
             >
               Clear
             </button>
@@ -99,7 +99,7 @@ export function DebugOverlay() {
           {/* Event list — newest first */}
           <div className="overflow-y-auto overscroll-contain">
             {entries.length === 0 ? (
-              <p className="px-3 py-4 text-center text-[11px] text-zinc-600">
+              <p className="px-3 py-4 text-center text-caption text-zinc-600">
                 No events yet. Trigger an action.
               </p>
             ) : (
@@ -111,7 +111,7 @@ export function DebugOverlay() {
                   <span className="shrink-0 font-mono text-[9px] text-zinc-600">
                     {fmtTime(e.ts)}
                   </span>
-                  <span className={`shrink-0 text-[11px] font-semibold ${eventColor(e.name)}`}>
+                  <span className={`shrink-0 text-caption font-semibold ${eventColor(e.name)}`}>
                     {e.name}
                   </span>
                   {Object.keys(e.payload).length > 0 && (

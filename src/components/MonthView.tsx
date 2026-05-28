@@ -1,4 +1,4 @@
-﻿import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { Event } from '../types'
 import { getISOWeek, getISOWeekYear } from '../lib/isoWeek'
 import { formatCalendarEventTimeLabel } from '../lib/schedule'
@@ -221,6 +221,12 @@ export function MonthView({
     [selectedDate]
   )
 
+  function jumpToCurrentMonth() {
+    const today = new Date()
+    setViewYear(today.getFullYear())
+    setViewMonth(today.getMonth())
+  }
+
   function prevMonth() {
     if (viewMonth === 0) {
       setViewYear((y) => y - 1)
@@ -245,7 +251,7 @@ export function MonthView({
 
   return (
     <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden px-3 pt-2">
-      <div className="grid shrink-0 grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-1 pb-3">
+      <div className="grid shrink-0 grid-cols-[2.5rem_minmax(0,1fr)_auto_2.5rem] items-center gap-1 pb-3">
         <button
           type="button"
           onClick={prevMonth}
@@ -256,9 +262,17 @@ export function MonthView({
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
           </svg>
         </button>
-        <h2 className="min-w-0 truncate text-center font-display text-[17px] font-semibold text-synkaPrimary">
+        <h2 className="min-w-0 truncate text-center font-sans text-heading font-semibold text-synkaPrimary">
           {MONTH_NAMES[viewMonth]} {viewYear}
         </h2>
+        <button
+          type="button"
+          onClick={jumpToCurrentMonth}
+          className="rounded-pill border border-synkaNavy/20 px-3 py-1 text-caption text-synkaNavy/60 transition hover:bg-zinc-100"
+          aria-label="Gå til nåværende måned"
+        >
+          I dag
+        </button>
         <button
           type="button"
           onClick={nextMonth}
@@ -280,7 +294,7 @@ export function MonthView({
             Uke
           </div>
           {DAY_HEADERS.map((d) => (
-            <div key={d} className="pb-2 text-center text-[11px] font-medium text-synkaNavy/50">
+            <div key={d} className="pb-2 text-center text-caption font-medium text-synkaNavy/50">
               {d}
             </div>
           ))}
@@ -348,7 +362,7 @@ export function MonthView({
                             }
                           : undefined
                       }
-                      className={`relative z-0 flex aspect-square min-h-0 select-none flex-col items-center justify-center rounded-lg border-2 text-[14px] font-medium transition-colors [-webkit-touch-callout:none] ${
+                      className={`relative z-0 flex aspect-square min-h-0 select-none flex-col items-center justify-center rounded-lg border-2 text-body-sm font-medium transition-colors [-webkit-touch-callout:none] ${
                         isSelected
                           ? 'border-synkaPrimary bg-synkaPrimary font-semibold text-white shadow-planner-sm'
                           : isToday
@@ -362,7 +376,7 @@ export function MonthView({
                       )}
                       {norwegianDay && (
                         <span
-                          className="pointer-events-none absolute right-1 top-1 z-[1] h-1.5 w-1.5 rounded-pill bg-amber-500/90"
+                          className="pointer-events-none absolute right-1 top-1 z-[1] h-1.5 w-1.5 rounded-pill bg-synkaYellow/90"
                           aria-hidden
                         />
                       )}
@@ -376,7 +390,7 @@ export function MonthView({
                       {hasHighlightedTask && (
                         <span
                           className={`pointer-events-none absolute bottom-1 right-1 z-[1] h-1.5 w-1.5 rounded-pill ${
-                            isSelected ? 'bg-white/70' : 'bg-rose-500'
+                            isSelected ? 'bg-white/70' : 'bg-synkaCoral'
                           }`}
                           aria-hidden
                         />
@@ -388,36 +402,39 @@ export function MonthView({
             )
           })}
         </div>
+        {onAddEventForDate && (
+          <p className="mt-2 text-center text-caption text-synkaNavy/40">Langt trykk for å legge til hendelse</p>
+        )}
 
         {getEventsForDate && (
           <section
             className="relative z-0 mx-auto mt-4 w-full max-w-md shrink-0 rounded-md border border-synkaNavy/10 bg-white/50 px-3 py-3 shadow-soft"
             aria-label="Oppsummering for valgt dag"
           >
-            <p className="text-[11px] font-medium uppercase tracking-wide text-synkaPrimary/60">Valgt dag</p>
-            <p className="font-display text-[15px] font-semibold text-synkaNavy">{formatNorwegianDayHeading(selectedDate)}</p>
+            <p className="text-caption font-medium uppercase tracking-wide text-synkaPrimary/60">Valgt dag</p>
+            <p className="font-sans text-body font-semibold text-synkaNavy">{formatNorwegianDayHeading(selectedDate)}</p>
             {selectedDayCalendarLine && (
-              <p className="mt-1 text-[12px] font-medium leading-snug text-synkaNavy/85">{selectedDayCalendarLine}</p>
+              <p className="mt-1 text-caption font-medium leading-snug text-synkaNavy/85">{selectedDayCalendarLine}</p>
             )}
             {total === 0 ? (
-              <p className="mt-2 text-[13px] text-zinc-600">Ingen hendelser denne dagen.</p>
+              <p className="mt-2 text-body-sm text-zinc-600">Ingen hendelser denne dagen.</p>
             ) : (
               <>
-                <p className="mt-2 text-[13px] font-medium text-zinc-800">
+                <p className="mt-2 text-body-sm font-medium text-zinc-800">
                   {total} {total === 1 ? 'hendelse' : 'hendelser'}
                 </p>
                 <ul className="mt-2 space-y-2">
                   {preview.map((ev) => (
                     <li key={ev.id} className="flex min-w-0 flex-col gap-0.5 border-t border-zinc-100 pt-2 first:border-t-0 first:pt-0">
-                      <span className="truncate text-[13px] font-semibold text-zinc-900">{ev.title}</span>
-                      <span className="text-[12px] tabular-nums text-zinc-500">
+                      <span className="truncate text-body-sm font-semibold text-zinc-900">{ev.title}</span>
+                      <span className="text-caption tabular-nums text-zinc-500">
                         {ev.metadata?.isAllDay ? 'Heldags' : formatCalendarEventTimeLabel(ev)}
                       </span>
                     </li>
                   ))}
                 </ul>
                 {rest > 0 && (
-                  <p className="mt-2 text-[12px] font-medium text-zinc-600">+{rest} til</p>
+                  <p className="mt-2 text-caption font-medium text-zinc-600">+{rest} til</p>
                 )}
               </>
             )}
@@ -429,14 +446,14 @@ export function MonthView({
             className="relative z-0 mx-auto mt-6 w-full max-w-md shrink-0 rounded-md border border-synkaNavy/10 bg-white/50 px-3 py-3 shadow-soft"
             aria-label="Agenda for måneden"
           >
-            <h3 className="text-[11px] font-medium uppercase tracking-wide text-synkaPrimary/60">Agenda for måneden</h3>
+            <h3 className="text-caption font-medium uppercase tracking-wide text-synkaPrimary/60">Agenda for måneden</h3>
             {monthAgenda.length === 0 ? (
-              <p className="mt-2 text-[13px] leading-relaxed text-zinc-700">Ingen hendelser denne måneden.</p>
+              <p className="mt-2 text-body-sm leading-relaxed text-zinc-700">Ingen hendelser denne måneden.</p>
             ) : (
               <div className="mt-3 space-y-5">
                 {monthAgenda.map((week) => (
                   <div key={week.key}>
-                    <p className="sticky top-0 z-10 -mx-3 border-b border-synkaNavy/10 bg-synkaCream/40 px-3 py-1.5 text-[12px] font-semibold text-synkaNavy backdrop-blur-sm">
+                    <p className="sticky top-0 z-10 -mx-3 border-b border-synkaNavy/10 bg-synkaCream/40 px-3 py-1.5 text-caption font-semibold text-synkaNavy backdrop-blur-sm">
                       Uke {week.weekNum} · {week.rangeLabel}
                     </p>
                     <div className="mt-2 space-y-4">
@@ -446,7 +463,7 @@ export function MonthView({
                         const dom = dayDate.getDate()
                         return (
                           <div key={day.date} className="relative z-0">
-                            <p className="mb-1.5 text-[13px] font-medium text-zinc-800">
+                            <p className="mb-1.5 text-body-sm font-medium text-zinc-800">
                               <span className="text-zinc-500">{abbr}</span>{' '}
                               <span className="tabular-nums">{dom}.</span>
                             </p>
@@ -460,18 +477,18 @@ export function MonthView({
                                       onClick={() => onSelectEvent?.(ev, day.date)}
                                       className={`relative z-0 flex w-full items-start gap-2 rounded-lg border border-synkaNavy/10 bg-white/50 px-2.5 py-2 text-left shadow-sm transition hover:bg-white/80 ${onSelectEvent ? 'cursor-pointer' : 'cursor-default'}`}
                                     >
-                                      <span className="shrink-0 pt-0.5 text-[11px] font-semibold tabular-nums text-zinc-600">
+                                      <span className="shrink-0 pt-0.5 text-caption font-semibold tabular-nums text-zinc-600">
                                         {ev.metadata?.isAllDay ? 'Heldags' : ev.start}
                                       </span>
                                       <div className="min-w-0 flex-1">
                                         <div className="flex items-start gap-2">
                                           <ParticipantAvatarStrip people={plist} />
-                                          <span className="min-w-0 truncate text-[13px] font-semibold text-zinc-900">
+                                          <span className="min-w-0 truncate text-body-sm font-semibold text-zinc-900">
                                             {ev.title}
                                           </span>
                                         </div>
                                         {!ev.metadata?.isAllDay && (
-                                          <p className="mt-0.5 text-[11px] text-zinc-500">
+                                          <p className="mt-0.5 text-caption text-zinc-500">
                                             {formatCalendarEventTimeLabel(ev)}
                                           </p>
                                         )}
@@ -489,10 +506,6 @@ export function MonthView({
                 ))}
               </div>
             )}
-            <p className="mt-4 border-t border-synkaNavy/10 pt-3 text-center text-[12px] leading-snug text-zinc-600">
-              Trykk på en dato for å velge den og se oppsummeringen over. Langt trykk eller høyreklikk for å legge til på
-              den datoen.
-            </p>
           </section>
         )}
       </div>

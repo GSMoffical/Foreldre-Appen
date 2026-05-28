@@ -1,4 +1,4 @@
-﻿import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { springDialog } from '../lib/motion'
 import type { PersonId } from '../types'
@@ -36,6 +36,7 @@ interface AddEventSheetProps {
       start: string
       end: string
       notes?: string
+      location?: string
       reminderMinutes?: number
       metadata?: { transport?: { dropoffBy?: PersonId; pickupBy?: PersonId }; participants?: PersonId[] }
     },
@@ -108,7 +109,7 @@ function DropdownItem({ label, active, onClick }: { label: string; active: boole
       role="option"
       aria-selected={active}
       onClick={onClick}
-      className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] hover:bg-zinc-50 ${active ? 'font-semibold text-zinc-900' : 'text-zinc-700'}`}
+      className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-body-sm hover:bg-zinc-50 ${active ? 'font-semibold text-zinc-900' : 'text-zinc-700'}`}
     >
       {active && (
         <svg className="h-3.5 w-3.5 shrink-0 text-zinc-900" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
@@ -134,6 +135,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
   const [endDate, setEndDate] = useState(() => addWeeks(date, 12))
   const [reminderMinutes, setReminderMinutes] = useState<number | undefined>(undefined)
   const [notes, setNotes] = useState('')
+  const [location, setLocation] = useState('')
   const [dropoffBy, setDropoffBy] = useState<PersonId | null>(null)
   const [pickupBy, setPickupBy] = useState<PersonId | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -163,10 +165,11 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
       || notes.trim() !== ''
       || reminderMinutes !== undefined
       || allDayEndDate !== date
+      || location.trim() !== ''
       || dropoffBy !== null
       || pickupBy !== null
     )
-  }, [title, start, end, isAllDay, selectedPersonIds, initialPersonId, repeat, notes, reminderMinutes, allDayEndDate, date, dropoffBy, pickupBy])
+  }, [title, start, end, isAllDay, selectedPersonIds, initialPersonId, repeat, notes, location, reminderMinutes, allDayEndDate, date, dropoffBy, pickupBy])
   const { guardedClose, confirming, confirmClose, cancelConfirm } = useConfirmClose(isDirty, onClose)
 
   const guardedCloseRef = useRef(guardedClose)
@@ -243,6 +246,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
         start: saveStart,
         end: saveEnd,
         notes: notes.trim() || undefined,
+        location: location.trim() || undefined,
         reminderMinutes: isAllDay ? undefined : reminderMinutes,
       }
       data.metadata = {
@@ -355,10 +359,21 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
             />
           </div>
 
+          <div className="space-y-1.5">
+            <label className={inputLabel} htmlFor="add-location">Sted (valgfritt)</label>
+            <input
+              id="add-location"
+              className={inputBase}
+              placeholder="f.eks. Parken"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+            />
+          </div>
+
           <button
             type="button"
             onClick={() => { setIsAllDay((v) => !v); setError(null) }}
-            className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-[13px] font-medium transition-colors ${
+            className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-body-sm font-medium transition-colors ${
               isAllDay
                 ? 'border-synkaPrimary/40 bg-synkaPrimary/8 text-synkaNavy'
                 : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-100'
@@ -375,6 +390,21 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
               />
             </span>
           </button>
+
+          {isAllDay && (
+            <div className="space-y-1.5">
+              <label className={inputLabel} htmlFor="all-day-end">Sluttdato</label>
+              <input
+                id="all-day-end"
+                type="date"
+                className={inputBase}
+                value={allDayEndDate}
+                min={date}
+                onChange={(e) => setAllDayEndDate(e.target.value)}
+              />
+              <p className="text-caption text-zinc-500">Velg sluttdato for flerdagers hendelser</p>
+            </div>
+          )}
 
           {!isAllDay && (
             <div className="flex gap-3">
@@ -402,23 +432,10 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
           )}
 
           {!isAllDay && end < start && (
-            <p className="rounded-md bg-amber-50 px-3 py-2 text-[12px] text-amber-700">
+            <p className="rounded-md bg-synkaYellow/10 px-3 py-2 text-caption text-synkaNavy/70">
               Slutter neste dag kl. {end}
             </p>
           )}
-
-          <div className="space-y-1.5">
-            <label className={inputLabel} htmlFor="all-day-end">Sluttdato</label>
-            <input
-              id="all-day-end"
-              type="date"
-              className={inputBase}
-              value={allDayEndDate}
-              min={date}
-              onChange={(e) => setAllDayEndDate(e.target.value)}
-            />
-            <p className="text-[11px] text-zinc-500">Velg sluttdato for flerdagers hendelser</p>
-          </div>
 
           {/* Progressive disclosure toggle */}
           <button
@@ -466,20 +483,20 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
                     ))}
                     {repeat === 'custom' && (
                       <div className="flex items-center gap-2 border-t border-zinc-100 px-4 py-3">
-                        <span className="text-[13px] text-zinc-600">Hver</span>
+                        <span className="text-body-sm text-zinc-600">Hver</span>
                         <input
                           type="number"
                           min={1}
                           max={365}
                           value={customIntervalDays}
                           onChange={(e) => setCustomIntervalDays(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-16 rounded-md border border-zinc-200 px-2 py-1 text-center text-[13px] outline-none focus:border-zinc-400"
+                          className="w-16 rounded-md border border-zinc-200 px-2 py-1 text-center text-body-sm outline-none focus:border-zinc-400"
                         />
-                        <span className="text-[13px] text-zinc-600">dag</span>
+                        <span className="text-body-sm text-zinc-600">dag</span>
                         <button
                           type="button"
                           onClick={() => setRepeatOpen(false)}
-                          className="ml-auto rounded-pill bg-synkaPrimary px-3 py-1 text-[12px] font-medium text-white shadow-planner-sm"
+                          className="ml-auto rounded-pill bg-synkaPrimary px-3 py-1 text-caption font-medium text-white shadow-planner-sm"
                         >
                           Ferdig
                         </button>
@@ -500,7 +517,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
                     onChange={(e) => setEndDate(e.target.value)}
                     className={inputBase}
                   />
-                  <p className="text-[11px] text-zinc-500">
+                  <p className="text-caption text-zinc-500">
                     Gjentas {repeat === 'custom' ? `hver ${customIntervalDays}. dag` : repeat === 'daily' ? 'hver dag' : repeat === 'biweekly' ? 'hver 2. uke' : 'hver uke'} til denne datoen
                   </p>
                 </div>
@@ -555,13 +572,13 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
                           max={10080}
                           value={customReminderInput}
                           onChange={(e) => setCustomReminderInput(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-16 rounded-md border border-zinc-200 px-2 py-1 text-center text-[13px] outline-none focus:border-zinc-400"
+                          className="w-16 rounded-md border border-zinc-200 px-2 py-1 text-center text-body-sm outline-none focus:border-zinc-400"
                         />
-                        <span className="text-[13px] text-zinc-600">min før</span>
+                        <span className="text-body-sm text-zinc-600">min før</span>
                         <button
                           type="button"
                           onClick={() => { setReminderMinutes(customReminderInput); setShowCustomReminder(false); setReminderOpen(false) }}
-                          className="ml-auto rounded-pill bg-synkaPrimary px-3 py-1 text-[12px] font-medium text-white shadow-planner-sm"
+                          className="ml-auto rounded-pill bg-synkaPrimary px-3 py-1 text-caption font-medium text-white shadow-planner-sm"
                         >
                           Ferdig
                         </button>
@@ -572,7 +589,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
               </div>
 
               {reminderMinutes !== undefined && notifPermission !== 'granted' && (
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12px] text-amber-800">
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-caption text-amber-800">
                   <p>Påminnelsen virker ikke uten varslingstillatelse.</p>
                   {notifPermission !== 'denied' && (
                     <button
@@ -629,7 +646,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
             </>
           )}
 
-          {error && <p className="text-caption text-rose-600">{error}</p>}
+          {error && <p className="text-caption text-synkaCoral">{error}</p>}
 
           <div className="flex gap-2 pt-1">
             <button
@@ -642,7 +659,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 h-12 rounded-pill bg-synkaPrimary text-white font-semibold transition disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-synkaPrimary/40 touch-manipulation select-none"
+              className="flex-1 h-12 rounded-lg bg-synkaPrimary text-white font-semibold transition disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-synkaPrimary/40 touch-manipulation select-none"
             >
               {saving ? 'Lagrer…' : 'Legg til'}
             </button>

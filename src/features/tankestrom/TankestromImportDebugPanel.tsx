@@ -1,10 +1,10 @@
-﻿import { useCallback, useState, type ReactNode } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import type { TankestromImportFullDebugSnapshot } from './tankestromImportDebug'
 import { sanitizeForDebugClipboard } from './tankestromImportDebug'
 
 function SectionTitle({ id, children }: { id: string; children: ReactNode }) {
   return (
-    <h3 id={id} className="text-[11px] font-bold uppercase tracking-wide text-zinc-600">
+    <h3 id={id} className="text-caption font-bold uppercase tracking-wide text-zinc-600">
       {children}
     </h3>
   )
@@ -37,7 +37,7 @@ export function TankestromImportDebugPanel({ snapshot }: { snapshot: TankestromI
 
   if (!snapshot) {
     return (
-      <div className="rounded-lg border border-dashed border-amber-300/80 bg-amber-50/50 px-3 py-2 text-[11px] text-amber-950">
+      <div className="rounded-lg border border-dashed border-amber-300/80 bg-amber-50/50 px-3 py-2 text-caption text-amber-950">
         Ingen import-debug ennå. Kjør analyse (eller analyser på nytt) for å fylle snapshot.
       </div>
     )
@@ -48,11 +48,11 @@ export function TankestromImportDebugPanel({ snapshot }: { snapshot: TankestromI
   return (
     <div className="space-y-4 rounded-lg border border-amber-200/90 bg-amber-50/40 px-3 py-3 text-zinc-900">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[11px] font-semibold text-amber-950">Tankestrøm import-debug (kun utvikling)</p>
+        <p className="text-caption font-semibold text-amber-950">Tankestrøm import-debug (kun utvikling)</p>
         <button
           type="button"
           onClick={onCopyJson}
-          className="rounded-md border border-amber-400/80 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-950 hover:bg-amber-50"
+          className="rounded-md border border-amber-400/80 bg-white px-2.5 py-1 text-caption font-semibold text-amber-950 hover:bg-amber-50"
         >
           Copy debug JSON
         </button>

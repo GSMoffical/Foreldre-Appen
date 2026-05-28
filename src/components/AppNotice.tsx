@@ -1,4 +1,4 @@
-﻿import type { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
 type Variant = 'error' | 'success' | 'warning' | 'info'
 
@@ -23,7 +23,7 @@ export function AppNotice({
   return (
     <div
       role={variant === 'error' ? 'alert' : 'status'}
-      className={`flex items-start gap-2 rounded-lg border px-3 py-2.5 text-[13px] leading-snug ${styles[variant]} ${className}`}
+      className={`flex items-start gap-2 rounded-lg border px-3 py-2.5 text-body-sm leading-snug ${styles[variant]} ${className}`}
     >
       <div className="min-w-0 flex-1 break-words">{children}</div>
       {onDismiss && (

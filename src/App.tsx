@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { AppShell } from './components/AppShell'
 import { MobileFrame } from './components/MobileFrame'
@@ -591,7 +591,7 @@ function App() {
               style={{ bottom: 'calc(72px + env(safe-area-inset-bottom, 0px))' }}
             >
               <div className="flex w-full max-w-[390px] items-center gap-3 rounded-lg border-2 border-brandTeal/30 bg-brandTeal px-3 py-2.5 text-white shadow-planner">
-                <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug">Varslet din partner om «{notifyToast}»</p>
+                <p className="min-w-0 flex-1 text-body-sm font-medium leading-snug">Varslet din partner om «{notifyToast}»</p>
               </div>
             </div>
           )}
@@ -616,8 +616,8 @@ function App() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-[13px] font-semibold text-zinc-900">{tankestromToast.title}</p>
-                      <p className="mt-0.5 text-[12px] text-zinc-600">{tankestromToast.detail}</p>
+                      <p className="text-body-sm font-semibold text-zinc-900">{tankestromToast.title}</p>
+                      <p className="mt-0.5 text-caption text-zinc-600">{tankestromToast.detail}</p>
                     </div>
                     <button
                       type="button"
@@ -632,7 +632,7 @@ function App() {
                     <button
                       type="button"
                       onClick={jumpToImportedCalendar}
-                      className="rounded-pill bg-brandTeal px-3 py-1.5 text-[11px] font-semibold text-white"
+                      className="rounded-pill bg-brandTeal px-3 py-1.5 text-caption font-semibold text-white"
                     >
                       {tankestromToast.openTasks ? 'Åpne gjøremål' : 'Se i kalenderen'}
                     </button>
@@ -640,7 +640,7 @@ function App() {
                       <button
                         type="button"
                         onClick={() => void undoTankestromImport()}
-                        className="rounded-pill border border-zinc-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-zinc-700"
+                        className="rounded-pill border border-zinc-300 bg-white px-3 py-1.5 text-caption font-semibold text-zinc-700"
                       >
                         Angre
                       </button>
@@ -652,7 +652,7 @@ function App() {
                           openTankestromImport('toast')
                           dismissTankestromToast()
                         }}
-                        className="rounded-pill border border-amber-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-amber-900"
+                        className="rounded-pill border border-amber-300 bg-white px-3 py-1.5 text-caption font-semibold text-amber-900"
                       >
                         Vis feil
                       </button>

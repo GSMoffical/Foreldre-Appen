@@ -207,8 +207,8 @@ export function TaskDetailSheet({
                 </button>
               )}
               {showDeleteConfirm ? (
-                <div className="rounded-lg border border-rose-200 bg-rose-50/80 p-3">
-                  <p className="text-body-sm text-rose-900">Slette dette gjøremålet?</p>
+                <div className="rounded-lg border border-synkaCoral/25 bg-synkaCoral/8 p-3">
+                  <p className="text-body-sm text-synkaCoral">Slette dette gjøremålet?</p>
                   <div className="mt-2 flex gap-2">
                     <button
                       type="button"

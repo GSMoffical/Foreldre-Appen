@@ -1,4 +1,4 @@
-﻿import type { Event } from '../types'
+import type { Event } from '../types'
 import { useFamily } from '../context/FamilyContext'
 import { formatParticipantNamesLine } from '../lib/eventParticipants'
 
@@ -23,10 +23,10 @@ export function HeaderSummaryCard({ nextEvent, minutesUntilNext }: HeaderSummary
       <p className="text-micro font-semibold uppercase tracking-wider text-zinc-500">
         Neste
       </p>
-      <p className="mt-0.5 text-[15px] font-semibold text-zinc-900">
+      <p className="mt-0.5 text-body font-semibold text-zinc-900">
         {who} · {nextEvent.title}
       </p>
-      <p className="mt-0.5 text-[12px] text-zinc-500">{str}</p>
+      <p className="mt-0.5 text-caption text-zinc-500">{str}</p>
     </div>
   )
 }

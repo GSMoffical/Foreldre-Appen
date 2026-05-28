@@ -69,7 +69,7 @@ export function SwipeableEventRow({ children, onDelete }: SwipeableEventRowProps
   return (
     <div className="relative overflow-hidden rounded-xl">
       <div
-        className="absolute right-0 top-0 bottom-0 flex items-center justify-center bg-rose-600"
+        className="absolute right-0 top-0 bottom-0 flex items-center justify-center bg-synkaCoral"
         style={{ width: DELETE_WIDTH }}
       >
         <button

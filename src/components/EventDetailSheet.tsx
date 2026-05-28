@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { springDialog } from '../lib/motion'
 import { Button } from './ui/Button'
@@ -84,6 +84,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
   const [showMove, setShowMove] = useState(false)
   const [moveDate, setMoveDate] = useState(date)
   const [moveSaving, setMoveSaving] = useState(false)
+  const [showSecondaryActions, setShowSecondaryActions] = useState(false)
   const dialogRef = useRef<HTMLDivElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
 
@@ -255,7 +256,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
               })()}
             </p>
           ) : null}
-          <h2 className="mt-1 text-[22px] font-semibold text-synkaPrimary leading-tight">{event.title}</h2>
+          <h2 className="mt-1 text-display font-semibold text-synkaPrimary leading-tight">{event.title}</h2>
           {isAllDay ? (
             <p className="mt-2 text-body font-medium text-synkaNavy/70">
               Heldags{eventEndDate && eventEndDate !== date ? ` · t.o.m. ${eventEndDate}` : ''}
@@ -268,30 +269,30 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
             <>
               <p className="mt-2 text-body text-synkaNavy/70">{formatCalendarEventTimeLabel(event)}</p>
               {endTimeIsComputed ? (
-                <p className="mt-1 text-[12px] leading-snug text-zinc-500">Sluttid er beregnet</p>
+                <p className="mt-1 text-caption leading-snug text-zinc-500">Sluttid er beregnet</p>
               ) : null}
               {attendanceTime ? (
-                <p className="mt-1 text-[12px] leading-snug text-zinc-600">Oppmøte {attendanceTime}</p>
+                <p className="mt-1 text-caption leading-snug text-zinc-600">Oppmøte {attendanceTime}</p>
               ) : null}
               {!hideSyntheticDuration ? <p className={sheetSubtitle}>Varighet: {durationStr}</p> : null}
               {tankestromTimeSourceIsComputedFromDuration(event.metadata?.endTimeSource) ? (
-                <p className="mt-1 text-[12px] leading-snug text-zinc-500">{TANKESTROM_COMPUTED_END_HINT_NB}</p>
+                <p className="mt-1 text-caption leading-snug text-zinc-500">{TANKESTROM_COMPUTED_END_HINT_NB}</p>
               ) : null}
               {tankestromTimeSourceIsComputedFromDuration(event.metadata?.startTimeSource) ? (
-                <p className="mt-1 text-[12px] leading-snug text-zinc-500">{TANKESTROM_COMPUTED_START_HINT_NB}</p>
+                <p className="mt-1 text-caption leading-snug text-zinc-500">{TANKESTROM_COMPUTED_START_HINT_NB}</p>
               ) : null}
-              {(() => {
+              {import.meta.env.DEV && (() => {
                 const tcLine = formatTankestromTimeComputationDevLine(event.metadata ?? undefined)
                 if (!tcLine) return null
                 return (
-                  <p className="mt-1 font-mono text-[11px] leading-snug text-zinc-400">{tcLine}</p>
+                  <p className="mt-1 font-mono text-caption leading-snug text-zinc-400">{tcLine}</p>
                 )
               })()}
             </>
           )}
           {showTransportSection && (
             <div className="mt-3">
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Transport</p>
+              <p className="mb-1.5 text-caption font-semibold uppercase tracking-wider text-zinc-400">Transport</p>
               <div className="space-y-1.5">
                 {(['dropoff', 'pickup'] as const).map((role) => {
                   const person = role === 'dropoff' ? dropoffPerson : pickupPerson
@@ -301,27 +302,27 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                   const canAssign = onQuickAssignTransport != null && mePersonId != null
                   return (
                     <div key={role} className="flex items-center gap-2">
-                      <span className="w-14 shrink-0 text-[11px] font-medium uppercase tracking-wide text-zinc-400">{labelNb}</span>
+                      <span className="w-14 shrink-0 text-caption font-medium uppercase tracking-wide text-zinc-400">{labelNb}</span>
                       {!person && canAssign ? (
                         <button
                           type="button"
                           onClick={() => void onQuickAssignTransport(role, mePersonId!)}
-                          className="rounded-pill bg-synkaPrimary/10 px-2.5 py-0.5 text-[12px] font-semibold text-synkaPrimary transition hover:bg-synkaPrimary/20 touch-manipulation"
+                          className="rounded-pill bg-synkaPrimary/10 px-2.5 py-0.5 text-caption font-semibold text-synkaPrimary transition hover:bg-synkaPrimary/20 touch-manipulation"
                         >
                           Jeg {verbNb}
                         </button>
                       ) : !person ? (
-                        <span className="text-[12px] italic text-zinc-400">Ikke satt</span>
+                        <span className="text-caption italic text-zinc-400">Ikke satt</span>
                       ) : isMe ? (
-                        <span className="text-[13px] font-medium text-zinc-700">Du {verbNb}</span>
+                        <span className="text-body-sm font-medium text-zinc-700">Du {verbNb}</span>
                       ) : (
-                        <span className="flex items-center gap-2 text-[13px] text-zinc-700">
+                        <span className="flex items-center gap-2 text-body-sm text-zinc-700">
                           <span>{person.name} {verbNb}</span>
                           {canAssign && (
                             <button
                               type="button"
                               onClick={() => void onQuickAssignTransport(role, mePersonId!)}
-                              className="rounded-pill border border-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-500 transition hover:bg-zinc-100 touch-manipulation"
+                              className="rounded-pill border border-zinc-200 px-2 py-0.5 text-caption font-medium text-zinc-500 transition hover:bg-zinc-100 touch-manipulation"
                             >
                               Overta
                             </button>
@@ -335,7 +336,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
             </div>
           )}
           {isRecurring && (
-            <p className="mt-1 text-caption font-semibold text-indigo-500">Gjentakende hendelse</p>
+            <p className="mt-1 text-caption font-semibold text-synkaTeal">Gjentakende hendelse</p>
           )}
           {event.location && (
             <p className="mt-3 text-body-sm text-synkaNavy/70">
@@ -365,11 +366,11 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
 
           {scheduleGroups.length > 0 && (
             <div className="mt-4">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Program</p>
+              <p className="mb-2 text-caption font-semibold uppercase tracking-wider text-zinc-400">Program</p>
               <div className="space-y-4">
                 {scheduleGroups.map(({ date: dayKey, items }) => (
                   <div key={dayKey}>
-                    <p className="mb-2 text-[13px] font-semibold capitalize text-zinc-800">
+                    <p className="mb-2 text-body-sm font-semibold capitalize text-zinc-800">
                       {formatScheduleDayHeading(dayKey)}
                     </p>
                     <ul className="space-y-3">
@@ -379,18 +380,18 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                           <li key={`${dayKey}-${idx}-${seg.title}`} className="flex gap-3">
                             <div className="w-[4.25rem] shrink-0 pt-0.5 text-right">
                               {timeStr ? (
-                                <span className="text-[12px] font-semibold tabular-nums text-zinc-600">{timeStr}</span>
+                                <span className="text-caption font-semibold tabular-nums text-zinc-600">{timeStr}</span>
                               ) : (
-                                <span className="text-[11px] text-zinc-400">—</span>
+                                <span className="text-caption text-zinc-400">—</span>
                               )}
                             </div>
                             <div className="min-w-0 flex-1 border-l border-zinc-200 pl-3">
                               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                                <span className="text-[14px] font-medium leading-snug text-zinc-900">{seg.title}</span>
+                                <span className="text-body-sm font-medium leading-snug text-zinc-900">{seg.title}</span>
                                 {seg.isConditional && (
                                   <span
                                     title={tankestromConditionalAccessibleHintNb()}
-                                    className="rounded-md bg-amber-100/90 px-1.5 py-0.5 text-[10px] font-semibold leading-snug text-amber-950/95"
+                                    className="rounded-md bg-synkaYellow/15 px-1.5 py-0.5 text-[10px] font-semibold leading-snug text-synkaNavy/80"
                                   >
                                     {tankestromConditionalBadgeLabelNb()}
                                   </span>
@@ -400,7 +401,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                                 ) : null}
                               </div>
                               {seg.notes ? (
-                                <p className="mt-1 text-[12px] leading-relaxed text-zinc-500">{seg.notes}</p>
+                                <p className="mt-1 text-caption leading-relaxed text-zinc-500">{seg.notes}</p>
                               ) : null}
                             </div>
                           </li>
@@ -454,24 +455,62 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
           ) : (
             <>
               <div className="mt-6 flex gap-2">
-                <Button variant="ghost" fullWidth={false} className="flex-1 border border-synkaPrimary !text-synkaPrimary" onClick={handleEditClick}>
-                  Rediger
-                </Button>
-                <Button variant="ghost" fullWidth={false} className="flex-1 border border-synkaCoral !text-synkaCoral" disabled={deleting} onClick={handleDeleteClick}>
-                  {deleting ? 'Sletter…' : 'Slett'}
-                </Button>
-              </div>
-              {onMove && !showMove && !showDuplicate && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setMoveDate(date)
-                    setShowMove(true)
-                  }}
-                  className="mt-3 w-full rounded-lg border border-dashed border-zinc-300 py-2.5 text-body-sm font-medium text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-700 touch-manipulation"
+                  onClick={handleEditClick}
+                  className="flex-1 h-12 rounded-lg border border-synkaPrimary bg-transparent text-synkaPrimary font-semibold transition hover:bg-synkaPrimary/5 focus:outline-none focus:ring-2 focus:ring-synkaPrimary/40 touch-manipulation"
                 >
-                  Flytt til en annen dag…
+                  Rediger
                 </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 h-12 rounded-lg bg-synkaPrimary text-white font-semibold transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-synkaPrimary/40 touch-manipulation"
+                >
+                  Lukk
+                </button>
+              </div>
+              {!showMove && !showDuplicate && (
+                <>
+                  {!showSecondaryActions ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowSecondaryActions(true)}
+                      className="mt-3 w-full text-center text-body-sm text-zinc-400 transition hover:text-zinc-600 touch-manipulation"
+                    >
+                      Flere handlinger…
+                    </button>
+                  ) : (
+                    <div className="mt-3 space-y-2">
+                      <button
+                        type="button"
+                        disabled={deleting}
+                        onClick={handleDeleteClick}
+                        className="w-full rounded-lg border border-synkaCoral bg-transparent py-2.5 text-body-sm font-medium text-synkaCoral transition hover:bg-synkaCoral/5 touch-manipulation"
+                      >
+                        {deleting ? 'Sletter…' : 'Slett'}
+                      </button>
+                      {onMove && (
+                        <button
+                          type="button"
+                          onClick={() => { setMoveDate(date); setShowMove(true) }}
+                          className="w-full rounded-lg border border-dashed border-zinc-300 py-2.5 text-body-sm font-medium text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-700 touch-manipulation"
+                        >
+                          Flytt til en annen dag…
+                        </button>
+                      )}
+                      {onDuplicate && (
+                        <button
+                          type="button"
+                          onClick={() => { setDupDate(date); setDupStart(event.start); setDupEnd(event.end); setShowDuplicate(true) }}
+                          className="w-full rounded-lg border border-dashed border-zinc-300 py-2.5 text-body-sm font-medium text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-700 touch-manipulation"
+                        >
+                          Dupliser til en annen dag…
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
               {onMove && showMove && (
                 <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50/80 p-4 space-y-3">
@@ -510,20 +549,6 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                   </div>
                 </div>
               )}
-              {onDuplicate && !showDuplicate && !showMove && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDupDate(date)
-                    setDupStart(event.start)
-                    setDupEnd(event.end)
-                    setShowDuplicate(true)
-                  }}
-                  className="mt-3 w-full rounded-lg border border-dashed border-zinc-300 py-2.5 text-body-sm font-medium text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-700 touch-manipulation"
-                >
-                  Dupliser til en annen dag…
-                </button>
-              )}
               {onDuplicate && showDuplicate && (
                 <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50/80 p-4 space-y-3">
                   <p className="text-body-sm font-medium text-zinc-800">Kopier til dato og tid</p>
@@ -557,7 +582,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                     </div>
                   </div>
                   {dupStart >= dupEnd && (
-                    <p className="text-caption text-amber-600">Starttid må være før sluttid.</p>
+                    <p className="text-caption text-synkaNavy/70">Starttid må være før sluttid.</p>
                   )}
                   <div className="flex gap-2">
                     <Button variant="secondary" fullWidth={false} className="flex-1" size="sm" onClick={() => setShowDuplicate(false)}>
@@ -584,9 +609,6 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
                   </div>
                 </div>
               )}
-              <Button variant="neutral" className="mt-3" onClick={onClose}>
-                Lukk
-              </Button>
             </>
           )}
         </div>

@@ -79,9 +79,9 @@ export function TankestromScheduleDetails({
           <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[10px]">Høydepunkter</p>
           <ul className="mt-1.5 list-disc space-y-1.5 pl-4 marker:text-zinc-400 sm:space-y-2 sm:pl-[1.125rem]">
             {normalized.timeWindowSummaries.map((s, i) => (
-              <li key={`tw-${s.timeRange}-${i}`} className="pl-0.5 text-[11px] leading-snug sm:text-[12px]">
+              <li key={`tw-${s.timeRange}-${i}`} className="pl-0.5 text-caption leading-snug sm:text-caption">
                 <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-orange-50 px-2 py-0.5 text-[11px] font-bold tabular-nums text-orange-900 ring-1 ring-orange-200/90 sm:text-[12px]">
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-orange-50 px-2 py-0.5 text-caption font-bold tabular-nums text-orange-900 ring-1 ring-orange-200/90 sm:text-caption">
                     {s.timeRange}
                     {s.tentative ? (
                       <span className="text-[9px] font-semibold uppercase tracking-wide text-orange-700/90 sm:text-[10px]">
@@ -94,9 +94,9 @@ export function TankestromScheduleDetails({
               </li>
             ))}
             {normalized.highlights.map((h, i) => (
-              <li key={`${h.time}-${h.label}-${i}`} className="pl-0.5 text-[11px] leading-snug sm:text-[12px]">
+              <li key={`${h.time}-${h.label}-${i}`} className="pl-0.5 text-caption leading-snug sm:text-caption">
                 <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                  <span className="inline-flex shrink-0 rounded-md bg-orange-50 px-2 py-0.5 text-[11px] font-bold tabular-nums text-orange-900 ring-1 ring-orange-200/90 sm:text-[12px]">
+                  <span className="inline-flex shrink-0 rounded-md bg-orange-50 px-2 py-0.5 text-caption font-bold tabular-nums text-orange-900 ring-1 ring-orange-200/90 sm:text-caption">
                     {h.time}
                   </span>
                   <span className="min-w-0 font-medium text-zinc-800">{h.label}</span>
@@ -109,7 +109,7 @@ export function TankestromScheduleDetails({
       {normalized.bringItems.length > 0 ? (
         <div>
           <p className="text-[9px] font-semibold uppercase tracking-wide text-red-600 sm:text-[10px]">Husk / ta med</p>
-          <ul className="mt-1.5 list-disc space-y-1 pl-4 text-[11px] leading-snug text-zinc-800 sm:text-[12px]">
+          <ul className="mt-1.5 list-disc space-y-1 pl-4 text-caption leading-snug text-zinc-800 sm:text-caption">
             {normalized.bringItems.map((n, i) => (
               <li key={`${n}-${i}`} className="break-words pl-0.5">
                 {n}
@@ -121,7 +121,7 @@ export function TankestromScheduleDetails({
       {normalized.notes.length > 0 ? (
         <div data-testid={notesTestId}>
           <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[10px]">Notater</p>
-          <ul className="mt-1.5 list-disc space-y-1 pl-4 text-[11px] leading-snug text-zinc-800 sm:text-[12px]">
+          <ul className="mt-1.5 list-disc space-y-1 pl-4 text-caption leading-snug text-zinc-800 sm:text-caption">
             {normalized.notes.map((n, i) => (
               <li key={`${n}-${i}`} className="break-words pl-0.5">
                 {n}

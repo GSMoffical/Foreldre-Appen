@@ -21,7 +21,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           ref={ref}
           id={inputId}
-          className={`${inputBase} ${hasError ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-400/20' : ''} ${className}`.trim()}
+          className={`${inputBase} ${hasError ? 'border-synkaCoral/60 focus:border-synkaCoral focus:ring-synkaCoral/20' : ''} ${className}`.trim()}
           aria-invalid={hasError || undefined}
           aria-describedby={
             hasError
@@ -116,7 +116,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={innerRef}
           id={textareaId}
           rows={rows}
-          className={`${base} ${hasError ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-400/20' : ''} ${className}`.trim()}
+          className={`${base} ${hasError ? 'border-synkaCoral/60 focus:border-synkaCoral focus:ring-synkaCoral/20' : ''} ${className}`.trim()}
           aria-invalid={hasError || undefined}
           aria-describedby={
             hasError

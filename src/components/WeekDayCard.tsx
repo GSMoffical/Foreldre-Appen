@@ -1,4 +1,4 @@
-﻿import { motion, type Variants } from 'framer-motion'
+import { motion, type Variants } from 'framer-motion'
 import type { WeekDayMeta } from '../types'
 import { useFamily } from '../context/FamilyContext'
 import { springSnappy } from '../lib/motion'
@@ -40,7 +40,7 @@ export function WeekDayCard({ day, isSelected, onSelect, variants, openTaskCount
         {day.dayAbbr}
       </span>
       <span
-        className={`font-display mt-0.5 text-heading font-semibold ${
+        className={`font-sans mt-0.5 text-heading font-semibold ${
           isSelected ? 'text-white' : 'text-synkaNavy/60'
         }`}
       >
@@ -48,7 +48,7 @@ export function WeekDayCard({ day, isSelected, onSelect, variants, openTaskCount
       </span>
       {norwegianDay && (
         <span
-          className="pointer-events-none absolute right-1 top-1 h-1.5 w-1.5 rounded-pill bg-amber-500/90"
+          className="pointer-events-none absolute right-1 top-1 h-1.5 w-1.5 rounded-pill bg-synkaYellow/90"
           title="Helligdag eller skoleferie"
           aria-hidden
         />

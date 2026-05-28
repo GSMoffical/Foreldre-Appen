@@ -1,4 +1,4 @@
-﻿import { LayoutGroup, motion } from 'framer-motion'
+import { LayoutGroup, motion } from 'framer-motion'
 import type { PersonId } from '../types'
 import { useFamily } from '../context/FamilyContext'
 
@@ -18,7 +18,7 @@ export function FamilyFilterBar({ selectedPersonIds, onFilterChange, mePersonId 
   if (people.length === 0) {
     return (
       <div className="px-4 pb-2 pt-2 text-center">
-        <p className="text-[13px] text-zinc-600">
+        <p className="text-body-sm text-zinc-600">
           Ingen familiemedlemmer ennå. Gå til <span className="font-medium text-zinc-800">Innstillinger</span> for å
           legge til foreldre og barn.
         </p>
@@ -40,7 +40,7 @@ export function FamilyFilterBar({ selectedPersonIds, onFilterChange, mePersonId 
   return (
     <LayoutGroup id="family-filter">
     <div className="flex max-w-full min-w-0 gap-2 overflow-x-auto pb-1 pt-2 scrollbar-none">
-      <div className="flex shrink-0 px-1" />
+      <div className="w-4 shrink-0" />
       <motion.button
         type="button"
         layout

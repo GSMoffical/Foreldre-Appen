@@ -8,10 +8,10 @@
  */
 
 // â”€â”€ Typography â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-/** Page/sheet title (serif display, 22px) */
-export const typDisplay = 'font-display text-display font-bold text-zinc-900'
+/** Page/sheet title (display, 22px semibold) */
+export const typDisplay = 'text-display text-zinc-900'
 /** Screen section heading (17px semibold) */
-export const typHeading = 'text-heading font-semibold text-zinc-900'
+export const typHeading = 'text-heading text-zinc-900'
 /** Sub-section or card title (15px semibold) */
 export const typSubheading = 'text-subheading font-semibold text-zinc-800'
 /** Standard body copy (14px) */
@@ -20,12 +20,12 @@ export const typBody = 'text-body text-zinc-700'
 export const typBodyMuted = 'text-body text-zinc-500'
 /** Small body (13px) */
 export const typBodySm = 'text-body-sm text-zinc-700'
-/** Form field labels (12px medium) */
-export const typLabel = 'text-[11px] font-medium uppercase tracking-wide text-synkaNavy/60'
+/** Form field labels (11px medium caps) */
+export const typLabel = 'text-caption uppercase tracking-wide text-synkaNavy/60'
 /** Timestamps, metadata, captions (11px) */
 export const typCaption = 'text-caption text-zinc-400'
 /** Section separator label â€” ALL CAPS (11px) */
-export const typSectionCap = 'text-[11px] font-medium uppercase tracking-wide text-synkaPrimary/60'
+export const typSectionCap = 'text-caption uppercase tracking-wide text-synkaPrimary/60'
 
 // â”€â”€ Buttons â€” full-width (sheets & forms) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Use these for primary actions inside sheets and form footers.
@@ -43,7 +43,7 @@ export const btnSecondary =
 
 /** Destructive action â€” full width, red fill */
 export const btnDanger =
-  `${_btnBase} w-full rounded-lg bg-rose-600 py-3 text-body font-semibold text-white hover:bg-rose-700 active:bg-rose-800 focus:ring-rose-500/40`
+  `${_btnBase} w-full rounded-lg bg-synkaCoral py-3 text-body font-semibold text-white hover:bg-synkaCoral/90 active:bg-synkaCoral focus:ring-synkaCoral/40`
 
 /** Neutral dismiss â€” full width, zinc fill */
 export const btnNeutral =
@@ -82,11 +82,11 @@ export const selectBase =
   'w-full rounded-md border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 outline-none transition focus:border-synkaPrimary focus:bg-white focus:ring-1 focus:ring-synkaPrimary/20'
 
 /** Field label (sits above the input) */
-export const inputLabel = 'mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-synkaNavy/60'
+export const inputLabel = 'mb-1.5 block text-caption uppercase tracking-wide text-synkaNavy/60'
 /** Hint text below input */
 export const inputHint = 'mt-1 text-caption text-zinc-400'
 /** Validation error below input */
-export const inputError = 'mt-1 text-caption text-rose-600'
+export const inputError = 'mt-1 text-caption text-synkaCoral'
 
 // â”€â”€ Bottom sheet container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** Outer sheet panel â€” pair with `rounded-t-lg shadow-sheet` */
@@ -123,7 +123,7 @@ export const cardList = 'rounded-lg border border-zinc-100 bg-white'
 
 // â”€â”€ Sheet typography helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** Primary title inside a sheet (h2) */
-export const sheetTitle = 'text-[18px] font-semibold text-synkaNavy'
+export const sheetTitle = 'text-heading text-synkaNavy'
 /** Date / context subtitle below a sheet title */
 export const sheetSubtitle = 'text-body-sm text-zinc-500'
 

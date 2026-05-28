@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import type { Event } from '../types'
 import { formatTime } from '../lib/time'
 import { useFamily } from '../context/FamilyContext'
@@ -88,7 +88,7 @@ export function SearchBar({ open, onOpenChange, weekLayoutData, onJumpToDate, on
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Søk i hendelser denne uken..."
-            className="flex-1 min-w-0 rounded-pill border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-[13px] outline-none focus:border-zinc-400"
+            className="flex-1 min-w-0 rounded-pill border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-body-sm outline-none focus:border-zinc-400"
           />
         )}
         <button
@@ -115,7 +115,7 @@ export function SearchBar({ open, onOpenChange, weekLayoutData, onJumpToDate, on
           style={{ top: dropPos.top, left: dropPos.left, width: dropPos.width }}
         >
           {results.length === 0 ? (
-            <p className="px-4 py-3 text-[13px] text-zinc-500">Ingen treff denne uken</p>
+            <p className="px-4 py-3 text-body-sm text-zinc-500">Ingen treff denne uken</p>
           ) : (
             results.map((r) => {
               const plist = getParticipantPeople(r.event, people)
@@ -145,8 +145,8 @@ export function SearchBar({ open, onOpenChange, weekLayoutData, onJumpToDate, on
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-medium text-zinc-900">{r.event.title}</p>
-                    <p className="text-[11px] text-zinc-500">
+                    <p className="truncate text-body-sm font-medium text-zinc-900">{r.event.title}</p>
+                    <p className="text-caption text-zinc-500">
                       {r.dayLabel} &middot; {formatTime(r.event.start)}
                       {plist.length > 0 ? ` · ${formatParticipantNamesLine(r.event, people)}` : ''}
                     </p>

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { springDialog } from '../../../lib/motion'
 import type { Task, PersonId, TaskIntent } from '../../../types'
@@ -52,7 +52,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
   const { guardedClose, confirming, confirmClose, cancelConfirm } = useConfirmClose(isDirty, onClose)
   const [showMore, setShowMore] = useState(() => {
     if (!initialTask) return false
-    return !!(initialTask.dueTime || initialTask.assignedToPersonId || initialTask.childPersonId || initialTask.notes || initialTask.showInMonthView)
+    return !!(initialTask.dueTime || initialTask.notes || initialTask.showInMonthView)
   })
 
   const titleRef = useRef<HTMLInputElement>(null)
@@ -135,6 +135,40 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
             />
           </div>
 
+          {people.length > 0 && (
+            <div className="space-y-1.5">
+              <label className={inputLabel} htmlFor="task-child">Hvem gjelder det?</label>
+              <select
+                id="task-child"
+                value={childPerson}
+                onChange={(e) => setChildPerson(e.target.value)}
+                className={selectBase}
+              >
+                <option value={PERSON_NONE}>Ingen</option>
+                {people.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {people.length > 0 && (
+            <div className="space-y-1.5">
+              <label className={inputLabel} htmlFor="task-assigned">Ansvarlig</label>
+              <select
+                id="task-assigned"
+                value={assignedTo}
+                onChange={(e) => setAssignedTo(e.target.value)}
+                className={selectBase}
+              >
+                <option value={PERSON_NONE}>Ingen</option>
+                {people.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <label className={inputLabel} htmlFor="task-date">Dato *</label>
             <input
@@ -155,7 +189,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
                   key={intent}
                   type="button"
                   onClick={() => setTaskIntent(intent)}
-                  className={`flex-1 rounded-md px-2 py-2 text-[12px] font-semibold transition touch-manipulation ${
+                  className={`flex-1 rounded-md px-2 py-2 text-caption font-semibold transition touch-manipulation ${
                     taskIntent === intent
                       ? intent === 'must_do'
                         ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200/80'
@@ -180,7 +214,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
             </svg>
-            {showMore ? 'Skjul ekstradetaljer' : 'Mer (klokkeslett, person, notater)'}
+            {showMore ? 'Skjul ekstradetaljer' : 'Mer (klokkeslett, notater)'}
           </button>
 
           {showMore && (
@@ -195,40 +229,6 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
                   className={inputBase}
                 />
               </div>
-
-              {people.length > 0 && (
-                <div className="space-y-1.5">
-                  <label className={inputLabel} htmlFor="task-child">Hvem gjelder det?</label>
-                  <select
-                    id="task-child"
-                    value={childPerson}
-                    onChange={(e) => setChildPerson(e.target.value)}
-                    className={selectBase}
-                  >
-                    <option value={PERSON_NONE}>Ingen</option>
-                    {people.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {people.length > 0 && (
-                <div className="space-y-1.5">
-                  <label className={inputLabel} htmlFor="task-assigned">Ansvarlig</label>
-                  <select
-                    id="task-assigned"
-                    value={assignedTo}
-                    onChange={(e) => setAssignedTo(e.target.value)}
-                    className={selectBase}
-                  >
-                    <option value={PERSON_NONE}>Ingen</option>
-                    {people.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
 
               <div className="space-y-1.5">
                 <label className={inputLabel} htmlFor="task-notes">Notater</label>
@@ -255,8 +255,8 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
                   role="switch"
                   aria-checked={showInMonthView}
                   onClick={() => setShowInMonthView((v) => !v)}
-                  className={`relative h-6 w-11 shrink-0 rounded-pill transition-colors focus:outline-none focus:ring-2 focus:ring-brandTeal/50 ${
-                    showInMonthView ? 'bg-brandTeal' : 'bg-zinc-300'
+                  className={`relative h-6 w-11 shrink-0 rounded-pill transition-colors focus:outline-none focus:ring-2 focus:ring-synkaTeal/50 ${
+                    showInMonthView ? 'bg-synkaTeal' : 'bg-zinc-300'
                   }`}
                 >
                   <span
@@ -270,8 +270,8 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
           )}
 
           {confirming && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3.5 space-y-3">
-              <p className="text-body-sm font-medium text-amber-900">Du har ulagrede endringer. Forkaste?</p>
+            <div className="rounded-lg border border-synkaYellow/30 bg-synkaYellow/10 p-3.5 space-y-3">
+              <p className="text-body-sm font-medium text-synkaNavy/80">Du har ulagrede endringer. Forkaste?</p>
               <div className="flex gap-2">
                 <button type="button" onClick={cancelConfirm} className={`flex-1 ${btnSecondary}`}>Bli her</button>
                 <button type="button" onClick={confirmClose} className={`flex-1 ${btnDanger}`}>Forkast</button>

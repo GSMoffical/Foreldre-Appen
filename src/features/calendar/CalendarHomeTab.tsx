@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FamilyFilterBar } from '../../components/FamilyFilterBar'
 import { SearchBar } from '../../components/SearchBar'
@@ -132,7 +132,7 @@ export function CalendarHomeTab({
         {/* Controls row — collapses to a full-width search strip when search is open */}
         {searchOpen ? (
           /* Search mode: only the SearchBar (input + X button), full row width */
-          <div className="flex items-center px-3 pb-1.5 pt-0.5">
+          <div className="flex items-center px-4 pb-1.5 pt-0.5">
             <SearchBar
               open={true}
               onOpenChange={setSearchOpen}
@@ -143,7 +143,7 @@ export function CalendarHomeTab({
           </div>
         ) : (
           /* Normal mode: nav + action buttons + search icon at right */
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-3 pb-1.5 pt-0.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-4 pb-1.5 pt-0.5">
             <button
               type="button"
               onClick={() => handleChangeWeek(-1)}
@@ -198,7 +198,7 @@ export function CalendarHomeTab({
                   animate={{ scale: 1, opacity: 1 }}
                   transition={springSnappy}
                   className={`inline-flex shrink-0 items-center gap-1 text-caption font-medium ${
-                    saveFeedback === 'error' ? 'text-rose-600' : saveFeedback === 'saving' ? 'text-zinc-400' : 'text-emerald-600'
+                    saveFeedback === 'error' ? 'text-synkaCoral' : saveFeedback === 'saving' ? 'text-zinc-400' : 'text-synkaPrimary'
                   }`}
                 >
                   {saveFeedback !== 'saving' && (
@@ -226,7 +226,7 @@ export function CalendarHomeTab({
         <div id="onb-week-strip">
           {periodContextLabel ? (
             <p
-              className="px-3 pb-1 pt-0.5 text-center text-[12px] font-semibold leading-tight text-zinc-700 tabular-nums"
+              className="px-4 pb-1 pt-0.5 text-center text-caption font-semibold leading-tight text-zinc-700 tabular-nums"
               aria-live="polite"
             >
               {periodContextLabel}
@@ -242,7 +242,7 @@ export function CalendarHomeTab({
         </div>
         <CalendarDayNote date={selectedDate} />
         {todayHasData && (
-          <div className="px-3 pb-1">
+          <div className="px-4 pb-1">
             <button
               type="button"
               onClick={() => setShowTodayPanel((v) => !v)}
@@ -253,7 +253,7 @@ export function CalendarHomeTab({
                 {todayEvents.length > 0 && `${todayEvents.length} ${todayEvents.length === 1 ? 'hendelse' : 'hendelser'}`}
                 {todayEvents.length > 0 && todayOpenTasks.length > 0 && ' · '}
                 {todayOpenTasks.length > 0 && (
-                  <span className="text-amber-500">{todayOpenTasks.length} gjøremål</span>
+                  <span className="text-synkaNavy/70">{todayOpenTasks.length} gjøremål</span>
                 )}
               </span>
               <motion.svg
@@ -289,9 +289,9 @@ export function CalendarHomeTab({
                       <div className="space-y-1">
                         {todayOpenTasks.map((t) => (
                           <div key={t.id} className="flex items-center gap-2">
-                            <span className="h-1.5 w-1.5 shrink-0 rounded-sm bg-amber-400" />
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-sm bg-synkaYellow" />
                             {t.dueTime && (
-                              <span className="shrink-0 tabular-nums text-caption font-semibold text-amber-500">{t.dueTime}</span>
+                              <span className="shrink-0 tabular-nums text-caption font-semibold text-synkaNavy/70">{t.dueTime}</span>
                             )}
                             <span className="min-w-0 truncate text-label font-medium text-zinc-800">{t.title}</span>
                           </div>
@@ -305,7 +305,7 @@ export function CalendarHomeTab({
           </div>
         )}
         {calendarTasksWithPerson.length > 0 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-3 pb-1.5 pt-0.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-4 pb-1.5 pt-0.5">
             <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-zinc-400" aria-hidden>Gjøremål</span>
             {calendarTasksWithPerson.map(({ task, person }) => (
               <button
@@ -323,18 +323,13 @@ export function CalendarHomeTab({
                   }
                 }}
                 aria-label={`Åpne gjøremål: ${task.title}`}
-                className={`flex shrink-0 cursor-pointer items-center gap-1.5 rounded-pill border px-2.5 py-1 text-caption font-medium transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:ring-offset-1 touch-manipulation ${
+                className={`flex shrink-0 cursor-pointer items-center gap-1.5 rounded-pill border px-2.5 py-1 text-caption font-medium text-synkaNavy/70 transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-synkaYellow/60 focus:ring-offset-1 touch-manipulation ${
                   task.completedAt ? 'opacity-75' : ''
-                }`}
+                } ${!person ? 'bg-synkaYellow/20 border-synkaYellow/60' : ''}`}
                 style={person ? {
                   backgroundColor: person.colorTint,
                   borderColor: person.colorAccent,
-                  color: '#3f3f46',
-                } : {
-                  backgroundColor: '#fef3c7',
-                  borderColor: '#fcd34d',
-                  color: '#b45309',
-                }}
+                } : undefined}
               >
                 <span
                   className="h-1.5 w-1.5 shrink-0 rounded-sm"
@@ -364,7 +359,7 @@ export function CalendarHomeTab({
           />
         )}
         {!showListView && unspecifiedEvents.length > 0 && (
-          <div className="mt-1 rounded-lg border border-zinc-200 bg-zinc-50/70 px-3 py-2">
+          <div className="mt-1 rounded-lg border border-zinc-200 bg-zinc-50/70 px-4 py-2">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
               Uspesifiserte hendelser
             </p>
@@ -373,8 +368,8 @@ export function CalendarHomeTab({
                 <li key={event.id}>
                   <button
                     type="button"
-                    className={`w-full text-left text-[12px] hover:text-zinc-900 ${
-                      highlightedEventIds?.has(event.id) ? 'rounded-md bg-brandTeal/10 px-1 py-0.5 text-zinc-900' : 'text-zinc-700'
+                    className={`w-full text-left text-caption hover:text-zinc-900 ${
+                      highlightedEventIds?.has(event.id) ? 'rounded-md bg-synkaTeal/10 px-1 py-0.5 text-zinc-900' : 'text-zinc-700'
                     }`}
                     onClick={() => {
                       const anchorDate = (event.metadata as any)?.__anchorDate as string | undefined ?? selectedDate

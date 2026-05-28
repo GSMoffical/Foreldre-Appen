@@ -1,4 +1,4 @@
-﻿import { useRef, useCallback, useState, useEffect, useLayoutEffect } from 'react'
+import { useRef, useCallback, useState, useEffect, useLayoutEffect } from 'react'
 import { motion, useAnimation, useReducedMotion } from 'framer-motion'
 import type { DragReschedulePayload, EventLayoutBlock, PersonId } from '../types'
 import { useFamily } from '../context/FamilyContext'
@@ -323,7 +323,7 @@ export function ActivityBlock({
             <span className="min-w-0 flex-1 truncate text-caption font-semibold leading-normal tracking-tight text-synkaNavy">
               {block.title}
             </span>
-            <span className="shrink-0 text-right text-[11px] font-medium tabular-nums leading-none text-synkaNavy/50">
+            <span className="shrink-0 text-right text-caption font-medium tabular-nums leading-none text-synkaNavy/50">
               {formatCalendarEventTimeLabel(block)}
               {participants.length > 1 ? ` ·${participants.length}` : ''}
             </span>
@@ -333,19 +333,19 @@ export function ActivityBlock({
             <span className="min-w-0 max-w-full truncate text-body-sm font-semibold leading-tight text-synkaNavy">
               {block.title}
             </span>
-            <span className="mt-0.5 min-w-0 max-w-full truncate whitespace-nowrap text-[11px] tabular-nums text-synkaNavy/50 uppercase tracking-wide">
+            <span className="mt-0.5 min-w-0 max-w-full truncate whitespace-nowrap text-caption tabular-nums text-synkaNavy/50 uppercase tracking-wide">
               {formatCalendarEventTimeLabel(block)}
             </span>
           </>
         ) : (
           <>
-            <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-synkaNavy/50">
+            <span className="shrink-0 text-caption font-semibold uppercase tracking-wide text-synkaNavy/50">
               {primaryPerson.name}
             </span>
             <span className="mt-0.5 min-w-0 max-w-full truncate text-subheading font-semibold leading-snug text-synkaNavy">
               {block.title}
             </span>
-            <span className="mt-0.5 min-w-0 max-w-full truncate whitespace-nowrap text-[11px] tabular-nums text-synkaNavy/50 uppercase tracking-wide">
+            <span className="mt-0.5 min-w-0 max-w-full truncate whitespace-nowrap text-caption tabular-nums text-synkaNavy/50 uppercase tracking-wide">
               {formatCalendarEventTimeLabel(block)}
             </span>
           </>

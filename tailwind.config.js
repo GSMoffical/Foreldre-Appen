@@ -26,21 +26,20 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       fontSize: {
         // Existing utility sizes (keep)
         'micro': ['0.75rem', { lineHeight: '1.25', letterSpacing: '0.05em' }],
         'rail': ['0.6875rem', { lineHeight: '1.25' }],
-        // Semantic type scale (new — use these going forward)
-        'display': ['1.375rem', { lineHeight: '1.15', letterSpacing: '-0.01em' }], // 22px
-        'heading': ['1.0625rem', { lineHeight: '1.3' }],                           // 17px
-        'subheading': ['0.9375rem', { lineHeight: '1.4' }],                        // 15px
-        'body': ['0.875rem', { lineHeight: '1.5' }],                               // 14px
-        'body-sm': ['0.8125rem', { lineHeight: '1.45' }],                          // 13px
-        'label': ['0.75rem', { lineHeight: '1.25' }],                              // 12px
-        'caption': ['0.6875rem', { lineHeight: '1.2' }],                           // 11px
+        // Semantic type scale
+        'display':  ['22px', { lineHeight: '1.2',  fontWeight: '600' }],
+        'heading':  ['17px', { lineHeight: '1.3',  fontWeight: '600' }],
+        'subheading': ['15px', { lineHeight: '1.4', fontWeight: '600' }],
+        'body':     ['15px', { lineHeight: '1.5',  fontWeight: '400' }],
+        'body-sm':  ['13px', { lineHeight: '1.5',  fontWeight: '400' }],
+        'label':    ['12px', { lineHeight: '1.25' }],
+        'caption':  ['11px', { lineHeight: '1.4',  fontWeight: '500' }],
       },
       borderRadius: {
         'none': '0',

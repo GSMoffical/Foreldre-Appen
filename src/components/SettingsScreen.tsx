@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { cardSection, typSectionCap, btnSecondary, btnDanger } from '../lib/ui'
 import { useAuth } from '../context/AuthContext'
 import { useUserPreferences } from '../context/UserPreferencesContext'
@@ -95,7 +95,7 @@ export function SettingsScreen({
       <div className="flex items-center gap-2">
         <span className="inline-block h-2 w-2 rounded-pill bg-synkaTeal" aria-hidden />
         <span className="inline-block h-2 w-2 rounded-pill bg-synkaYellow" aria-hidden />
-        <h2 className="text-[20px] font-semibold text-synkaPrimary">Innstillinger</h2>
+        <h2 className="text-display text-synkaPrimary">Innstillinger</h2>
       </div>
 
       <div className="mt-6">
@@ -104,8 +104,8 @@ export function SettingsScreen({
 
       <div className={`mt-4 ${cardSection} p-4`}>
         <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Konto</p></div>
-        <p className="mt-1.5 text-[13px] text-zinc-800 break-all">{user?.email ?? '—'}</p>
-        <p className="mt-1.5 text-[12px] text-zinc-500">
+        <p className="mt-1.5 text-body-sm text-zinc-800 break-all">{user?.email ?? '—'}</p>
+        <p className="mt-1.5 text-caption text-zinc-500">
           {isCalendarOwner ? (
             <>Du er <span className="font-medium text-zinc-700">eier</span> av denne kalenderen.</>
           ) : (
@@ -117,16 +117,16 @@ export function SettingsScreen({
       {isLinked && (
         <div className="mt-4 rounded-md border border-zinc-200 bg-zinc-50 p-4">
           <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Delt familie</p></div>
-          <p className="mt-2 text-[13px] text-zinc-600">
+          <p className="mt-2 text-body-sm text-zinc-600">
             Du ser på og redigerer en familie du ble invitert til. Hendelser kan du endre som vanlig; familien og
             invitasjoner håndteres av eieren. For å gå tilbake til din egen kalender, forlat familien.
           </p>
           {confirmUnlink ? (
             <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3.5 space-y-3">
-              <p className="text-[13px] font-medium text-amber-900">Forlate delt familie og gå tilbake til din egen kalender?</p>
+              <p className="text-body-sm font-medium text-amber-900">Forlate delt familie og gå tilbake til din egen kalender?</p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setConfirmUnlink(false)} className={`flex-1 ${btnSecondary}`}>Avbryt</button>
-                <button type="button" onClick={handleUnlink} className="flex-1 rounded-md bg-amber-600 py-3 text-body font-semibold text-white hover:bg-amber-700">Forlat</button>
+                <button type="button" onClick={handleUnlink} className="flex-1 rounded-md bg-synkaCoral py-3 text-body font-semibold text-white hover:bg-synkaCoral/90">Forlat</button>
               </div>
             </div>
           ) : (
@@ -140,7 +140,7 @@ export function SettingsScreen({
       {!isLinked && (
         <div className={`mt-4 ${cardSection} p-4`}>
           <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Inviter til familien</p></div>
-          <p className="mt-2 text-[13px] text-zinc-600">
+          <p className="mt-2 text-body-sm text-zinc-600">
             La den andre <span className="font-medium text-zinc-700">forelderen</span> få tilgang til samme kalender. Du kan også opprette
             lenke rett etter at du har lagt til en forelder under Familie.
           </p>
@@ -155,21 +155,21 @@ export function SettingsScreen({
                 </button>
               </div>
               {inviteLookupMessage && (
-                <p className="text-[12px] leading-relaxed text-zinc-600">{inviteLookupMessage}</p>
+                <p className="text-caption leading-relaxed text-zinc-600">{inviteLookupMessage}</p>
               )}
             </div>
           ) : (
             <div className="mt-3 flex flex-col gap-2">
-              <input type="text" readOnly value={inviteLink} className="min-w-0 w-full break-all rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-[12px] text-zinc-800" aria-label="Invitasjonslenke" />
+              <input type="text" readOnly value={inviteLink} className="min-w-0 w-full break-all rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-caption text-zinc-800" aria-label="Invitasjonslenke" />
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={handleCopyInviteLink} className="rounded-pill border border-synkaPrimary/40 px-4 py-2 text-sm font-medium text-synkaPrimary transition hover:bg-synkaPrimary/5">
-                  {inviteCopied ? 'Kopiert!' : 'Vis invitasjonslenke'}
+                  {inviteCopied ? 'Kopiert!' : 'Kopier lenke'}
                 </button>
                 <button type="button" onClick={() => setInviteLink(null)} className="rounded-pill border border-synkaNavy/20 px-4 py-2 text-sm font-medium text-synkaNavy transition hover:bg-synkaNavy/5">
                   Skjul
                 </button>
               </div>
-              <p className="text-[11px] text-zinc-400">
+              <p className="text-caption text-zinc-400">
                 Lenken utløper om 7 dager. Trykk «Vis aktiv lenke» for å vise den igjen etter at du har skjult den.
               </p>
             </div>
@@ -180,10 +180,10 @@ export function SettingsScreen({
       {onOpenTankestromImport && (
         <div className={`mt-4 ${cardSection} p-4`}>
           <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Tankestrøm</p></div>
-          <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
+          <p className="mt-2 text-body-sm leading-relaxed text-zinc-600">
             Last opp dokument eller bilde og få forslag til kalenderhendelser. Du godkjenner før noe lagres.
           </p>
-          <button type="button" data-testid="tankestrom-import-open" onClick={onOpenTankestromImport} className="mt-3 rounded-md border border-synkaTeal/40 bg-synkaTeal/20 px-4 py-2.5 text-[13px] font-medium text-synkaPrimary hover:bg-synkaTeal/30 transition">
+          <button type="button" data-testid="tankestrom-import-open" onClick={onOpenTankestromImport} className="mt-3 rounded-md border border-synkaTeal/40 bg-synkaTeal/20 px-4 py-2.5 text-body-sm font-medium text-synkaPrimary hover:bg-synkaTeal/30 transition">
             Importer fra Tankestrøm…
           </button>
         </div>
@@ -192,11 +192,11 @@ export function SettingsScreen({
       <div className={`mt-4 ${cardSection} p-4`}>
         <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Varsler</p></div>
         {notifStatus === 'granted' ? (
-          <p className="mt-2 text-[13px] text-zinc-600">Varsler er skrudd på. Påminnelser dukker opp før hendelser.</p>
+          <p className="mt-2 text-body-sm text-zinc-600">Varsler er skrudd på. Påminnelser dukker opp før hendelser.</p>
         ) : notifStatus === 'denied' ? (
-          <p className="mt-2 text-[13px] text-rose-600">Varsler er blokkert. Skru dem på i nettleserens innstillinger.</p>
+          <p className="mt-2 text-body-sm text-synkaCoral">Varsler er blokkert. Skru dem på i nettleserens innstillinger.</p>
         ) : notifStatus === 'unsupported' ? (
-          <p className="mt-2 text-[13px] text-zinc-500">Nettleservarsler er ikke støttet her.</p>
+          <p className="mt-2 text-body-sm text-zinc-500">Nettleservarsler er ikke støttet her.</p>
         ) : (
           <button type="button" onClick={handleEnableNotifications} className="mt-2 rounded-pill bg-synkaPrimary px-4 py-2 text-sm font-medium text-white transition hover:brightness-95">
             Skru på påminnelser
@@ -208,8 +208,8 @@ export function SettingsScreen({
         <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Tilbakemelding</p></div>
         <div className="mt-3 flex items-center justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-medium text-zinc-800">Lett vibrasjon ved lagring</p>
-            <p className="mt-0.5 text-[12px] leading-relaxed text-zinc-500">
+            <p className="text-body-sm font-medium text-zinc-800">Lett vibrasjon ved lagring</p>
+            <p className="mt-0.5 text-caption leading-relaxed text-zinc-500">
               Kort vibrasjon når du legger til eller lagrer en hendelse. Fungerer på mange Android-telefoner; iOS støtter
               ofte ikke vibrasjon fra nettleser.
             </p>
@@ -223,7 +223,7 @@ export function SettingsScreen({
       {onRestartOnboarding && (
         <div className={`mt-4 ${cardSection} p-4`}>
           <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Hjelp</p></div>
-          <p className="mt-2 text-[13px] text-zinc-600">Vil du se gjennomgangen av appen på nytt?</p>
+          <p className="mt-2 text-body-sm text-zinc-600">Vil du se gjennomgangen av appen på nytt?</p>
           <button type="button" onClick={onRestartOnboarding} className="mt-3 rounded-pill border border-synkaNavy/20 px-4 py-2 text-sm font-medium text-synkaNavy transition hover:bg-synkaNavy/5">
             Vis gjennomgang på nytt
           </button>
@@ -239,16 +239,16 @@ export function SettingsScreen({
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Personvern</p></div>
-            <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
+            <p className="mt-2 text-body-sm leading-relaxed text-zinc-600">
               Kalenderen kan inneholde <span className="font-medium text-zinc-800">navn på barn</span>,{' '}
               <span className="font-medium text-zinc-800">skole og hendelser</span>, tider og steder. Tenk deg om før du
               skriver inn noe du ikke vil at andre skal se.
             </p>
-            <p className="mt-2.5 text-[13px] leading-relaxed text-zinc-600">
+            <p className="mt-2.5 text-body-sm leading-relaxed text-zinc-600">
               Data lagres hos vår databasetjeneste (Supabase) og knyttes til kontoen din. Det du legger inn er synlig for
               deg og for andre du deler familien med. Vi bruker ikke innholdet til reklame og selger det ikke videre.
             </p>
-            <p className="mt-2.5 text-[12px] text-zinc-400">
+            <p className="mt-2.5 text-caption text-zinc-400">
               Ved å bruke appen godtar du at du er ansvarlig for opplysningene du registrerer. Ta kontakt med den som
               administrerer familien hvis du vil slette konto eller data.
             </p>
@@ -258,7 +258,7 @@ export function SettingsScreen({
 
       <div className={`mt-4 ${cardSection} p-4`}>
         <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Rettigheter</p></div>
-        <ul className="mt-2.5 space-y-2 text-[13px] text-zinc-600">
+        <ul className="mt-2.5 space-y-2 text-body-sm text-zinc-600">
           <li className="flex gap-2">
             <span className="mt-px shrink-0 text-zinc-300">·</span>
             <span><span className="font-medium text-zinc-800">Eier</span> kan invitere, legge til eller fjerne familiemedlemmer, og slette alle hendelser samlet.</span>
@@ -271,32 +271,32 @@ export function SettingsScreen({
       </div>
 
       <div className="mt-6 rounded-md border border-synkaCoral/20 bg-synkaCoral/5 p-4">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-synkaCoral/70">Fareområde</p>
-        <p className="mt-2 text-[13px] text-zinc-600">
+        <p className="text-caption font-medium uppercase tracking-wide text-synkaCoral/70">Fareområde</p>
+        <p className="mt-2 text-body-sm text-zinc-600">
           {canClearAllEvents
             ? 'Sletter alle hendelser for familien fra databasen. Alle som deler kalenderen mister dem i appen. Kan ikke angres.'
             : 'Kun eieren av kalenderen kan slette alle hendelser samlet. Du kan fortsatt slette enkelthendelser i uke- og dagvisning.'}
         </p>
         {canClearAllEvents && (
           clearDone ? (
-            <p className="mt-3 text-[13px] font-medium text-emerald-700">Alle hendelser er slettet.</p>
+            <p className="mt-3 text-body-sm font-medium text-emerald-700">Alle hendelser er slettet.</p>
           ) : confirmClear ? (
             <div className="mt-3 rounded-md border border-synkaCoral/20 bg-white p-3.5 space-y-3">
-              <p className="text-[13px] font-medium text-synkaCoral">Slette alle hendelser? Dette kan ikke angres.</p>
+              <p className="text-body-sm font-medium text-synkaCoral">Slette alle hendelser? Dette kan ikke angres.</p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setConfirmClear(false)} className={`flex-1 ${btnSecondary}`}>Avbryt</button>
                 <button type="button" onClick={handleClearAllEvents} className={`flex-1 ${btnDanger}`}>Slett alt</button>
               </div>
             </div>
           ) : (
-            <button type="button" onClick={() => setConfirmClear(true)} className="mt-3 rounded-pill border border-synkaCoral px-4 py-2 text-[13px] font-medium text-synkaCoral transition hover:bg-synkaCoral/5">
+            <button type="button" onClick={() => setConfirmClear(true)} className="mt-3 rounded-pill border border-synkaCoral px-4 py-2 text-body-sm font-medium text-synkaCoral transition hover:bg-synkaCoral/5">
               Slett alle hendelser
             </button>
           )
         )}
       </div>
 
-      <button type="button" onClick={() => signOut()} className="mt-8 w-full py-3 text-[14px] font-medium text-synkaCoral transition hover:bg-synkaCoral/5 active:bg-synkaCoral/10">
+      <button type="button" onClick={() => signOut()} className="mt-8 w-full rounded-pill border border-synkaCoral/40 py-3 text-body-sm font-medium text-synkaCoral transition hover:bg-synkaCoral/5 active:bg-synkaCoral/10">
         Logg ut
       </button>
     </div>

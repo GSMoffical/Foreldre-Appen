@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { LogisticsLoadingSkeleton } from './LogisticsLoadingSkeleton'
 import type { WeekDayLayout } from '../hooks/useScheduleState'
 import type { Event, Person, PersonId } from '../types'
@@ -175,22 +175,22 @@ export function LogisticsScreen({
         <div className="border-b border-zinc-100 px-4 pt-4 pb-3">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <div>
-              <h2 className="text-[17px] font-semibold text-zinc-900">Logistikk</h2>
-              <p className="mt-0.5 text-[12px] text-zinc-500">{weekRange}</p>
+              <h2 className="text-heading font-semibold text-zinc-900">Logistikk</h2>
+              <p className="mt-0.5 text-caption text-zinc-500">{weekRange}</p>
             </div>
             {typeof onChangeWeek === 'function' && (
               <div className="flex gap-1.5">
                 <button
                   type="button"
                   onClick={() => onChangeWeek(-1)}
-                  className="rounded-pill border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-50"
+                  className="rounded-pill border border-zinc-200 bg-white px-2.5 py-1.5 text-caption font-medium text-zinc-600 hover:bg-zinc-50"
                 >
                   ‹ Forrige
                 </button>
                 <button
                   type="button"
                   onClick={() => onChangeWeek(1)}
-                  className="rounded-pill border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-50"
+                  className="rounded-pill border border-zinc-200 bg-white px-2.5 py-1.5 text-caption font-medium text-zinc-600 hover:bg-zinc-50"
                 >
                   Neste ›
                 </button>
@@ -203,7 +203,7 @@ export function LogisticsScreen({
               <button
                 type="button"
                 onClick={() => setFilterMode('all')}
-                className={`rounded-pill px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                className={`rounded-pill px-3 py-1.5 text-caption font-medium transition-colors ${
                   filterMode === 'all'
                     ? 'bg-synkaPrimary text-white shadow-planner-sm'
                     : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
@@ -214,7 +214,7 @@ export function LogisticsScreen({
               <button
                 type="button"
                 onClick={() => setFilterMode('mine')}
-                className={`rounded-pill px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                className={`rounded-pill px-3 py-1.5 text-caption font-medium transition-colors ${
                   filterMode === 'mine'
                     ? 'bg-synkaPrimary text-white shadow-planner-sm'
                     : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
@@ -231,7 +231,7 @@ export function LogisticsScreen({
                 {visibleStats.map((s) => (
                   <div
                     key={s.person.id}
-                    className="flex items-center gap-2 rounded-pill bg-zinc-100 px-3 py-1.5 text-[12px]"
+                    className="flex items-center gap-2 rounded-pill bg-zinc-100 px-3 py-1.5 text-caption"
                   >
                     <span
                       className="h-2.5 w-2.5 rounded-pill shrink-0"
@@ -256,15 +256,15 @@ export function LogisticsScreen({
             <svg className="mb-2 h-8 w-8" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25m-2.25 0h-2.735a2.25 2.25 0 0 0-1.632.696l-3.697 3.859A2.25 2.25 0 0 0 3 14.25m14.25-7.5H5.625c-.621 0-1.125.504-1.125 1.125v4.5" />
             </svg>
-            <p className="text-[13px]">Ingen logistikk denne uken</p>
-            <p className="mt-1 text-[11px]">Legg til ansvar og logistikk via en hendelse</p>
+            <p className="text-body-sm">Ingen logistikk denne uken</p>
+            <p className="mt-1 text-caption">Legg til ansvar og logistikk via en hendelse</p>
           </div>
         ) : (
           <>
             {totalUnassigned > 0 && minePersonId && (
               <section className="mb-6 rounded-lg border border-zinc-200 bg-zinc-50/80 p-4">
-                <h3 className="text-[13px] font-semibold text-zinc-800">Ufordelt</h3>
-                <p className="mt-0.5 text-[11px] text-zinc-500">Velg dag og ta start eller slutt.</p>
+                <h3 className="text-body-sm font-semibold text-zinc-800">Ufordelt</h3>
+                <p className="mt-0.5 text-caption text-zinc-500">Velg dag og ta start eller slutt.</p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {weekLayoutData.map((day) => {
                     const count = unassignedByDate[day.date]?.length ?? 0
@@ -274,7 +274,7 @@ export function LogisticsScreen({
                         key={day.date}
                         type="button"
                         onClick={() => setUnassignedDay(day.date)}
-                        className={`rounded-pill px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
+                        className={`rounded-pill px-2.5 py-1.5 text-caption font-medium transition-colors ${
                           isActive
                             ? 'bg-synkaPrimary text-white shadow-planner-sm'
                             : count > 0
@@ -289,7 +289,7 @@ export function LogisticsScreen({
                 </div>
                 <div className="mt-3 flex flex-col gap-2">
                   {visibleUnassignedForDay.length === 0 ? (
-                    <p className="py-2 text-[11px] text-zinc-500">Ingen ufordelte denne dagen.</p>
+                    <p className="py-2 text-caption text-zinc-500">Ingen ufordelte denne dagen.</p>
                   ) : (
                     visibleUnassignedForDay.map((row) => (
                       <UnassignedRowCard
@@ -324,7 +324,7 @@ export function LogisticsScreen({
               .map((day) => (
                 <section key={day.date} className="mb-5">
                   <div className="mb-2 flex items-center justify-between">
-                    <h3 className="text-[13px] font-semibold text-zinc-800">{day.header}</h3>
+                    <h3 className="text-body-sm font-semibold text-zinc-800">{day.header}</h3>
                     <span className="text-[10px] text-zinc-400">
                       {day.rows.length} {day.rows.length === 1 ? 'oppdrag' : 'oppdrag'}
                     </span>
@@ -387,15 +387,15 @@ function TransportRowCard({
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-[13px] font-medium text-zinc-900">
+          <span className="truncate text-body-sm font-medium text-zinc-900">
             {row.event.title}
           </span>
-          <span className="shrink-0 text-[11px] text-zinc-400">
+          <span className="shrink-0 text-caption text-zinc-400">
             {formatTimeRange(row.event.start, row.event.end)}
           </span>
         </div>
-        <p className="mt-0.5 text-[11px] text-zinc-500">{personName}</p>
-        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
+        <p className="mt-0.5 text-caption text-zinc-500">{personName}</p>
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-caption">
           {row.dropoffPerson && (
             <span className="flex items-center gap-1">
               <span
@@ -473,14 +473,14 @@ function UnassignedRowCard({
         >
           <div className="min-w-0">
             <div className="flex items-center justify-between gap-2">
-              <span className="truncate text-[13px] font-medium text-zinc-900">
+              <span className="truncate text-body-sm font-medium text-zinc-900">
                 {row.event.title}
               </span>
-              <span className="shrink-0 text-[11px] text-zinc-400">
+              <span className="shrink-0 text-caption text-zinc-400">
                 {formatTimeRange(row.event.start, row.event.end)}
               </span>
             </div>
-            <p className="mt-0.5 text-[11px] text-zinc-500">{personName}</p>
+            <p className="mt-0.5 text-caption text-zinc-500">{personName}</p>
           </div>
           <svg
             className="mt-1 h-3.5 w-3.5 shrink-0 text-zinc-300"
@@ -492,7 +492,7 @@ function UnassignedRowCard({
             <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
           </svg>
         </button>
-        <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+        <div className="mt-2 flex flex-wrap gap-2 text-caption">
           <button
             type="button"
             onClick={() => onAssign('dropoff')}

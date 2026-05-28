@@ -21,7 +21,7 @@ const variants: Record<ButtonVariant, string> = {
   secondary:
     'border border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 active:bg-zinc-100 focus:ring-zinc-300/60',
   danger:
-    'bg-rose-600 text-white hover:bg-rose-700 active:bg-rose-800 focus:ring-rose-500/40',
+    'bg-synkaCoral text-white hover:bg-synkaCoral/90 active:bg-synkaCoral focus:ring-synkaCoral/40',
   neutral:
     'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 active:bg-zinc-300 focus:ring-zinc-200',
   ghost:

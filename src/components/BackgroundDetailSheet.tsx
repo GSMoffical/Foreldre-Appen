@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import type {
   ChildSchoolDayPlan,
@@ -455,7 +455,7 @@ export function BackgroundDetailSheet({
             {isSchool && weekOverlaySummaryLines.length > 0 ? (
               <div className="mt-2 rounded-md border border-indigo-200 bg-indigo-50/60 px-2.5 py-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-900">Ukeoppsummering</p>
-                <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px] text-indigo-950">
+                <ul className="mt-1 list-disc space-y-0.5 pl-4 text-caption text-indigo-950">
                   {weekOverlaySummaryLines.map((line, idx) => (
                     <li key={`${line}-${idx}`}>{line}</li>
                   ))}
@@ -486,9 +486,9 @@ export function BackgroundDetailSheet({
                               {schoolItemTypeLabel(ctx.itemType)}
                             </span>
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-[12px] font-semibold text-zinc-900">{sev.title}</p>
+                              <p className="truncate text-caption font-semibold text-zinc-900">{sev.title}</p>
                               {sev.notes?.trim() ? (
-                                <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-zinc-500">
+                                <p className="mt-0.5 line-clamp-2 text-caption leading-snug text-zinc-500">
                                   {sev.notes.trim()}
                                 </p>
                               ) : null}
@@ -522,7 +522,7 @@ export function BackgroundDetailSheet({
                                 const readOnlySections = sectionsForReadOnly(update.sections)
                                 const missing = sectionKeysMissing(draft)
                                 return (
-                                  <li key={itemKey} className="rounded-md border border-indigo-200 bg-white/85 px-2 py-1.5 text-[11px] text-indigo-950">
+                                  <li key={itemKey} className="rounded-md border border-indigo-200 bg-white/85 px-2 py-1.5 text-caption text-indigo-950">
                                     <div className="flex items-center justify-between gap-2">
                                       <p className="font-medium">
                                         {update.customLabel ? `${update.customLabel} (${update.subjectKey})` : update.subjectKey}
@@ -556,7 +556,7 @@ export function BackgroundDetailSheet({
                                           ))}
                                         </ul>
                                       ) : (
-                                        <p className="mt-1 text-[11px] text-indigo-900/80">Ingen seksjoner registrert.</p>
+                                        <p className="mt-1 text-caption text-indigo-900/80">Ingen seksjoner registrert.</p>
                                       )
                                     ) : (
                                       <div className="mt-1.5 space-y-1.5">
@@ -571,7 +571,7 @@ export function BackgroundDetailSheet({
                                               onChange={(e) =>
                                                 setOverlayDraftSections((prev) => ({ ...prev, [key]: e.target.value }))
                                               }
-                                              className="w-full rounded border border-indigo-200 bg-white px-2 py-1 text-[11px] text-zinc-900"
+                                              className="w-full rounded border border-indigo-200 bg-white px-2 py-1 text-caption text-zinc-900"
                                             />
                                           </label>
                                         ))}
@@ -587,7 +587,7 @@ export function BackgroundDetailSheet({
                                           </button>
                                         ) : null}
                                         {overlaySaveError ? (
-                                          <p className="text-[10px] text-rose-700">{overlaySaveError}</p>
+                                          <p className="text-[10px] text-synkaCoral">{overlaySaveError}</p>
                                         ) : null}
                                         <div className="flex gap-1.5">
                                           <button
@@ -645,7 +645,7 @@ export function BackgroundDetailSheet({
                             )}
                           </ul>
                         ) : (
-                          <p className="mt-1 text-[11px] text-indigo-900/80">
+                          <p className="mt-1 text-caption text-indigo-900/80">
                             {isReplaceDay
                               ? 'Ingen seksjoner registrert for erstatningsdagen.'
                               : 'Ingen fagspesifikke tillegg for denne raden.'}
@@ -663,14 +663,14 @@ export function BackgroundDetailSheet({
                           return (
                             <div key={c.id} className="rounded-md border border-amber-200 bg-amber-50 p-2.5">
                               <div className="flex items-center justify-between gap-2">
-                                <p className="text-[12px] font-semibold text-amber-900">
+                                <p className="text-caption font-semibold text-amber-900">
                                   {COPY.conflicts.collidesWith}: {c.title} ({formatTimeRange(c.start, c.end)})
                                 </p>
                                 <span className="rounded-pill bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
                                   {severityLabel}
                                 </span>
                               </div>
-                              <p className="mt-1 text-[11px] text-amber-800">
+                              <p className="mt-1 text-caption text-amber-800">
                                 {COPY.conflicts.suggestion}: {alternatives[0]} eller {alternatives[1]}
                               </p>
                               {needsResolution ? (
@@ -728,7 +728,7 @@ export function BackgroundDetailSheet({
                                   </button>
                                 </div>
                               ) : (
-                                <p className="mt-2 text-[11px] text-amber-800">
+                                <p className="mt-2 text-caption text-amber-800">
                                   Skole + avtale regnes som planlagt og trenger ikke avklaring.
                                 </p>
                               )}
@@ -762,15 +762,15 @@ export function BackgroundDetailSheet({
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <p className="truncate text-[12px] font-semibold text-zinc-900">{sev.title}</p>
+                            <p className="truncate text-caption font-semibold text-zinc-900">{sev.title}</p>
                             {subjectLabel ? (
-                              <span className="shrink-0 text-[11px] font-medium text-zinc-500">
+                              <span className="shrink-0 text-caption font-medium text-zinc-500">
                                 {subjectLabel}
                               </span>
                             ) : null}
                           </div>
                           {sev.notes?.trim() ? (
-                            <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-zinc-500">
+                            <p className="mt-0.5 line-clamp-2 text-caption leading-snug text-zinc-500">
                               {sev.notes.trim()}
                             </p>
                           ) : null}
@@ -787,7 +787,7 @@ export function BackgroundDetailSheet({
                 <ul className="mt-2 space-y-1.5">
                   {weekOverlayUnplacedUpdates.map((u, idx) => (
                     <li key={`${u.subjectKey}-${idx}`} className="rounded-md border border-indigo-200 bg-indigo-50/70 px-2.5 py-1.5">
-                      <p className="text-[12px] font-semibold text-indigo-950">
+                      <p className="text-caption font-semibold text-indigo-950">
                         {u.customLabel ? `${u.customLabel} (${u.subjectKey})` : u.subjectKey}
                       </p>
                     </li>
@@ -818,14 +818,14 @@ export function BackgroundDetailSheet({
                           ) : null}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className={`truncate text-[12px] font-semibold ${done ? 'text-zinc-400 line-through' : 'text-zinc-900'}`}>
+                          <p className={`truncate text-caption font-semibold ${done ? 'text-zinc-400 line-through' : 'text-zinc-900'}`}>
                             {t.title}
                           </p>
                           {t.dueTime ? (
-                            <p className="mt-0.5 text-[11px] font-medium text-amber-700">Frist {t.dueTime}</p>
+                            <p className="mt-0.5 text-caption font-medium text-synkaNavy/70">Frist {t.dueTime}</p>
                           ) : null}
                           {t.notes?.trim() ? (
-                            <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-zinc-500">
+                            <p className="mt-0.5 line-clamp-2 text-caption leading-snug text-zinc-500">
                               {t.notes.trim()}
                             </p>
                           ) : null}

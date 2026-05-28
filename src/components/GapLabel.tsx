@@ -15,7 +15,7 @@ export function GapLabel({ gap }: GapLabelProps) {
       }}
       aria-hidden
     >
-      <span className="rounded-pill bg-synkaTeal/15 px-2 py-1 text-[11px] font-medium text-synkaTeal">
+      <span className="rounded-pill bg-synkaTeal/15 px-2 py-1 text-caption font-medium text-synkaTeal">
         {formatGapLabel(gap.durationMinutes)}
       </span>
     </div>

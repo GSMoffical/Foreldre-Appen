@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { springSnappy } from '../lib/motion'
 import { SHORT_TOUR_STEPS, EXTRA_TOUR_STEPS, loadOnboarding, saveOnboarding, type OnboardingState } from '../lib/onboarding'
@@ -170,8 +170,8 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
           >
             <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgb(59 207 197)' }}>Eksempel</p>
             <div className="flex items-center justify-between gap-2">
-              <p className="truncate text-[13px] font-semibold text-zinc-900">Fotball trening</p>
-              <p className="shrink-0 text-[11px] tabular-nums text-zinc-500">15:00–16:30</p>
+              <p className="truncate text-body-sm font-semibold text-zinc-900">Fotball trening</p>
+              <p className="shrink-0 text-caption tabular-nums text-zinc-500">15:00–16:30</p>
             </div>
             {/* Drag handle */}
             <div className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-pill border border-white/50 bg-white/70 shadow-sm">
@@ -202,26 +202,26 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
           aria-label={step.title}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-synkaPrimary">
+            <span className="text-caption font-semibold uppercase tracking-wide text-synkaPrimary">
               {currentStepIndex + 1} / {tourSteps.length}
             </span>
             <button
               type="button"
               onClick={skip}
-              className="text-[12px] text-zinc-400 hover:text-zinc-600"
+              className="text-caption text-zinc-400 hover:text-zinc-600"
             >
               Hopp over
             </button>
           </div>
 
-          <h3 className="mt-2 text-[16px] font-semibold text-zinc-900">{step.title}</h3>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-600">{step.body}</p>
+          <h3 className="mt-2 text-body font-semibold text-zinc-900">{step.title}</h3>
+          <p className="mt-1.5 text-body-sm leading-relaxed text-zinc-600">{step.body}</p>
 
           {!showExtraTips && (
             <button
               type="button"
               onClick={enableExtraTips}
-              className="mt-3 w-full rounded-lg border border-zinc-200 bg-white py-2 text-[13px] font-medium text-zinc-700 transition hover:bg-zinc-50 active:translate-y-px"
+              className="mt-3 w-full rounded-lg border border-zinc-200 bg-white py-2 text-body-sm font-medium text-zinc-700 transition hover:bg-zinc-50 active:translate-y-px"
             >
               Lær mer (ekstra tips)
             </button>
@@ -230,7 +230,7 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
           <button
             type="button"
             onClick={advance}
-            className="mt-3 w-full rounded-lg bg-synkaPrimary py-2.5 text-[14px] font-semibold text-white shadow-planner transition hover:brightness-95 active:translate-y-px"
+            className="mt-3 w-full rounded-lg bg-synkaPrimary py-2.5 text-body-sm font-semibold text-white shadow-planner transition hover:brightness-95 active:translate-y-px"
           >
             {isLast ? 'Ferdig! ðŸŽ‰' : 'Neste →'}
           </button>

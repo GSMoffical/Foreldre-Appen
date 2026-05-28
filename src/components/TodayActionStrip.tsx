@@ -1,4 +1,4 @@
-﻿import type { Event } from '../types'
+import type { Event } from '../types'
 import { formatTimeRange } from '../lib/time'
 import { useFamily } from '../context/FamilyContext'
 import { formatParticipantNamesLine } from '../lib/eventParticipants'
@@ -47,28 +47,28 @@ export function TodayActionStrip({
   return (
     <div className="mx-4 mt-2 rounded-xl border border-synkaNavy/10 bg-white px-3.5 py-3 shadow-soft md:px-4 md:py-3.5">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 md:text-[12px]">I dag</p>
+        <p className="text-caption font-semibold uppercase tracking-wide text-zinc-500 md:text-caption">I dag</p>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
-          <span className="rounded-pill bg-sky-100 px-2.5 py-1 text-[11px] font-semibold text-sky-700">
+          <span className="rounded-pill bg-synkaTeal/15 px-2.5 py-1 text-caption font-semibold text-synkaTeal">
             {statusLabel(minutesUntilNext)}
           </span>
           {nextEventHasConflict && (
             <div className="relative">
               <div className="flex items-center gap-1">
-                <span className="rounded-pill bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800">
+                <span className="rounded-pill bg-synkaYellow/15 px-2.5 py-1 text-caption font-semibold text-synkaNavy/70">
                   {COPY.status.needsClarification}
                 </span>
                 <button
                   type="button"
                   onClick={() => setShowConflictHelp((v) => !v)}
                   aria-label="Hva betyr dette?"
-                  className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-pill border border-amber-300 bg-white text-[11px] font-semibold text-amber-700"
+                  className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-pill border border-synkaYellow/60 bg-white text-caption font-semibold text-synkaNavy/60"
                 >
                   i
                 </button>
               </div>
               {showConflictHelp && (
-                <p className="absolute right-0 z-20 mt-1 w-64 rounded-md border border-amber-200 bg-white px-2.5 py-2 text-[11px] font-medium leading-snug text-zinc-700 shadow-soft">
+                <p className="absolute right-0 z-20 mt-1 w-64 rounded-md border border-synkaYellow/30 bg-white px-2.5 py-2 text-caption font-medium leading-snug text-zinc-700 shadow-soft">
                   {COPY.conflicts.badgeHelp}
                 </p>
               )}
@@ -93,8 +93,8 @@ export function TodayActionStrip({
             onClick={onOpenNext}
             className="mt-1 block w-full cursor-pointer text-left"
           >
-            <p className="text-[14px] font-semibold text-zinc-900 md:text-[15px]">{nextEvent?.title}</p>
-            <p className="mt-0.5 text-[12px] text-zinc-600 md:text-[13px]">
+            <p className="text-body-sm font-semibold text-zinc-900 md:text-body">{nextEvent?.title}</p>
+            <p className="mt-0.5 text-caption text-zinc-600 md:text-body-sm">
               {formatTimeRange(nextEvent!.start, nextEvent!.end)}
               {who !== 'Ukjent' ? ` · ${who}` : ''}
             </p>
@@ -103,37 +103,37 @@ export function TodayActionStrip({
             <button
               type="button"
               onClick={onMarkDone}
-              className="min-h-9 cursor-pointer rounded-pill bg-emerald-700 px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-emerald-800"
+              className="min-h-9 cursor-pointer rounded-pill bg-synkaPrimary px-3 py-1.5 text-caption font-semibold text-white transition hover:bg-synkaPrimaryDark"
             >
               {COPY.actions.done}
             </button>
             <button
               type="button"
               onClick={onConfirmNext}
-              className="min-h-9 cursor-pointer rounded-pill bg-emerald-600 px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-emerald-700"
+              className="min-h-9 cursor-pointer rounded-pill bg-synkaPrimary px-3 py-1.5 text-caption font-semibold text-white transition hover:bg-synkaPrimaryDark"
             >
               {COPY.actions.confirm}
             </button>
             <button
               type="button"
               onClick={onDelayNext}
-              className="min-h-9 cursor-pointer rounded-pill border border-zinc-300 bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-700 transition hover:bg-zinc-100"
+              className="min-h-9 cursor-pointer rounded-pill border border-zinc-300 bg-white px-3 py-1.5 text-caption font-medium text-zinc-700 transition hover:bg-zinc-100"
             >
               {COPY.actions.postpone15}
             </button>
             <button
               type="button"
               onClick={onMoveNext}
-              className="min-h-9 cursor-pointer rounded-pill border border-zinc-300 bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-700 transition hover:bg-zinc-100"
+              className="min-h-9 cursor-pointer rounded-pill border border-zinc-300 bg-white px-3 py-1.5 text-caption font-medium text-zinc-700 transition hover:bg-zinc-100"
             >
               {moveActionLabel}
             </button>
           </div>
-          <p className="mt-2 text-[11px] leading-relaxed text-zinc-600 md:text-[12px]">
+          <p className="mt-2 text-caption leading-relaxed text-zinc-600 md:text-caption">
             Flytt til i morgen flytter fra i dag {nextEvent!.start} til i morgen {nextEvent!.start}.
           </p>
           {!nextEventHasConflict && laterConflictCount > 0 && (
-            <p className="mt-2 text-[11px] font-medium text-amber-800">
+            <p className="mt-2 text-caption font-medium text-synkaNavy/70">
               {laterConflictCount === 1
                 ? COPY.conflicts.laterTodayOne
                 : `${laterConflictCount} ${COPY.conflicts.laterTodayManySuffix}`}
@@ -141,7 +141,7 @@ export function TodayActionStrip({
           )}
         </>
       ) : (
-        <p className="mt-1 text-[12px] text-zinc-600">Ingen neste hendelse akkurat nå.</p>
+        <p className="mt-1 text-caption text-zinc-600">Ingen neste hendelse akkurat nå.</p>
       )}
     </div>
   )
