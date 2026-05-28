@@ -1,121 +1,74 @@
 import { LayoutGroup, motion } from 'framer-motion'
 import { springSnappy } from '../lib/motion'
 
-export type NavTab = 'today' | 'week' | 'month' | 'logistics' | 'settings'
+export type NavTab = 'month' | 'today' | 'tasks' | 'mer'
 
 interface BottomNavProps {
   active: NavTab
   onSelect?: (tab: NavTab) => void
   logisticsNotifyCount?: number
-  /** The last active calendar tab — used to restore context when returning from tasks/settings. */
-  lastCalendarTab?: 'today' | 'week' | 'month'
 }
 
-const VIEW_CYCLE: NavTab[] = ['today', 'week', 'month']
-
-function viewLabel(tab: NavTab): string {
-  if (tab === 'today') return 'I dag'
-  if (tab === 'week') return 'Uke'
-  if (tab === 'month') return 'Måned'
-  return 'I dag'
+interface TabDef {
+  id: NavTab
+  label: string
+  icon: string
 }
 
-function nextViewLabel(tab: 'today' | 'week' | 'month'): string {
-  const idx = VIEW_CYCLE.indexOf(tab)
-  const next = VIEW_CYCLE[(idx + 1) % VIEW_CYCLE.length] as NavTab
-  return viewLabel(next)
-}
+const TABS: TabDef[] = [
+  { id: 'month', label: 'Måned', icon: 'ti-calendar' },
+  { id: 'today', label: 'I dag', icon: 'ti-home' },
+  { id: 'tasks', label: 'Gjøremål', icon: 'ti-check' },
+  { id: 'mer', label: 'Mer', icon: 'ti-menu-2' },
+]
 
-export function BottomNav({ active, onSelect, logisticsNotifyCount = 0, lastCalendarTab = 'today' }: BottomNavProps) {
-  const base =
-    'relative z-0 flex flex-1 items-center justify-center overflow-visible rounded-md py-3 text-body-sm font-semibold transition-colors'
-  const inactiveText = 'text-synkaNavy/50'
-  const activeText = 'text-white'
-
-  const calendarActive = active !== 'settings' && active !== 'logistics'
-  const currentView = calendarActive ? active : lastCalendarTab
-
-  function cycleView() {
-    const idx = VIEW_CYCLE.indexOf(currentView)
-    const next = VIEW_CYCLE[(idx + 1) % VIEW_CYCLE.length]
-    onSelect?.(next)
-  }
-
+export function BottomNav({ active, onSelect, logisticsNotifyCount = 0 }: BottomNavProps) {
   return (
     <nav className="relative flex h-[72px] min-h-[72px] w-full max-w-full min-w-0 shrink-0 items-stretch overflow-x-hidden overflow-y-visible px-4 py-2">
-      {/* Backdrop: opaque surface so scrolling content never bleeds through; blur sits above app body */}
       <div
         className="pointer-events-none absolute inset-0 -z-10 border-t border-zinc-200/90 bg-surface/98 backdrop-blur-md"
         aria-hidden
       />
       <div className="relative z-10 flex min-h-0 min-w-0 flex-1 gap-1">
         <LayoutGroup id="bottom-nav">
-          <button
-            id="onb-nav-cycle"
-            type="button"
-            aria-label={calendarActive ? `Bytt til ${nextViewLabel(currentView)}-visning` : `Tilbake til ${viewLabel(lastCalendarTab)}-visning`}
-            onClick={() => {
-              if (active === 'settings' || active === 'logistics') {
-                onSelect?.(lastCalendarTab)
-              } else {
-                cycleView()
-              }
-            }}
-            className={`${base} ${calendarActive ? activeText : inactiveText} hover:bg-synkaCream/25`}
-          >
-            {calendarActive && (
-              <motion.div
-                layoutId="bottom-nav-indicator"
-                className="pointer-events-none absolute inset-0 z-20 rounded-md bg-synkaPrimary shadow-planner-sm"
-                style={{ zIndex: 30 }}
-                transition={springSnappy}
-              />
-            )}
-            <span className={`relative z-[40] inline-flex items-center gap-1${calendarActive ? ' text-white' : ''}`}>
-              {viewLabel(currentView)}
-            </span>
-          </button>
-          <button
-            id="onb-tasks-tab"
-            type="button"
-            onClick={() => onSelect?.('logistics')}
-            className={`${base} ${active === 'logistics' ? activeText : inactiveText} hover:bg-synkaCream/25`}
-          >
-            {active === 'logistics' && (
-              <motion.div
-                layoutId="bottom-nav-indicator"
-                className="pointer-events-none absolute inset-0 z-20 rounded-md bg-synkaPrimary shadow-planner-sm"
-                style={{ zIndex: 30 }}
-                transition={springSnappy}
-              />
-            )}
-            <span className="relative z-[40] inline-flex items-center gap-1.5">
-              Gjøremål
-              {logisticsNotifyCount > 0 && (
-                <span
-                  aria-label={`${logisticsNotifyCount} uleste varsler`}
-                  className="flex h-[18px] min-w-[18px] items-center justify-center rounded-pill bg-synkaCoral px-1 text-[10px] font-bold leading-none text-white"
-                >
-                  {logisticsNotifyCount > 9 ? '9+' : logisticsNotifyCount}
+          {TABS.map((tab) => {
+            const isActive = active === tab.id
+            return (
+              <button
+                key={tab.id}
+                id={tab.id === 'tasks' ? 'onb-tasks-tab' : undefined}
+                type="button"
+                onClick={() => onSelect?.(tab.id)}
+                aria-label={tab.label}
+                className={`relative z-0 flex flex-1 flex-col items-center justify-center gap-1 overflow-visible rounded-md py-2 transition-colors touch-manipulation ${
+                  isActive ? 'text-white' : 'text-synkaNavy/50 hover:bg-synkaCream/25'
+                }`}
+              >
+                {isActive && (
+                  <motion.div
+                    layoutId="bottom-nav-indicator"
+                    className="pointer-events-none absolute inset-0 z-20 rounded-md bg-synkaPrimary shadow-planner-sm"
+                    style={{ zIndex: 30 }}
+                    transition={springSnappy}
+                  />
+                )}
+                <span className="relative z-[40] flex flex-col items-center gap-1">
+                  <span className="relative">
+                    <i className={`ti ${tab.icon}`} aria-hidden="true" style={{ fontSize: 18 }} />
+                    {tab.id === 'tasks' && logisticsNotifyCount > 0 && (
+                      <span
+                        aria-label={`${logisticsNotifyCount} uleste varsler`}
+                        className="absolute -top-1.5 -right-2.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-pill bg-synkaCoral px-1 text-[9px] font-bold leading-none text-white"
+                      >
+                        {logisticsNotifyCount > 9 ? '9+' : logisticsNotifyCount}
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-[10px] font-semibold leading-none">{tab.label}</span>
                 </span>
-              )}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onSelect?.('settings')}
-            className={`${base} ${active === 'settings' ? activeText : inactiveText} hover:bg-synkaCream/25`}
-          >
-            {active === 'settings' && (
-              <motion.div
-                layoutId="bottom-nav-indicator"
-                className="pointer-events-none absolute inset-0 z-20 rounded-md bg-synkaPrimary shadow-planner-sm"
-                style={{ zIndex: 30 }}
-                transition={springSnappy}
-              />
-            )}
-            <span className="relative z-[40]">Innstillinger</span>
-          </button>
+              </button>
+            )
+          })}
         </LayoutGroup>
       </div>
     </nav>

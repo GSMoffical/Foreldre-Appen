@@ -29,6 +29,7 @@ import { useSaveFeedback } from './features/app/hooks/useSaveFeedback'
 import { useInviteAcceptance } from './features/invites/hooks/useInviteAcceptance'
 import { AppNoticeStack } from './features/app/components/AppNoticeStack'
 import { CalendarHomeTab } from './features/calendar/CalendarHomeTab'
+import { MerScreen } from './components/MerScreen'
 import { CalendarOverlays } from './features/calendar/CalendarOverlays'
 import { useEventController } from './features/calendar/hooks/useEventController'
 import { useTasksState } from './hooks/useTasksState'
@@ -116,7 +117,7 @@ function App() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [selectedBackgroundEvent, setSelectedBackgroundEvent] = useState<{ event: Event; date: string } | null>(null)
   const [navTab, setNavTab] = useState<NavTab>('today')
-  const [lastCalendarTab, setLastCalendarTab] = useState<'today' | 'week' | 'month'>('today')
+  const [merSubScreen, setMerSubScreen] = useState<'settings' | 'familie' | 'tankestrom' | null>(null)
   const { currentPersonId, hapticsEnabled } = useUserPreferences()
   const mePersonId = useResolvedMePersonId(people, currentPersonId, user?.id)
 
@@ -286,7 +287,7 @@ function App() {
     if (!tankestromToast) return
     setTankestromImportOpen(false)
     if (tankestromToast.openTasks) {
-      setNavTab('logistics')
+      setNavTab('tasks')
       dismissTankestromToast()
       return
     }
@@ -295,7 +296,6 @@ function App() {
     }
     setNavTab('today')
     setShowListView(false)
-    setLastCalendarTab('today')
     if (tankestromToast.highlightEventIds.length > 0) {
       const ids = new Set(tankestromToast.highlightEventIds)
       setRecentImportedEventIds(ids)
@@ -429,7 +429,6 @@ function App() {
     setSelectedDate(today)
     setNavTab('today')
     setShowListView(false)
-    setLastCalendarTab('today')
   }
 
   const openAddEvent = (dateOverride: string | null = null) => {
@@ -456,7 +455,7 @@ function App() {
   const isWeekFilteredEmpty =
     !weekEventsLoading && showListView && hasRawEventsInWeek && !hasAnyWeekEvents
   const showNoFamilyEmpty = !familyLoading && people.length === 0
-  const effectiveNav: NavTab = navTab === 'settings' ? 'settings' : navTab === 'logistics' ? 'logistics' : navTab === 'month' ? 'month' : showListView ? 'week' : 'today'
+  const effectiveNav: NavTab = navTab
 
   return (
     <AppShell>
@@ -473,21 +472,44 @@ function App() {
             onDismissFamilyError={() => setHideFamilyBanner(true)}
           />
           <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-hidden">
-          {navTab === 'settings' ? (
-            <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
-              <SettingsScreen
-                onPersonRemoved={purgePersonEvents}
-                onClearAllEvents={clearAllEvents}
-                onRestartOnboarding={() => {
-                  resetOnboarding(user.id)
-                  setNavTab('today')
-                  setShowListView(false)
-                  setLastCalendarTab('today')
-                  setShowTour(true)
-                }}
-                onOpenTankestromImport={() => openTankestromImport('settings')}
-              />
-            </div>
+          {navTab === 'mer' ? (
+            merSubScreen === 'settings' ? (
+              <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden overflow-hidden">
+                <div className="flex shrink-0 items-center gap-2 bg-synkaCream border-b border-synkaNavy/8 px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => setMerSubScreen(null)}
+                    className="flex w-8 h-8 items-center justify-center rounded-full hover:bg-synkaNavy/8 transition touch-manipulation"
+                    aria-label="Tilbake"
+                  >
+                    <i className="ti ti-arrow-left text-synkaNavy" aria-hidden style={{ fontSize: 18 }} />
+                  </button>
+                  <span className="text-[15px] font-semibold text-synkaNavy">Innstillinger</span>
+                </div>
+                <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+                  <SettingsScreen
+                    onPersonRemoved={purgePersonEvents}
+                    onClearAllEvents={clearAllEvents}
+                    onRestartOnboarding={() => {
+                      resetOnboarding(user.id)
+                      setNavTab('today')
+                      setShowListView(false)
+                      setMerSubScreen(null)
+                      setShowTour(true)
+                    }}
+                    onOpenTankestromImport={() => openTankestromImport('settings')}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+                <MerScreen
+                  onNavigateSettings={() => setMerSubScreen('settings')}
+                  onNavigateTankestrom={() => setMerSubScreen('tankestrom')}
+                  onNavigateFamilie={() => setMerSubScreen('familie')}
+                />
+              </div>
+            )
           ) : navTab === 'month' ? (
             <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
             <MonthView
@@ -507,11 +529,10 @@ function App() {
                 setSelectedEvent({ event, date })
                 setNavTab('today')
                 setShowListView(false)
-                setLastCalendarTab('today')
               }}
             />
             </div>
-          ) : navTab === 'logistics' ? (
+          ) : navTab === 'tasks' ? (
             <TasksScreen
               weekLayoutData={weekLayoutData}
               tasksByDate={filteredTasksByDate}
@@ -538,7 +559,7 @@ function App() {
               onMarkInboxRead={() => { void markInboxRead() }}
               onDismissNotification={(id) => { void dismissNotification(id) }}
             />
-          ) : (
+          ) : navTab === 'today' ? (
             <CalendarHomeTab
               selectedPersonIds={selectedPersonIds}
               setSelectedPersonIds={setSelectedPersonIds}
@@ -581,7 +602,7 @@ function App() {
               unspecifiedEvents={unspecifiedEventsForDay}
               highlightedEventIds={recentImportedEventIds}
             />
-          )}
+          ) : null}
           </div>
 
           {notifyToast && (
@@ -667,13 +688,11 @@ function App() {
           <BottomNav
             active={effectiveNav}
             logisticsNotifyCount={inboxUnreadCount}
-            lastCalendarTab={lastCalendarTab}
             onSelect={(tab) => {
               logEvent('tab_switched', { tab })
               setNavTab(tab)
-              if (tab === 'week') { setShowListView(true); setLastCalendarTab('week') }
-              else if (tab === 'today') { setShowListView(false); setLastCalendarTab('today') }
-              else if (tab === 'month') { setLastCalendarTab('month') }
+              setMerSubScreen(null)
+              if (tab === 'today') setShowListView(false)
             }}
           />
         </div>
