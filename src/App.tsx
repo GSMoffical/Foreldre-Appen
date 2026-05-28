@@ -555,6 +555,7 @@ function App() {
               weekEventsLoading={weekEventsLoading}
               showNoFamilyEmpty={showNoFamilyEmpty}
               showListView={showListView}
+              setShowListView={setShowListView}
               hasAnyWeekEvents={hasAnyWeekEvents}
               isWeekFilteredEmpty={isWeekFilteredEmpty}
               isDayFilteredEmpty={isDayFilteredEmpty}

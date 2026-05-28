@@ -11,12 +11,17 @@ import { TimelineContainer } from '../../components/TimelineContainer'
 import { AllDayRow } from '../../components/AllDayRow'
 import { springSnappy } from '../../lib/motion'
 import { logEvent } from '../../lib/appLogger'
-import { COPY } from '../../lib/norwegianCopy'
 import { formatCalendarPeriodContextLabel, todayKeyOslo } from '../../lib/osloCalendar'
 import { useFamily } from '../../context/FamilyContext'
 import type { Event, Task, PersonId, TimelineLayoutItem, GapInfo } from '../../types'
 import type { SaveFeedbackState } from '../app/hooks/useSaveFeedback'
 import type { WeekDayLayout } from '../../hooks/useScheduleState'
+
+function formatFullDate(dateKey: string): string {
+  const d = new Date(dateKey + 'T12:00:00')
+  const label = d.toLocaleDateString('nb-NO', { weekday: 'long', day: 'numeric', month: 'long' })
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}
 
 interface CalendarHomeTabProps {
   selectedPersonIds: PersonId[]
@@ -27,13 +32,14 @@ interface CalendarHomeTabProps {
   setSelectedDate: (date: string) => void
   selectedDate: string
   handleSelectEvent: (event: Event, date: string) => void
-  handleChangeWeek: (deltaWeeks: number) => void
-  handleJumpToToday: () => void
-  saveFeedback: SaveFeedbackState
-  reducedMotion: boolean
+  handleChangeWeek?: (deltaWeeks: number) => void
+  handleJumpToToday?: () => void
+  saveFeedback?: SaveFeedbackState
+  reducedMotion?: boolean
   weekEventsLoading: boolean
   showNoFamilyEmpty: boolean
   showListView: boolean
+  setShowListView: (v: boolean) => void
   hasAnyWeekEvents: boolean
   isWeekFilteredEmpty: boolean
   isDayFilteredEmpty: boolean
@@ -61,13 +67,10 @@ export function CalendarHomeTab({
   setSelectedDate,
   selectedDate,
   handleSelectEvent,
-  handleChangeWeek,
-  handleJumpToToday,
-  saveFeedback,
-  reducedMotion,
   weekEventsLoading,
   showNoFamilyEmpty,
   showListView,
+  setShowListView,
   hasAnyWeekEvents,
   isWeekFilteredEmpty,
   isDayFilteredEmpty,
@@ -87,6 +90,7 @@ export function CalendarHomeTab({
 }: CalendarHomeTabProps) {
   const [showTodayPanel, setShowTodayPanel] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [showAddMenu, setShowAddMenu] = useState(false)
   const { people } = useFamily()
 
   const calendarTasksWithPerson = useMemo(
@@ -122,124 +126,145 @@ export function CalendarHomeTab({
   const todayHasData = todayEvents.length > 0 || todayOpenTasks.length > 0
 
   return (
-    <div className="relative mt-2 flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden pb-4">
+    <div className="relative flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden pb-4">
       <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-hidden">
-        <FamilyFilterBar
-          selectedPersonIds={selectedPersonIds}
-          onFilterChange={setSelectedPersonIds}
-          mePersonId={mePersonId}
-        />
-        {/* Controls row — collapses to a full-width search strip when search is open */}
-        {searchOpen ? (
-          /* Search mode: only the SearchBar (input + X button), full row width */
-          <div className="flex items-center px-4 pb-1.5 pt-0.5">
-            <SearchBar
-              open={true}
-              onOpenChange={setSearchOpen}
-              weekLayoutData={weekLayoutData}
-              onJumpToDate={setSelectedDate}
-              onSelectEvent={handleSelectEvent}
-            />
-          </div>
-        ) : (
-          /* Normal mode: nav + action buttons + search icon at right */
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-4 pb-1.5 pt-0.5">
-            <button
-              type="button"
-              onClick={() => handleChangeWeek(-1)}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 shadow-soft transition hover:bg-zinc-50 active:bg-zinc-100 touch-manipulation"
-              aria-label="Forrige uke"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 19.5-7.5-7.5 7.5-7.5" />
-              </svg>
-            </button>
-            <button
-              id="onb-jump-today"
-              type="button"
-              onClick={handleJumpToToday}
-              aria-label="Hopp til i dag"
-              className="shrink-0 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-caption font-medium text-zinc-600 shadow-soft transition hover:bg-zinc-50 active:bg-zinc-100 touch-manipulation"
-            >
-              I dag
-            </button>
-            <button
-              type="button"
-              onClick={() => handleChangeWeek(1)}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 shadow-soft transition hover:bg-zinc-50 active:bg-zinc-100 touch-manipulation"
-              aria-label="Neste uke"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-              </svg>
-            </button>
-            <div className="h-5 w-px shrink-0 bg-zinc-200" />
-            <button
-              id="onb-add-event"
-              type="button"
-              onClick={() => openAddEvent()}
-              className="shrink-0 rounded-pill bg-synkaPrimary px-4 py-2 text-caption font-semibold text-white shadow-planner-sm transition hover:bg-synkaPrimaryDark active:translate-y-px active:shadow-planner-press focus:outline-none focus:ring-2 focus:ring-synkaPrimary/50 touch-manipulation"
-            >
-              + Hendelse
-            </button>
-            <button
-              id="onb-add-task"
-              type="button"
-              onClick={() => openAddTask()}
-              className="shrink-0 rounded-pill border border-synkaPrimary px-4 py-2 text-caption font-semibold text-synkaPrimary transition hover:bg-synkaCream active:translate-y-px focus:outline-none focus:ring-2 focus:ring-synkaPrimary/50 touch-manipulation"
-            >
-              + Gjøremål
-            </button>
-            {/* Right-side: save indicator + search icon — grouped so ml-auto works */}
-            <div className="ml-auto flex shrink-0 items-center gap-1.5">
-              {saveFeedback && (
-                <motion.span
-                  initial={reducedMotion ? false : { scale: 0.85, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={springSnappy}
-                  className={`inline-flex shrink-0 items-center gap-1 text-caption font-medium ${
-                    saveFeedback === 'error' ? 'text-synkaCoral' : saveFeedback === 'saving' ? 'text-zinc-400' : 'text-synkaPrimary'
-                  }`}
-                >
-                  {saveFeedback !== 'saving' && (
-                    <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                    </svg>
-                  )}
-                  {saveFeedback === 'saving'
-                    ? COPY.feedback.saving
-                    : saveFeedback === 'error'
-                      ? COPY.feedback.saveFailed
-                      : COPY.feedback.saved}
-                </motion.span>
-              )}
+        {/* HEADER — bg + shadow separates from timeline */}
+        <div className="bg-synkaCream shadow-[0_1px_0_rgba(26,46,59,0.08)]">
+          {/* ROW 1 — top utility bar */}
+          {searchOpen ? (
+            <div className="flex items-center px-4 pt-2 pb-0">
               <SearchBar
-                open={false}
+                open={true}
                 onOpenChange={setSearchOpen}
                 weekLayoutData={weekLayoutData}
                 onJumpToDate={setSelectedDate}
                 onSelectEvent={handleSelectEvent}
               />
             </div>
+          ) : (
+            <div className="px-4 pt-2 pb-0 flex items-center justify-between">
+              <span className="text-caption font-semibold text-synkaNavy/50 uppercase tracking-wide">
+                {periodContextLabel ?? ''}
+              </span>
+              <div className="flex items-center gap-2">
+                <SearchBar
+                  open={false}
+                  onOpenChange={setSearchOpen}
+                  weekLayoutData={weekLayoutData}
+                  onJumpToDate={setSelectedDate}
+                  onSelectEvent={handleSelectEvent}
+                />
+                <div className="relative">
+                  <button
+                    id="onb-add-event"
+                    type="button"
+                    onClick={() => setShowAddMenu((v) => !v)}
+                    aria-label="Legg til"
+                    className="flex w-8 h-8 items-center justify-center rounded-full bg-synkaPrimary text-white text-[20px] font-light touch-manipulation hover:bg-synkaPrimaryDark active:scale-95 transition"
+                  >
+                    +
+                  </button>
+                  <AnimatePresence>
+                    {showAddMenu && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => setShowAddMenu(false)}
+                          aria-hidden
+                        />
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95, y: 4 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95, y: 4 }}
+                          transition={{ duration: 0.12 }}
+                          className="absolute top-10 right-0 z-50 w-44 overflow-hidden rounded-xl border border-synkaNavy/8 bg-white shadow-lg"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => { openAddEvent(); setShowAddMenu(false) }}
+                            className="flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium text-synkaNavy active:bg-synkaCream touch-manipulation"
+                          >
+                            <svg className="h-4 w-4 shrink-0 text-synkaTeal" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                            </svg>
+                            Hendelse
+                          </button>
+                          <div className="mx-4 border-t border-synkaNavy/8" />
+                          <button
+                            type="button"
+                            onClick={() => { openAddTask(); setShowAddMenu(false) }}
+                            className="flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium text-synkaNavy active:bg-synkaCream touch-manipulation"
+                          >
+                            <svg className="h-4 w-4 shrink-0 text-synkaYellow" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
+                            </svg>
+                            Gjøremål
+                          </button>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ROW 2 — week strip */}
+          <div id="onb-week-strip">
+            <WeekStrip
+              days={weekLayoutData}
+              selectedDate={selectedDate}
+              onSelectDay={setSelectedDate}
+              loading={weekEventsLoading}
+              taskCountByDate={taskCountByDate}
+            />
           </div>
-        )}
-        <div id="onb-week-strip">
-          {periodContextLabel ? (
-            <p
-              className="px-4 pb-1 pt-0.5 text-center text-caption font-semibold leading-tight text-zinc-700 tabular-nums"
-              aria-live="polite"
-            >
-              {periodContextLabel}
-            </p>
-          ) : null}
-          <WeekStrip
-            days={weekLayoutData}
-            selectedDate={selectedDate}
-            onSelectDay={setSelectedDate}
-            loading={weekEventsLoading}
-            taskCountByDate={taskCountByDate}
+
+          {/* DIVIDER */}
+          <div className="border-t border-synkaNavy/8" />
+
+          {/* ROW 3 — filter chips */}
+          <FamilyFilterBar
+            selectedPersonIds={selectedPersonIds}
+            onFilterChange={setSelectedPersonIds}
+            mePersonId={mePersonId}
           />
+
+          {/* DIVIDER */}
+          <div className="border-t border-synkaNavy/8" />
+
+          {/* ROW 4 — date label + Dag/Uke toggle */}
+          <div className="px-4 py-1.5 flex items-center justify-between">
+            <span className="text-[13px] font-semibold text-synkaNavy">
+              {formatFullDate(selectedDate)}
+            </span>
+            <div className="flex items-center bg-synkaNavy/8 rounded-pill p-[2px]">
+              <button
+                type="button"
+                onClick={() => setShowListView(false)}
+                className={`px-3 py-1 text-caption rounded-pill transition touch-manipulation ${
+                  !showListView
+                    ? 'bg-white text-synkaPrimary font-semibold'
+                    : 'text-synkaNavy/40'
+                }`}
+              >
+                Dag
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowListView(true)}
+                className={`px-3 py-1 text-caption rounded-pill transition touch-manipulation ${
+                  showListView
+                    ? 'bg-white text-synkaPrimary font-semibold'
+                    : 'text-synkaNavy/40'
+                }`}
+              >
+                Uke
+              </button>
+            </div>
+          </div>
         </div>
+
         <CalendarDayNote date={selectedDate} />
         {todayHasData && (
           <div className="px-4 pb-1">

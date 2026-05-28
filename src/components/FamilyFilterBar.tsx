@@ -39,7 +39,7 @@ export function FamilyFilterBar({ selectedPersonIds, onFilterChange, mePersonId 
 
   return (
     <LayoutGroup id="family-filter">
-    <div className="flex max-w-full min-w-0 gap-2 overflow-x-auto pb-1 pt-2 scrollbar-none">
+    <div className="flex max-w-full min-w-0 gap-2 overflow-x-auto py-1.5 scrollbar-none">
       <div className="w-4 shrink-0" />
       <motion.button
         type="button"

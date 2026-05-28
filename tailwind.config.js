@@ -16,8 +16,8 @@ export default {
         synkaTeal:        '#7bc7c4',
         synkaTealLight:   '#c8ecea',
         synkaYellow:      '#f5c842',
-        synkaCream:       '#faf0e4',
-        synkaCreamDeep:   '#f5ebe0',
+        synkaCream:       '#f4f2ef',
+        synkaCreamDeep:   '#edeae5',
         synkaNavy:        '#0f1e2b',
         synkaCoral:       '#e05a3a',
         // RGB triplets in index.css so `bg-surface/95` etc. work with time-of-day tint

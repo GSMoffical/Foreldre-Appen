@@ -471,7 +471,11 @@ export function TasksScreen({
       <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto scrollbar-none">
         {/* Screen header */}
         <div className={screenHeaderRow}>
-          <h2 className={typHeading}>Gjøremål</h2>
+          <h2 className={`${typHeading} inline-flex items-center gap-2`}>
+            <span className="inline-block w-2 h-2 rounded-full bg-synkaTeal" aria-hidden />
+            <span className="inline-block w-2 h-2 rounded-full bg-synkaYellow" aria-hidden />
+            Gjøremål
+          </h2>
           <button type="button" onClick={openAddTask} className={btnPrimaryPill}>
             + Nytt gjøremål
           </button>

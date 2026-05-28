@@ -8,7 +8,7 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
-  --color-surface-rgb: 250 240 228;
+  --color-surface-rgb: 244 242 239;
   --z-sticky: 10;
   --z-bottom-nav: 20;
   --z-sheet-overlay: 30;
@@ -17,7 +17,7 @@
 }
 
 html[data-surface='evening'] {
-  --color-surface-rgb: 245 235 224;
+  --color-surface-rgb: 237 234 229;
 }
 
 @media (prefers-contrast: more) {
