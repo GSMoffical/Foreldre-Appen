@@ -12,7 +12,7 @@ import { DEFAULT_SCHOOL_GATE_BY_BAND } from '../data/norwegianSubjects'
 import { dateKeyToWeekdayMon0 } from './weekday'
 import { pickSchoolDayOverrideForChild } from './schoolContext'
 import { getISOWeek, getISOWeekYear } from './isoWeek'
-import { norwegianDayHasCalendarHighlight } from './norwegianSchoolCalendar'
+import { norwegianDayHasSchoolBreak } from './norwegianSchoolCalendar'
 import { calendarReplaceSchoolBlockTitle } from './schoolWeekOverlayReplaceTitle'
 
 type BackgroundSubkind = 'school_day' | 'school_day_override' | 'school_lesson' | 'school_break' | 'work_day'
@@ -151,7 +151,7 @@ export function buildBackgroundEventsForDate(
 
     if (p.memberKind === 'child' && p.school != null) {
       // Nasjonale helligdager + skoleferier (samme kilde som kalenderbanner) — ingen skolebakgrunn den dagen.
-      if (norwegianDayHasCalendarHighlight(dateKey)) {
+      if (norwegianDayHasSchoolBreak(dateKey)) {
         continue
       }
 

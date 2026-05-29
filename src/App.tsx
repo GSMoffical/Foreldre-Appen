@@ -1,11 +1,10 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { AppShell } from './components/AppShell'
 import { MobileFrame } from './components/MobileFrame'
 import { BottomNav } from './components/BottomNav'
 import { AuthScreen } from './components/AuthScreen'
 import { SettingsScreen } from './components/SettingsScreen'
-import { MonthView } from './components/MonthView'
 import { TasksScreen } from './components/TasksScreen'
 import type { NavTab } from './components/BottomNav'
 import { useScheduleState } from './hooks/useScheduleState'
@@ -30,8 +29,6 @@ import { useInviteAcceptance } from './features/invites/hooks/useInviteAcceptanc
 import { AppNoticeStack } from './features/app/components/AppNoticeStack'
 import { CalendarHomeTab } from './features/calendar/CalendarHomeTab'
 import { MerScreen } from './components/MerScreen'
-import { HjelpScreen } from './components/HjelpScreen'
-import { FamilieScreen } from './components/FamilieScreen'
 import { CalendarOverlays } from './features/calendar/CalendarOverlays'
 import { useEventController } from './features/calendar/hooks/useEventController'
 import { useTasksState } from './hooks/useTasksState'
@@ -41,9 +38,25 @@ import { DebugOverlay } from './components/DebugOverlay'
 import { loadOnboarding, resetOnboarding } from './lib/onboarding'
 import { FamilySetupScreen, isFamilySetupSkipped } from './components/FamilySetupScreen'
 import { IconArrowLeft } from '@tabler/icons-react'
-import { TankestromImportDialog } from './features/tankestrom/TankestromImportDialog'
-import { TankestrømPage } from './features/tankestrom/TankestrømPage'
 import type { TankestromImportSuccess } from './features/tankestrom/useTankestromImport'
+
+const MonthView = lazy(() =>
+  import('./components/MonthView').then((m) => ({ default: m.MonthView }))
+)
+const FamilieScreen = lazy(() =>
+  import('./components/FamilieScreen').then((m) => ({ default: m.FamilieScreen }))
+)
+const HjelpScreen = lazy(() =>
+  import('./components/HjelpScreen').then((m) => ({ default: m.HjelpScreen }))
+)
+const TankestrømPage = lazy(() =>
+  import('./features/tankestrom/TankestrømPage').then((m) => ({ default: m.TankestrømPage }))
+)
+const TankestromImportDialog = lazy(() =>
+  import('./features/tankestrom/TankestromImportDialog').then((m) => ({
+    default: m.TankestromImportDialog,
+  }))
+)
 
 /** Set to true to re-enable the onboarding tour. */
 const ENABLE_ONBOARDING = false
@@ -516,26 +529,32 @@ function App() {
               </div>
             ) : merSubScreen === 'tankestrom' ? (
               <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
-                <TankestrømPage
-                  onBack={() => setMerSubScreen(null)}
-                  people={people}
-                  createEvent={controller.createEvent}
-                  createTask={taskController.createTask}
-                  editEvent={controller.editEvent}
-                  getAnchoredForegroundEventsForMatching={getAnchoredForegroundEventsForMatching}
-                  prefetchEventsForDateRange={prefetchEventsForDateRange}
-                  deleteEvent={deleteEvent}
-                  updatePerson={updatePerson}
-                  onImportFinished={openTankestromToast}
-                />
+                <Suspense fallback={null}>
+                  <TankestrømPage
+                    onBack={() => setMerSubScreen(null)}
+                    people={people}
+                    createEvent={controller.createEvent}
+                    createTask={taskController.createTask}
+                    editEvent={controller.editEvent}
+                    getAnchoredForegroundEventsForMatching={getAnchoredForegroundEventsForMatching}
+                    prefetchEventsForDateRange={prefetchEventsForDateRange}
+                    deleteEvent={deleteEvent}
+                    updatePerson={updatePerson}
+                    onImportFinished={openTankestromToast}
+                  />
+                </Suspense>
               </div>
             ) : merSubScreen === 'familie' ? (
               <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
-                <FamilieScreen onBack={() => setMerSubScreen(null)} />
+                <Suspense fallback={null}>
+                  <FamilieScreen onBack={() => setMerSubScreen(null)} />
+                </Suspense>
               </div>
             ) : merSubScreen === 'hjelp' ? (
               <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
-                <HjelpScreen onBack={() => setMerSubScreen(null)} />
+                <Suspense fallback={null}>
+                  <HjelpScreen onBack={() => setMerSubScreen(null)} />
+                </Suspense>
               </div>
             ) : (
               <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
@@ -549,25 +568,27 @@ function App() {
             )
           ) : navTab === 'month' ? (
             <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
-            <MonthView
-              selectedDate={selectedDate}
-              onSelectDate={(date) => {
-                setSelectedDate(date)
-              }}
-              hasEventsOnDate={(date) => getVisibleEventsForDate(date).length > 0}
-              getEventsForDate={getVisibleEventsForDate}
-              hasHighlightedTaskOnDate={hasHighlightedTaskOnDate}
-              onVisibleMonthRange={handleMonthRangePrefetch}
-              onAddEventForDate={(date) => {
-                openAddEvent(date)
-              }}
-              onSelectEvent={(event, date) => {
-                setSelectedDate(date)
-                setSelectedEvent({ event, date })
-                setNavTab('today')
-                setShowListView(false)
-              }}
-            />
+              <Suspense fallback={null}>
+                <MonthView
+                  selectedDate={selectedDate}
+                  onSelectDate={(date) => {
+                    setSelectedDate(date)
+                  }}
+                  hasEventsOnDate={(date) => getVisibleEventsForDate(date).length > 0}
+                  getEventsForDate={getVisibleEventsForDate}
+                  hasHighlightedTaskOnDate={hasHighlightedTaskOnDate}
+                  onVisibleMonthRange={handleMonthRangePrefetch}
+                  onAddEventForDate={(date) => {
+                    openAddEvent(date)
+                  }}
+                  onSelectEvent={(event, date) => {
+                    setSelectedDate(date)
+                    setSelectedEvent({ event, date })
+                    setNavTab('today')
+                    setShowListView(false)
+                  }}
+                />
+              </Suspense>
             </div>
           ) : navTab === 'tasks' ? (
             <TasksScreen
@@ -741,19 +762,21 @@ function App() {
         <OnboardingTour onComplete={() => setShowTour(false)} />
       )}
       <DebugOverlay />
-      <TankestromImportDialog
-        open={tankestromImportOpen}
-        onClose={() => setTankestromImportOpen(false)}
-        people={people}
-        createEvent={controller.createEvent}
-        createTask={taskController.createTask}
-        editEvent={controller.editEvent}
-        getAnchoredForegroundEventsForMatching={getAnchoredForegroundEventsForMatching}
-        prefetchEventsForDateRange={prefetchEventsForDateRange}
-        deleteEvent={deleteEvent}
-        updatePerson={updatePerson}
-        onImportFinished={openTankestromToast}
-      />
+      <Suspense fallback={null}>
+        <TankestromImportDialog
+          open={tankestromImportOpen}
+          onClose={() => setTankestromImportOpen(false)}
+          people={people}
+          createEvent={controller.createEvent}
+          createTask={taskController.createTask}
+          editEvent={controller.editEvent}
+          getAnchoredForegroundEventsForMatching={getAnchoredForegroundEventsForMatching}
+          prefetchEventsForDateRange={prefetchEventsForDateRange}
+          deleteEvent={deleteEvent}
+          updatePerson={updatePerson}
+          onImportFinished={openTankestromToast}
+        />
+      </Suspense>
       <CalendarOverlays
         selectedEvent={selectedEvent}
         setSelectedEvent={setSelectedEvent}

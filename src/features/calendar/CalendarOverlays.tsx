@@ -1,9 +1,14 @@
-import { useMemo } from 'react'
+import { useMemo, lazy, Suspense } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { AddEventSheet, REPEAT_INTERVAL_DAYS } from '../../components/AddEventSheet'
 import { EditEventSheet } from '../../components/EditEventSheet'
 import { EventDetailSheet } from '../../components/EventDetailSheet'
-import { BackgroundDetailSheet } from '../../components/BackgroundDetailSheet'
+
+const BackgroundDetailSheet = lazy(() =>
+  import('../../components/BackgroundDetailSheet').then((m) => ({
+    default: m.BackgroundDetailSheet,
+  }))
+)
 import { AddTaskSheet } from '../tasks/components/AddTaskSheet'
 import { TaskDetailSheet } from '../tasks/components/TaskDetailSheet'
 import type { Event, Task } from '../../types'
@@ -124,26 +129,28 @@ export function CalendarOverlays({
         />
       )}
       {selectedBackgroundEvent && (
-        <BackgroundDetailSheet
-          event={selectedBackgroundEvent.event}
-          date={selectedBackgroundEvent.date}
-          foregroundEvents={dayEvents}
-          dayEvents={dayEvents}
-          dayTasks={dayTasks}
-          onResolveConflict={async (decision) => {
-            try {
-              await controller.resolveConflict(
-                selectedBackgroundEvent.date,
-                selectedBackgroundEvent.event,
-                decision
-              )
-              onConflictResolved()
-            } catch {
-              // feedback handled by controller
-            }
-          }}
-          onClose={() => setSelectedBackgroundEvent(null)}
-        />
+        <Suspense fallback={null}>
+          <BackgroundDetailSheet
+            event={selectedBackgroundEvent.event}
+            date={selectedBackgroundEvent.date}
+            foregroundEvents={dayEvents}
+            dayEvents={dayEvents}
+            dayTasks={dayTasks}
+            onResolveConflict={async (decision) => {
+              try {
+                await controller.resolveConflict(
+                  selectedBackgroundEvent.date,
+                  selectedBackgroundEvent.event,
+                  decision
+                )
+                onConflictResolved()
+              } catch {
+                // feedback handled by controller
+              }
+            }}
+            onClose={() => setSelectedBackgroundEvent(null)}
+          />
+        </Suspense>
       )}
       {isAdding && (
         <AddEventSheet

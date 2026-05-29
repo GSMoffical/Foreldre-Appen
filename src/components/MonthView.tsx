@@ -5,7 +5,11 @@ import { formatCalendarEventTimeLabel } from '../lib/schedule'
 import { useFamily } from '../context/FamilyContext'
 import { getParticipantPeople } from '../lib/eventParticipants'
 import { ParticipantAvatarStrip } from './ParticipantAvatarStrip'
-import { formatNorwegianCalendarSummary, norwegianDayHasCalendarHighlight } from '../lib/norwegianSchoolCalendar'
+import {
+  ensureNorwegianHolidaysLoaded,
+  formatNorwegianCalendarSummary,
+  norwegianDayHasCalendarHighlight,
+} from '../lib/norwegianSchoolCalendar'
 
 interface MonthViewProps {
   selectedDate: string
@@ -154,6 +158,7 @@ export function MonthView({
   const selectedParts = selectedDate.split('-').map(Number)
   const [viewYear, setViewYear] = useState(() => selectedParts[0])
   const [viewMonth, setViewMonth] = useState(() => selectedParts[1] - 1)
+  const [holidaysReady, setHolidaysReady] = useState(false)
 
   const todayKey = useMemo(() => todayKeyLocal(), [])
   const longPressTimerRef = useRef<number | null>(null)
@@ -165,6 +170,10 @@ export function MonthView({
       longPressTimerRef.current = null
     }
   }
+
+  useEffect(() => {
+    void ensureNorwegianHolidaysLoaded().then(() => setHolidaysReady(true))
+  }, [])
 
   /** Keep visible month/year aligned when selectedDate changes elsewhere in the app */
   useEffect(() => {
@@ -217,8 +226,8 @@ export function MonthView({
   }, [getEventsForDate, selectedDate])
 
   const selectedDayCalendarLine = useMemo(
-    () => formatNorwegianCalendarSummary(selectedDate),
-    [selectedDate]
+    () => (holidaysReady ? formatNorwegianCalendarSummary(selectedDate) : null),
+    [selectedDate, holidaysReady]
   )
 
   function jumpToCurrentMonth() {
