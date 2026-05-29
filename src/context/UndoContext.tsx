@@ -89,14 +89,15 @@ export function UndoProvider({ children }: { children: ReactNode }) {
             className="pointer-events-none fixed inset-x-0 z-[50] flex justify-center px-3"
             style={{
               bottom: 'calc(72px + env(safe-area-inset-bottom, 0px))',
+              willChange: 'transform, opacity',
             }}
           >
-            <div className="pointer-events-auto flex w-full max-w-[390px] items-center justify-between gap-3 rounded-lg border-2 border-brandNavy/20 bg-brandNavy px-3 py-2.5 text-white shadow-planner">
+            <div className="pointer-events-auto flex w-full max-w-[390px] items-center justify-between gap-3 rounded-lg border border-synkaNavy/10 bg-white px-3 py-2.5 text-synkaNavy shadow-md">
               <p className="min-w-0 flex-1 text-body-sm font-medium leading-snug">{payload.message}</p>
               <button
                 type="button"
                 onClick={() => void runUndo()}
-                className="shrink-0 rounded-pill bg-white px-3 py-1.5 text-body-sm font-semibold text-brandNavy shadow-sm transition hover:bg-brandSky focus:outline-none focus:ring-2 focus:ring-brandSky focus:ring-offset-2 focus:ring-offset-brandNavy"
+                className="shrink-0 rounded-pill bg-synkaPrimary px-3 py-1.5 text-body-sm font-semibold text-white shadow-sm transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-synkaPrimary/40 focus:ring-offset-2"
               >
                 Angre
               </button>
@@ -117,6 +118,7 @@ export function UndoProvider({ children }: { children: ReactNode }) {
             className="pointer-events-none fixed inset-x-0 z-[50] flex justify-center px-3"
             style={{
               bottom: 'calc(72px + env(safe-area-inset-bottom, 0px))',
+              willChange: 'transform, opacity',
             }}
           >
             <div className="pointer-events-none flex w-full max-w-[390px] items-center gap-3 rounded-lg border-2 border-synkaCoral/30 bg-synkaCoral px-3 py-2.5 text-white shadow-planner">

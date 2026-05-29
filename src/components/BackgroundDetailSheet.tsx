@@ -12,7 +12,7 @@ import type {
   WeekdayMonFri,
 } from '../types'
 import { springDialog } from '../lib/motion'
-import { sheetPanel, sheetHandle, sheetHandleBar, sheetDetailBody, typSectionCap, btnRowAction } from '../lib/ui'
+import { sheetPanel, sheetHandle, sheetDetailBody, typSectionCap, btnRowAction } from '../lib/ui'
 import { useFamily } from '../context/FamilyContext'
 import { dateKeyToWeekdayMon0 } from '../lib/weekday'
 import { subjectLabelForKey } from '../data/norwegianSubjects'
@@ -438,9 +438,7 @@ export function BackgroundDetailSheet({
           aria-modal="true"
           aria-label="Detaljer skole og jobb"
         >
-          <div className={sheetHandle}>
-            <div className={sheetHandleBar} aria-hidden />
-          </div>
+          <div className={sheetHandle} />
           <div className={sheetDetailBody}>
             <p className={typSectionCap}>{title}</p>
             <h2 className="mt-1 text-[20px] font-bold text-zinc-900 leading-tight">{person.name}</h2>

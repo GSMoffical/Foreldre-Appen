@@ -7,7 +7,7 @@ import { useConfirmClose } from '../hooks/useConfirmClose'
 import {
   inputBase, textareaBase, inputLabel, typLabel,
   btnSecondary, btnDanger,
-  sheetPanel, sheetHandle, sheetHandleBar, sheetFormBody,
+  sheetPanel, sheetHandle, sheetFormBody,
   sheetTitle, btnDisclosure, personChipActive, personChipInactive,
   dropdownTrigger,
 } from '../lib/ui'
@@ -351,7 +351,6 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
           aria-label="Rediger hendelse"
         >
         <div className={`${sheetHandle} relative`}>
-          <div className={sheetHandleBar} aria-hidden />
           <button
             type="button"
             onClick={guardedClose}

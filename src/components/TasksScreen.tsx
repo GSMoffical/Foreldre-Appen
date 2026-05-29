@@ -99,11 +99,11 @@ function BellIcon() {
 /** Each section animates independently: cards rise from below in sequence. */
 const TASK_LIST_CONTAINER: Variants = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.05 } },
+  visible: { transition: { staggerChildren: 0.03 } },
 }
 const TASK_LIST_ITEM: Variants = {
   hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: 'easeOut' } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.18, ease: 'easeOut' } },
 }
 
 function StaggeredTasks({
@@ -119,9 +119,9 @@ function StaggeredTasks({
     return <div className="space-y-2">{tasks.map((t) => renderTask(t))}</div>
   }
   return (
-    <motion.div className="space-y-2" variants={TASK_LIST_CONTAINER} initial="hidden" animate="visible">
+    <motion.div className="space-y-2" variants={TASK_LIST_CONTAINER} initial="hidden" animate="visible" style={{ willChange: 'transform, opacity' }}>
       {tasks.map((t) => (
-        <motion.div key={t.id} variants={TASK_LIST_ITEM}>
+        <motion.div key={t.id} variants={TASK_LIST_ITEM} style={{ willChange: 'transform, opacity' }}>
           {renderTask(t)}
         </motion.div>
       ))}

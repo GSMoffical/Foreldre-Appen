@@ -4,7 +4,6 @@ import { springDialog } from '../../../lib/motion'
 import {
   sheetPanel,
   sheetHandle,
-  sheetHandleBar,
   sheetDetailBody,
   typDisplay,
   typBody,
@@ -122,7 +121,6 @@ export function TaskDetailSheet({
           aria-label="Gjøremålsdetaljer"
         >
           <div className={`${sheetHandle} relative`}>
-            <div className={sheetHandleBar} aria-hidden />
             <button
               type="button"
               onClick={onClose}

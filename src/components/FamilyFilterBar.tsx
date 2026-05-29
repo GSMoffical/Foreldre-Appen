@@ -58,7 +58,7 @@ export function FamilyFilterBar({ selectedPersonIds, onFilterChange, mePersonId 
         onClick={() => handleTap(ALL_ID)}
         className={`flex shrink-0 items-center rounded-pill border px-3.5 py-1.5 text-body-sm font-medium transition-colors touch-manipulation ${
           isAll
-            ? 'border-transparent bg-synkaNavy text-white'
+            ? 'border-transparent bg-synkaPrimary text-white'
             : 'border-synkaNavy/20 bg-synkaCream text-synkaNavy/70'
         }`}
         animate={chipScale(isAll).animate}

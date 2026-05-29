@@ -16,7 +16,7 @@ interface MerScreenProps {
 
 const CARDS_CONTAINER: Variants = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.06 } },
+  visible: { transition: { staggerChildren: 0.035 } },
 }
 
 /** Featured card lingers a touch longer (300ms) than the rest (200ms). */
@@ -42,6 +42,7 @@ export function MerScreen({ onNavigateSettings, onNavigateTankestrom, onNavigate
         variants={reducedMotion ? undefined : CARDS_CONTAINER}
         initial={reducedMotion ? false : 'hidden'}
         animate={reducedMotion ? undefined : 'visible'}
+        style={{ willChange: 'transform, opacity' }}
       >
         {/* Tankestrøm — featured */}
         <motion.button

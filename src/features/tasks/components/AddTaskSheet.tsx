@@ -8,7 +8,7 @@ import { useConfirmClose } from '../../../hooks/useConfirmClose'
 import {
   inputBase, textareaBase, selectBase, inputLabel,
   btnPrimary, btnSecondary, btnDanger, btnDisclosure,
-  sheetPanel, sheetHandle, sheetHandleBar, sheetFormBody,
+  sheetPanel, sheetHandle, sheetFormBody,
   sheetTitle,
 } from '../../../lib/ui'
 
@@ -106,7 +106,6 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
         aria-label={isEdit ? 'Rediger gjøremål' : 'Nytt gjøremål'}
       >
         <div className={`${sheetHandle} relative`}>
-          <div className={sheetHandleBar} aria-hidden />
           <button
             type="button"
             onClick={guardedClose}

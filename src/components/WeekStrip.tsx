@@ -25,6 +25,7 @@ export function WeekStrip({ days, selectedDate, onSelectDay, loading, taskCountB
       variants={container}
       initial="hidden"
       animate="visible"
+      style={{ willChange: 'transform, opacity' }}
     >
       {days.map((day) => (
         <WeekDayCard

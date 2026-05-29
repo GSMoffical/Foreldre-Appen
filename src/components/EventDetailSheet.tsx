@@ -219,7 +219,6 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
           aria-label="Hendelsesdetaljer"
         >
         <div className={`${sheetHandle} !bg-synkaCream relative`}>
-          <div className="h-1 w-10 rounded-pill bg-synkaPrimary/20" aria-hidden />
           <button
             type="button"
             onClick={onClose}

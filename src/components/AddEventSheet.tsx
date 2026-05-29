@@ -9,7 +9,7 @@ import { addCalendarDaysOslo } from '../lib/osloCalendar'
 import {
   inputBase, textareaBase, inputLabel,
   btnSecondary, btnDanger,
-  sheetPanel, sheetHandle, sheetHandleBar, sheetFormBody,
+  sheetPanel, sheetHandle, sheetFormBody,
   typLabel, sheetTitle, sheetSubtitle,
   btnDisclosure, personChipActive, personChipInactive, dropdownTrigger,
 } from '../lib/ui'
@@ -298,7 +298,6 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
           aria-label="Legg til hendelse"
         >
         <div className={`${sheetHandle} relative`}>
-          <div className={sheetHandleBar} aria-hidden />
           <button
             type="button"
             onClick={guardedClose}
