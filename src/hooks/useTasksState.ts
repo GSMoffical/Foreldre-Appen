@@ -101,8 +101,51 @@ export function useTasksState(selectedDate: string) {
     onRefresh: queueRefresh,
   })
 
+  function applyTaskUpdates(task: Task, updates: TaskUpdates): Task {
+    const next: Task = { ...task }
+    if (updates.title != null) next.title = updates.title
+    if (updates.date != null) next.date = updates.date
+    if ('notes' in updates) next.notes = updates.notes
+    if ('dueTime' in updates) next.dueTime = updates.dueTime
+    if ('assignedToPersonId' in updates) next.assignedToPersonId = updates.assignedToPersonId
+    if ('childPersonId' in updates) next.childPersonId = updates.childPersonId
+    if ('completedAt' in updates) next.completedAt = updates.completedAt
+    if ('showInMonthView' in updates) next.showInMonthView = updates.showInMonthView
+    if ('taskIntent' in updates && updates.taskIntent != null) next.taskIntent = updates.taskIntent
+    return next
+  }
+
+  function snapshotTasksByDate(prev: Record<string, Task[]>): Record<string, Task[]> {
+    const snap: Record<string, Task[]> = {}
+    for (const [key, tasks] of Object.entries(prev)) {
+      snap[key] = tasks.map((t) => ({ ...t }))
+    }
+    return snap
+  }
+
+  function setTaskInByDate(
+    prev: Record<string, Task[]>,
+    taskId: string,
+    oldDate: string,
+    newDate: string,
+    nextTask: Task
+  ): Record<string, Task[]> {
+    if (newDate !== oldDate) {
+      return {
+        ...prev,
+        [oldDate]: (prev[oldDate] ?? []).filter((t) => t.id !== taskId),
+        [newDate]: [...(prev[newDate] ?? []).filter((t) => t.id !== taskId), nextTask],
+      }
+    }
+    return {
+      ...prev,
+      [oldDate]: (prev[oldDate] ?? []).map((t) => (t.id === taskId ? nextTask : t)),
+    }
+  }
+
   async function addTask(input: Omit<Task, 'id'>) {
     if (!user || !effectiveUserId) throw new Error('Must be signed in to add tasks')
+    fetchRequestIdRef.current++
     const created = await createTaskApi(effectiveUserId, input)
     setTasksByDate((prev) => {
       const existing = prev[input.date] ?? []
@@ -112,25 +155,33 @@ export function useTasksState(selectedDate: string) {
 
   async function patchTask(taskId: string, oldDate: string, updates: TaskUpdates) {
     if (!user) throw new Error('Must be signed in to edit tasks')
-    const updated = await updateTaskApi(taskId, updates)
-    if (!updated) throw new Error('Could not update task')
+    // Drop in-flight week fetches so they cannot overwrite this patch when they complete.
+    fetchRequestIdRef.current++
+
     const newDate = updates.date ?? oldDate
-    if (newDate !== oldDate) {
-      setTasksByDate((prev) => ({
-        ...prev,
-        [oldDate]: (prev[oldDate] ?? []).filter((t) => t.id !== taskId),
-        [newDate]: [...(prev[newDate] ?? []), updated],
-      }))
-    } else {
-      setTasksByDate((prev) => ({
-        ...prev,
-        [oldDate]: (prev[oldDate] ?? []).map((t) => (t.id === taskId ? updated : t)),
-      }))
+    let revertSnapshot: Record<string, Task[]> | null = null
+
+    setTasksByDate((prev) => {
+      const existing = prev[oldDate]?.find((t) => t.id === taskId)
+      if (!existing) return prev
+      revertSnapshot = snapshotTasksByDate(prev)
+      const optimistic = applyTaskUpdates(existing, updates)
+      return setTaskInByDate(prev, taskId, oldDate, newDate, optimistic)
+    })
+
+    try {
+      const updated = await updateTaskApi(taskId, updates)
+      if (!updated) throw new Error('Could not update task')
+      setTasksByDate((prev) => setTaskInByDate(prev, taskId, oldDate, newDate, updated))
+    } catch (err) {
+      if (revertSnapshot) setTasksByDate(revertSnapshot)
+      throw err
     }
   }
 
   async function removeTask(taskId: string, date: string) {
     if (!user || !effectiveUserId) throw new Error('Must be signed in to delete tasks')
+    fetchRequestIdRef.current++
     const ok = await deleteTaskApi(taskId, effectiveUserId)
     if (!ok) throw new Error('Could not delete task')
     setTasksByDate((prev) => ({

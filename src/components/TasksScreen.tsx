@@ -478,6 +478,14 @@ export function TasksScreen({
     return { child, assignee }
   }
 
+  const handleCompleteTask = useCallback(
+    (task: Task) => {
+      setShowCompleted(true)
+      onCompleteTask(task)
+    },
+    [onCompleteTask]
+  )
+
   function renderTask(task: Task) {
     const { child, assignee } = resolvePeople(task)
     return (
@@ -486,7 +494,7 @@ export function TasksScreen({
         task={task}
         child={child}
         assignee={assignee}
-        onComplete={() => onCompleteTask(task)}
+        onComplete={() => handleCompleteTask(task)}
         onUndoComplete={() => onUndoCompleteTask(task)}
         onEdit={() => onEditTask(task)}
         onDelete={() => onDeleteTask(task)}

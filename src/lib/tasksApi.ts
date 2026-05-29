@@ -168,17 +168,38 @@ export async function updateTask(
   if ('taskIntent' in updates && updates.taskIntent != null) payload.task_intent = updates.taskIntent
   if (Object.keys(payload).length === 0) return null
 
-  const { data, error } = await supabase
+  const first = await supabase
     .from('tasks')
     .update(payload)
     .eq('id', taskId)
     .select(TASK_COLUMNS)
     .single()
-  if (error) {
-    console.error('[tasksApi] updateTask error', error)
+
+  if (!first.error) {
+    return mapRowToTask(first.data as TaskRow)
+  }
+
+  if (isPostgrestTaskIntentColumnMissingError(first.error)) {
+    const { taskIntent: _taskIntent, ...payloadWithoutIntent } = payload
+    if (Object.keys(payloadWithoutIntent).length === 0) {
+      console.error('[tasksApi] updateTask error (only task_intent in payload)', first.error)
+      return null
+    }
+    const second = await supabase
+      .from('tasks')
+      .update(payloadWithoutIntent)
+      .eq('id', taskId)
+      .select(TASK_COLUMNS_WITHOUT_TASK_INTENT)
+      .single()
+    if (!second.error) {
+      return mapRowToTask({ ...(second.data as TaskRow), task_intent: null })
+    }
+    console.error('[tasksApi] updateTask error (fallback update also failed)', second.error)
     return null
   }
-  return mapRowToTask(data as TaskRow)
+
+  console.error('[tasksApi] updateTask error', first.error)
+  return null
 }
 
 export async function deleteTask(

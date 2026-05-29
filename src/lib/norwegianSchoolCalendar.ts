@@ -59,12 +59,29 @@ function appendSchoolBreakMarkers(dateKey: string, out: NorwegianDayMarker[]): v
   }
 }
 
-/** Skoleferier only — does not load `date-holidays` (safe for hot paths like school background layout). */
+/** Skoleferier only — does not load `date-holidays`. */
 export function norwegianDayHasSchoolBreak(dateKey: string): boolean {
   for (const b of NORWAY_SCHOOL_BREAKS) {
     if (dateKey >= b.start && dateKey <= b.end) return true
   }
   return false
+}
+
+/** Public/bank holiday (requires `date-holidays` to have loaded). */
+export function norwegianDayHasPublicHoliday(dateKey: string): boolean {
+  if (!hd) return false
+  const y = Number(dateKey.slice(0, 4))
+  if (!Number.isFinite(y)) return false
+  for (const h of holidaysInYear(y)) {
+    if (!RELEVANT_TYPES.has(h.type)) continue
+    if (normDateKey(h.date) === dateKey) return true
+  }
+  return false
+}
+
+/** School break or public holiday — used to suppress school background blocks. */
+export function norwegianDayOffSchool(dateKey: string): boolean {
+  return norwegianDayHasSchoolBreak(dateKey) || norwegianDayHasPublicHoliday(dateKey)
 }
 
 export function getNorwegianDayMarkers(dateKey: string): NorwegianDayMarker[] {
