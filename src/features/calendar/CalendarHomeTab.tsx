@@ -67,6 +67,8 @@ export function CalendarHomeTab({
   setSelectedDate,
   selectedDate,
   handleSelectEvent,
+  handleChangeWeek,
+  reducedMotion,
   weekEventsLoading,
   showNoFamilyEmpty,
   showListView,
@@ -143,9 +145,27 @@ export function CalendarHomeTab({
             </div>
           ) : (
             <div className="px-4 pt-2 pb-0 flex items-center justify-between">
-              <span className="text-caption font-semibold text-synkaNavy/50 uppercase tracking-wide">
-                {periodContextLabel ?? ''}
-              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleChangeWeek?.(-1)}
+                  aria-label="Forrige uke"
+                  className="flex w-7 h-7 items-center justify-center rounded-full bg-synkaNavy/8 text-synkaNavy/50 text-[14px] touch-manipulation hover:bg-synkaNavy/12 transition"
+                >
+                  ‹
+                </button>
+                <span className="text-caption font-semibold text-synkaNavy/50 uppercase tracking-wide px-0.5">
+                  {periodContextLabel ?? ''}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleChangeWeek?.(1)}
+                  aria-label="Neste uke"
+                  className="flex w-7 h-7 items-center justify-center rounded-full bg-synkaNavy/8 text-synkaNavy/50 text-[14px] touch-manipulation hover:bg-synkaNavy/12 transition"
+                >
+                  ›
+                </button>
+              </div>
               <div className="flex items-center gap-2">
                 <SearchBar
                   open={false}
@@ -179,8 +199,11 @@ export function CalendarHomeTab({
                           transition={{ duration: 0.12 }}
                           className="absolute top-10 right-0 z-50 w-44 overflow-hidden rounded-xl border border-synkaNavy/8 bg-white shadow-lg"
                         >
-                          <button
+                          <motion.button
                             type="button"
+                            initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={reducedMotion ? { duration: 0 } : { duration: 0.15, ease: 'easeOut', delay: 0 }}
                             onClick={() => { openAddEvent(); setShowAddMenu(false) }}
                             className="flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium text-synkaNavy active:bg-synkaCream touch-manipulation"
                           >
@@ -188,10 +211,13 @@ export function CalendarHomeTab({
                               <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
                             </svg>
                             Hendelse
-                          </button>
+                          </motion.button>
                           <div className="mx-4 border-t border-synkaNavy/8" />
-                          <button
+                          <motion.button
                             type="button"
+                            initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={reducedMotion ? { duration: 0 } : { duration: 0.15, ease: 'easeOut', delay: 0.06 }}
                             onClick={() => { openAddTask(); setShowAddMenu(false) }}
                             className="flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium text-synkaNavy active:bg-synkaCream touch-manipulation"
                           >
@@ -199,7 +225,7 @@ export function CalendarHomeTab({
                               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
                             </svg>
                             Gjøremål
-                          </button>
+                          </motion.button>
                         </motion.div>
                       </>
                     )}

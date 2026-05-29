@@ -1,3 +1,4 @@
+import { motion, useReducedMotion } from 'framer-motion'
 
 interface EmptyStateProps {
   /** When provided, shows a primary CTA to add an event */
@@ -10,6 +11,7 @@ interface EmptyStateProps {
 
 export function EmptyState({ onAddEvent, context = 'day', variant = 'default' }: EmptyStateProps) {
   const isWeek = context === 'week'
+  const reducedMotion = useReducedMotion() ?? false
 
   if (variant === 'no_family') {
     return (
@@ -37,7 +39,18 @@ export function EmptyState({ onAddEvent, context = 'day', variant = 'default' }:
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center px-6 py-14 text-center">
-      <img src="/synka-mark.svg" alt="" className="w-20 h-20 opacity-40" />
+      {reducedMotion ? (
+        <img src="/synka-mark.svg" alt="" className="w-20 h-20 opacity-40" />
+      ) : (
+        <motion.img
+          src="/synka-mark.svg"
+          alt=""
+          className="w-20 h-20"
+          initial={{ opacity: 0.35 }}
+          animate={{ opacity: [0.35, 0.5] }}
+          transition={{ duration: 3, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
+        />
+      )}
       <p className="mt-4 text-subheading font-semibold text-synkaNavy/60">
         {isWeek ? 'Ingen hendelser denne uken' : 'Ingen hendelser denne dagen'}
       </p>

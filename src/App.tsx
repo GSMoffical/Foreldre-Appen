@@ -30,6 +30,8 @@ import { useInviteAcceptance } from './features/invites/hooks/useInviteAcceptanc
 import { AppNoticeStack } from './features/app/components/AppNoticeStack'
 import { CalendarHomeTab } from './features/calendar/CalendarHomeTab'
 import { MerScreen } from './components/MerScreen'
+import { HjelpScreen } from './components/HjelpScreen'
+import { FamilieScreen } from './components/FamilieScreen'
 import { CalendarOverlays } from './features/calendar/CalendarOverlays'
 import { useEventController } from './features/calendar/hooks/useEventController'
 import { useTasksState } from './hooks/useTasksState'
@@ -38,7 +40,9 @@ import { OnboardingTour } from './components/OnboardingTour'
 import { DebugOverlay } from './components/DebugOverlay'
 import { loadOnboarding, resetOnboarding } from './lib/onboarding'
 import { FamilySetupScreen, isFamilySetupSkipped } from './components/FamilySetupScreen'
+import { IconArrowLeft } from '@tabler/icons-react'
 import { TankestromImportDialog } from './features/tankestrom/TankestromImportDialog'
+import { TankestrømPage } from './features/tankestrom/TankestrømPage'
 import type { TankestromImportSuccess } from './features/tankestrom/useTankestromImport'
 
 /** Set to true to re-enable the onboarding tour. */
@@ -78,7 +82,6 @@ function App() {
     deleteEvent,
     updateAllInSeries,
     deleteAllInSeries,
-    purgePersonEvents,
     weekEventsLoading,
     clearAllEvents,
     scheduleError,
@@ -117,7 +120,7 @@ function App() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [selectedBackgroundEvent, setSelectedBackgroundEvent] = useState<{ event: Event; date: string } | null>(null)
   const [navTab, setNavTab] = useState<NavTab>('today')
-  const [merSubScreen, setMerSubScreen] = useState<'settings' | 'familie' | 'tankestrom' | null>(null)
+  const [merSubScreen, setMerSubScreen] = useState<'settings' | 'familie' | 'tankestrom' | 'hjelp' | null>(null)
   const { currentPersonId, hapticsEnabled } = useUserPreferences()
   const mePersonId = useResolvedMePersonId(people, currentPersonId, user?.id)
 
@@ -472,6 +475,18 @@ function App() {
             onDismissFamilyError={() => setHideFamilyBanner(true)}
           />
           <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-hidden">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={navTab}
+              initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+              animate={
+                reducedMotion
+                  ? { opacity: 1, y: 0 }
+                  : { opacity: 1, y: 0, transition: { duration: 0.15, ease: 'easeOut' } }
+              }
+              exit={reducedMotion ? { opacity: 1 } : { opacity: 0, transition: { duration: 0.08, ease: 'easeOut' } }}
+              className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden"
+            >
           {navTab === 'mer' ? (
             merSubScreen === 'settings' ? (
               <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden overflow-hidden">
@@ -482,13 +497,12 @@ function App() {
                     className="flex w-8 h-8 items-center justify-center rounded-full hover:bg-synkaNavy/8 transition touch-manipulation"
                     aria-label="Tilbake"
                   >
-                    <i className="ti ti-arrow-left text-synkaNavy" aria-hidden style={{ fontSize: 18 }} />
+                    <IconArrowLeft size={18} className="text-synkaNavy" aria-hidden />
                   </button>
                   <span className="text-[15px] font-semibold text-synkaNavy">Innstillinger</span>
                 </div>
                 <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
                   <SettingsScreen
-                    onPersonRemoved={purgePersonEvents}
                     onClearAllEvents={clearAllEvents}
                     onRestartOnboarding={() => {
                       resetOnboarding(user.id)
@@ -497,9 +511,31 @@ function App() {
                       setMerSubScreen(null)
                       setShowTour(true)
                     }}
-                    onOpenTankestromImport={() => openTankestromImport('settings')}
                   />
                 </div>
+              </div>
+            ) : merSubScreen === 'tankestrom' ? (
+              <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
+                <TankestrømPage
+                  onBack={() => setMerSubScreen(null)}
+                  people={people}
+                  createEvent={controller.createEvent}
+                  createTask={taskController.createTask}
+                  editEvent={controller.editEvent}
+                  getAnchoredForegroundEventsForMatching={getAnchoredForegroundEventsForMatching}
+                  prefetchEventsForDateRange={prefetchEventsForDateRange}
+                  deleteEvent={deleteEvent}
+                  updatePerson={updatePerson}
+                  onImportFinished={openTankestromToast}
+                />
+              </div>
+            ) : merSubScreen === 'familie' ? (
+              <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
+                <FamilieScreen onBack={() => setMerSubScreen(null)} />
+              </div>
+            ) : merSubScreen === 'hjelp' ? (
+              <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
+                <HjelpScreen onBack={() => setMerSubScreen(null)} />
               </div>
             ) : (
               <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
@@ -507,6 +543,7 @@ function App() {
                   onNavigateSettings={() => setMerSubScreen('settings')}
                   onNavigateTankestrom={() => setMerSubScreen('tankestrom')}
                   onNavigateFamilie={() => setMerSubScreen('familie')}
+                  onNavigateHjelp={() => setMerSubScreen('hjelp')}
                 />
               </div>
             )
@@ -603,6 +640,8 @@ function App() {
               highlightedEventIds={recentImportedEventIds}
             />
           ) : null}
+            </motion.div>
+          </AnimatePresence>
           </div>
 
           {notifyToast && (

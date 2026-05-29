@@ -35,7 +35,7 @@ export function weekStripStagger(reducedMotion: boolean): { container: Variants;
 
 export function blockEntranceDelay(index: number, reducedMotion: boolean): number {
   if (reducedMotion) return 0
-  return Math.min(index * 0.03, 0.35)
+  return Math.min(index * 0.04, 0.4)
 }
 
 /** Timeline day swap: use `initial="dayEnter" animate="dayVisible"` */

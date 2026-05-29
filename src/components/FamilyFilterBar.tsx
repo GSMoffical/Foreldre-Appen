@@ -1,4 +1,4 @@
-import { LayoutGroup, motion } from 'framer-motion'
+import { LayoutGroup, motion, useReducedMotion } from 'framer-motion'
 import type { PersonId } from '../types'
 import { useFamily } from '../context/FamilyContext'
 
@@ -13,7 +13,18 @@ const ALL_ID = 'all' as const
 
 export function FamilyFilterBar({ selectedPersonIds, onFilterChange, mePersonId }: FamilyFilterBarProps) {
   const { people } = useFamily()
+  const reducedMotion = useReducedMotion() ?? false
   const isAll = selectedPersonIds.length === 0 || selectedPersonIds.length === people.length
+
+  // Active chips settle at full scale; inactive ones sit very slightly smaller.
+  // Faster in (150ms) than out (100ms) so selection feels responsive.
+  const chipScale = (active: boolean) =>
+    reducedMotion
+      ? { animate: { scale: 1 }, transition: { duration: 0 } }
+      : {
+          animate: { scale: active ? 1 : 0.97 },
+          transition: { duration: active ? 0.15 : 0.1, ease: 'easeOut' as const },
+        }
 
   if (people.length === 0) {
     return (
@@ -50,6 +61,8 @@ export function FamilyFilterBar({ selectedPersonIds, onFilterChange, mePersonId 
             ? 'border-transparent bg-synkaNavy text-white'
             : 'border-synkaNavy/20 bg-synkaCream text-synkaNavy/70'
         }`}
+        animate={chipScale(isAll).animate}
+        transition={chipScale(isAll).transition}
         whileTap={{ scale: 0.97 }}
         aria-pressed={isAll}
         aria-label="Vis alle familiemedlemmer"
@@ -72,6 +85,8 @@ export function FamilyFilterBar({ selectedPersonIds, onFilterChange, mePersonId 
               borderWidth: active ? 1.5 : 0,
               borderColor: active ? person.colorAccent : 'transparent',
             }}
+            animate={chipScale(active).animate}
+            transition={chipScale(active).transition}
             whileTap={{ scale: 0.97 }}
             aria-pressed={active}
             aria-label={isMe ? `${person.name} (deg)` : `Filtrer på ${person.name}`}

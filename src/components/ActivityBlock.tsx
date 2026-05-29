@@ -5,7 +5,7 @@ import { useFamily } from '../context/FamilyContext'
 import { formatCalendarEventTimeLabel } from '../lib/schedule'
 import { shiftTime } from '../lib/time'
 import { getEventParticipantIds } from '../lib/schedule'
-import { blockEntranceDelay, springSnappy } from '../lib/motion'
+import { blockEntranceDelay } from '../lib/motion'
 
 interface ActivityBlockProps {
   block: EventLayoutBlock
@@ -95,14 +95,18 @@ export function ActivityBlock({
 
   useLayoutEffect(() => {
     if (reducedMotion) {
-      void controls.set({ opacity: 1, scale: 1 })
+      void controls.set({ opacity: 1, y: 0 })
       return
     }
-    void controls.set({ opacity: 0, scale: 0.96 })
+    void controls.set({ opacity: 0, y: 12 })
     void controls.start({
       opacity: 1,
-      scale: 1,
-      transition: { ...springSnappy, delay: blockEntranceDelay(staggerIndex, reducedMotion) },
+      y: 0,
+      transition: {
+        duration: 0.2,
+        ease: 'easeOut',
+        delay: blockEntranceDelay(staggerIndex, reducedMotion),
+      },
     })
   }, [block.id, staggerIndex, reducedMotion, controls])
 

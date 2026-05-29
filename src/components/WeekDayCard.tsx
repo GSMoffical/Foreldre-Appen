@@ -1,4 +1,4 @@
-import { motion, type Variants } from 'framer-motion'
+import { motion, useReducedMotion, type Variants } from 'framer-motion'
 import type { WeekDayMeta } from '../types'
 import { springSnappy } from '../lib/motion'
 
@@ -13,6 +13,7 @@ interface WeekDayCardProps {
 }
 
 export function WeekDayCard({ day, isSelected, onSelect, variants, isToday, hasEvents, hasOverdueTask }: WeekDayCardProps) {
+  const reducedMotion = useReducedMotion() ?? false
   const dateNum = day.date.slice(8).replace(/^0/, '')
 
   const dotClass = hasOverdueTask
@@ -36,7 +37,9 @@ export function WeekDayCard({ day, isSelected, onSelect, variants, isToday, hasE
       <span className="text-caption font-medium uppercase tracking-wide text-synkaNavy/60">
         {day.dayAbbr}
       </span>
-      <span
+      <motion.span
+        animate={isSelected && !reducedMotion ? { scale: [1, 1.08, 1] } : { scale: 1 }}
+        transition={{ duration: 0.2, ease: 'easeOut', times: [0, 0.5, 1] }}
         className={
           isSelected
             ? 'font-sans mt-0.5 text-[28px] font-bold text-synkaPrimary leading-none'
@@ -44,7 +47,7 @@ export function WeekDayCard({ day, isSelected, onSelect, variants, isToday, hasE
         }
       >
         {dateNum}
-      </span>
+      </motion.span>
       <span className={`mt-1 w-1.5 h-1.5 rounded-full ${dotClass}`} aria-hidden />
     </motion.button>
   )

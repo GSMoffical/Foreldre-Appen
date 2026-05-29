@@ -1,4 +1,6 @@
 import { LayoutGroup, motion } from 'framer-motion'
+import { IconCalendar, IconHome, IconCheck, IconMenu2 } from '@tabler/icons-react'
+import type { Icon } from '@tabler/icons-react'
 import { springSnappy } from '../lib/motion'
 
 export type NavTab = 'month' | 'today' | 'tasks' | 'mer'
@@ -12,14 +14,14 @@ interface BottomNavProps {
 interface TabDef {
   id: NavTab
   label: string
-  icon: string
+  Icon: Icon
 }
 
 const TABS: TabDef[] = [
-  { id: 'month', label: 'Måned', icon: 'ti-calendar' },
-  { id: 'today', label: 'I dag', icon: 'ti-home' },
-  { id: 'tasks', label: 'Gjøremål', icon: 'ti-check' },
-  { id: 'mer', label: 'Mer', icon: 'ti-menu-2' },
+  { id: 'month', label: 'Måned', Icon: IconCalendar },
+  { id: 'today', label: 'I dag', Icon: IconHome },
+  { id: 'tasks', label: 'Gjøremål', Icon: IconCheck },
+  { id: 'mer', label: 'Mer', Icon: IconMenu2 },
 ]
 
 export function BottomNav({ active, onSelect, logisticsNotifyCount = 0 }: BottomNavProps) {
@@ -54,7 +56,7 @@ export function BottomNav({ active, onSelect, logisticsNotifyCount = 0 }: Bottom
                 )}
                 <span className="relative z-[40] flex flex-col items-center gap-1">
                   <span className="relative">
-                    <i className={`ti ${tab.icon}`} aria-hidden="true" style={{ fontSize: 18 }} />
+                    <tab.Icon size={18} aria-hidden />
                     {tab.id === 'tasks' && logisticsNotifyCount > 0 && (
                       <span
                         aria-label={`${logisticsNotifyCount} uleste varsler`}

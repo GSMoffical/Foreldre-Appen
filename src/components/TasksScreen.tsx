@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, type ReactNode } from 'react'
+import { motion, useReducedMotion, type Variants } from 'framer-motion'
 import { OnboardingHint } from './OnboardingHint'
 import { typHeading, typSectionCap, btnPrimaryPill, screenHeaderRow } from '../lib/ui'
 import type { Task, Person } from '../types'
@@ -90,6 +91,41 @@ function BellIcon() {
     <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
     </svg>
+  )
+}
+
+// ── Staggered task list ────────────────────────────────────────────────────────
+
+/** Each section animates independently: cards rise from below in sequence. */
+const TASK_LIST_CONTAINER: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.05 } },
+}
+const TASK_LIST_ITEM: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: 'easeOut' } },
+}
+
+function StaggeredTasks({
+  tasks,
+  renderTask,
+  reducedMotion,
+}: {
+  tasks: Task[]
+  renderTask: (task: Task) => ReactNode
+  reducedMotion: boolean
+}) {
+  if (reducedMotion) {
+    return <div className="space-y-2">{tasks.map((t) => renderTask(t))}</div>
+  }
+  return (
+    <motion.div className="space-y-2" variants={TASK_LIST_CONTAINER} initial="hidden" animate="visible">
+      {tasks.map((t) => (
+        <motion.div key={t.id} variants={TASK_LIST_ITEM}>
+          {renderTask(t)}
+        </motion.div>
+      ))}
+    </motion.div>
   )
 }
 
@@ -382,6 +418,7 @@ export function TasksScreen({
   onDismissNotification,
 }: TasksScreenProps) {
   const { people } = useFamily()
+  const reducedMotion = useReducedMotion() ?? false
   const [showCompleted, setShowCompleted] = useState(false)
   const [showAllOverdue, setShowAllOverdue] = useState(false)
   const today = todayKeyOslo()
@@ -533,7 +570,7 @@ export function TasksScreen({
                     {recentGroups.map((group) => (
                       <div key={group.date}>
                         <p className="mb-2 text-caption font-medium uppercase tracking-wide text-synkaPrimary/70">{group.label}</p>
-                        <div className="space-y-2">{group.tasks.map((t) => renderTask(t))}</div>
+                        <StaggeredTasks tasks={group.tasks} renderTask={renderTask} reducedMotion={reducedMotion} />
                       </div>
                     ))}
                     {showAllOverdue && olderGroups.length > 0 && (
@@ -571,7 +608,7 @@ export function TasksScreen({
             {todayTasks.length > 0 && (
               <section>
                 <SectionLabel label="I dag" variant="today" sublabel={formatDayLabel(today)} />
-                <div className="space-y-2">{todayTasks.map((t) => renderTask(t))}</div>
+                <StaggeredTasks tasks={todayTasks} renderTask={renderTask} reducedMotion={reducedMotion} />
               </section>
             )}
 
@@ -579,7 +616,7 @@ export function TasksScreen({
             {upcomingGroups.map((group) => (
               <section key={group.date}>
                 <SectionLabel label={group.label} variant="neutral" />
-                <div className="space-y-2">{group.tasks.map((t) => renderTask(t))}</div>
+                <StaggeredTasks tasks={group.tasks} renderTask={renderTask} reducedMotion={reducedMotion} />
               </section>
             ))}
 

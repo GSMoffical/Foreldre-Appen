@@ -2,69 +2,29 @@ import { useState } from 'react'
 import { cardSection, typSectionCap, btnSecondary, btnDanger } from '../lib/ui'
 import { useAuth } from '../context/AuthContext'
 import { useUserPreferences } from '../context/UserPreferencesContext'
-import { useFamily } from '../context/FamilyContext'
 import { useEffectiveUserId } from '../context/EffectiveUserIdContext'
 import { usePermissions } from '../hooks/usePermissions'
-import { FamilyEditor } from './FamilyEditor'
 import { requestNotificationPermission } from '../hooks/useReminders'
-import { createInvite, buildInviteUrl, fetchLatestPendingInvite } from '../lib/inviteApi'
 
 interface SettingsScreenProps {
-  onPersonRemoved?: (personId: string) => void
   onClearAllEvents?: () => Promise<void>
   onRestartOnboarding?: () => void
-  onOpenTankestromImport?: () => void
 }
 
 export function SettingsScreen({
-  onPersonRemoved,
   onClearAllEvents,
   onRestartOnboarding,
-  onOpenTankestromImport,
 }: SettingsScreenProps) {
   const { user, signOut } = useAuth()
   const { hapticsEnabled, setHapticsEnabled } = useUserPreferences()
-  const { people: _people } = useFamily()
-  const { effectiveUserId, isLinked, unlink } = useEffectiveUserId()
+  const { isLinked, unlink } = useEffectiveUserId()
   const { canClearAllEvents, isCalendarOwner } = usePermissions()
   const [notifStatus, setNotifStatus] = useState<NotificationPermission | 'unsupported'>(
     typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
   )
-  const [inviteLink, setInviteLink] = useState<string | null>(null)
-  const [inviteCopied, setInviteCopied] = useState(false)
-  const [inviteLookupMessage, setInviteLookupMessage] = useState<string | null>(null)
   const [confirmUnlink, setConfirmUnlink] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
   const [clearDone, setClearDone] = useState(false)
-
-  async function handleCreateInvite() {
-    if (!effectiveUserId || isLinked) return
-    setInviteLookupMessage(null)
-    const result = await createInvite(effectiveUserId)
-    if (result) setInviteLink(buildInviteUrl(result.token))
-  }
-
-  async function handleShowExistingInvite() {
-    if (!effectiveUserId || isLinked) return
-    setInviteLookupMessage(null)
-    const row = await fetchLatestPendingInvite(effectiveUserId)
-    if (row) {
-      setInviteLink(buildInviteUrl(row.token))
-    } else {
-      setInviteLookupMessage('Ingen aktiv invitasjonslenke funnet. Opprett en ny, eller legg til forelder under Familie for en lenke som kobles til den profilen.')
-    }
-  }
-
-  async function handleCopyInviteLink() {
-    if (!inviteLink) return
-    try {
-      await navigator.clipboard.writeText(inviteLink)
-      setInviteCopied(true)
-      setTimeout(() => setInviteCopied(false), 2000)
-    } catch {
-      // ignore
-    }
-  }
 
   async function handleUnlink() {
     await unlink()
@@ -98,11 +58,7 @@ export function SettingsScreen({
         <h2 className="text-display text-synkaPrimary">Innstillinger</h2>
       </div>
 
-      <div className="mt-6">
-        <FamilyEditor onPersonRemoved={onPersonRemoved} />
-      </div>
-
-      <div className={`mt-4 ${cardSection} p-4`}>
+      <div className={`mt-6 ${cardSection} p-4`}>
         <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Konto</p></div>
         <p className="mt-1.5 text-body-sm text-zinc-800 break-all">{user?.email ?? '—'}</p>
         <p className="mt-1.5 text-caption text-zinc-500">
@@ -134,58 +90,6 @@ export function SettingsScreen({
               Forlat familie
             </button>
           )}
-        </div>
-      )}
-
-      {!isLinked && (
-        <div className={`mt-4 ${cardSection} p-4`}>
-          <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Inviter til familien</p></div>
-          <p className="mt-2 text-body-sm text-zinc-600">
-            La den andre <span className="font-medium text-zinc-700">forelderen</span> få tilgang til samme kalender. Du kan også opprette
-            lenke rett etter at du har lagt til en forelder under Familie.
-          </p>
-          {!inviteLink ? (
-            <div className="mt-3 flex flex-col gap-2">
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={handleCreateInvite} className="rounded-pill bg-synkaPrimary px-4 py-2 text-sm font-medium text-white transition hover:brightness-95">
-                  Opprett ny lenke
-                </button>
-                <button type="button" onClick={handleShowExistingInvite} className="rounded-pill border border-synkaNavy/20 px-4 py-2 text-sm font-medium text-synkaNavy transition hover:bg-synkaNavy/5">
-                  Vis aktiv lenke
-                </button>
-              </div>
-              {inviteLookupMessage && (
-                <p className="text-caption leading-relaxed text-zinc-600">{inviteLookupMessage}</p>
-              )}
-            </div>
-          ) : (
-            <div className="mt-3 flex flex-col gap-2">
-              <input type="text" readOnly value={inviteLink} className="min-w-0 w-full break-all rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-caption text-zinc-800" aria-label="Invitasjonslenke" />
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={handleCopyInviteLink} className="rounded-pill border border-synkaPrimary/40 px-4 py-2 text-sm font-medium text-synkaPrimary transition hover:bg-synkaPrimary/5">
-                  {inviteCopied ? 'Kopiert!' : 'Kopier lenke'}
-                </button>
-                <button type="button" onClick={() => setInviteLink(null)} className="rounded-pill border border-synkaNavy/20 px-4 py-2 text-sm font-medium text-synkaNavy transition hover:bg-synkaNavy/5">
-                  Skjul
-                </button>
-              </div>
-              <p className="text-caption text-zinc-400">
-                Lenken utløper om 7 dager. Trykk «Vis aktiv lenke» for å vise den igjen etter at du har skjult den.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {onOpenTankestromImport && (
-        <div className={`mt-4 ${cardSection} p-4`}>
-          <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Tankestrøm</p></div>
-          <p className="mt-2 text-body-sm leading-relaxed text-zinc-600">
-            Last opp dokument eller bilde og få forslag til kalenderhendelser. Du godkjenner før noe lagres.
-          </p>
-          <button type="button" data-testid="tankestrom-import-open" onClick={onOpenTankestromImport} className="mt-3 rounded-md border border-synkaTeal/40 bg-synkaTeal/20 px-4 py-2.5 text-body-sm font-medium text-synkaPrimary hover:bg-synkaTeal/30 transition">
-            Importer fra Tankestrøm…
-          </button>
         </div>
       )}
 

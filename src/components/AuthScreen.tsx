@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { motion, useReducedMotion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 
@@ -7,6 +8,7 @@ const INVITE_MEMBER_KIND_KEY = 'invite-member-kind'
 
 export function AuthScreen() {
   const { signIn, signUp } = useAuth()
+  const reducedMotion = useReducedMotion() ?? false
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [name, setName] = useState('')
   const [familyName, setFamilyName] = useState('')
@@ -127,17 +129,35 @@ export function AuthScreen() {
         </div>
       )}
 
-      {/* S-mark */}
-      <img src="/synka-mark.svg" alt="Synka" className="w-32 h-32" />
+      {/* S-mark — wakes up first */}
+      <motion.img
+        src="/synka-mark.svg"
+        alt="Synka"
+        className="w-32 h-32"
+        initial={reducedMotion ? false : { opacity: 0, scale: 0.85 }}
+        animate={
+          reducedMotion ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, transition: { duration: 0.6, ease: 'easeOut' } }
+        }
+      />
 
-      {/* Wordmark */}
-      <p className="mt-3 text-[32px] font-bold leading-none text-synkaPrimary">synka</p>
+      {/* Wordmark — fades in after the mark */}
+      <motion.p
+        className="mt-3 text-[32px] font-bold leading-none text-synkaPrimary"
+        initial={reducedMotion ? false : { opacity: 0 }}
+        animate={reducedMotion ? { opacity: 1 } : { opacity: 1, transition: { duration: 0.4, ease: 'easeOut', delay: 0.8 } }}
+      >
+        synka
+      </motion.p>
 
-      {/* Tagline */}
-      <p className="mt-2 text-body-sm text-synkaNavy/60">
+      {/* Tagline — last to settle */}
+      <motion.p
+        className="mt-2 text-body-sm text-synkaNavy/60"
+        initial={reducedMotion ? false : { opacity: 0 }}
+        animate={reducedMotion ? { opacity: 1 } : { opacity: 1, transition: { duration: 0.4, ease: 'easeOut', delay: 1.0 } }}
+      >
         Mindre kaos. Mer tid{' '}
         <span className="font-medium text-synkaTeal">sammen.</span>
-      </p>
+      </motion.p>
 
       <div className="mt-8 w-full max-w-sm">
         <form className="space-y-4" onSubmit={handleSubmit} noValidate>
