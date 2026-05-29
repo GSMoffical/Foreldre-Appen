@@ -131,7 +131,10 @@ export function CalendarHomeTab({
     <div className="relative flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden pb-4">
       <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-hidden">
         {/* HEADER — bg + shadow separates from timeline */}
-        <div className="bg-synkaCream shadow-[0_1px_0_rgba(26,46,59,0.08)]">
+        <div
+          className="bg-synkaCream shadow-[0_1px_0_rgba(26,46,59,0.08)]"
+          style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        >
           {/* ROW 1 — top utility bar */}
           {searchOpen ? (
             <div className="flex items-center px-4 pt-2 pb-0">

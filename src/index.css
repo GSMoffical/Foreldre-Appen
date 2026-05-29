@@ -48,12 +48,14 @@ body {
   touch-action: manipulation;
   overscroll-behavior: none;
   background-color: #f4f2ef;
+  padding-top: env(safe-area-inset-top);
   @apply bg-surface font-sans;
 }
 
 #root {
+  background-color: #f4f2ef;
+  min-height: 100dvh;
   height: 100%;
-  min-height: 0;
   overflow-x: hidden;
   overflow-y: hidden;
   width: 100%;
