@@ -156,6 +156,7 @@ export function CalendarOverlays({
         <AddEventSheet
           key={`add-${addEventDateOverride ?? selectedDate}`}
           date={addEventDateOverride ?? selectedDate}
+          initialPersonId={mePersonId ?? undefined}
           onSave={async (data, options) => {
             const targetDate = addEventDateOverride ?? selectedDate
             try {

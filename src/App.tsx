@@ -393,7 +393,7 @@ function App() {
         <MobileFrame>
           <div className="flex h-full w-full min-w-0 max-w-full flex-col items-center justify-center gap-3 overflow-x-hidden text-zinc-500">
             <div className="h-8 w-8 animate-spin rounded-pill border-2 border-zinc-300 border-t-zinc-600" />
-            <p className="text-sm">Loading…</p>
+            <p className="text-sm">Laster…</p>
           </div>
         </MobileFrame>
       </AppShell>
@@ -573,6 +573,8 @@ function App() {
                   selectedDate={selectedDate}
                   onSelectDate={(date) => {
                     setSelectedDate(date)
+                    setNavTab('today')
+                    setShowListView(false)
                   }}
                   hasEventsOnDate={(date) => getVisibleEventsForDate(date).length > 0}
                   getEventsForDate={getVisibleEventsForDate}

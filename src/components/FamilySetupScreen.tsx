@@ -75,7 +75,7 @@ export function FamilySetupScreen({ onSkip }: FamilySetupScreenProps) {
           <p className="text-caption font-semibold uppercase tracking-wide text-synkaPrimary">Kom i gang</p>
           <h1 className="mt-1 text-display font-bold text-zinc-900">Legg til første barn</h1>
           <p className="mt-2 text-body-sm leading-relaxed text-zinc-600">
-            ForeldrePortalen er bygd rundt barna. Legg til minst ett barn for å få skolerute i
+            Synka er bygd rundt barna. Legg til minst ett barn for å få skolerute i
             bakgrunnen, filtrering per person og familiekoordinering.
           </p>
         </div>

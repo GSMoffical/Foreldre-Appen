@@ -30,7 +30,7 @@ export function FamilyFilterBar({ selectedPersonIds, onFilterChange, mePersonId 
     return (
       <div className="px-4 pb-2 pt-2 text-center">
         <p className="text-body-sm text-zinc-600">
-          Ingen familiemedlemmer ennå. Gå til <span className="font-medium text-zinc-800">Innstillinger</span> for å
+          Ingen familiemedlemmer ennå. Gå til <span className="font-medium text-zinc-800">Mer → Familie</span> for å
           legge til foreldre og barn.
         </p>
       </div>

@@ -24,6 +24,7 @@ export function SettingsScreen({
   )
   const [confirmUnlink, setConfirmUnlink] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [confirmLogout, setConfirmLogout] = useState(false)
   const [clearDone, setClearDone] = useState(false)
 
   async function handleUnlink() {
@@ -200,9 +201,19 @@ export function SettingsScreen({
         )}
       </div>
 
-      <button type="button" onClick={() => signOut()} className="mt-8 w-full rounded-pill border border-synkaCoral/40 py-3 text-body-sm font-medium text-synkaCoral transition hover:bg-synkaCoral/5 active:bg-synkaCoral/10">
-        Logg ut
-      </button>
+      {confirmLogout ? (
+        <div className="mt-8 rounded-md border border-amber-200 bg-amber-50 p-3.5 space-y-3">
+          <p className="text-body-sm font-medium text-amber-900">Er du sikker på at du vil logge ut?</p>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setConfirmLogout(false)} className={`flex-1 ${btnSecondary}`}>Avbryt</button>
+            <button type="button" onClick={() => signOut()} className="flex-1 rounded-md bg-synkaCoral py-3 text-body font-semibold text-white hover:bg-synkaCoral/90">Logg ut</button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setConfirmLogout(true)} className="mt-8 w-full rounded-pill border border-synkaCoral/40 py-3 text-body-sm font-medium text-synkaCoral transition hover:bg-synkaCoral/5 active:bg-synkaCoral/10">
+          Logg ut
+        </button>
+      )}
     </div>
   )
 }
