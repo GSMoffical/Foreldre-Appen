@@ -14,8 +14,9 @@ import { logEvent } from '../../lib/appLogger'
 import { formatCalendarPeriodContextLabel, todayKeyOslo } from '../../lib/osloCalendar'
 import { useFamily } from '../../context/FamilyContext'
 import type { Event, Task, PersonId, TimelineLayoutItem, GapInfo } from '../../types'
-import type { SaveFeedbackState } from '../app/hooks/useSaveFeedback'
 import type { WeekDayLayout } from '../../hooks/useScheduleState'
+
+const FILTER_STORAGE_KEY = 'synka-filter-person-ids'
 
 function formatFullDate(dateKey: string): string {
   const d = new Date(dateKey + 'T12:00:00')
@@ -33,8 +34,6 @@ interface CalendarHomeTabProps {
   selectedDate: string
   handleSelectEvent: (event: Event, date: string) => void
   handleChangeWeek?: (deltaWeeks: number) => void
-  handleJumpToToday?: () => void
-  saveFeedback?: SaveFeedbackState
   reducedMotion?: boolean
   weekEventsLoading: boolean
   showNoFamilyEmpty: boolean
@@ -94,6 +93,23 @@ export function CalendarHomeTab({
   const [searchOpen, setSearchOpen] = useState(false)
   const [showAddMenu, setShowAddMenu] = useState(false)
   const { people } = useFamily()
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(FILTER_STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw) as PersonId[]
+        if (Array.isArray(parsed)) setSelectedPersonIds(parsed)
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(selectedPersonIds))
+    } catch {}
+  }, [selectedPersonIds])
 
   const calendarTasksWithPerson = useMemo(
     () =>

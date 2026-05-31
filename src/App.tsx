@@ -23,7 +23,7 @@ import { useTimeOfDaySurface } from './hooks/useTimeOfDaySurface'
 import { startUxTimer, endUxTimer, logUxMetric } from './lib/uxMetrics'
 import { logEvent } from './lib/appLogger'
 import { addTankestromSentryBreadcrumb } from './lib/sentry'
-import { addCalendarDaysOslo, todayKeyOslo } from './lib/osloCalendar'
+import { addCalendarDaysOslo } from './lib/osloCalendar'
 import { useSaveFeedback } from './features/app/hooks/useSaveFeedback'
 import { useInviteAcceptance } from './features/invites/hooks/useInviteAcceptance'
 import { AppNoticeStack } from './features/app/components/AppNoticeStack'
@@ -152,7 +152,7 @@ function App() {
   } | null>(null)
   const tankestromToastTimerRef = useRef<number | null>(null)
   const [recentImportedEventIds, setRecentImportedEventIds] = useState<Set<string>>(new Set())
-  const { saveFeedback, showSaveFeedback, showSavingFeedback, showSaveError } = useSaveFeedback(hapticsEnabled)
+  const { showSaveFeedback, showSavingFeedback, showSaveError } = useSaveFeedback(hapticsEnabled)
   const { tasksByDate, addTask, patchTask, removeTask, prefetchTasksForRange } = useTasksState(selectedDate)
 
   const handleMonthRangePrefetch = useCallback(
@@ -440,13 +440,6 @@ function App() {
     shiftSelectedDateByDays(deltaWeeks * 7)
   }
 
-  const handleJumpToToday = () => {
-    const today = todayKeyOslo()
-    setSelectedDate(today)
-    setNavTab('today')
-    setShowListView(false)
-  }
-
   const openAddEvent = (dateOverride: string | null = null) => {
     logEvent('sheet_opened', { sheet: 'add_event', date: dateOverride ?? selectedDate })
     startUxTimer('add_event_flow')
@@ -630,8 +623,6 @@ function App() {
               selectedDate={selectedDate}
               handleSelectEvent={handleSelectEvent}
               handleChangeWeek={handleChangeWeek}
-              handleJumpToToday={handleJumpToToday}
-              saveFeedback={saveFeedback}
               reducedMotion={reducedMotion}
               weekEventsLoading={weekEventsLoading}
               showNoFamilyEmpty={showNoFamilyEmpty}

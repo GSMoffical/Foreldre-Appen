@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { IconArrowLeft, IconActivity, IconUpload, IconCheck } from '@tabler/icons-react'
 import type { Event, Task, Person } from '../../types'
 import {
@@ -61,6 +61,10 @@ export function TankestrømPage({
     canApproveSelection,
     runAnalyze,
     bundle,
+    textInput,
+    setTextInput,
+    inputMode,
+    setInputMode,
   } = useTankestromImport({
     open: true,
     people,
@@ -72,6 +76,23 @@ export function TankestrømPage({
     deleteEvent,
     updatePerson,
   })
+
+  const [showTextSection, setShowTextSection] = useState(false)
+  const textAnalyzePendingRef = useRef(false)
+
+  const handleAnalyzeText = () => {
+    if (!textInput.trim() || analyzeLoading) return
+    setInputMode('text')
+    textAnalyzePendingRef.current = true
+  }
+
+  useEffect(() => {
+    if (inputMode === 'text' && textAnalyzePendingRef.current && !analyzeLoading && !bundle) {
+      textAnalyzePendingRef.current = false
+      logEvent('tankestrom_analyze_started', { mode: 'text', textLength: textInput.length })
+      void runAnalyze()
+    }
+  }, [inputMode, analyzeLoading, bundle, runAnalyze, textInput])
 
   // Auto-trigger analysis when files are added
   const prevPendingFilesLengthRef = useRef(0)
@@ -176,6 +197,44 @@ export function TankestrømPage({
           aria-label="Velg filer til analyse"
           onChange={handleFileChange}
         />
+
+        {/* Paste text section */}
+        <div className="mx-4 mt-3">
+          <button
+            type="button"
+            onClick={() => setShowTextSection((v) => !v)}
+            className="flex w-full items-center justify-between rounded-lg border border-synkaNavy/10 bg-white px-4 py-2.5 text-left touch-manipulation hover:bg-synkaCream/60 transition"
+          >
+            <span className="text-body-sm font-medium text-synkaNavy/70">Eller lim inn tekst</span>
+            <svg
+              className={`h-4 w-4 shrink-0 text-synkaNavy/40 transition-transform ${showTextSection ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+            </svg>
+          </button>
+          {showTextSection && (
+            <div className="mt-1 space-y-2 rounded-b-lg border border-t-0 border-synkaNavy/10 bg-white px-3 pb-3 pt-2">
+              <textarea
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                placeholder="Lim inn ukeplan, e-post eller aktivitetsbeskrivelse…"
+                rows={5}
+                className="w-full resize-none rounded-md border border-synkaNavy/10 bg-zinc-50 px-3 py-2 text-body-sm text-synkaNavy placeholder:text-synkaNavy/30 outline-none focus:border-synkaTeal/50 focus:ring-1 focus:ring-synkaTeal/30"
+              />
+              {textInput.trim() && (
+                <button
+                  type="button"
+                  onClick={handleAnalyzeText}
+                  disabled={analyzeLoading}
+                  className="w-full rounded-pill bg-synkaPrimary py-2.5 text-body-sm font-semibold text-white touch-manipulation disabled:opacity-40"
+                >
+                  {analyzeLoading ? 'Analyserer…' : 'Analyser tekst'}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Proposals section */}
         {displayItems.length > 0 && (

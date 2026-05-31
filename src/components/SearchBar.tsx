@@ -115,7 +115,7 @@ export function SearchBar({ open, onOpenChange, weekLayoutData, onJumpToDate, on
           style={{ top: dropPos.top, left: dropPos.left, width: dropPos.width }}
         >
           {results.length === 0 ? (
-            <p className="px-4 py-3 text-body-sm text-zinc-500">Ingen treff denne uken</p>
+            <p className="px-4 py-3 text-body-sm text-zinc-500">Ingen treff denne uken. Naviger til riktig uke og søk der.</p>
           ) : (
             results.map((r) => {
               const plist = getParticipantPeople(r.event, people)
