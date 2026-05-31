@@ -17,11 +17,17 @@ import { supabase } from '../lib/supabaseClient'
 function mergeFetchedTasksForDates(
   prev: Record<string, Task[]>,
   fetched: Record<string, Task[]>,
-  dateKeys: string[]
+  dateKeys: string[],
+  overrides: Map<string, Partial<Task>> = new Map()
 ): Record<string, Task[]> {
   const next = { ...prev }
   for (const key of dateKeys) {
-    next[key] = fetched[key] ?? []
+    const fetchedTasks = fetched[key] ?? []
+    next[key] = fetchedTasks.map((fetchedTask) => {
+      const override = overrides.get(fetchedTask.id)
+      if (override) return { ...fetchedTask, ...override }
+      return fetchedTask
+    })
   }
   return next
 }
@@ -123,9 +129,9 @@ export function useTasksState(selectedDate: string) {
     ;(async () => {
       const { byDate } = await fetchTasksForDateRange(startDate, endDate)
       if (requestId !== fetchRequestIdRef.current) return
-      setRawTasksByDate((prev) => mergeFetchedTasksForDates(prev, byDate, weekKeys))
+      setRawTasksByDate((prev) => mergeFetchedTasksForDates(prev, byDate, weekKeys, localOverrides))
     })()
-  }, [user, effectiveUserId, selectedDate, refreshKey])
+  }, [user, effectiveUserId, selectedDate, refreshKey, localOverrides])
 
   useEffect(() => {
     setRawTasksByDate({})
