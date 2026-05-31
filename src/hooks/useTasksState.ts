@@ -285,7 +285,6 @@ export function useTasksState(selectedDate: string) {
       setRawTasksByDate((prev) => setTaskInByDate(prev, taskId, oldDate, newDate, updated))
     } catch (err) {
       if (revertSnapshot) setRawTasksByDate(revertSnapshot)
-      setLocalOverrides((prev) => { const m = new Map(prev); m.delete(taskId); return m })
       throw err
     } finally {
       window.setTimeout(() => {
