@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type { Task } from '../types'
 import type { TaskUpdates, SupabaseTaskRow } from '../lib/tasksApi'
 import {
@@ -17,17 +17,11 @@ import { supabase } from '../lib/supabaseClient'
 function mergeFetchedTasksForDates(
   prev: Record<string, Task[]>,
   fetched: Record<string, Task[]>,
-  dateKeys: string[],
-  overrides: Map<string, Partial<Task>> = new Map()
+  dateKeys: string[]
 ): Record<string, Task[]> {
   const next = { ...prev }
   for (const key of dateKeys) {
-    const fetchedTasks = fetched[key] ?? []
-    next[key] = fetchedTasks.map((fetchedTask) => {
-      const override = overrides.get(fetchedTask.id)
-      if (override) return { ...fetchedTask, ...override }
-      return fetchedTask
-    })
+    next[key] = fetched[key] ?? []
   }
   return next
 }
@@ -39,22 +33,6 @@ function mergeLookbackTasks(
   const next = { ...prev }
   for (const [key, tasks] of Object.entries(fetched)) {
     if (!(key in next)) next[key] = tasks
-  }
-  return next
-}
-
-function applyLocalOverrides(
-  state: Record<string, Task[]>,
-  overrides: Map<string, Partial<Task>>
-): Record<string, Task[]> {
-  if (overrides.size === 0) return state
-  const next: Record<string, Task[]> = {}
-  for (const [date, tasks] of Object.entries(state)) {
-    next[date] = tasks.map((t) => {
-      const o = overrides.get(t.id)
-      if (!o) return t
-      return { ...t, ...o }
-    })
   }
   return next
 }
@@ -100,17 +78,11 @@ function applyRealtimeTaskChange(
 export function useTasksState(selectedDate: string) {
   const { user } = useAuth()
   const { effectiveUserId } = useEffectiveUserId()
-  const [rawTasksByDate, setRawTasksByDate] = useState<Record<string, Task[]>>({})
-  const [localOverrides, setLocalOverrides] = useState<Map<string, Partial<Task>>>(new Map())
+  const [tasksByDate, setTasksByDate] = useState<Record<string, Task[]>>({})
   const [refreshKey, setRefreshKey] = useState(0)
   const refreshDebounceRef = useRef<number | null>(null)
   const lookbackFetchedRef = useRef(false)
   const fetchRequestIdRef = useRef(0)
-
-  const tasksByDate = useMemo(
-    () => applyLocalOverrides(rawTasksByDate, localOverrides),
-    [rawTasksByDate, localOverrides]
-  )
 
   const queueRefresh = useCallback(() => {
     if (refreshDebounceRef.current != null) return
@@ -129,13 +101,12 @@ export function useTasksState(selectedDate: string) {
     ;(async () => {
       const { byDate } = await fetchTasksForDateRange(startDate, endDate)
       if (requestId !== fetchRequestIdRef.current) return
-      setRawTasksByDate((prev) => mergeFetchedTasksForDates(prev, byDate, weekKeys, localOverrides))
+      setTasksByDate((prev) => mergeFetchedTasksForDates(prev, byDate, weekKeys))
     })()
-  }, [user, effectiveUserId, selectedDate, refreshKey, localOverrides])
+  }, [user, effectiveUserId, selectedDate, refreshKey])
 
   useEffect(() => {
-    setRawTasksByDate({})
-    setLocalOverrides(new Map())
+    setTasksByDate({})
     lookbackFetchedRef.current = false
     fetchRequestIdRef.current = 0
   }, [effectiveUserId])
@@ -149,7 +120,7 @@ export function useTasksState(selectedDate: string) {
     ;(async () => {
       try {
         const { byDate } = await fetchTasksForDateRange(startKey, endKey)
-        setRawTasksByDate((prev) => mergeLookbackTasks(prev, byDate))
+        setTasksByDate((prev) => mergeLookbackTasks(prev, byDate))
       } catch {
         // non-critical — overdue section degrades gracefully to current week only
       }
@@ -187,21 +158,7 @@ export function useTasksState(selectedDate: string) {
         (payload) => {
           const newRow = payload.new as SupabaseTaskRow | null
           const oldRow = payload.old as Partial<SupabaseTaskRow> | null
-          setRawTasksByDate((prev) => {
-            if (payload.eventType === 'UPDATE' && newRow?.id && newRow?.updated_at) {
-              const existingDate = newRow.date ?? oldRow?.date
-              const existingTasks = existingDate ? (prev[existingDate] ?? []) : []
-              const existingRow = existingTasks.find((t) => t.id === newRow.id)
-              if (existingRow) {
-                const existingCompletedAt = existingRow.completedAt
-                const incomingCompletedAt = newRow.completed_at
-                if (existingCompletedAt && !incomingCompletedAt) {
-                  return prev
-                }
-              }
-            }
-            return applyRealtimeTaskChange(prev, payload.eventType, newRow, oldRow)
-          })
+          setTasksByDate((prev) => applyRealtimeTaskChange(prev, payload.eventType, newRow, oldRow))
         }
       )
       .subscribe()
@@ -257,7 +214,7 @@ export function useTasksState(selectedDate: string) {
     if (!user || !effectiveUserId) throw new Error('Must be signed in to add tasks')
     fetchRequestIdRef.current++
     const created = await createTaskApi(effectiveUserId, input)
-    setRawTasksByDate((prev) => {
+    setTasksByDate((prev) => {
       const existing = prev[input.date] ?? []
       return { ...prev, [input.date]: [...existing, created] }
     })
@@ -266,12 +223,10 @@ export function useTasksState(selectedDate: string) {
   async function patchTask(taskId: string, oldDate: string, updates: TaskUpdates) {
     if (!user) throw new Error('Must be signed in to edit tasks')
     fetchRequestIdRef.current++
-    setLocalOverrides((prev) => new Map(prev).set(taskId, updates as Partial<Task>))
-
     const newDate = updates.date ?? oldDate
     let revertSnapshot: Record<string, Task[]> | null = null
 
-    setRawTasksByDate((prev) => {
+    setTasksByDate((prev) => {
       const existing = prev[oldDate]?.find((t) => t.id === taskId)
       if (!existing) return prev
       revertSnapshot = snapshotTasksByDate(prev)
@@ -282,14 +237,10 @@ export function useTasksState(selectedDate: string) {
     try {
       const updated = await updateTaskApi(taskId, updates)
       if (!updated) throw new Error('Could not update task')
-      setRawTasksByDate((prev) => setTaskInByDate(prev, taskId, oldDate, newDate, updated))
+      setTasksByDate((prev) => setTaskInByDate(prev, taskId, oldDate, newDate, updated))
     } catch (err) {
-      if (revertSnapshot) setRawTasksByDate(revertSnapshot)
+      if (revertSnapshot) setTasksByDate(revertSnapshot)
       throw err
-    } finally {
-      window.setTimeout(() => {
-        setLocalOverrides((prev) => { const m = new Map(prev); m.delete(taskId); return m })
-      }, 5000)
     }
   }
 
@@ -298,7 +249,7 @@ export function useTasksState(selectedDate: string) {
     fetchRequestIdRef.current++
     const ok = await deleteTaskApi(taskId, effectiveUserId)
     if (!ok) throw new Error('Could not delete task')
-    setRawTasksByDate((prev) => ({
+    setTasksByDate((prev) => ({
       ...prev,
       [date]: (prev[date] ?? []).filter((t) => t.id !== taskId),
     }))
@@ -313,7 +264,7 @@ export function useTasksState(selectedDate: string) {
     try {
       const { byDate } = await fetchTasksForDateRange(startDate, endDate)
       const keys = Object.keys(byDate)
-      setRawTasksByDate((prev) => mergeFetchedTasksForDates(prev, byDate, keys))
+      setTasksByDate((prev) => mergeFetchedTasksForDates(prev, byDate, keys))
     } catch {
       // non-critical — month-view indicators degrade gracefully if prefetch fails
     }
