@@ -18,7 +18,6 @@ export function useMobileRefreshTriggers({
     if (!enabled) return
 
     const trigger = () => onRefresh()
-    const onFocus = () => trigger()
     const onPageShow = () => trigger()
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -26,7 +25,6 @@ export function useMobileRefreshTriggers({
       }
     }
 
-    window.addEventListener('focus', onFocus)
     window.addEventListener('pageshow', onPageShow)
     if (includeVisibilityChange) {
       document.addEventListener('visibilitychange', onVisibilityChange)
@@ -39,7 +37,6 @@ export function useMobileRefreshTriggers({
     }, intervalMs)
 
     return () => {
-      window.removeEventListener('focus', onFocus)
       window.removeEventListener('pageshow', onPageShow)
       if (includeVisibilityChange) {
         document.removeEventListener('visibilitychange', onVisibilityChange)
