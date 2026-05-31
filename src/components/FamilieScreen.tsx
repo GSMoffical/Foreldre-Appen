@@ -257,6 +257,12 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
                 })}
               </ul>
 
+              {!canManageFamilyMembers && (
+                <p className="text-caption text-synkaNavy/50 text-center mt-4 px-4">
+                  Du er invitert til denne familien og kan ikke legge til eller fjerne medlemmer.
+                </p>
+              )}
+
               {canManageFamilyMembers && (
                 <div className="px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] pt-1">
                   <button
@@ -983,8 +989,8 @@ function StepWork({ work, onStandardWeek, onToggleDay, onSetDayTime }: StepWorkP
     <div className="space-y-6">
       <div>
         <h2 className="text-[20px] font-bold text-synkaNavy">Timeplan</h2>
-        <p className="mt-1 text-[13px] text-synkaNavy/55">
-          Arbeidstid vises svakt bak avtaler i ukesvisningen.
+        <p className="mt-1 text-caption text-synkaNavy/50 mb-3">
+          Brukes til å vise ledige tider i kalenderen. Valgfritt.
         </p>
       </div>
 

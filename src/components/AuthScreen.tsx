@@ -182,7 +182,7 @@ export function AuthScreen() {
                     onChange={() => { setInviteMemberKind('parent'); clearMessages() }}
                     className="sr-only"
                   />
-                  Voksen
+                  Forelder
                 </label>
                 <label
                   className={`flex cursor-pointer items-center justify-center rounded-md border px-3 py-2.5 text-body-sm font-medium transition ${
@@ -359,7 +359,7 @@ export function AuthScreen() {
           {mode === 'signin' ? (
             <button
               type="button"
-              className="font-semibold text-synkaPrimary transition hover:text-synkaPrimary/70 focus:outline-none"
+              className="border border-synkaPrimary text-synkaPrimary rounded-pill px-6 py-2 font-medium text-body-sm w-full transition hover:bg-synkaPrimary/5 focus:outline-none"
               onClick={() => switchMode('signup')}
             >
               Ny bruker? Opprett konto

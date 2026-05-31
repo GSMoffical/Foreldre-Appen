@@ -156,7 +156,7 @@ function App() {
   } | null>(null)
   const tankestromToastTimerRef = useRef<number | null>(null)
   const [recentImportedEventIds, setRecentImportedEventIds] = useState<Set<string>>(new Set())
-  const { showSaveFeedback, showSavingFeedback, showSaveError } = useSaveFeedback(hapticsEnabled)
+  const { saveFeedback, showSaveFeedback, showSavingFeedback, showSaveError } = useSaveFeedback(hapticsEnabled)
   const { tasksByDate, addTask, patchTask, removeTask, prefetchTasksForRange } = useTasksState(selectedDate)
 
   const handleMonthRangePrefetch = useCallback(
@@ -504,6 +504,15 @@ function App() {
               aria-live="polite"
             >
               Tilkoblet igjen
+            </div>
+          )}
+          {saveFeedback === 'saved' && (
+            <div
+              className="shrink-0 bg-synkaTeal text-white text-caption text-center py-2 px-4"
+              role="status"
+              aria-live="polite"
+            >
+              Hendelse lagret
             </div>
           )}
           <AppNoticeStack

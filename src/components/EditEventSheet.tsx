@@ -389,7 +389,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
           </div>
 
           <div className="space-y-1">
-            <label className={inputLabel}>Hvem</label>
+            <label className={inputLabel}>Hvem deltar?</label>
             <div className="flex flex-wrap gap-1">
               {people.map((p) => (
                 <button

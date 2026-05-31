@@ -150,6 +150,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
   const [customReminderInput, setCustomReminderInput] = useState(60)
   const [showMore, setShowMore] = useState(false)
   const dialogRef = useRef<HTMLDivElement>(null)
+  const formRef = useRef<HTMLFormElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
 
   const isDirty = useMemo(() => {
@@ -311,7 +312,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
             </svg>
           </button>
         </div>
-        <form className={sheetFormBody} onSubmit={handleSubmit}>
+        <form ref={formRef} className={sheetFormBody} onSubmit={handleSubmit}>
           <h2 className={sheetTitle}>Legg til hendelse</h2>
           <p className={sheetSubtitle}>{formatDisplayDate(date)}</p>
 
@@ -326,7 +327,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
           )}
 
           <div className="space-y-1.5">
-            <label className={typLabel}>Hvem</label>
+            <label className={typLabel}>Hvem deltar?</label>
             <div className="flex flex-wrap gap-1">
               {people.map((p) => (
                 <button
@@ -647,7 +648,18 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
             </>
           )}
 
-          {error && <p className="text-caption text-synkaCoral">{error}</p>}
+          {error && (
+            <div className="flex items-center gap-2">
+              <p className="flex-1 text-caption text-synkaCoral">{error}</p>
+              <button
+                type="button"
+                onClick={() => formRef.current?.requestSubmit()}
+                className="shrink-0 text-caption font-medium text-synkaPrimary underline underline-offset-2"
+              >
+                Prøv igjen
+              </button>
+            </div>
+          )}
 
           <div className="flex gap-2 pt-1">
             <button
