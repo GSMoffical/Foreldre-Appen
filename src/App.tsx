@@ -141,6 +141,7 @@ function App() {
 
   const [hideFamilyBanner, setHideFamilyBanner] = useState(false)
   const [justReconnected, setJustReconnected] = useState(false)
+  const [lastSaveType, setLastSaveType] = useState<'event' | 'other' | null>(null)
   const prevOnlineRef = useRef<boolean | null>(null)
   const [notifyToast, setNotifyToast] = useState<string | null>(null)
   const notifyToastTimerRef = useRef<number | null>(null)
@@ -157,6 +158,7 @@ function App() {
   const tankestromToastTimerRef = useRef<number | null>(null)
   const [recentImportedEventIds, setRecentImportedEventIds] = useState<Set<string>>(new Set())
   const { saveFeedback, showSaveFeedback, showSavingFeedback, showSaveError } = useSaveFeedback(hapticsEnabled)
+  const showSaveFeedbackForControllers = useCallback(() => { setLastSaveType('other'); showSaveFeedback() }, [showSaveFeedback])
   const { tasksByDate, addTask, patchTask, removeTask, prefetchTasksForRange } = useTasksState(selectedDate)
 
   const handleMonthRangePrefetch = useCallback(
@@ -203,7 +205,7 @@ function App() {
     patchTask,
     removeTask,
     showSavingFeedback,
-    showSaveFeedback,
+    showSaveFeedback: showSaveFeedbackForControllers,
     showSaveError,
   })
   const controller = useEventController({
@@ -214,7 +216,7 @@ function App() {
     updateAllInSeries,
     deleteAllInSeries,
     showSavingFeedback,
-    showSaveFeedback,
+    showSaveFeedback: showSaveFeedbackForControllers,
     showSaveError,
   })
 
@@ -506,7 +508,7 @@ function App() {
               Tilkoblet igjen
             </div>
           )}
-          {saveFeedback === 'saved' && (
+          {saveFeedback === 'saved' && lastSaveType === 'event' && (
             <div
               className="shrink-0 bg-synkaTeal text-white text-caption text-center py-2 px-4"
               role="status"
@@ -834,7 +836,8 @@ function App() {
         setEditingEvent={setEditingEvent}
         controller={controller}
         mePersonId={mePersonId}
-        onAddFlowSaved={() => endUxTimer('add_event_flow', 'time_to_add_event_ms')}
+        onAddFlowSaved={() => { endUxTimer('add_event_flow', 'time_to_add_event_ms'); setLastSaveType('event') }}
+        onEventSaved={() => setLastSaveType('event')}
         onAddFlowClosedWithoutSave={() => logUxMetric('flow_backtracks', 1)}
         onConflictResolved={() => endUxTimer('resolve_conflict_flow', 'time_to_resolve_conflict_ms')}
         isAddingTask={isAddingTask}

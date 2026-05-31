@@ -37,6 +37,7 @@ interface CalendarOverlaysProps {
   onAddFlowSaved: () => void
   onAddFlowClosedWithoutSave: () => void
   onConflictResolved: () => void
+  onEventSaved?: () => void
   isAddingTask: boolean
   setIsAddingTask: (value: boolean) => void
   editingTask: Task | null
@@ -67,6 +68,7 @@ export function CalendarOverlays({
   onAddFlowSaved,
   onAddFlowClosedWithoutSave,
   onConflictResolved,
+  onEventSaved,
   isAddingTask,
   setIsAddingTask,
   editingTask,
@@ -194,6 +196,7 @@ export function CalendarOverlays({
                 await controller.editEvent(editingEvent.date, editingEvent.event, data, newDate)
               }
               setEditingEvent(null)
+              onEventSaved?.()
             } catch {
               // feedback handled by controller
             }

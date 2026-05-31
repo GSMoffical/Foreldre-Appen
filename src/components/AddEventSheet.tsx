@@ -505,6 +505,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
               <p className="text-caption text-zinc-500">
                 Gjentas {repeat === 'custom' ? `hver ${customIntervalDays}. dag` : repeat === 'daily' ? 'hver dag' : repeat === 'biweekly' ? 'hver 2. uke' : 'hver uke'} til denne datoen
               </p>
+              <p className="text-caption text-synkaNavy/40">Standard er 12 uker frem. Juster for hele sesonger.</p>
             </div>
           )}
 
@@ -651,13 +652,15 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
           {error && (
             <div className="flex items-center gap-2">
               <p className="flex-1 text-caption text-synkaCoral">{error}</p>
-              <button
-                type="button"
-                onClick={() => formRef.current?.requestSubmit()}
-                className="shrink-0 text-caption font-medium text-synkaPrimary underline underline-offset-2"
-              >
-                Prøv igjen
-              </button>
+              {!error.includes('tittel') && !error.includes('person') && (
+                <button
+                  type="button"
+                  onClick={() => formRef.current?.requestSubmit()}
+                  className="shrink-0 text-caption font-medium text-synkaPrimary underline underline-offset-2"
+                >
+                  Prøv igjen
+                </button>
+              )}
             </div>
           )}
 
