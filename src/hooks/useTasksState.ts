@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import type { Task } from '../types'
 import type { TaskUpdates, SupabaseTaskRow } from '../lib/tasksApi'
 import {
@@ -94,12 +94,17 @@ function applyRealtimeTaskChange(
 export function useTasksState(selectedDate: string) {
   const { user } = useAuth()
   const { effectiveUserId } = useEffectiveUserId()
-  const [tasksByDate, setTasksByDate] = useState<Record<string, Task[]>>({})
+  const [rawTasksByDate, setRawTasksByDate] = useState<Record<string, Task[]>>({})
+  const [localOverrides, setLocalOverrides] = useState<Map<string, Partial<Task>>>(new Map())
   const [refreshKey, setRefreshKey] = useState(0)
   const refreshDebounceRef = useRef<number | null>(null)
   const lookbackFetchedRef = useRef(false)
   const fetchRequestIdRef = useRef(0)
-  const localOverridesRef = useRef<Map<string, Partial<Task>>>(new Map())
+
+  const tasksByDate = useMemo(
+    () => applyLocalOverrides(rawTasksByDate, localOverrides),
+    [rawTasksByDate, localOverrides]
+  )
 
   const queueRefresh = useCallback(() => {
     if (refreshDebounceRef.current != null) return
@@ -118,18 +123,15 @@ export function useTasksState(selectedDate: string) {
     ;(async () => {
       const { byDate } = await fetchTasksForDateRange(startDate, endDate)
       if (requestId !== fetchRequestIdRef.current) return
-      setTasksByDate((prev) => {
-        const merged = mergeFetchedTasksForDates(prev, byDate, weekKeys)
-        return applyLocalOverrides(merged, localOverridesRef.current)
-      })
+      setRawTasksByDate((prev) => mergeFetchedTasksForDates(prev, byDate, weekKeys))
     })()
   }, [user, effectiveUserId, selectedDate, refreshKey])
 
   useEffect(() => {
-    setTasksByDate({})
+    setRawTasksByDate({})
+    setLocalOverrides(new Map())
     lookbackFetchedRef.current = false
     fetchRequestIdRef.current = 0
-    localOverridesRef.current.clear()
   }, [effectiveUserId])
 
   useEffect(() => {
@@ -141,10 +143,7 @@ export function useTasksState(selectedDate: string) {
     ;(async () => {
       try {
         const { byDate } = await fetchTasksForDateRange(startKey, endKey)
-        setTasksByDate((prev) => {
-          const merged = mergeLookbackTasks(prev, byDate)
-          return applyLocalOverrides(merged, localOverridesRef.current)
-        })
+        setRawTasksByDate((prev) => mergeLookbackTasks(prev, byDate))
       } catch {
         // non-critical — overdue section degrades gracefully to current week only
       }
@@ -182,10 +181,7 @@ export function useTasksState(selectedDate: string) {
         (payload) => {
           const newRow = payload.new as SupabaseTaskRow | null
           const oldRow = payload.old as Partial<SupabaseTaskRow> | null
-          setTasksByDate((prev) => {
-            const updated = applyRealtimeTaskChange(prev, payload.eventType, newRow, oldRow)
-            return applyLocalOverrides(updated, localOverridesRef.current)
-          })
+          setRawTasksByDate((prev) => applyRealtimeTaskChange(prev, payload.eventType, newRow, oldRow))
         }
       )
       .subscribe()
@@ -241,7 +237,7 @@ export function useTasksState(selectedDate: string) {
     if (!user || !effectiveUserId) throw new Error('Must be signed in to add tasks')
     fetchRequestIdRef.current++
     const created = await createTaskApi(effectiveUserId, input)
-    setTasksByDate((prev) => {
+    setRawTasksByDate((prev) => {
       const existing = prev[input.date] ?? []
       return { ...prev, [input.date]: [...existing, created] }
     })
@@ -250,12 +246,12 @@ export function useTasksState(selectedDate: string) {
   async function patchTask(taskId: string, oldDate: string, updates: TaskUpdates) {
     if (!user) throw new Error('Must be signed in to edit tasks')
     fetchRequestIdRef.current++
-    localOverridesRef.current.set(taskId, updates as Partial<Task>)
+    setLocalOverrides((prev) => new Map(prev).set(taskId, updates as Partial<Task>))
 
     const newDate = updates.date ?? oldDate
     let revertSnapshot: Record<string, Task[]> | null = null
 
-    setTasksByDate((prev) => {
+    setRawTasksByDate((prev) => {
       const existing = prev[oldDate]?.find((t) => t.id === taskId)
       if (!existing) return prev
       revertSnapshot = snapshotTasksByDate(prev)
@@ -266,14 +262,14 @@ export function useTasksState(selectedDate: string) {
     try {
       const updated = await updateTaskApi(taskId, updates)
       if (!updated) throw new Error('Could not update task')
-      setTasksByDate((prev) => setTaskInByDate(prev, taskId, oldDate, newDate, updated))
+      setRawTasksByDate((prev) => setTaskInByDate(prev, taskId, oldDate, newDate, updated))
     } catch (err) {
-      if (revertSnapshot) setTasksByDate(revertSnapshot)
-      localOverridesRef.current.delete(taskId)
+      if (revertSnapshot) setRawTasksByDate(revertSnapshot)
+      setLocalOverrides((prev) => { const m = new Map(prev); m.delete(taskId); return m })
       throw err
     } finally {
       window.setTimeout(() => {
-        localOverridesRef.current.delete(taskId)
+        setLocalOverrides((prev) => { const m = new Map(prev); m.delete(taskId); return m })
       }, 5000)
     }
   }
@@ -283,7 +279,7 @@ export function useTasksState(selectedDate: string) {
     fetchRequestIdRef.current++
     const ok = await deleteTaskApi(taskId, effectiveUserId)
     if (!ok) throw new Error('Could not delete task')
-    setTasksByDate((prev) => ({
+    setRawTasksByDate((prev) => ({
       ...prev,
       [date]: (prev[date] ?? []).filter((t) => t.id !== taskId),
     }))
@@ -298,10 +294,7 @@ export function useTasksState(selectedDate: string) {
     try {
       const { byDate } = await fetchTasksForDateRange(startDate, endDate)
       const keys = Object.keys(byDate)
-      setTasksByDate((prev) => {
-        const merged = mergeFetchedTasksForDates(prev, byDate, keys)
-        return applyLocalOverrides(merged, localOverridesRef.current)
-      })
+      setRawTasksByDate((prev) => mergeFetchedTasksForDates(prev, byDate, keys))
     } catch {
       // non-critical — month-view indicators degrade gracefully if prefetch fails
     }
