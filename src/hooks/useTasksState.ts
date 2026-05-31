@@ -181,7 +181,21 @@ export function useTasksState(selectedDate: string) {
         (payload) => {
           const newRow = payload.new as SupabaseTaskRow | null
           const oldRow = payload.old as Partial<SupabaseTaskRow> | null
-          setRawTasksByDate((prev) => applyRealtimeTaskChange(prev, payload.eventType, newRow, oldRow))
+          setRawTasksByDate((prev) => {
+            if (payload.eventType === 'UPDATE' && newRow?.id && newRow?.updated_at) {
+              const existingDate = newRow.date ?? oldRow?.date
+              const existingTasks = existingDate ? (prev[existingDate] ?? []) : []
+              const existingRow = existingTasks.find((t) => t.id === newRow.id)
+              if (existingRow) {
+                const existingCompletedAt = existingRow.completedAt
+                const incomingCompletedAt = newRow.completed_at
+                if (existingCompletedAt && !incomingCompletedAt) {
+                  return prev
+                }
+              }
+            }
+            return applyRealtimeTaskChange(prev, payload.eventType, newRow, oldRow)
+          })
         }
       )
       .subscribe()
