@@ -52,6 +52,17 @@ body {
   @apply bg-surface font-sans;
 }
 
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top);
+  background-color: #f4f2ef;
+  z-index: 9999;
+}
+
 #root {
   background-color: #f4f2ef;
   min-height: 100dvh;

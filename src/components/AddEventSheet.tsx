@@ -281,7 +281,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-30 bg-black/30"
+        className="fixed inset-0 z-30 bg-synkaNavy/30"
         onClick={guardedClose}
         aria-hidden
       />

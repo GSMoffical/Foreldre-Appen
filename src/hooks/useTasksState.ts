@@ -14,69 +14,41 @@ import { weekDateKeysMondayStartOslo, todayKeyOslo, addCalendarDaysOslo } from '
 import { useMobileRefreshTriggers } from '../features/sync/useRefreshTriggers'
 import { supabase } from '../lib/supabaseClient'
 
-/** Preserve in-flight optimistic patches when merging server fetch results. */
 function mergeFetchedTasksForDates(
   prev: Record<string, Task[]>,
   fetched: Record<string, Task[]>,
-  dateKeys: string[],
-  pendingPatchIds: Set<string>
+  dateKeys: string[]
 ): Record<string, Task[]> {
-  if (pendingPatchIds.size === 0) {
-    const next = { ...prev }
-    for (const key of dateKeys) {
-      next[key] = fetched[key] ?? []
-    }
-    return next
-  }
-
   const next = { ...prev }
   for (const key of dateKeys) {
-    const fetchedTasks = fetched[key] ?? []
-    const prevTasks = prev[key] ?? []
-    const prevById = new Map(prevTasks.map((t) => [t.id, t]))
-    const merged: Task[] = []
-    const seen = new Set<string>()
-
-    for (const t of fetchedTasks) {
-      if (pendingPatchIds.has(t.id) && prevById.has(t.id)) {
-        merged.push(prevById.get(t.id)!)
-      } else {
-        merged.push(t)
-      }
-      seen.add(t.id)
-    }
-
-    for (const t of prevTasks) {
-      if (pendingPatchIds.has(t.id) && !seen.has(t.id)) {
-        merged.push(t)
-      }
-    }
-
-    next[key] = merged
+    next[key] = fetched[key] ?? []
   }
   return next
 }
 
 function mergeLookbackTasks(
   prev: Record<string, Task[]>,
-  fetched: Record<string, Task[]>,
-  pendingPatchIds: Set<string>
+  fetched: Record<string, Task[]>
 ): Record<string, Task[]> {
-  if (pendingPatchIds.size === 0) {
-    const next = { ...prev }
-    for (const [key, tasks] of Object.entries(fetched)) {
-      if (!(key in next)) next[key] = tasks
-    }
-    return next
-  }
-
   const next = { ...prev }
-  for (const [key, fetchedTasks] of Object.entries(fetched)) {
-    if (!(key in next)) {
-      next[key] = fetchedTasks
-      continue
-    }
-    next[key] = mergeFetchedTasksForDates(prev, fetched, [key], pendingPatchIds)[key] ?? []
+  for (const [key, tasks] of Object.entries(fetched)) {
+    if (!(key in next)) next[key] = tasks
+  }
+  return next
+}
+
+function applyLocalOverrides(
+  state: Record<string, Task[]>,
+  overrides: Map<string, Partial<Task>>
+): Record<string, Task[]> {
+  if (overrides.size === 0) return state
+  const next: Record<string, Task[]> = {}
+  for (const [date, tasks] of Object.entries(state)) {
+    next[date] = tasks.map((t) => {
+      const o = overrides.get(t.id)
+      if (!o) return t
+      return { ...t, ...o }
+    })
   }
   return next
 }
@@ -127,7 +99,7 @@ export function useTasksState(selectedDate: string) {
   const refreshDebounceRef = useRef<number | null>(null)
   const lookbackFetchedRef = useRef(false)
   const fetchRequestIdRef = useRef(0)
-  const pendingPatchIdsRef = useRef<Set<string>>(new Set())
+  const localOverridesRef = useRef<Map<string, Partial<Task>>>(new Map())
 
   const queueRefresh = useCallback(() => {
     if (refreshDebounceRef.current != null) return
@@ -146,9 +118,10 @@ export function useTasksState(selectedDate: string) {
     ;(async () => {
       const { byDate } = await fetchTasksForDateRange(startDate, endDate)
       if (requestId !== fetchRequestIdRef.current) return
-      setTasksByDate((prev) =>
-        mergeFetchedTasksForDates(prev, byDate, weekKeys, pendingPatchIdsRef.current)
-      )
+      setTasksByDate((prev) => {
+        const merged = mergeFetchedTasksForDates(prev, byDate, weekKeys)
+        return applyLocalOverrides(merged, localOverridesRef.current)
+      })
     })()
   }, [user, effectiveUserId, selectedDate, refreshKey])
 
@@ -156,7 +129,7 @@ export function useTasksState(selectedDate: string) {
     setTasksByDate({})
     lookbackFetchedRef.current = false
     fetchRequestIdRef.current = 0
-    pendingPatchIdsRef.current.clear()
+    localOverridesRef.current.clear()
   }, [effectiveUserId])
 
   useEffect(() => {
@@ -168,7 +141,10 @@ export function useTasksState(selectedDate: string) {
     ;(async () => {
       try {
         const { byDate } = await fetchTasksForDateRange(startKey, endKey)
-        setTasksByDate((prev) => mergeLookbackTasks(prev, byDate, pendingPatchIdsRef.current))
+        setTasksByDate((prev) => {
+          const merged = mergeLookbackTasks(prev, byDate)
+          return applyLocalOverrides(merged, localOverridesRef.current)
+        })
       } catch {
         // non-critical — overdue section degrades gracefully to current week only
       }
@@ -206,12 +182,10 @@ export function useTasksState(selectedDate: string) {
         (payload) => {
           const newRow = payload.new as SupabaseTaskRow | null
           const oldRow = payload.old as Partial<SupabaseTaskRow> | null
-          const taskId = newRow?.id ?? oldRow?.id
-          if (taskId && pendingPatchIdsRef.current.has(taskId)) return
-
-          setTasksByDate((prev) =>
-            applyRealtimeTaskChange(prev, payload.eventType, newRow, oldRow)
-          )
+          setTasksByDate((prev) => {
+            const updated = applyRealtimeTaskChange(prev, payload.eventType, newRow, oldRow)
+            return applyLocalOverrides(updated, localOverridesRef.current)
+          })
         }
       )
       .subscribe()
@@ -276,7 +250,7 @@ export function useTasksState(selectedDate: string) {
   async function patchTask(taskId: string, oldDate: string, updates: TaskUpdates) {
     if (!user) throw new Error('Must be signed in to edit tasks')
     fetchRequestIdRef.current++
-    pendingPatchIdsRef.current.add(taskId)
+    localOverridesRef.current.set(taskId, updates as Partial<Task>)
 
     const newDate = updates.date ?? oldDate
     let revertSnapshot: Record<string, Task[]> | null = null
@@ -295,9 +269,12 @@ export function useTasksState(selectedDate: string) {
       setTasksByDate((prev) => setTaskInByDate(prev, taskId, oldDate, newDate, updated))
     } catch (err) {
       if (revertSnapshot) setTasksByDate(revertSnapshot)
+      localOverridesRef.current.delete(taskId)
       throw err
     } finally {
-      pendingPatchIdsRef.current.delete(taskId)
+      window.setTimeout(() => {
+        localOverridesRef.current.delete(taskId)
+      }, 5000)
     }
   }
 
@@ -321,7 +298,10 @@ export function useTasksState(selectedDate: string) {
     try {
       const { byDate } = await fetchTasksForDateRange(startDate, endDate)
       const keys = Object.keys(byDate)
-      setTasksByDate((prev) => mergeFetchedTasksForDates(prev, byDate, keys, pendingPatchIdsRef.current))
+      setTasksByDate((prev) => {
+        const merged = mergeFetchedTasksForDates(prev, byDate, keys)
+        return applyLocalOverrides(merged, localOverridesRef.current)
+      })
     } catch {
       // non-critical — month-view indicators degrade gracefully if prefetch fails
     }

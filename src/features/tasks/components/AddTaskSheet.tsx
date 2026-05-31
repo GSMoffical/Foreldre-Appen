@@ -87,7 +87,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
   return (
     <>
       <motion.div
-        className="fixed inset-0 z-30 bg-black/40"
+        className="fixed inset-0 z-30 bg-synkaNavy/30"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
