@@ -88,7 +88,7 @@ export interface ParentWorkProfile {
   weekdays: Partial<Record<WeekdayMonFri, { start: string; end: string }>>
 }
 
-export type MemberKind = 'parent' | 'child'
+export type MemberKind = 'parent' | 'child' | 'guest'
 
 export interface Person {
   id: PersonId;

@@ -13,10 +13,13 @@ import { springSnappy } from '../../lib/motion'
 import { logEvent } from '../../lib/appLogger'
 import { formatCalendarPeriodContextLabel, todayKeyOslo } from '../../lib/osloCalendar'
 import { useFamily } from '../../context/FamilyContext'
+import { usePermissions } from '../../hooks/usePermissions'
 import type { Event, Task, PersonId, TimelineLayoutItem, GapInfo } from '../../types'
 import type { WeekDayLayout } from '../../hooks/useScheduleState'
 
 const FILTER_STORAGE_KEY = 'synka-filter-person-ids'
+const FIRST_OPEN_KEY = 'synka-first-open'
+const INVITE_BANNER_DISMISSED_KEY = 'synka-invite-banner-dismissed'
 
 function formatFullDate(dateKey: string): string {
   const d = new Date(dateKey + 'T12:00:00')
@@ -55,6 +58,7 @@ interface CalendarHomeTabProps {
   allDayEvents: Event[]
   unspecifiedEvents: Event[]
   highlightedEventIds?: Set<string>
+  onOpenMer?: () => void
 }
 
 export function CalendarHomeTab({
@@ -88,11 +92,16 @@ export function CalendarHomeTab({
   allDayEvents,
   unspecifiedEvents,
   highlightedEventIds,
+  onOpenMer,
 }: CalendarHomeTabProps) {
   const [showTodayPanel, setShowTodayPanel] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [showAddMenu, setShowAddMenu] = useState(false)
+  const [inviteBannerDismissed, setInviteBannerDismissed] = useState(() => {
+    try { return localStorage.getItem(INVITE_BANNER_DISMISSED_KEY) === '1' } catch { return false }
+  })
   const { people } = useFamily()
+  const { isGuest } = usePermissions()
 
   useEffect(() => {
     try {
@@ -100,6 +109,11 @@ export function CalendarHomeTab({
       if (raw) {
         const parsed = JSON.parse(raw) as PersonId[]
         if (Array.isArray(parsed)) setSelectedPersonIds(parsed)
+      }
+    } catch {}
+    try {
+      if (!localStorage.getItem(FIRST_OPEN_KEY)) {
+        localStorage.setItem(FIRST_OPEN_KEY, Date.now().toString())
       }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -110,6 +124,16 @@ export function CalendarHomeTab({
       localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(selectedPersonIds))
     } catch {}
   }, [selectedPersonIds])
+
+  useEffect(() => {
+    if (people.length === 0) return
+    const validIds = new Set(people.map((p) => p.id))
+    const filtered = selectedPersonIds.filter((id) => validIds.has(id))
+    if (filtered.length !== selectedPersonIds.length) {
+      setSelectedPersonIds(filtered)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [people])
 
   const calendarTasksWithPerson = useMemo(
     () =>
@@ -136,6 +160,15 @@ export function CalendarHomeTab({
     () => (weekLayoutData.length > 0 ? formatCalendarPeriodContextLabel(selectedDate) : null),
     [selectedDate, weekLayoutData.length]
   )
+
+  const hasLinkedPartner = people.some((p) => p.memberKind === 'parent' && !!p.linkedAuthUserId)
+  let showInviteBanner = false
+  if (!inviteBannerDismissed && !hasLinkedPartner) {
+    try {
+      const firstOpen = localStorage.getItem(FIRST_OPEN_KEY)
+      showInviteBanner = !!firstOpen && Date.now() - parseInt(firstOpen, 10) > 24 * 60 * 60 * 1000
+    } catch {}
+  }
 
   const todayKey = todayKeyOslo()
   const todayDayData = weekLayoutData.find((d) => d.date === todayKey)
@@ -193,6 +226,7 @@ export function CalendarHomeTab({
                   onJumpToDate={setSelectedDate}
                   onSelectEvent={handleSelectEvent}
                 />
+                {!isGuest && (
                 <div className="relative">
                   <button
                     id="onb-add-event"
@@ -250,6 +284,7 @@ export function CalendarHomeTab({
                     )}
                   </AnimatePresence>
                 </div>
+                )}
               </div>
             </div>
           )}
@@ -271,12 +306,36 @@ export function CalendarHomeTab({
           {/* ROW 3 — filter chips */}
           <FamilyFilterBar
             selectedPersonIds={selectedPersonIds}
-            onFilterChange={setSelectedPersonIds}
+            onFilterChange={(ids) => setSelectedPersonIds(ids.length === people.length ? [] : ids)}
             mePersonId={mePersonId}
           />
 
           {/* DIVIDER */}
           <div className="border-t border-synkaNavy/8" />
+
+          {showInviteBanner && (
+            <div className="mx-4 mt-2 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+              <p className="min-w-0 flex-1 text-caption text-synkaNavy/80">Inviter partneren din til Synka</p>
+              <button
+                type="button"
+                onClick={() => onOpenMer?.()}
+                className="shrink-0 rounded-pill bg-emerald-600 px-3 py-1 text-caption font-semibold text-white touch-manipulation"
+              >
+                Inviter
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setInviteBannerDismissed(true)
+                  try { localStorage.setItem(INVITE_BANNER_DISMISSED_KEY, '1') } catch {}
+                }}
+                aria-label="Skjul banner"
+                className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full text-synkaNavy/40 hover:bg-synkaNavy/8 text-[14px] leading-none touch-manipulation"
+              >
+                ×
+              </button>
+            </div>
+          )}
 
           {/* ROW 4 — date label + Dag/Uke toggle */}
           <div className="px-4 py-1.5 flex items-center justify-between">

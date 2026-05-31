@@ -133,6 +133,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
   const [repeat, setRepeat] = useState<RepeatFrequency>('none')
   const [customIntervalDays, setCustomIntervalDays] = useState(3)
   const [endDate, setEndDate] = useState(() => addWeeks(date, 12))
+  const initialEndDateRef = useRef(addWeeks(date, 12))
   const [reminderMinutes, setReminderMinutes] = useState<number | undefined>(undefined)
   const [notes, setNotes] = useState('')
   const [location, setLocation] = useState('')
@@ -162,6 +163,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
       || selectedPersonIds.length !== initialLen
       || (selectedPersonIds[0] ?? null) !== initialFirst
       || repeat !== 'none'
+      || (repeat !== 'none' && endDate !== initialEndDateRef.current)
       || notes.trim() !== ''
       || reminderMinutes !== undefined
       || allDayEndDate !== date
@@ -169,7 +171,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
       || dropoffBy !== null
       || pickupBy !== null
     )
-  }, [title, start, end, isAllDay, selectedPersonIds, initialPersonId, repeat, notes, location, reminderMinutes, allDayEndDate, date, dropoffBy, pickupBy])
+  }, [title, start, end, isAllDay, selectedPersonIds, initialPersonId, repeat, endDate, notes, location, reminderMinutes, allDayEndDate, date, dropoffBy, pickupBy])
   const { guardedClose, confirming, confirmClose, cancelConfirm } = useConfirmClose(isDirty, onClose)
 
   const guardedCloseRef = useRef(guardedClose)
@@ -436,6 +438,75 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
             </p>
           )}
 
+          {/* Gjentas — always-visible repeat field */}
+          <div className="space-y-1">
+            <label className={inputLabel}>Gjentas</label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => { setRepeatOpen(!repeatOpen); setReminderOpen(false) }}
+                aria-haspopup="listbox"
+                aria-expanded={repeatOpen}
+                className={dropdownTrigger}
+              >
+                <span className={repeat === 'none' ? 'text-zinc-400' : 'text-zinc-900'}>
+                  {repeatLabel(repeat, customIntervalDays)}
+                </span>
+                <svg className={`h-4 w-4 text-zinc-400 transition-transform ${repeatOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+              </button>
+              <Dropdown open={repeatOpen} onClose={() => setRepeatOpen(false)}>
+                {(['none', 'daily', 'weekly', 'biweekly', 'custom'] as RepeatFrequency[]).map((val) => (
+                  <DropdownItem
+                    key={val}
+                    label={repeatLabel(val, 0)}
+                    active={repeat === val}
+                    onClick={() => { setRepeat(val); if (val !== 'custom') setRepeatOpen(false) }}
+                  />
+                ))}
+                {repeat === 'custom' && (
+                  <div className="flex items-center gap-2 border-t border-zinc-100 px-4 py-3">
+                    <span className="text-body-sm text-zinc-600">Hver</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={customIntervalDays}
+                      onChange={(e) => setCustomIntervalDays(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-16 rounded-md border border-zinc-200 px-2 py-1 text-center text-body-sm outline-none focus:border-zinc-400"
+                    />
+                    <span className="text-body-sm text-zinc-600">dag</span>
+                    <button
+                      type="button"
+                      onClick={() => setRepeatOpen(false)}
+                      className="ml-auto rounded-pill bg-synkaPrimary px-3 py-1 text-caption font-medium text-white shadow-planner-sm"
+                    >
+                      Ferdig
+                    </button>
+                  </div>
+                )}
+              </Dropdown>
+            </div>
+          </div>
+
+          {repeat !== 'none' && (
+            <div className="space-y-1.5">
+              <label className={inputLabel} htmlFor="end-date">Sluttdato</label>
+              <input
+                id="end-date"
+                type="date"
+                value={endDate}
+                min={date}
+                onChange={(e) => setEndDate(e.target.value)}
+                className={inputBase}
+              />
+              <p className="text-caption text-zinc-500">
+                Gjentas {repeat === 'custom' ? `hver ${customIntervalDays}. dag` : repeat === 'daily' ? 'hver dag' : repeat === 'biweekly' ? 'hver 2. uke' : 'hver uke'} til denne datoen
+              </p>
+            </div>
+          )}
+
           {/* Progressive disclosure toggle */}
           <button
             type="button"
@@ -448,80 +519,11 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
             </svg>
-            {showMore ? 'Skjul ekstradetaljer' : 'Mer (gjentak, påminnelse, transport)'}
+            {showMore ? 'Skjul ekstradetaljer' : 'Mer (påminnelse, transport)'}
           </button>
 
           {showMore && (
             <>
-              {/* Repeat dropdown */}
-              <div className="space-y-1">
-                <label className={inputLabel}>Gjentakelse</label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => { setRepeatOpen(!repeatOpen); setReminderOpen(false) }}
-                    aria-haspopup="listbox"
-                    aria-expanded={repeatOpen}
-                    className={dropdownTrigger}
-                  >
-                    <span className={repeat === 'none' ? 'text-zinc-400' : 'text-zinc-900'}>
-                      {repeatLabel(repeat, customIntervalDays)}
-                    </span>
-                    <svg className={`h-4 w-4 text-zinc-400 transition-transform ${repeatOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                    </svg>
-                  </button>
-                  <Dropdown open={repeatOpen} onClose={() => setRepeatOpen(false)}>
-                    {(['none', 'daily', 'weekly', 'biweekly', 'custom'] as RepeatFrequency[]).map((val) => (
-                      <DropdownItem
-                        key={val}
-                        label={repeatLabel(val, 0)}
-                        active={repeat === val}
-                        onClick={() => { setRepeat(val); if (val !== 'custom') setRepeatOpen(false) }}
-                      />
-                    ))}
-                    {repeat === 'custom' && (
-                      <div className="flex items-center gap-2 border-t border-zinc-100 px-4 py-3">
-                        <span className="text-body-sm text-zinc-600">Hver</span>
-                        <input
-                          type="number"
-                          min={1}
-                          max={365}
-                          value={customIntervalDays}
-                          onChange={(e) => setCustomIntervalDays(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-16 rounded-md border border-zinc-200 px-2 py-1 text-center text-body-sm outline-none focus:border-zinc-400"
-                        />
-                        <span className="text-body-sm text-zinc-600">dag</span>
-                        <button
-                          type="button"
-                          onClick={() => setRepeatOpen(false)}
-                          className="ml-auto rounded-pill bg-synkaPrimary px-3 py-1 text-caption font-medium text-white shadow-planner-sm"
-                        >
-                          Ferdig
-                        </button>
-                      </div>
-                    )}
-                  </Dropdown>
-                </div>
-              </div>
-
-              {repeat !== 'none' && (
-                <div className="space-y-1.5">
-                  <label className={inputLabel} htmlFor="end-date">Sluttdato</label>
-                  <input
-                    id="end-date"
-                    type="date"
-                    value={endDate}
-                    min={date}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className={inputBase}
-                  />
-                  <p className="text-caption text-zinc-500">
-                    Gjentas {repeat === 'custom' ? `hver ${customIntervalDays}. dag` : repeat === 'daily' ? 'hver dag' : repeat === 'biweekly' ? 'hver 2. uke' : 'hver uke'} til denne datoen
-                  </p>
-                </div>
-              )}
-
               {/* Reminder dropdown */}
               <div className="space-y-1">
                 <label className={inputLabel}>Påminnelse</label>

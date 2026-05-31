@@ -20,6 +20,7 @@ import { useNotifications } from './hooks/useNotifications'
 import { checkAndRecordNotify } from './lib/notifyPartner'
 import { useResolvedMePersonId } from './hooks/useResolvedMePersonId'
 import { useTimeOfDaySurface } from './hooks/useTimeOfDaySurface'
+import { useNetworkStatus } from './hooks/useNetworkStatus'
 import { startUxTimer, endUxTimer, logUxMetric } from './lib/uxMetrics'
 import { logEvent } from './lib/appLogger'
 import { addTankestromSentryBreadcrumb } from './lib/sentry'
@@ -63,6 +64,7 @@ const ENABLE_ONBOARDING = false
 
 function App() {
   useTimeOfDaySurface()
+  const { isOnline } = useNetworkStatus()
   const reducedMotion = useReducedMotion() ?? false
   const { user, loading } = useAuth()
   const { refetch: refetchEffectiveUserId, isLinked, linkLoading, effectiveUserId } = useEffectiveUserId()
@@ -138,6 +140,8 @@ function App() {
   const mePersonId = useResolvedMePersonId(people, currentPersonId, user?.id)
 
   const [hideFamilyBanner, setHideFamilyBanner] = useState(false)
+  const [justReconnected, setJustReconnected] = useState(false)
+  const prevOnlineRef = useRef<boolean | null>(null)
   const [notifyToast, setNotifyToast] = useState<string | null>(null)
   const notifyToastTimerRef = useRef<number | null>(null)
   const [tankestromToast, setTankestromToast] = useState<{
@@ -387,6 +391,20 @@ function App() {
     setHideFamilyBanner(false)
   }, [familyError])
 
+  useEffect(() => {
+    if (!isOnline) {
+      setJustReconnected(false)
+      prevOnlineRef.current = false
+    } else if (prevOnlineRef.current === false) {
+      setJustReconnected(true)
+      const t = window.setTimeout(() => setJustReconnected(false), 2000)
+      prevOnlineRef.current = true
+      return () => window.clearTimeout(t)
+    } else {
+      prevOnlineRef.current = isOnline
+    }
+  }, [isOnline])
+
   if (loading) {
     return (
       <AppShell>
@@ -470,6 +488,24 @@ function App() {
     <AppShell>
       <MobileFrame>
         <div className="flex h-full min-h-0 w-full min-w-0 max-w-full flex-col overflow-x-hidden">
+          {!isOnline && (
+            <div
+              className="shrink-0 bg-synkaNavy text-white text-caption text-center py-2 px-4"
+              role="status"
+              aria-live="polite"
+            >
+              Ingen internettforbindelse
+            </div>
+          )}
+          {isOnline && justReconnected && (
+            <div
+              className="shrink-0 bg-synkaPrimary text-white text-caption text-center py-2 px-4"
+              role="status"
+              aria-live="polite"
+            >
+              Tilkoblet igjen
+            </div>
+          )}
           <AppNoticeStack
             inviteNotice={inviteNotice}
             onDismissInvite={() => setInviteNotice(null)}
@@ -652,6 +688,7 @@ function App() {
               allDayEvents={allDayEventsForDay}
               unspecifiedEvents={unspecifiedEventsForDay}
               highlightedEventIds={recentImportedEventIds}
+              onOpenMer={() => { setNavTab('mer'); setMerSubScreen('familie') }}
             />
           ) : null}
             </motion.div>

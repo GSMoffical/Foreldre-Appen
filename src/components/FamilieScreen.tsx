@@ -5,6 +5,7 @@ import {
   IconCheck,
   IconChevronRight,
   IconCopy,
+  IconEye,
   IconMoodKid,
   IconPlus,
   IconUser,
@@ -16,6 +17,7 @@ import type {
   Person,
   WeekdayMonFri,
 } from '../types'
+import { useAuth } from '../context/AuthContext'
 import { useFamily } from '../context/FamilyContext'
 import { usePermissions } from '../hooks/usePermissions'
 import { useEffectiveUserId } from '../context/EffectiveUserIdContext'
@@ -65,8 +67,9 @@ type WizardMode = 'add' | 'edit'
 
 export function FamilieScreen({ onBack }: FamilieScreenProps) {
   const reducedMotion = useReducedMotion() ?? false
-  const { people, addPerson, updatePerson } = useFamily()
+  const { people, addPerson, updatePerson, removePerson } = useFamily()
   const { effectiveUserId } = useEffectiveUserId()
+  const { user } = useAuth()
   const {
     canManageFamilyMembers,
     canEditFamilyMember,
@@ -78,6 +81,7 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [startStep, setStartStep] = useState<1 | 2 | 3>(1)
   const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null)
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
 
   function openAdd() {
     setWizardMode('add')
@@ -156,6 +160,10 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
                   const isSelf = selfFamilyMemberId != null && p.id === selfFamilyMemberId
                   const canInvite =
                     canManageFamilyMembers && isParent && !p.linkedAuthUserId && !isSelf
+                  const isCurrentUserRow = user != null && (
+                    p.id === `self-${user.id}` ||
+                    (p.linkedAuthUserId != null && p.linkedAuthUserId === user.id)
+                  )
                   return (
                     <li key={p.id}>
                       <motion.div
@@ -184,12 +192,14 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
                             </p>
                             <span
                               className={`mt-0.5 inline-block rounded-pill px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                                isParent
+                                p.memberKind === 'parent'
                                   ? 'bg-synkaTeal/15 text-synkaPrimary'
-                                  : 'bg-synkaYellow/25 text-synkaNavy/70'
+                                  : p.memberKind === 'guest'
+                                    ? 'bg-zinc-100 text-zinc-500'
+                                    : 'bg-synkaYellow/25 text-synkaNavy/70'
                               }`}
                             >
-                              {isParent ? 'Forelder' : 'Barn'}
+                              {p.memberKind === 'parent' ? 'Forelder' : p.memberKind === 'guest' ? 'Gjest' : 'Barn'}
                             </span>
                           </div>
                           {canEditFamilyMember(p.id) && (
@@ -211,6 +221,35 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
                           >
                             <IconUser size={13} aria-hidden /> Inviter til appen
                           </button>
+                        )}
+                        {canManageFamilyMembers && !isCurrentUserRow && (
+                          confirmRemoveId === p.id ? (
+                            <div className="mt-3 flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2">
+                              <p className="flex-1 text-[12px] font-medium text-red-700">Er du sikker?</p>
+                              <button
+                                type="button"
+                                onClick={() => { void removePerson(p.id).catch(() => {}); setConfirmRemoveId(null) }}
+                                className="rounded-pill bg-red-600 px-3 py-1 text-caption font-semibold text-white touch-manipulation"
+                              >
+                                Fjern
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmRemoveId(null)}
+                                className="rounded-pill border border-red-200 bg-white px-3 py-1 text-caption font-semibold text-red-600 touch-manipulation"
+                              >
+                                Avbryt
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmRemoveId(p.id)}
+                              className="mt-3 inline-flex items-center gap-1.5 rounded-pill border border-red-200 bg-red-50 px-3 py-1.5 text-[12px] font-semibold text-red-600 transition hover:bg-red-100 touch-manipulation"
+                            >
+                              Fjern
+                            </button>
+                          )
                         )}
                       </motion.div>
                     </li>
@@ -307,7 +346,7 @@ function PersonWizard({
   const [inviteLoading, setInviteLoading] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  const totalSteps = memberKind === 'parent' ? 3 : 2
+  const totalSteps = memberKind === 'parent' ? 3 : memberKind === 'guest' ? 1 : 2
   const isLastStep = step >= totalSteps
   const heading =
     mode === 'edit' ? `Rediger ${initial?.name || 'medlem'}` : 'Legg til person'
@@ -675,7 +714,7 @@ function StepBasics({
     <div className="space-y-6">
       <h2 className="text-[20px] font-bold text-synkaNavy">Hvem legger du til?</h2>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <KindTile
           active={memberKind === 'parent'}
           disabled={!allowKindChange}
@@ -691,6 +730,14 @@ function StepBasics({
           icon={<IconMoodKid size={22} aria-hidden />}
           label="Barn"
           sub="Skolerute i kalenderen"
+        />
+        <KindTile
+          active={memberKind === 'guest'}
+          disabled={!allowKindChange}
+          onClick={() => allowKindChange && onMemberKind('guest')}
+          icon={<IconEye size={22} aria-hidden />}
+          label="Gjest"
+          sub="Kan se kalenderen, men ikke endre den"
         />
       </div>
 
