@@ -22,7 +22,8 @@ import { useFamily } from '../context/FamilyContext'
 import { usePermissions } from '../hooks/usePermissions'
 import { useEffectiveUserId } from '../context/EffectiveUserIdContext'
 import { buildInviteUrl, getOrCreateInviteForTarget } from '../lib/inviteApi'
-import { inputBase } from '../lib/ui'
+import { inputBase, typSectionCap } from '../lib/ui'
+import { SectionDots } from './SectionDots'
 import { SchoolProfileFields } from './SchoolProfileFields'
 
 /** 13 brand-friendly color pairs (mirrors COLOR_PRESETS in FamilyEditor.tsx). */
@@ -54,8 +55,6 @@ const SCHOOL_DEFAULT_START = '08:15'
 const SCHOOL_DEFAULT_END = '14:00'
 const WORK_DEFAULT_START = '09:00'
 const WORK_DEFAULT_END = '17:00'
-
-const sectionLabel = 'text-caption uppercase tracking-wide text-synkaPrimary/60'
 
 const emptyChildSchool = (): ChildSchoolProfile => ({ gradeBand: '1-4', weekdays: {} })
 
@@ -120,11 +119,8 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
           >
             <IconArrowLeft size={18} className="text-synkaNavy" aria-hidden />
           </button>
-          <span className="inline-flex items-center gap-1" aria-hidden>
-            <span className="h-2.5 w-2.5 rounded-full bg-synkaTeal" />
-            <span className="h-2.5 w-2.5 rounded-full bg-synkaYellow" />
-          </span>
-          <h1 className="text-[17px] font-bold text-synkaNavy">Familie</h1>
+          <SectionDots size="lg" />
+          <h1 className="text-heading font-bold text-synkaNavy">Familie</h1>
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain pt-3 [-webkit-overflow-scrolling:touch]">
@@ -136,17 +132,17 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
               >
                 S
               </span>
-              <p className="mt-4 text-[15px] font-semibold text-synkaNavy">
+              <p className="mt-4 text-body font-semibold text-synkaNavy">
                 Ingen familiemedlemmer ennå
               </p>
-              <p className="mt-1 text-[13px] text-synkaNavy/55">
+              <p className="mt-1 text-body-sm text-synkaNavy/55">
                 Legg til foreldre og barn for å bygge familiekalenderen.
               </p>
               {canManageFamilyMembers && (
                 <button
                   type="button"
                   onClick={openAdd}
-                  className="mt-6 inline-flex items-center gap-2 rounded-pill bg-synkaPrimary px-5 py-2.5 text-[14px] font-semibold text-white shadow-planner-sm transition hover:brightness-95 active:shadow-planner-press"
+                  className="mt-6 inline-flex items-center gap-2 rounded-pill bg-synkaPrimary px-5 py-2.5 text-body font-semibold text-white shadow-planner-sm transition hover:brightness-95 active:shadow-planner-press"
                 >
                   <IconPlus size={16} aria-hidden /> Legg til person
                 </button>
@@ -176,7 +172,7 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
                       >
                         <div className="flex items-center gap-3">
                           <span
-                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[15px] font-bold"
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-body font-bold"
                             style={{
                               backgroundColor: p.colorTint,
                               border: `2px solid ${p.colorAccent}`,
@@ -187,11 +183,11 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
                             {p.name.trim().slice(0, 1).toUpperCase() || '?'}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-[15px] font-semibold text-synkaNavy">
+                            <p className="truncate text-body font-semibold text-synkaNavy">
                               {p.name}
                             </p>
                             <span
-                              className={`mt-0.5 inline-block rounded-pill px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                              className={`mt-0.5 inline-block rounded-pill px-2 py-0.5 text-caption font-semibold uppercase tracking-wide ${
                                 p.memberKind === 'parent'
                                   ? 'bg-synkaTeal/15 text-synkaPrimary'
                                   : p.memberKind === 'guest'
@@ -206,7 +202,7 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
                             <button
                               type="button"
                               onClick={() => openEdit(p)}
-                              className="shrink-0 rounded-lg px-2 py-1 text-[13px] font-medium text-synkaPrimary transition hover:bg-synkaPrimary/8"
+                              className="shrink-0 rounded-lg px-2 py-1 text-body-sm font-medium text-synkaPrimary transition hover:bg-synkaPrimary/8"
                             >
                               Rediger
                             </button>
@@ -217,7 +213,7 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
                           <button
                             type="button"
                             onClick={() => openEdit(p, 3)}
-                            className="mt-3 inline-flex items-center gap-1.5 rounded-pill bg-synkaTeal/15 px-3 py-1.5 text-[12px] font-semibold text-synkaPrimary transition hover:bg-synkaTeal/25"
+                            className="mt-3 inline-flex items-center gap-1.5 rounded-pill bg-synkaTeal/15 px-3 py-1.5 text-label font-semibold text-synkaPrimary transition hover:bg-synkaTeal/25"
                           >
                             <IconUser size={13} aria-hidden /> Inviter til appen
                           </button>
@@ -225,7 +221,7 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
                         {canManageFamilyMembers && !isCurrentUserRow && (
                           confirmRemoveId === p.id ? (
                             <div className="mt-3 flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2">
-                              <p className="flex-1 text-[12px] font-medium text-red-700">Er du sikker?</p>
+                              <p className="flex-1 text-label font-medium text-red-700">Er du sikker?</p>
                               <button
                                 type="button"
                                 onClick={() => { void removePerson(p.id).catch(() => {}); setConfirmRemoveId(null) }}
@@ -245,7 +241,7 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
                             <button
                               type="button"
                               onClick={() => setConfirmRemoveId(p.id)}
-                              className="mt-3 inline-flex items-center gap-1.5 rounded-pill border border-red-200 bg-red-50 px-3 py-1.5 text-[12px] font-semibold text-red-600 transition hover:bg-red-100 touch-manipulation"
+                              className="mt-3 inline-flex items-center gap-1.5 rounded-pill border border-red-200 bg-red-50 px-3 py-1.5 text-label font-semibold text-red-600 transition hover:bg-red-100 touch-manipulation"
                             >
                               Fjern
                             </button>
@@ -268,7 +264,7 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
                   <button
                     type="button"
                     onClick={openAdd}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-pill bg-synkaPrimary py-3 text-[14px] font-semibold text-white shadow-planner-sm transition hover:brightness-95 active:shadow-planner-press"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-pill bg-synkaPrimary py-3 text-body font-semibold text-white shadow-planner-sm transition hover:brightness-95 active:shadow-planner-press"
                   >
                     <IconPlus size={16} aria-hidden /> Legg til person
                   </button>
@@ -574,7 +570,7 @@ function PersonWizard({
         >
           <IconArrowLeft size={18} className="text-synkaNavy" aria-hidden />
         </button>
-        <h1 className="truncate text-[17px] font-bold text-synkaNavy">{heading}</h1>
+        <h1 className="truncate text-heading font-bold text-synkaNavy">{heading}</h1>
       </header>
 
       {/* Dot progress indicator */}
@@ -671,7 +667,7 @@ function PersonWizard({
             <button
               type="button"
               onClick={isLastStep ? () => void finalize() : () => void handleNext()}
-              className="text-[13px] font-medium text-synkaNavy/55 underline underline-offset-2"
+              className="text-body-sm font-medium text-synkaNavy/55 underline underline-offset-2"
               disabled={saving}
             >
               Hopp over
@@ -681,7 +677,7 @@ function PersonWizard({
             type="button"
             onClick={isLastStep ? () => void finalize() : () => void handleNext()}
             disabled={saving}
-            className="ml-auto inline-flex items-center justify-center gap-1.5 rounded-pill bg-synkaPrimary px-6 py-3 text-[14px] font-semibold text-white shadow-planner-sm transition hover:brightness-95 active:shadow-planner-press disabled:opacity-60"
+            className="ml-auto inline-flex items-center justify-center gap-1.5 rounded-pill bg-synkaPrimary px-6 py-3 text-body font-semibold text-white shadow-planner-sm transition hover:brightness-95 active:shadow-planner-press disabled:opacity-60"
           >
             {saving ? 'Lagrer…' : isLastStep ? 'Fullfør' : 'Neste'}
             {!saving && !isLastStep && <IconChevronRight size={16} aria-hidden />}
@@ -718,7 +714,7 @@ function StepBasics({
 }: StepBasicsProps) {
   return (
     <div className="space-y-6">
-      <h2 className="text-[20px] font-bold text-synkaNavy">Hvem legger du til?</h2>
+      <h2 className="text-display font-bold text-synkaNavy">Hvem legger du til?</h2>
 
       <div className="grid grid-cols-3 gap-3">
         <KindTile
@@ -748,7 +744,7 @@ function StepBasics({
       </div>
 
       <div>
-        <label htmlFor="person-name" className={sectionLabel}>
+        <label htmlFor="person-name" className={typSectionCap}>
           Navn
         </label>
         <input
@@ -764,7 +760,7 @@ function StepBasics({
       </div>
 
       <div>
-        <p className={sectionLabel}>Farge</p>
+        <p className={typSectionCap}>Farge</p>
         <div className="mt-2 flex flex-wrap gap-3">
           {COLOR_PRESETS.map(({ tint, accent }) => {
             const selected = colorAccent === accent
@@ -816,8 +812,8 @@ function KindTile({ active, disabled, onClick, icon, label, sub }: KindTileProps
       >
         {icon}
       </span>
-      <span className="text-[15px] font-semibold text-synkaNavy">{label}</span>
-      <span className="text-[12px] leading-tight text-synkaNavy/55">{sub}</span>
+      <span className="text-body font-semibold text-synkaNavy">{label}</span>
+      <span className="text-label leading-tight text-synkaNavy/55">{sub}</span>
     </button>
   )
 }
@@ -855,14 +851,14 @@ function StepSchool({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-[20px] font-bold text-synkaNavy">Timeplan</h2>
-        <p className="mt-1 text-[13px] text-synkaNavy/55">
+        <h2 className="text-display font-bold text-synkaNavy">Timeplan</h2>
+        <p className="mt-1 text-body-sm text-synkaNavy/55">
           Skoleruten vises svakt i kalenderen. Avtaler legges oppå.
         </p>
       </div>
 
       <div>
-        <p className={sectionLabel}>Trinn / nivå</p>
+        <p className={typSectionCap}>Trinn / nivå</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {GRADE_BANDS.map((g) => {
             const active = school.gradeBand === g.value
@@ -871,7 +867,7 @@ function StepSchool({
                 key={g.value}
                 type="button"
                 onClick={() => onSchoolChange({ ...school, gradeBand: g.value })}
-                className={`rounded-pill px-3.5 py-2 text-[13px] font-semibold transition ${
+                className={`rounded-pill px-3.5 py-2 text-body-sm font-semibold transition ${
                   active
                     ? 'bg-synkaPrimary text-white'
                     : 'border border-synkaNavy/15 bg-white text-synkaNavy/70'
@@ -887,14 +883,14 @@ function StepSchool({
       <button
         type="button"
         onClick={onStandardWeek}
-        className="inline-flex items-center gap-2 rounded-pill bg-synkaYellow/25 px-3.5 py-2 text-[13px] font-semibold text-synkaNavy transition hover:bg-synkaYellow/40"
+        className="inline-flex items-center gap-2 rounded-pill bg-synkaYellow/25 px-3.5 py-2 text-body-sm font-semibold text-synkaNavy transition hover:bg-synkaYellow/40"
       >
         <IconCheck size={14} aria-hidden /> Standard skoleuke 08:15–14:00
       </button>
 
       {!showAdvanced && (
         <div>
-          <p className={sectionLabel}>Uke (man–fre)</p>
+          <p className={typSectionCap}>Uke (man–fre)</p>
           <div className="mt-2 space-y-2">
             {WEEKDAYS.map(({ wd, short }) => {
               const plan = school.weekdays[wd]
@@ -921,12 +917,12 @@ function StepSchool({
                       }`}
                     />
                   </button>
-                  <span className="w-8 shrink-0 text-[13px] font-semibold text-synkaNavy">
+                  <span className="w-8 shrink-0 text-body-sm font-semibold text-synkaNavy">
                     {short}
                   </span>
                   {on ? (
                     hasLessons ? (
-                      <span className="text-[12px] text-synkaNavy/50">
+                      <span className="text-label text-synkaNavy/50">
                         Detaljert timeplan (se «Avansert»)
                       </span>
                     ) : (
@@ -935,19 +931,19 @@ function StepSchool({
                           type="time"
                           value={plan?.schoolStart ?? SCHOOL_DEFAULT_START}
                           onChange={(e) => onSetDayTime(wd, 'start', e.target.value)}
-                          className="rounded-md border border-synkaNavy/15 bg-white px-2 py-1.5 text-[13px] tabular-nums text-synkaNavy"
+                          className="rounded-md border border-synkaNavy/15 bg-white px-2 py-1.5 text-body-sm tabular-nums text-synkaNavy"
                         />
                         <span className="text-synkaNavy/40">–</span>
                         <input
                           type="time"
                           value={plan?.schoolEnd ?? SCHOOL_DEFAULT_END}
                           onChange={(e) => onSetDayTime(wd, 'end', e.target.value)}
-                          className="rounded-md border border-synkaNavy/15 bg-white px-2 py-1.5 text-[13px] tabular-nums text-synkaNavy"
+                          className="rounded-md border border-synkaNavy/15 bg-white px-2 py-1.5 text-body-sm tabular-nums text-synkaNavy"
                         />
                       </div>
                     )
                   ) : (
-                    <span className="text-[12px] text-synkaNavy/40">Fri</span>
+                    <span className="text-label text-synkaNavy/40">Fri</span>
                   )}
                 </div>
               )
@@ -959,7 +955,7 @@ function StepSchool({
       <button
         type="button"
         onClick={onToggleAdvanced}
-        className="inline-flex items-center gap-1.5 text-[13px] font-medium text-synkaPrimary transition hover:text-synkaPrimary/70"
+        className="inline-flex items-center gap-1.5 text-body-sm font-medium text-synkaPrimary transition hover:text-synkaPrimary/70"
       >
         <IconChevronRight
           size={14}
@@ -988,7 +984,7 @@ function StepWork({ work, onStandardWeek, onToggleDay, onSetDayTime }: StepWorkP
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-[20px] font-bold text-synkaNavy">Timeplan</h2>
+        <h2 className="text-display font-bold text-synkaNavy">Timeplan</h2>
         <p className="mt-1 text-caption text-synkaNavy/50 mb-3">
           Brukes til å vise ledige tider i kalenderen. Valgfritt.
         </p>
@@ -997,13 +993,13 @@ function StepWork({ work, onStandardWeek, onToggleDay, onSetDayTime }: StepWorkP
       <button
         type="button"
         onClick={onStandardWeek}
-        className="inline-flex items-center gap-2 rounded-pill bg-synkaYellow/25 px-3.5 py-2 text-[13px] font-semibold text-synkaNavy transition hover:bg-synkaYellow/40"
+        className="inline-flex items-center gap-2 rounded-pill bg-synkaYellow/25 px-3.5 py-2 text-body-sm font-semibold text-synkaNavy transition hover:bg-synkaYellow/40"
       >
         <IconCheck size={14} aria-hidden /> Standard arbeidsuke 09:00–17:00
       </button>
 
       <div>
-        <p className={sectionLabel}>Uke (man–fre)</p>
+        <p className={typSectionCap}>Uke (man–fre)</p>
         <div className="mt-2 space-y-2">
           {WEEKDAYS.map(({ wd, short }) => {
             const row = weekdays[wd]
@@ -1029,7 +1025,7 @@ function StepWork({ work, onStandardWeek, onToggleDay, onSetDayTime }: StepWorkP
                     }`}
                   />
                 </button>
-                <span className="w-8 shrink-0 text-[13px] font-semibold text-synkaNavy">
+                <span className="w-8 shrink-0 text-body-sm font-semibold text-synkaNavy">
                   {short}
                 </span>
                 {on ? (
@@ -1038,18 +1034,18 @@ function StepWork({ work, onStandardWeek, onToggleDay, onSetDayTime }: StepWorkP
                       type="time"
                       value={row?.start ?? WORK_DEFAULT_START}
                       onChange={(e) => onSetDayTime(wd, 'start', e.target.value)}
-                      className="rounded-md border border-synkaNavy/15 bg-white px-2 py-1.5 text-[13px] tabular-nums text-synkaNavy"
+                      className="rounded-md border border-synkaNavy/15 bg-white px-2 py-1.5 text-body-sm tabular-nums text-synkaNavy"
                     />
                     <span className="text-synkaNavy/40">–</span>
                     <input
                       type="time"
                       value={row?.end ?? WORK_DEFAULT_END}
                       onChange={(e) => onSetDayTime(wd, 'end', e.target.value)}
-                      className="rounded-md border border-synkaNavy/15 bg-white px-2 py-1.5 text-[13px] tabular-nums text-synkaNavy"
+                      className="rounded-md border border-synkaNavy/15 bg-white px-2 py-1.5 text-body-sm tabular-nums text-synkaNavy"
                     />
                   </div>
                 ) : (
-                  <span className="text-[12px] text-synkaNavy/40">Fri</span>
+                  <span className="text-label text-synkaNavy/40">Fri</span>
                 )}
               </div>
             )
@@ -1084,21 +1080,21 @@ function StepInvite({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-[20px] font-bold text-synkaNavy">Send invitasjon til {name}</h2>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-synkaNavy/60">
+        <h2 className="text-display font-bold text-synkaNavy">Send invitasjon til {name}</h2>
+        <p className="mt-1.5 text-body-sm leading-relaxed text-synkaNavy/60">
           Del denne lenken så {name} får tilgang til familiekalenderen. Du kan også hoppe over og
           invitere senere.
         </p>
       </div>
 
       {!canInvite ? (
-        <p className="rounded-md bg-white px-3.5 py-3 text-[13px] text-synkaNavy/60">
+        <p className="rounded-md bg-white px-3.5 py-3 text-body-sm text-synkaNavy/60">
           Du må være innlogget som eier av kalenderen for å lage invitasjonslenker.
         </p>
       ) : inviteUrl ? (
         <div className="space-y-3">
           <div>
-            <p className={sectionLabel}>Invitasjonslenke</p>
+            <p className={typSectionCap}>Invitasjonslenke</p>
             <input
               readOnly
               value={inviteUrl}
@@ -1110,7 +1106,7 @@ function StepInvite({
           <button
             type="button"
             onClick={onCopy}
-            className="inline-flex items-center gap-2 rounded-pill bg-synkaTeal/15 px-4 py-2 text-[13px] font-semibold text-synkaPrimary transition hover:bg-synkaTeal/25"
+            className="inline-flex items-center gap-2 rounded-pill bg-synkaTeal/15 px-4 py-2 text-body-sm font-semibold text-synkaPrimary transition hover:bg-synkaTeal/25"
           >
             {copied ? <IconCheck size={15} aria-hidden /> : <IconCopy size={15} aria-hidden />}
             {copied ? 'Kopiert!' : 'Kopier lenke'}
@@ -1121,7 +1117,7 @@ function StepInvite({
           type="button"
           onClick={onGenerate}
           disabled={inviteLoading}
-          className="inline-flex items-center gap-2 rounded-pill border-2 border-synkaPrimary px-5 py-2.5 text-[14px] font-semibold text-synkaPrimary transition hover:bg-synkaPrimary/8 disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-pill border-2 border-synkaPrimary px-5 py-2.5 text-body font-semibold text-synkaPrimary transition hover:bg-synkaPrimary/8 disabled:opacity-60"
         >
           {inviteLoading ? 'Genererer…' : 'Generer lenke'}
         </button>

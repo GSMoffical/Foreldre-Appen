@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import type { Event } from '../types'
 import { getISOWeek, getISOWeekYear } from '../lib/isoWeek'
 import { formatCalendarEventTimeLabel } from '../lib/schedule'
 import { useFamily } from '../context/FamilyContext'
 import { getParticipantPeople } from '../lib/eventParticipants'
 import { ParticipantAvatarStrip } from './ParticipantAvatarStrip'
+import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 import {
   ensureNorwegianHolidaysLoaded,
   formatNorwegianCalendarSummary,
@@ -159,6 +161,8 @@ export function MonthView({
   const [viewYear, setViewYear] = useState(() => selectedParts[0])
   const [viewMonth, setViewMonth] = useState(() => selectedParts[1] - 1)
   const [holidaysReady, setHolidaysReady] = useState(false)
+  const [direction, setDirection] = useState(0)
+  const reducedMotion = useReducedMotion() ?? false
 
   const todayKey = useMemo(() => todayKeyLocal(), [])
   const longPressTimerRef = useRef<number | null>(null)
@@ -237,6 +241,7 @@ export function MonthView({
   }
 
   function prevMonth() {
+    setDirection(-1)
     if (viewMonth === 0) {
       setViewYear((y) => y - 1)
       setViewMonth(11)
@@ -246,6 +251,7 @@ export function MonthView({
   }
 
   function nextMonth() {
+    setDirection(1)
     if (viewMonth === 11) {
       setViewYear((y) => y + 1)
       setViewMonth(0)
@@ -258,6 +264,19 @@ export function MonthView({
   const preview = summaryEvents.slice(0, SUMMARY_PREVIEW)
   const rest = Math.max(0, total - SUMMARY_PREVIEW)
 
+  // Calendar "page turn": next month slides in from the right, prev from the left.
+  const gridVariants = reducedMotion
+    ? {
+        enter: { x: 0, opacity: 1 },
+        center: { x: 0, opacity: 1 },
+        exit: { x: 0, opacity: 1 },
+      }
+    : {
+        enter: (dir: number) => ({ x: dir >= 0 ? '40%' : '-40%', opacity: 0 }),
+        center: { x: '0%', opacity: 1 },
+        exit: (dir: number) => ({ x: dir >= 0 ? '-40%' : '40%', opacity: 0 }),
+      }
+
   return (
     <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden px-3 pt-2">
       <div className="grid shrink-0 grid-cols-[2.5rem_minmax(0,1fr)_auto_2.5rem] items-center gap-1 pb-3">
@@ -267,9 +286,7 @@ export function MonthView({
           className="justify-self-start rounded-md p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
           aria-label="Forrige måned"
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-          </svg>
+          <IconChevronLeft size={18} aria-hidden />
         </button>
         <h2 className="min-w-0 truncate text-center font-sans text-heading font-semibold text-synkaPrimary">
           {MONTH_NAMES[viewMonth]} {viewYear}
@@ -288,9 +305,7 @@ export function MonthView({
           className="justify-self-end rounded-md p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
           aria-label="Neste måned"
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-          </svg>
+          <IconChevronRight size={18} aria-hidden />
         </button>
       </div>
 
@@ -298,8 +313,18 @@ export function MonthView({
         className="relative isolate flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-auto scrollbar-none"
         style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 0px))' }}
       >
-        <div className="relative z-0 mx-auto w-full max-w-[min(100%,24rem)] grid grid-cols-[minmax(2.75rem,auto)_repeat(7,minmax(0,1fr))] gap-x-0 gap-y-0">
-          <div className="pb-2 pr-1 text-right text-[9px] font-medium uppercase tracking-wide text-zinc-300">
+        <AnimatePresence custom={direction} mode="wait" initial={false}>
+        <motion.div
+          key={`${viewYear}-${viewMonth}`}
+          custom={direction}
+          variants={gridVariants}
+          initial="enter"
+          animate="center"
+          exit="exit"
+          transition={{ type: 'tween', ease: 'easeInOut', duration: 0.2 }}
+          className="relative z-0 mx-auto w-full max-w-[min(100%,24rem)] grid grid-cols-[minmax(2.75rem,auto)_repeat(7,minmax(0,1fr))] gap-x-0 gap-y-0"
+        >
+          <div className="pb-2 pr-1 text-right text-caption font-medium uppercase tracking-wide text-zinc-300">
             Uke
           </div>
           {DAY_HEADERS.map((d) => (
@@ -410,7 +435,8 @@ export function MonthView({
               </Fragment>
             )
           })}
-        </div>
+        </motion.div>
+        </AnimatePresence>
         {onAddEventForDate && (
           <p className="mt-2 text-center text-caption text-synkaNavy/40">Langt trykk for å legge til hendelse</p>
         )}

@@ -219,7 +219,7 @@ export function ActivityBlock({
         width: `${widthPercent}%`,
         left: `${leftPercent}%`,
         boxSizing: 'border-box',
-        backgroundColor: primaryPerson.colorTint,
+        background: `linear-gradient(135deg, ${primaryPerson.colorTint}, ${primaryPerson.colorTint}cc)`,
         borderLeftWidth: 0,
         borderLeftColor: 'transparent',
         WebkitUserSelect: 'none',

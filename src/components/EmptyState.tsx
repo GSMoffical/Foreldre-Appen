@@ -9,6 +9,24 @@ interface EmptyStateProps {
   variant?: 'default' | 'filtered' | 'no_family'
 }
 
+/** Subtle breathing S-mark for the secondary (filtered / no_family) empty states. */
+function BrandMark({ reducedMotion }: { reducedMotion: boolean }) {
+  if (reducedMotion) {
+    return <img src="/synka-mark.svg" alt="" className="w-16 h-16 opacity-25" aria-hidden />
+  }
+  return (
+    <motion.img
+      src="/synka-mark.svg"
+      alt=""
+      className="w-16 h-16"
+      aria-hidden
+      initial={{ opacity: 0.2 }}
+      animate={{ opacity: [0.2, 0.35] }}
+      transition={{ duration: 3, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
+    />
+  )
+}
+
 export function EmptyState({ onAddEvent, context = 'day', variant = 'default' }: EmptyStateProps) {
   const isWeek = context === 'week'
   const reducedMotion = useReducedMotion() ?? false
@@ -16,7 +34,8 @@ export function EmptyState({ onAddEvent, context = 'day', variant = 'default' }:
   if (variant === 'no_family') {
     return (
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center px-6 py-14 text-center">
-        <p className="text-subheading font-semibold text-zinc-900">Ingen familiemedlemmer</p>
+        <BrandMark reducedMotion={reducedMotion} />
+        <p className="mt-4 text-subheading font-semibold text-zinc-900">Ingen familiemedlemmer</p>
         <p className="mt-1 text-body-sm text-zinc-600">
           Legg til familien under Innstillinger for å bruke kalenderen og filtrene.
         </p>
@@ -27,7 +46,8 @@ export function EmptyState({ onAddEvent, context = 'day', variant = 'default' }:
   if (variant === 'filtered') {
     return (
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center px-6 py-14 text-center">
-        <p className="text-subheading font-semibold text-zinc-900">
+        <BrandMark reducedMotion={reducedMotion} />
+        <p className="mt-4 text-subheading font-semibold text-zinc-900">
           {isWeek ? 'Ingen hendelser for valgte personer denne uken' : 'Ingen hendelser for valgte personer'}
         </p>
         <p className="mt-1 text-body-sm text-zinc-600">

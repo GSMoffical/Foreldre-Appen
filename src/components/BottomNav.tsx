@@ -60,13 +60,13 @@ export function BottomNav({ active, onSelect, logisticsNotifyCount = 0 }: Bottom
                     {tab.id === 'tasks' && logisticsNotifyCount > 0 && (
                       <span
                         aria-label={`${logisticsNotifyCount} uleste varsler`}
-                        className="absolute -top-1.5 -right-2.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-pill bg-synkaCoral px-1 text-[9px] font-bold leading-none text-white"
+                        className="absolute -top-1.5 -right-2.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-pill bg-synkaCoral px-1 text-caption font-bold leading-none text-white"
                       >
                         {logisticsNotifyCount > 9 ? '9+' : logisticsNotifyCount}
                       </span>
                     )}
                   </span>
-                  <span className="text-[10px] font-semibold leading-none">{tab.label}</span>
+                  <span className="text-caption font-semibold leading-none">{tab.label}</span>
                 </span>
               </button>
             )

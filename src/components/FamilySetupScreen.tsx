@@ -72,6 +72,7 @@ export function FamilySetupScreen({ onSkip }: FamilySetupScreenProps) {
       <div className="flex flex-1 flex-col px-5 pb-12 pt-14">
 
         <div className="mb-8">
+          <img src="/synka-mark.svg" alt="Synka" className="mb-5 h-16 w-16" />
           <p className="text-caption font-semibold uppercase tracking-wide text-synkaPrimary">Kom i gang</p>
           <h1 className="mt-1 text-display font-bold text-zinc-900">Legg til første barn</h1>
           <p className="mt-2 text-body-sm leading-relaxed text-zinc-600">
@@ -119,7 +120,7 @@ export function FamilySetupScreen({ onSkip }: FamilySetupScreenProps) {
             kan hoppe over det nå.
           </p>
 
-          {error && <p className="text-body-sm text-red-500">{error}</p>}
+          {error && <p className="text-body-sm text-synkaCoral">{error}</p>}
 
           <button type="submit" disabled={saving} className={btnPrimary}>
             {saving ? 'Lagrer…' : 'Legg til barn og fortsett →'}

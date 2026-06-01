@@ -1,7 +1,10 @@
-﻿/**
+﻿import { motion, useReducedMotion } from 'framer-motion'
+
+/**
  * Skeleton shown while the week's events are loading (timeline or list view).
  */
 export function ScheduleLoadingSkeleton() {
+  const reducedMotion = useReducedMotion() ?? false
   const widths = ['w-[72%]', 'w-[88%]', 'w-[64%]', 'w-[80%]', 'w-[70%]'] as const
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col items-center overflow-y-auto overflow-x-hidden px-4 pt-2" aria-busy="true" aria-label="Loading schedule">
@@ -11,7 +14,19 @@ export function ScheduleLoadingSkeleton() {
         ))}
       </div>
       <div className="mt-6 flex shrink-0 justify-center pb-2">
-        <div className="h-6 w-6 animate-spin rounded-pill border-2 border-synkaTeal/20 border-t-synkaTeal" />
+        {reducedMotion ? (
+          <img src="/synka-mark.svg" alt="" className="h-8 w-8 opacity-30" aria-hidden />
+        ) : (
+          <motion.img
+            src="/synka-mark.svg"
+            alt=""
+            className="h-8 w-8"
+            aria-hidden
+            initial={{ opacity: 0.2 }}
+            animate={{ opacity: [0.2, 0.4] }}
+            transition={{ duration: 2, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
+          />
+        )}
       </div>
     </div>
   )

@@ -42,8 +42,8 @@ export function WeekDayCard({ day, isSelected, onSelect, variants, isToday, hasE
         transition={{ duration: 0.2, ease: 'easeOut', times: [0, 0.5, 1] }}
         className={
           isSelected
-            ? 'font-sans mt-0.5 text-[28px] font-bold text-synkaPrimary leading-none'
-            : 'font-sans mt-0.5 text-[13px] text-synkaNavy/50 font-normal'
+            ? 'font-sans mt-0.5 text-display font-bold text-synkaPrimary leading-none'
+            : 'font-sans mt-0.5 text-body-sm text-synkaNavy/50 font-normal'
         }
       >
         {dateNum}
