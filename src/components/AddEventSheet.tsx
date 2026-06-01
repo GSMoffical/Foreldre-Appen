@@ -140,6 +140,8 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
   const [dropoffBy, setDropoffBy] = useState<PersonId | null>(null)
   const [pickupBy, setPickupBy] = useState<PersonId | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [titleError, setTitleError] = useState<string | null>(null)
+  const [timeError, setTimeError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(() =>
     typeof Notification !== 'undefined' ? Notification.permission : 'denied'
@@ -272,7 +274,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
       await Promise.resolve(onSave(data, options))
       onClose()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Kunne ikke lagre hendelsen.')
+      setError(err instanceof Error ? err.message : 'Kunne ikke lagre hendelsen. Sjekk nett og prøv igjen.')
     } finally {
       setSaving(false)
     }
@@ -343,12 +345,15 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
                       return [...prev, p.id]
                     })
                   }}
-                  className={selectedPersonIds.includes(p.id) ? personChipActive : personChipInactive}
+                  className={`${selectedPersonIds.includes(p.id) ? personChipActive : personChipInactive} active:opacity-70`}
                 >
                   {p.name}
                 </button>
               ))}
             </div>
+            {selectedPersonIds.length === 0 && (
+              <p className="mt-1 text-caption text-synkaNavy/40">Velg minst én person</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -358,8 +363,10 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
               className={inputBase}
               placeholder="f.eks. Fotball, Lekser"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => { setTitle(e.target.value); if (titleError) setTitleError(null) }}
+              onBlur={() => { if (!title.trim()) setTitleError('Tittel er påkrevd') }}
             />
+            {titleError && <p className="mt-1 text-caption text-synkaCoral">{titleError}</p>}
           </div>
 
           <div className="space-y-1.5">
@@ -376,7 +383,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
           <button
             type="button"
             onClick={() => { setIsAllDay((v) => !v); setError(null) }}
-            className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-body-sm font-medium transition-colors ${
+            className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-body-sm font-medium transition-colors active:opacity-70 ${
               isAllDay
                 ? 'border-synkaPrimary/40 bg-synkaPrimary/8 text-synkaNavy'
                 : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-100'
@@ -410,28 +417,43 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
           )}
 
           {!isAllDay && (
-            <div className="flex gap-3">
-              <div className="flex-1 space-y-1.5">
-                <label className={inputLabel} htmlFor="start">Starttid</label>
-                <input
-                  id="start"
-                  type="time"
-                  className={inputBase}
-                  value={start}
-                  onChange={(e) => setStart(e.target.value)}
-                />
+            <>
+              <div className="flex gap-3">
+                <div className="flex-1 space-y-1.5">
+                  <label className={inputLabel} htmlFor="start">Starttid</label>
+                  <input
+                    id="start"
+                    type="time"
+                    className={inputBase}
+                    value={start}
+                    onChange={(e) => { setStart(e.target.value); setTimeError(null) }}
+                  />
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  <label className={inputLabel} htmlFor="end">Sluttid</label>
+                  <input
+                    id="end"
+                    type="time"
+                    className={inputBase}
+                    value={end}
+                    onChange={(e) => { setEnd(e.target.value); setTimeError(null) }}
+                    onBlur={() => {
+                      if (end && start) {
+                        if (end === start) {
+                          setTimeError('Sluttid må være etter starttid')
+                        } else if (end < start) {
+                          const [sh, sm] = start.split(':').map(Number)
+                          const [eh, em] = end.split(':').map(Number)
+                          const diff = (sh * 60 + sm) - (eh * 60 + em)
+                          if (diff <= 60) setTimeError('Sluttid må være etter starttid')
+                        }
+                      }
+                    }}
+                  />
+                </div>
               </div>
-              <div className="flex-1 space-y-1.5">
-                <label className={inputLabel} htmlFor="end">Sluttid</label>
-                <input
-                  id="end"
-                  type="time"
-                  className={inputBase}
-                  value={end}
-                  onChange={(e) => setEnd(e.target.value)}
-                />
-              </div>
-            </div>
+              {timeError && <p className="mt-1 text-caption text-synkaCoral">{timeError}</p>}
+            </>
           )}
 
           {!isAllDay && end < start && (

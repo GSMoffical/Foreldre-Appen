@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { inputBase } from '../lib/ui'
+import { getAuthErrorMessage } from '../lib/authErrors'
 
 const MIN_PASSWORD_LENGTH = 6
 const INVITE_MEMBER_KIND_KEY = 'invite-member-kind'
@@ -60,7 +61,11 @@ export function AuthScreen() {
       if (resetErr) throw resetErr
       setResetSent(true)
     } catch (err: unknown) {
-      setResetError(err instanceof Error ? err.message : 'Noe gikk galt. Prøv igjen.')
+      setResetError(
+        err instanceof Error
+          ? getAuthErrorMessage({ message: err.message, code: (err as { code?: string }).code })
+          : 'Noe gikk galt. Prøv igjen.'
+      )
     }
   }
 
@@ -116,7 +121,7 @@ export function AuthScreen() {
         setConfirmPassword('')
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Noe gikk galt. Prøv igjen.')
+      setError(err instanceof Error ? err.message : 'Noe gikk galt. Sjekk internettforbindelsen og prøv igjen.')
     } finally {
       setLoading(false)
     }
@@ -282,7 +287,7 @@ export function AuthScreen() {
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? 'Skjul passord' : 'Vis passord'}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-synkaNavy/40 transition hover:text-synkaNavy/70"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-synkaNavy/40 transition hover:text-synkaNavy/70 active:opacity-70"
               >
                 {showPassword ? (
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -304,7 +309,7 @@ export function AuthScreen() {
                 <button
                   type="button"
                   onClick={handleForgotPassword}
-                  className="text-body-sm text-synkaPrimary/70 transition hover:text-synkaPrimary"
+                  className="text-body-sm text-synkaPrimary/70 transition hover:text-synkaPrimary active:opacity-70"
                 >
                   Glemt passord?
                 </button>
@@ -350,7 +355,7 @@ export function AuthScreen() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-2 h-12 w-full rounded-pill bg-synkaPrimary text-body font-semibold text-white transition disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-synkaPrimary/40 touch-manipulation select-none"
+            className="mt-2 h-12 w-full rounded-pill bg-synkaPrimary text-body font-semibold text-white transition disabled:opacity-60 active:opacity-70 focus:outline-none focus:ring-2 focus:ring-synkaPrimary/40 touch-manipulation select-none"
           >
             {loading ? 'Vennligst vent…' : mode === 'signin' ? 'Logg inn' : 'Opprett konto'}
           </button>
@@ -360,7 +365,7 @@ export function AuthScreen() {
           {mode === 'signin' ? (
             <button
               type="button"
-              className="border border-synkaPrimary text-synkaPrimary rounded-pill px-6 py-2 font-medium text-body-sm w-full transition hover:bg-synkaPrimary/5 focus:outline-none"
+              className="border border-synkaPrimary text-synkaPrimary rounded-pill px-6 py-2 font-medium text-body-sm w-full transition hover:bg-synkaPrimary/5 active:opacity-70 focus:outline-none"
               onClick={() => switchMode('signup')}
             >
               Ny bruker? Opprett konto
@@ -368,7 +373,7 @@ export function AuthScreen() {
           ) : (
             <button
               type="button"
-              className="font-semibold text-synkaPrimary transition hover:text-synkaPrimary/70 focus:outline-none"
+              className="font-semibold text-synkaPrimary transition hover:text-synkaPrimary/70 active:opacity-70 focus:outline-none"
               onClick={() => switchMode('signin')}
             >
               Har du allerede en konto? Logg inn

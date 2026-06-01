@@ -10,7 +10,8 @@ import type { NavTab } from './components/BottomNav'
 import { useScheduleState } from './hooks/useScheduleState'
 import { useAutoFillWeek } from './hooks/useAutoFillWeek'
 import { useFamily } from './context/FamilyContext'
-import type { Event, Task } from './types'
+import type { Event, Task, Person } from './types'
+import { SectionDots } from './components/SectionDots'
 import { useAuth } from './context/AuthContext'
 import { useEffectiveUserId } from './context/EffectiveUserIdContext'
 import { useUserPreferences } from './context/UserPreferencesContext'
@@ -141,6 +142,9 @@ function App() {
 
   const [hideFamilyBanner, setHideFamilyBanner] = useState(false)
   const [justReconnected, setJustReconnected] = useState(false)
+  const [joinedPerson, setJoinedPerson] = useState<Person | null>(null)
+  const seenLinkedIdsRef = useRef<Set<string>>(new Set())
+  const familyInitializedRef = useRef(false)
   const [lastSaveType, setLastSaveType] = useState<'event' | 'other' | null>(null)
   const prevOnlineRef = useRef<boolean | null>(null)
   const [notifyToast, setNotifyToast] = useState<string | null>(null)
@@ -411,6 +415,28 @@ function App() {
   }, [familyError])
 
   useEffect(() => {
+    if (!familyLoaded || people.length === 0) return
+    if (!familyInitializedRef.current) {
+      familyInitializedRef.current = true
+      people.forEach((p) => { if (p.linkedAuthUserId) seenLinkedIdsRef.current.add(p.linkedAuthUserId) })
+      return
+    }
+    for (const p of people) {
+      if (p.linkedAuthUserId && !seenLinkedIdsRef.current.has(p.linkedAuthUserId)) {
+        seenLinkedIdsRef.current.add(p.linkedAuthUserId)
+        setJoinedPerson(p)
+        break
+      }
+    }
+  }, [people, familyLoaded])
+
+  useEffect(() => {
+    if (!joinedPerson) return
+    const t = setTimeout(() => setJoinedPerson(null), 4000)
+    return () => clearTimeout(t)
+  }, [joinedPerson])
+
+  useEffect(() => {
     if (!isOnline) {
       setJustReconnected(false)
       prevOnlineRef.current = false
@@ -505,6 +531,23 @@ function App() {
 
   return (
     <AppShell>
+      <AnimatePresence>
+        {joinedPerson && (
+          <motion.div
+            key={joinedPerson.id}
+            initial={{ opacity: 0, y: -64 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -64 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+            className="fixed inset-x-0 top-4 z-[200] pointer-events-none"
+          >
+            <div className="mx-4 flex items-center gap-2.5 rounded-xl bg-synkaPrimary px-4 py-3 shadow-lg">
+              <SectionDots size="sm" />
+              <p className="text-body-sm font-semibold text-white">{joinedPerson.name} er nå med i Synka! 🎉</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <MobileFrame>
         <div className="flex h-full min-h-0 w-full min-w-0 max-w-full flex-col overflow-x-hidden">
           {!isOnline && (

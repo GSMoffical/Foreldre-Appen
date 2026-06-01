@@ -2,7 +2,7 @@
  * Map Supabase auth error codes/messages to user-friendly Norwegian messages.
  */
 export function getAuthErrorMessage(error: { message?: string; code?: string } | null): string {
-  if (!error) return 'Noe gikk galt.'
+  if (!error) return 'Noe gikk galt. Prøv igjen.'
   const msg = (error.message ?? '').toLowerCase()
   const code = (error as { code?: string }).code ?? ''
 
@@ -19,7 +19,7 @@ export function getAuthErrorMessage(error: { message?: string; code?: string } |
     return 'Passordet må være minst 6 tegn.'
   }
   if (msg.includes('invalid email')) {
-    return 'Ugyldig e-postadresse.'
+    return 'Skriv inn en gyldig e-postadresse.'
   }
   if (msg.includes('signup requires a valid password')) {
     return 'Velg et passord på minst 6 tegn.'

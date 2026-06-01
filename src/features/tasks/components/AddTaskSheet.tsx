@@ -38,6 +38,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
   const [showInMonthView, setShowInMonthView] = useState(initialTask?.showInMonthView ?? false)
   const [taskIntent, setTaskIntent] = useState<TaskIntent>(initialTask?.taskIntent ?? 'must_do')
   const [saving, setSaving] = useState(false)
+  const [titleError, setTitleError] = useState<string | null>(null)
 
   const isDirty = useMemo(
     () =>
@@ -63,7 +64,8 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim() || saving) return
+    if (saving) return
+    if (!title.trim()) { setTitleError('Tittel er påkrevd'); return }
     setSaving(true)
     try {
       if (assignedTo !== PERSON_NONE) {
@@ -127,11 +129,13 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
               ref={titleRef}
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => { setTitle(e.target.value); if (titleError) setTitleError(null) }}
+              onBlur={() => { if (!title.trim()) setTitleError('Tittel er påkrevd') }}
               placeholder="Hva skal gjøres?"
               required
               className={inputBase}
             />
+            {titleError && <p className="mt-1 text-caption text-synkaCoral">{titleError}</p>}
           </div>
 
           {people.length > 0 && (

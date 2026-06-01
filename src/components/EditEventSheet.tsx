@@ -176,6 +176,8 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
   const [dropoffBy, setDropoffBy] = useState<PersonId | undefined>(initialTransport?.dropoffBy)
   const [pickupBy, setPickupBy] = useState<PersonId | undefined>(initialTransport?.pickupBy)
   const [error, setError] = useState<string | null>(null)
+  const [titleError, setTitleError] = useState<string | null>(null)
+  const [timeError, setTimeError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [showMore, setShowMore] = useState(() =>
     !!(event.notes || event.reminderMinutes != null || initialTransport?.dropoffBy || initialTransport?.pickupBy)
@@ -322,7 +324,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
       )
       onClose()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Kunne ikke lagre endringene.')
+      setError(err instanceof Error ? err.message : 'Kunne ikke lagre endringene. Sjekk nett og prøv igjen.')
     } finally {
       setSaving(false)
     }
@@ -405,12 +407,15 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
                       return [...prev, p.id]
                     })
                   }}
-                  className={selectedPersonIds.includes(p.id) ? personChipActive : personChipInactive}
+                  className={`${selectedPersonIds.includes(p.id) ? personChipActive : personChipInactive} active:opacity-70`}
                 >
                   {p.name}
                 </button>
               ))}
             </div>
+            {selectedPersonIds.length === 0 && (
+              <p className="mt-1 text-caption text-synkaNavy/40">Velg minst én person</p>
+            )}
           </div>
 
           <div className="space-y-1">
@@ -422,8 +427,10 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
               className={inputBase}
               placeholder="f.eks. Fotball, Lekser"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => { setTitle(e.target.value); if (titleError) setTitleError(null) }}
+              onBlur={() => { if (!title.trim()) setTitleError('Tittel er påkrevd') }}
             />
+            {titleError && <p className="mt-1 text-caption text-synkaCoral">{titleError}</p>}
           </div>
 
           <div className="space-y-1">
@@ -476,28 +483,43 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
           )}
 
           {!isAllDay && (
-            <div className="flex gap-3">
-              <div className="flex-1 space-y-1">
-                <label className={inputLabel} htmlFor="edit-start">Starttid</label>
-                <input
-                  id="edit-start"
-                  type="time"
-                  className={inputBase}
-                  value={start}
-                  onChange={(e) => setStart(e.target.value)}
-                />
+            <>
+              <div className="flex gap-3">
+                <div className="flex-1 space-y-1">
+                  <label className={inputLabel} htmlFor="edit-start">Starttid</label>
+                  <input
+                    id="edit-start"
+                    type="time"
+                    className={inputBase}
+                    value={start}
+                    onChange={(e) => { setStart(e.target.value); setTimeError(null) }}
+                  />
+                </div>
+                <div className="flex-1 space-y-1">
+                  <label className={inputLabel} htmlFor="edit-end">Sluttid</label>
+                  <input
+                    id="edit-end"
+                    type="time"
+                    className={inputBase}
+                    value={end}
+                    onChange={(e) => { setEnd(e.target.value); setTimeError(null) }}
+                    onBlur={() => {
+                      if (end && start) {
+                        if (end === start) {
+                          setTimeError('Sluttid må være etter starttid')
+                        } else if (end < start) {
+                          const [sh, sm] = start.split(':').map(Number)
+                          const [eh, em] = end.split(':').map(Number)
+                          const diff = (sh * 60 + sm) - (eh * 60 + em)
+                          if (diff <= 60) setTimeError('Sluttid må være etter starttid')
+                        }
+                      }
+                    }}
+                  />
+                </div>
               </div>
-              <div className="flex-1 space-y-1">
-                <label className={inputLabel} htmlFor="edit-end">Sluttid</label>
-                <input
-                  id="edit-end"
-                  type="time"
-                  className={inputBase}
-                  value={end}
-                  onChange={(e) => setEnd(e.target.value)}
-                />
-              </div>
-            </div>
+              {timeError && <p className="mt-1 text-caption text-synkaCoral">{timeError}</p>}
+            </>
           )}
 
           {!isAllDay && end < start && (

@@ -114,7 +114,7 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
           <button
             type="button"
             onClick={onBack}
-            className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-synkaNavy/8 touch-manipulation"
+            className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-synkaNavy/8 active:opacity-70 touch-manipulation"
             aria-label="Tilbake"
           >
             <IconArrowLeft size={18} className="text-synkaNavy" aria-hidden />
@@ -202,7 +202,7 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
                             <button
                               type="button"
                               onClick={() => openEdit(p)}
-                              className="shrink-0 rounded-lg px-2 py-1 text-body-sm font-medium text-synkaPrimary transition hover:bg-synkaPrimary/8"
+                              className="shrink-0 rounded-lg px-2 py-1 text-body-sm font-medium text-synkaPrimary transition hover:bg-synkaPrimary/8 active:opacity-70"
                             >
                               Rediger
                             </button>
@@ -213,7 +213,7 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
                           <button
                             type="button"
                             onClick={() => openEdit(p, 3)}
-                            className="mt-3 inline-flex items-center gap-1.5 rounded-pill bg-synkaTeal/15 px-3 py-1.5 text-label font-semibold text-synkaPrimary transition hover:bg-synkaTeal/25"
+                            className="mt-3 inline-flex items-center gap-1.5 rounded-pill bg-synkaTeal/15 px-3 py-1.5 text-label font-semibold text-synkaPrimary transition hover:bg-synkaTeal/25 active:opacity-70"
                           >
                             <IconUser size={13} aria-hidden /> Inviter til appen
                           </button>
@@ -225,14 +225,14 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
                               <button
                                 type="button"
                                 onClick={() => { void removePerson(p.id).catch(() => {}); setConfirmRemoveId(null) }}
-                                className="rounded-pill bg-red-600 px-3 py-1 text-caption font-semibold text-white touch-manipulation"
+                                className="rounded-pill bg-red-600 px-3 py-1 text-caption font-semibold text-white active:opacity-70 touch-manipulation"
                               >
                                 Fjern
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setConfirmRemoveId(null)}
-                                className="rounded-pill border border-red-200 bg-white px-3 py-1 text-caption font-semibold text-red-600 touch-manipulation"
+                                className="rounded-pill border border-red-200 bg-white px-3 py-1 text-caption font-semibold text-red-600 active:opacity-70 touch-manipulation"
                               >
                                 Avbryt
                               </button>
@@ -241,7 +241,7 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
                             <button
                               type="button"
                               onClick={() => setConfirmRemoveId(p.id)}
-                              className="mt-3 inline-flex items-center gap-1.5 rounded-pill border border-red-200 bg-red-50 px-3 py-1.5 text-label font-semibold text-red-600 transition hover:bg-red-100 touch-manipulation"
+                              className="mt-3 inline-flex items-center gap-1.5 rounded-pill border border-red-200 bg-red-50 px-3 py-1.5 text-label font-semibold text-red-600 transition hover:bg-red-100 active:opacity-70 touch-manipulation"
                             >
                               Fjern
                             </button>
@@ -337,6 +337,7 @@ function PersonWizard({
   const [step, setStep] = useState<1 | 2 | 3>(startStep)
   const [direction, setDirection] = useState(1)
   const [nameError, setNameError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [showAdvancedSchool, setShowAdvancedSchool] = useState(false)
 
@@ -434,11 +435,12 @@ function PersonWizard({
       return
     }
     setSaving(true)
+    setSaveError(null)
     try {
       const id = await persistPerson()
       onComplete(id)
     } catch {
-      onClose()
+      setSaveError('Kunne ikke lagre. Sjekk internettforbindelsen og prøv igjen.')
     } finally {
       setSaving(false)
     }
@@ -565,7 +567,7 @@ function PersonWizard({
         <button
           type="button"
           onClick={() => (step === startStep ? onClose() : goTo((step - 1) as 1 | 2 | 3))}
-          className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-synkaNavy/8 touch-manipulation"
+          className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-synkaNavy/8 active:opacity-70 touch-manipulation"
           aria-label="Tilbake"
         >
           <IconArrowLeft size={18} className="text-synkaNavy" aria-hidden />
@@ -669,12 +671,15 @@ function PersonWizard({
 
       {/* Footer actions */}
       <div className="shrink-0 border-t border-synkaNavy/8 bg-synkaCream px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+        {saveError && (
+          <p className="text-caption text-synkaCoral text-center mt-2 mb-2">{saveError}</p>
+        )}
         <div className="flex items-center gap-3">
           {step > 1 && (
             <button
               type="button"
               onClick={isLastStep ? () => void finalize() : () => void handleNext()}
-              className="text-body-sm font-medium text-synkaNavy/55 underline underline-offset-2"
+              className="text-body-sm font-medium text-synkaNavy/55 underline underline-offset-2 active:opacity-70"
               disabled={saving}
             >
               Hopp over
@@ -778,7 +783,7 @@ function StepBasics({
                 onClick={() => onPickColor(tint, accent)}
                 aria-pressed={selected}
                 aria-label={`Farge ${accent}`}
-                className={`h-9 w-9 rounded-full transition-transform hover:scale-110 ${
+                className={`h-9 w-9 rounded-full transition-transform hover:scale-110 active:opacity-70 ${
                   selected ? 'ring-2 ring-synkaPrimary ring-offset-2' : ''
                 }`}
                 style={{ backgroundColor: tint, border: `2px solid ${accent}` }}
@@ -806,7 +811,7 @@ function KindTile({ active, disabled, onClick, icon, label, sub }: KindTileProps
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex flex-col items-start gap-2 rounded-md border-2 p-4 text-left transition ${
+      className={`flex flex-col items-start gap-2 rounded-md border-2 p-4 text-left transition active:opacity-70 ${
         active
           ? 'border-synkaPrimary bg-synkaPrimary/5'
           : 'border-synkaNavy/12 bg-white'
