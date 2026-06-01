@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, type ReactNode } from 'react'
 import { motion, useReducedMotion, type Variants } from 'framer-motion'
 import { OnboardingHint } from './OnboardingHint'
 import { typHeading, typSectionCap, btnPrimaryPill, screenHeaderRow } from '../lib/ui'
+import { SectionDots } from './SectionDots'
 import type { Task, Person } from '../types'
 import { taskIntentBadgeClassName, taskIntentLabelNb } from '../lib/taskIntent'
 import type { WeekDayLayout } from '../hooks/useScheduleState'
@@ -230,7 +231,7 @@ function TaskItem({ task, child, assignee, onComplete, onUndoComplete, onEdit, o
           <button
             type="button"
             onClick={onNotify}
-            className="rounded-lg p-2.5 text-zinc-300 transition hover:bg-zinc-100 hover:text-synkaPrimary"
+            className="rounded-lg p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-zinc-300 transition hover:bg-zinc-100 hover:text-synkaPrimary"
             aria-label="Varsle partner"
             title="Varsle partner om gjøremålet"
           >
@@ -241,7 +242,7 @@ function TaskItem({ task, child, assignee, onComplete, onUndoComplete, onEdit, o
           <button
             type="button"
             onClick={onEdit}
-            className="rounded-lg p-2.5 text-zinc-300 transition hover:bg-zinc-100 hover:text-zinc-500"
+            className="rounded-lg p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-zinc-300 transition hover:bg-zinc-100 hover:text-zinc-500"
             aria-label="Rediger"
           >
             <PencilIcon />
@@ -250,7 +251,7 @@ function TaskItem({ task, child, assignee, onComplete, onUndoComplete, onEdit, o
         <button
           type="button"
           onClick={onDelete}
-          className="rounded-lg p-2.5 text-zinc-300 transition hover:bg-synkaCoral/10 hover:text-synkaCoral"
+          className="rounded-lg p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-zinc-300 transition hover:bg-synkaCoral/10 hover:text-synkaCoral"
           aria-label="Slett"
         >
           <TrashIcon />
@@ -279,7 +280,7 @@ function SectionLabel({
   if (variant === 'neutral') {
     return <h3 className={`mb-3 ${typSectionCap}`}>{label}</h3>
   }
-  const dot = variant === 'overdue' ? 'bg-synkaCoral' : 'bg-synkaPrimary'
+  const dot = variant === 'overdue' ? 'bg-synkaCoral' : 'bg-synkaTeal'
   const text = variant === 'overdue' ? 'text-synkaCoral' : 'text-synkaPrimary'
   return (
     <div className="mb-3 flex items-center gap-2">
@@ -517,8 +518,7 @@ export function TasksScreen({
         {/* Screen header */}
         <div className={screenHeaderRow}>
           <h2 className={`${typHeading} inline-flex items-center gap-2`}>
-            <span className="inline-block w-2 h-2 rounded-full bg-synkaTeal" aria-hidden />
-            <span className="inline-block w-2 h-2 rounded-full bg-synkaYellow" aria-hidden />
+            <SectionDots />
             Gjøremål
           </h2>
           <button type="button" onClick={openAddTask} className={btnPrimaryPill}>

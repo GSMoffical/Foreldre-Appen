@@ -659,16 +659,16 @@ export function BackgroundDetailSheet({
                           const severityLabel = severity === 'hard' ? COPY.status.needsClarification : COPY.conflicts.note
                           const alternatives = buildAlternativeSlots(r.start, r.end, c.start, c.end)
                           return (
-                            <div key={c.id} className="rounded-md border border-amber-200 bg-amber-50 p-2.5">
+                            <div key={c.id} className="rounded-md border border-synkaYellow/30 bg-synkaYellow/8 p-2.5">
                               <div className="flex items-center justify-between gap-2">
-                                <p className="text-caption font-semibold text-amber-900">
+                                <p className="text-caption font-semibold text-synkaNavy/80">
                                   {COPY.conflicts.collidesWith}: {c.title} ({formatTimeRange(c.start, c.end)})
                                 </p>
-                                <span className="rounded-pill bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                                <span className="rounded-pill bg-synkaYellow/15 px-2 py-0.5 text-[10px] font-semibold text-synkaNavy/70">
                                   {severityLabel}
                                 </span>
                               </div>
-                              <p className="mt-1 text-caption text-amber-800">
+                              <p className="mt-1 text-caption text-synkaNavy/70">
                                 {COPY.conflicts.suggestion}: {alternatives[0]} eller {alternatives[1]}
                               </p>
                               {needsResolution ? (
@@ -726,7 +726,7 @@ export function BackgroundDetailSheet({
                                   </button>
                                 </div>
                               ) : (
-                                <p className="mt-2 text-caption text-amber-800">
+                                <p className="mt-2 text-caption text-synkaNavy/70">
                                   Skole + avtale regnes som planlagt og trenger ikke avklaring.
                                 </p>
                               )}

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { IconArrowLeft, IconActivity, IconUpload, IconCheck } from '@tabler/icons-react'
+import { IconArrowLeft, IconUpload, IconCheck } from '@tabler/icons-react'
+import { SectionDots } from '../../components/SectionDots'
+import { btnPrimaryPill } from '../../lib/ui'
 import type { Event, Task, Person } from '../../types'
 import {
   useTankestromImport,
@@ -143,14 +145,10 @@ export function TankestrømPage({
           <IconArrowLeft size={18} aria-hidden />
         </button>
         <div className="mt-3 flex items-center gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-synkaNavy">
-            <IconActivity size={18} color="#7bc7c4" aria-hidden />
-          </div>
+          <img src="/synka-mark.svg" className="w-8 h-8 opacity-90" alt="" aria-hidden />
           <div className="min-w-0">
             <p className="text-heading font-bold text-synkaNavy">Tankestrøm</p>
-            <p className="truncate text-caption text-synkaNavy/50">
-              Last opp dokument eller bilde for å importere hendelser
-            </p>
+            <p className="text-caption text-synkaNavy/50">Lim inn eller last opp — vi finner hendelsene</p>
           </div>
         </div>
       </div>
@@ -161,8 +159,8 @@ export function TankestrømPage({
         <div
           role="button"
           tabIndex={0}
-          className="mx-4 mt-2 cursor-pointer bg-synkaTeal/5 p-8 text-center transition touch-manipulation active:bg-synkaTeal/10"
-          style={{ border: '2px dashed rgba(123,199,196,0.5)', borderRadius: 12 }}
+          className="mx-4 mt-2 cursor-pointer p-8 text-center transition touch-manipulation active:opacity-80"
+          style={{ border: '2px dashed rgba(22,107,79,0.25)', borderRadius: 12, background: 'rgba(22,107,79,0.03)' }}
           onClick={() => fileInputRef.current?.click()}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -179,7 +177,7 @@ export function TankestrømPage({
             </div>
           ) : (
             <>
-              <IconUpload size={32} color="rgba(123,199,196,0.7)" style={{ display: 'block', marginBottom: 12 }} aria-hidden />
+              <IconUpload size={28} className="text-synkaPrimary/40 mb-2 mx-auto" aria-hidden />
               <p className="text-body-sm font-medium text-synkaNavy">
                 Last opp dokument eller bilde
               </p>
@@ -241,10 +239,7 @@ export function TankestrømPage({
           <div className="mt-5">
             {/* Section header */}
             <div className="mb-3 flex items-center gap-2 px-4">
-              <span className="inline-flex items-center gap-1" aria-hidden>
-                <span className="h-2 w-2 rounded-full bg-synkaTeal" />
-                <span className="h-2 w-2 rounded-full bg-synkaYellow" />
-              </span>
+              <SectionDots size="sm" />
               <span className="text-caption font-semibold text-synkaNavy">Foreslåtte hendelser</span>
               <span className="rounded-pill bg-synkaTeal/15 px-2 text-caption text-synkaTeal">
                 {displayItems.length}
@@ -328,8 +323,9 @@ export function TankestrømPage({
             type="button"
             disabled={selectedCount === 0 || saveLoading || !canApproveSelection}
             onClick={() => void handleApprove()}
-            className="h-12 w-full rounded-pill bg-synkaPrimary font-semibold text-white touch-manipulation disabled:opacity-40"
+            className={`${btnPrimaryPill} w-full h-12 gap-2 touch-manipulation disabled:opacity-40`}
           >
+            {!saveLoading && <IconCheck size={16} aria-hidden />}
             {saveLoading
               ? 'Importerer…'
               : `Legg til ${selectedCount} hendelse${selectedCount === 1 ? '' : 'r'}`}

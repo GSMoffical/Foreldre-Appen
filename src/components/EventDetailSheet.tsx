@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { springDialog } from '../lib/motion'
 import { Button } from './ui/Button'
-import { inputBase, sheetPanel, sheetHandle, sheetDetailBody, sheetSubtitle, btnSecondary, btnDanger } from '../lib/ui'
+import { inputBase, sheetPanel, sheetHandle, sheetHandleBar, sheetDetailBody, sheetSubtitle, btnSecondary, btnDanger } from '../lib/ui'
 import type { EmbeddedScheduleSegment, Event } from '../types'
 import { groupEmbeddedScheduleByDate, parseEmbeddedScheduleFromMetadata } from '../lib/embeddedSchedule'
 import {
@@ -219,6 +219,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
           aria-label="Hendelsesdetaljer"
         >
         <div className={`${sheetHandle} !bg-synkaCream relative`}>
+          <div className={sheetHandleBar} aria-hidden />
           <button
             type="button"
             onClick={onClose}

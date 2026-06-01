@@ -104,8 +104,8 @@ export function TimelineGrid({
             'absolute left-0 right-2 flex items-center gap-1'
           const inner = (
             <>
-              <span className="h-2 w-2 shrink-0 rounded-sm bg-amber-400" />
-              <div className="flex-1 border-t border-dashed border-amber-300" />
+              <span className="h-2 w-2 shrink-0 rounded-sm bg-synkaYellow" />
+              <div className="flex-1 border-t border-dashed border-synkaYellow/50" />
               <span className="whitespace-nowrap rounded-pill bg-synkaYellow/10 px-1.5 py-px text-[10px] font-semibold text-synkaNavy/70 ring-1 ring-synkaYellow/30">
                 {label}
               </span>
@@ -128,7 +128,7 @@ export function TimelineGrid({
                   }
                 }}
                 aria-label={`Åpne gjøremål: ${task.title}${task.dueTime ? `, frist ${task.dueTime}` : ''}`}
-                className={`${rowClass} cursor-pointer pointer-events-auto rounded-md py-0.5 text-left transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:ring-offset-0 touch-manipulation`}
+                className={`${rowClass} cursor-pointer pointer-events-auto rounded-md py-0.5 text-left transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-synkaYellow/60 focus:ring-offset-0 touch-manipulation`}
                 style={{ top: topPx, zIndex: 1 }}
               >
                 {inner}

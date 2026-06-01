@@ -7,7 +7,7 @@ import { useConfirmClose } from '../hooks/useConfirmClose'
 import {
   inputBase, textareaBase, inputLabel, typLabel,
   btnSecondary, btnDanger,
-  sheetPanel, sheetHandle, sheetFormBody,
+  sheetPanel, sheetHandle, sheetHandleBar, sheetFormBody,
   sheetTitle, btnDisclosure, personChipActive, personChipInactive,
   dropdownTrigger,
 } from '../lib/ui'
@@ -351,6 +351,7 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
           aria-label="Rediger hendelse"
         >
         <div className={`${sheetHandle} relative`}>
+          <div className={sheetHandleBar} aria-hidden />
           <button
             type="button"
             onClick={guardedClose}
@@ -366,8 +367,8 @@ export function EditEventSheet({ event, date, onSave, onClose }: EditEventSheetP
           <h2 className={sheetTitle}>Rediger hendelse</h2>
 
           {confirming && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3.5 space-y-3">
-              <p className="text-body-sm font-medium text-amber-900">Du har ulagrede endringer. Forkaste?</p>
+            <div className="rounded-lg border border-synkaYellow/30 bg-synkaYellow/8 p-3.5 space-y-3">
+              <p className="text-body-sm font-medium text-synkaNavy/80">Du har ulagrede endringer. Forkaste?</p>
               <div className="flex gap-2">
                 <button type="button" onClick={cancelConfirm} className={`flex-1 ${btnSecondary}`}>Bli her</button>
                 <button type="button" onClick={confirmClose} className={`flex-1 ${btnDanger}`}>Forkast</button>

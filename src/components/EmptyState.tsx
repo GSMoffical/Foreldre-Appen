@@ -12,13 +12,13 @@ interface EmptyStateProps {
 /** Subtle breathing S-mark for the secondary (filtered / no_family) empty states. */
 function BrandMark({ reducedMotion }: { reducedMotion: boolean }) {
   if (reducedMotion) {
-    return <img src="/synka-mark.svg" alt="" className="w-16 h-16 opacity-25" aria-hidden />
+    return <img src="/synka-mark.svg" alt="" className="w-20 h-20 mx-auto mb-4 opacity-25" aria-hidden />
   }
   return (
     <motion.img
       src="/synka-mark.svg"
       alt=""
-      className="w-16 h-16"
+      className="w-20 h-20 mx-auto mb-4"
       aria-hidden
       initial={{ opacity: 0.2 }}
       animate={{ opacity: [0.2, 0.35] }}

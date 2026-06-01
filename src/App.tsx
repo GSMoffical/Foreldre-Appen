@@ -24,7 +24,7 @@ import { useNetworkStatus } from './hooks/useNetworkStatus'
 import { startUxTimer, endUxTimer, logUxMetric } from './lib/uxMetrics'
 import { logEvent } from './lib/appLogger'
 import { addTankestromSentryBreadcrumb } from './lib/sentry'
-import { addCalendarDaysOslo } from './lib/osloCalendar'
+import { addCalendarDaysOslo, todayKeyOslo } from './lib/osloCalendar'
 import { useSaveFeedback } from './features/app/hooks/useSaveFeedback'
 import { useInviteAcceptance } from './features/invites/hooks/useInviteAcceptance'
 import { AppNoticeStack } from './features/app/components/AppNoticeStack'
@@ -169,6 +169,17 @@ function App() {
     [prefetchEventsForDateRange, prefetchTasksForRange]
   )
 
+  const monthViewEvents = useMemo<Record<string, Event[]>>(
+    () =>
+      new Proxy({} as Record<string, Event[]>, {
+        get(_target, prop) {
+          if (typeof prop === 'string') return getVisibleEventsForDate(prop) ?? []
+          return undefined
+        },
+      }),
+    [getVisibleEventsForDate]
+  )
+
   const filteredTasksByDate = useMemo(() => {
     if (selectedPersonIds.length === 0) return tasksByDate
     const ids = new Set(selectedPersonIds)
@@ -195,11 +206,6 @@ function App() {
     }
   }, [selectedTaskId, calendarDayTasks])
 
-  const hasHighlightedTaskOnDate = useCallback(
-    (date: string): boolean =>
-      (filteredTasksByDate[date] ?? []).some((t) => t.showInMonthView && !t.completedAt),
-    [filteredTasksByDate]
-  )
   const taskController = useTaskController({
     addTask,
     patchTask,
@@ -382,6 +388,17 @@ function App() {
     [filteredTasksByDate]
   )
 
+  const overdueTaskDates = useMemo(() => {
+    const today = todayKeyOslo()
+    const result = new Set<string>()
+    for (const [date, tasks] of Object.entries(tasksByDate)) {
+      if (date < today && tasks.some((t) => !t.completedAt)) {
+        result.add(date)
+      }
+    }
+    return result
+  }, [tasksByDate])
+
   useAutoFillWeek({
     week: weekLayoutData,
     addEvent,
@@ -413,7 +430,7 @@ function App() {
         <MobileFrame>
           <div className="flex h-full w-full min-w-0 max-w-full flex-col items-center justify-center gap-3 overflow-x-hidden text-zinc-500">
             <div className="h-8 w-8 animate-spin rounded-pill border-2 border-zinc-300 border-t-zinc-600" />
-            <p className="text-sm">Laster…</p>
+            <p className="text-body-sm">Laster…</p>
           </div>
         </MobileFrame>
       </AppShell>
@@ -531,13 +548,10 @@ function App() {
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={navTab}
-              initial={reducedMotion ? false : { opacity: 0, y: 8 }}
-              animate={
-                reducedMotion
-                  ? { opacity: 1, y: 0 }
-                  : { opacity: 1, y: 0, transition: { duration: 0.15, ease: 'easeOut' } }
-              }
-              exit={reducedMotion ? { opacity: 1 } : { opacity: 0, transition: { duration: 0.08, ease: 'easeOut' } }}
+              initial={reducedMotion ? false : { opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reducedMotion ? { opacity: 1 } : { opacity: 0, y: -4 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
               className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden"
             >
           {navTab === 'mer' ? (
@@ -616,19 +630,10 @@ function App() {
                     setNavTab('today')
                     setShowListView(false)
                   }}
-                  hasEventsOnDate={(date) => getVisibleEventsForDate(date).length > 0}
-                  getEventsForDate={getVisibleEventsForDate}
-                  hasHighlightedTaskOnDate={hasHighlightedTaskOnDate}
+                  events={monthViewEvents}
+                  people={people}
                   onVisibleMonthRange={handleMonthRangePrefetch}
-                  onAddEventForDate={(date) => {
-                    openAddEvent(date)
-                  }}
-                  onSelectEvent={(event, date) => {
-                    setSelectedDate(date)
-                    setSelectedEvent({ event, date })
-                    setNavTab('today')
-                    setShowListView(false)
-                  }}
+                  overdueTaskDates={overdueTaskDates}
                 />
               </Suspense>
             </div>
@@ -733,7 +738,7 @@ function App() {
                 <div
                   className={`w-full max-w-[390px] rounded-lg border px-3 py-2.5 shadow-planner ${
                     tankestromToast.variant === 'warning'
-                      ? 'border-amber-300 bg-amber-50'
+                      ? 'border-synkaYellow/30 bg-synkaYellow/8'
                       : 'border-brandTeal/30 bg-white'
                   }`}
                 >
@@ -775,7 +780,7 @@ function App() {
                           openTankestromImport('toast')
                           dismissTankestromToast()
                         }}
-                        className="rounded-pill border border-amber-300 bg-white px-3 py-1.5 text-caption font-semibold text-amber-900"
+                        className="rounded-pill border border-synkaYellow/30 bg-white px-3 py-1.5 text-caption font-semibold text-synkaNavy/80"
                       >
                         Vis feil
                       </button>

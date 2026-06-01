@@ -6,6 +6,7 @@ import {
   IconChevronRight,
 } from '@tabler/icons-react'
 import { motion, useReducedMotion, type Variants } from 'framer-motion'
+import { SectionDots } from './SectionDots'
 
 interface MerScreenProps {
   onNavigateSettings: () => void
@@ -30,11 +31,8 @@ export function MerScreen({ onNavigateSettings, onNavigateTankestrom, onNavigate
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-synkaCream">
       <div className="flex items-center gap-2 px-4 pt-6 pb-4">
-        <span className="inline-flex items-center gap-1" aria-hidden>
-          <span className="h-2.5 w-2.5 rounded-full bg-synkaTeal" />
-          <span className="h-2.5 w-2.5 rounded-full bg-synkaYellow" />
-        </span>
-        <h1 className="text-[22px] font-bold text-synkaNavy">Mer</h1>
+        <SectionDots size="lg" />
+        <h1 className="text-display font-bold text-synkaNavy">Mer</h1>
       </div>
 
       <motion.div
@@ -56,12 +54,12 @@ export function MerScreen({ onNavigateSettings, onNavigateTankestrom, onNavigate
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="text-[14px] font-semibold text-synkaNavy">Tankestrøm</span>
+              <span className="text-body font-semibold text-synkaNavy">Tankestrøm</span>
               <span className="rounded-pill bg-synkaTeal px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
                 NY
               </span>
             </div>
-            <p className="text-[12px] text-synkaNavy/60">Importer hendelser fra tekst og bilder</p>
+            <p className="text-label text-synkaNavy/60">Importer hendelser fra tekst og bilder</p>
           </div>
           <IconChevronRight size={16} className="shrink-0 text-synkaNavy/40" aria-hidden />
         </motion.button>
@@ -77,8 +75,8 @@ export function MerScreen({ onNavigateSettings, onNavigateTankestrom, onNavigate
             <IconUsers size={18} color="white" aria-hidden />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-semibold text-synkaNavy">Familie</p>
-            <p className="text-[12px] text-synkaNavy/60">Administrer familiemedlemmer</p>
+            <p className="text-body font-semibold text-synkaNavy">Familie</p>
+            <p className="text-label text-synkaNavy/60">Administrer familiemedlemmer</p>
           </div>
           <IconChevronRight size={16} className="shrink-0 text-synkaNavy/40" aria-hidden />
         </motion.button>
@@ -94,8 +92,8 @@ export function MerScreen({ onNavigateSettings, onNavigateTankestrom, onNavigate
             <IconSettings size={18} color="white" aria-hidden />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-semibold text-synkaNavy">Innstillinger</p>
-            <p className="text-[12px] text-synkaNavy/60">App-preferanser og konto</p>
+            <p className="text-body font-semibold text-synkaNavy">Innstillinger</p>
+            <p className="text-label text-synkaNavy/60">App-preferanser og konto</p>
           </div>
           <IconChevronRight size={16} className="shrink-0 text-synkaNavy/40" aria-hidden />
         </motion.button>
@@ -111,8 +109,8 @@ export function MerScreen({ onNavigateSettings, onNavigateTankestrom, onNavigate
             <IconHelpCircle size={18} color="#f5c842" aria-hidden />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-semibold text-synkaNavy">Hjelp</p>
-            <p className="text-[12px] text-synkaNavy/60">Veiledning og støtte</p>
+            <p className="text-body font-semibold text-synkaNavy">Hjelp</p>
+            <p className="text-label text-synkaNavy/60">Veiledning og støtte</p>
           </div>
           <IconChevronRight size={16} className="shrink-0 text-synkaNavy/40" aria-hidden />
         </motion.button>

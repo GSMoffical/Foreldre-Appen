@@ -68,18 +68,21 @@ export const btnRowAction =
 export const btnGhost =
   `${_btnBase} rounded-lg px-3 py-1.5 text-label font-medium text-synkaPrimary hover:bg-synkaPrimary/8 focus:ring-synkaPrimary/30`
 
+/** Destructive outline â€" inline/compact (no fixed width, no py-3) */
+export const btnDangerOutline = 'rounded-pill border border-synkaCoral text-synkaCoral bg-transparent hover:bg-synkaCoral/5 active:bg-synkaCoral/10 font-medium transition-colors'
+
 // â”€â”€ Inputs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** Standard text input â€” use on all form fields */
 export const inputBase =
-  'w-full rounded-md border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-synkaPrimary focus:bg-white focus:ring-1 focus:ring-synkaPrimary/20 disabled:opacity-60'
+  'w-full rounded-md border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 placeholder-zinc-400 outline-none transition focus:outline-none focus:border-synkaPrimary focus:bg-white focus:ring-2 focus:ring-synkaPrimary/30 disabled:opacity-60'
 
 /** Multi-line textarea */
 export const textareaBase =
-  'w-full rounded-md border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 placeholder-zinc-400 outline-none resize-none transition focus:border-synkaPrimary focus:bg-white focus:ring-1 focus:ring-synkaPrimary/20'
+  'w-full rounded-md border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 placeholder-zinc-400 outline-none resize-none transition focus:outline-none focus:border-synkaPrimary focus:bg-white focus:ring-2 focus:ring-synkaPrimary/30'
 
 /** Select / dropdown â€” matches inputBase */
 export const selectBase =
-  'w-full rounded-md border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 outline-none transition focus:border-synkaPrimary focus:bg-white focus:ring-1 focus:ring-synkaPrimary/20'
+  'w-full rounded-md border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 outline-none transition focus:outline-none focus:border-synkaPrimary focus:bg-white focus:ring-2 focus:ring-synkaPrimary/30'
 
 /** Field label (sits above the input) */
 export const inputLabel = 'mb-1.5 block text-caption uppercase tracking-wide text-synkaNavy/60'
@@ -143,7 +146,7 @@ export const personChipInactive =
 // â”€â”€ Custom dropdown trigger (acts like a <select> but needs chevron) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** Button that opens a custom listbox dropdown â€” visually matches inputBase */
 export const dropdownTrigger =
-  'flex w-full items-center justify-between rounded-md border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 outline-none transition hover:border-synkaNavy/30 focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20'
+  'flex w-full items-center justify-between rounded-md border border-synkaNavy/15 bg-white/60 px-3.5 py-3 text-body text-zinc-900 outline-none transition hover:border-synkaNavy/30 focus:outline-none focus:border-synkaPrimary focus:ring-2 focus:ring-synkaPrimary/30'
 
 // â”€â”€ Screen layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** Outer screen column wrapper */

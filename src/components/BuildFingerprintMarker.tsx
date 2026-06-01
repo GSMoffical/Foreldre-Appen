@@ -30,7 +30,7 @@ export function BuildFingerprintMarker() {
       className="pointer-events-none fixed bottom-2 right-2 z-[65] max-w-[min(100vw-1rem,280px)] select-none"
       aria-hidden
     >
-      <p className="rounded-md border border-amber-500/50 bg-zinc-950/88 px-2 py-1 font-mono text-[10px] font-semibold leading-tight text-amber-300 shadow-md backdrop-blur-[2px]">
+      <p className="rounded-md border border-synkaYellow/50 bg-zinc-950/88 px-2 py-1 font-mono text-[10px] font-semibold leading-tight text-synkaYellow shadow-md backdrop-blur-[2px]">
         TEST BUILD · {human}
       </p>
     </div>

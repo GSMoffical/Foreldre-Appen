@@ -13,21 +13,19 @@ export function ScheduleLoadingSkeleton() {
           <div key={i} className={`h-14 ${w} max-w-full animate-pulse rounded-md bg-synkaPrimary/8`} />
         ))}
       </div>
-      <div className="mt-6 flex shrink-0 justify-center pb-2">
-        {reducedMotion ? (
-          <img src="/synka-mark.svg" alt="" className="h-8 w-8 opacity-30" aria-hidden />
-        ) : (
-          <motion.img
-            src="/synka-mark.svg"
-            alt=""
-            className="h-8 w-8"
-            aria-hidden
-            initial={{ opacity: 0.2 }}
-            animate={{ opacity: [0.2, 0.4] }}
-            transition={{ duration: 2, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
-          />
-        )}
-      </div>
+      {reducedMotion ? (
+        <img src="/synka-mark.svg" alt="" className="w-24 h-24 mx-auto my-6 opacity-30" aria-hidden />
+      ) : (
+        <motion.img
+          src="/synka-mark.svg"
+          alt=""
+          className="w-24 h-24 mx-auto my-6"
+          aria-hidden
+          initial={{ opacity: 0.2 }}
+          animate={{ opacity: [0.2, 0.4] }}
+          transition={{ duration: 2, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
+        />
+      )}
     </div>
   )
 }

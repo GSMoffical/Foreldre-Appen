@@ -130,7 +130,7 @@ export function TodayActionStrip({
             </button>
           </div>
           <p className="mt-2 text-caption leading-relaxed text-zinc-600 md:text-caption">
-            Flytt til i morgen flytter fra i dag {nextEvent!.start} til i morgen {nextEvent!.start}.
+            Hendelsen flyttes fra {nextEvent!.start} i dag til i morgen.
           </p>
           {!nextEventHasConflict && laterConflictCount > 0 && (
             <p className="mt-2 text-caption font-medium text-synkaNavy/70">

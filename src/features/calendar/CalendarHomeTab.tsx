@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { IconCalendarPlus, IconCheckbox } from '@tabler/icons-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FamilyFilterBar } from '../../components/FamilyFilterBar'
 import { SearchBar } from '../../components/SearchBar'
@@ -250,7 +251,7 @@ export function CalendarHomeTab({
                           animate={{ opacity: 1, scale: 1, y: 0 }}
                           exit={{ opacity: 0, scale: 0.95, y: 4 }}
                           transition={{ duration: 0.12 }}
-                          className="absolute top-10 right-0 z-50 w-44 overflow-hidden rounded-xl border border-synkaNavy/8 bg-white shadow-lg"
+                          className="absolute top-10 right-0 z-50 w-64 overflow-hidden rounded-xl border border-synkaNavy/8 bg-white shadow-lg"
                         >
                           <motion.button
                             type="button"
@@ -258,26 +259,32 @@ export function CalendarHomeTab({
                             animate={{ opacity: 1, y: 0 }}
                             transition={reducedMotion ? { duration: 0 } : { duration: 0.15, ease: 'easeOut', delay: 0 }}
                             onClick={() => { openAddEvent(); setShowAddMenu(false) }}
-                            className="flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium text-synkaNavy active:bg-synkaCream touch-manipulation"
+                            className="flex w-full items-center gap-3 px-4 py-3 active:bg-synkaCream/80 touch-manipulation"
                           >
-                            <svg className="h-4 w-4 shrink-0 text-synkaTeal" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-                            </svg>
-                            Hendelse
+                            <div className="w-8 h-8 shrink-0 rounded-lg bg-synkaPrimary/10 flex items-center justify-center text-synkaPrimary">
+                              <IconCalendarPlus size={20} aria-hidden />
+                            </div>
+                            <div className="min-w-0 text-left">
+                              <p className="text-body font-semibold text-synkaNavy">Hendelse</p>
+                              <p className="text-caption text-synkaNavy/50">Legg til i kalenderen</p>
+                            </div>
                           </motion.button>
-                          <div className="mx-4 border-t border-synkaNavy/8" />
+                          <div className="border-t border-synkaNavy/6" />
                           <motion.button
                             type="button"
                             initial={reducedMotion ? false : { opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={reducedMotion ? { duration: 0 } : { duration: 0.15, ease: 'easeOut', delay: 0.06 }}
                             onClick={() => { openAddTask(); setShowAddMenu(false) }}
-                            className="flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium text-synkaNavy active:bg-synkaCream touch-manipulation"
+                            className="flex w-full items-center gap-3 px-4 py-3 active:bg-synkaCream/80 touch-manipulation"
                           >
-                            <svg className="h-4 w-4 shrink-0 text-synkaYellow" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
-                            </svg>
-                            Gjøremål
+                            <div className="w-8 h-8 shrink-0 rounded-lg bg-synkaTeal/15 flex items-center justify-center text-synkaTeal">
+                              <IconCheckbox size={20} aria-hidden />
+                            </div>
+                            <div className="min-w-0 text-left">
+                              <p className="text-body font-semibold text-synkaNavy">Gjøremål</p>
+                              <p className="text-caption text-synkaNavy/50">Noe som må huskes</p>
+                            </div>
                           </motion.button>
                         </motion.div>
                       </>

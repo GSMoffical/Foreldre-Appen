@@ -21,7 +21,7 @@ export function WeekStrip({ days, selectedDate, onSelectDay, loading, taskCountB
   return (
     <motion.div
       key={weekKey}
-      className={`flex w-full min-w-0 max-w-full gap-1 px-2 py-1 ${loading ? 'opacity-60' : ''}`}
+      className={`flex w-full min-w-0 max-w-full gap-1 px-4 py-1 ${loading ? 'opacity-60' : ''}`}
       variants={container}
       initial="hidden"
       animate="visible"

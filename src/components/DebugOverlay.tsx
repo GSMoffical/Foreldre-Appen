@@ -43,7 +43,7 @@ function fmtTime(ts: string): string {
 function eventColor(name: string): string {
   if (name.startsWith('task_')) return 'text-emerald-400'
   if (name.startsWith('event_')) return 'text-sky-400'
-  if (name.startsWith('onboarding_')) return 'text-amber-400'
+  if (name.startsWith('onboarding_')) return 'text-synkaYellow'
   if (name.startsWith('search_')) return 'text-violet-400'
   if (name.startsWith('tab_') || name.startsWith('sheet_') || name.startsWith('session_')) return 'text-zinc-300'
   return 'text-zinc-400'

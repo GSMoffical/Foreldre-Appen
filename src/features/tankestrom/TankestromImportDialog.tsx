@@ -171,7 +171,7 @@ function confidenceBadgeStyle(confidence: number): { label: string; className: s
   if (confidence >= 0.55) {
     return {
       label: `${pct}% middels`,
-      className: 'border-amber-200 bg-amber-50 text-amber-950',
+      className: 'border-synkaYellow/30 bg-synkaYellow/8 text-synkaNavy/80',
     }
   }
   return {
@@ -187,7 +187,7 @@ function confidenceBadgeCompactStyle(confidence: number): { label: string; class
     return { label: `${pct}%`, className: 'border-emerald-200/80 bg-emerald-50/90 text-emerald-900' }
   }
   if (confidence >= 0.55) {
-    return { label: `${pct}%`, className: 'border-amber-200/80 bg-amber-50/90 text-amber-950' }
+    return { label: `${pct}%`, className: 'border-synkaYellow/25 bg-synkaYellow/8 text-synkaNavy/80' }
   }
   return { label: 'Sjekk', className: 'border-zinc-300 bg-zinc-100 text-zinc-800' }
 }
@@ -1232,10 +1232,10 @@ function SchoolWeekOverlayReviewCard({
                           }
                         }
                         return (
-                          <div className="mt-2 rounded-md border border-amber-200 bg-amber-50/70 px-2.5 py-2">
-                            <p className="text-caption font-semibold text-amber-950">Spesialdag (erstatter skoleblokk)</p>
+                          <div className="mt-2 rounded-md border border-synkaYellow/30 bg-synkaYellow/6 px-2.5 py-2">
+                            <p className="text-caption font-semibold text-synkaNavy/80">Spesialdag (erstatter skoleblokk)</p>
                             {displaySummary ? (
-                              <p className="mt-1 text-caption leading-snug text-amber-900/90">
+                              <p className="mt-1 text-caption leading-snug text-synkaNavy/80">
                                 {displaySummary}
                               </p>
                             ) : null}
@@ -1244,8 +1244,8 @@ function SchoolWeekOverlayReviewCard({
                               if (lines.length === 0) return null
                               return (
                                 <div key={label} className="mt-1.5">
-                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-900">{label}</p>
-                                  <ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-caption text-amber-950">
+                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-synkaNavy/80">{label}</p>
+                                  <ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-caption text-synkaNavy/80">
                                     {lines.map((line, idx) => (
                                       <li key={`${label}-${idx}`}>{line}</li>
                                     ))}
@@ -2006,7 +2006,7 @@ function TankestromReviewConditionalBadge({
   return (
     <span
       title={tankestromConditionalAccessibleHintNb()}
-      className={`inline-flex max-w-[11rem] rounded-md border border-amber-200/90 bg-amber-50/95 px-1.5 py-px text-[8px] font-semibold leading-snug text-amber-950 sm:max-w-none sm:text-[9px] ${
+      className={`inline-flex max-w-[11rem] rounded-md border border-synkaYellow/25 bg-synkaYellow/8 px-1.5 py-px text-[8px] font-semibold leading-snug text-synkaNavy/80 sm:max-w-none sm:text-[9px] ${
         variant === 'detail' ? 'font-medium' : ''
       }`}
     >
@@ -3056,7 +3056,7 @@ export function TankestromImportDialog({
                       Knytt uke-overlay til barn
                     </label>
                     {childrenList.length === 0 ? (
-                      <p className="mt-1 text-caption text-amber-800">
+                      <p className="mt-1 text-caption text-synkaNavy/70">
                         Legg til minst ett barn under Innstillinger for å lagre uke-overlay.
                       </p>
                     ) : (
@@ -3080,7 +3080,7 @@ export function TankestromImportDialog({
                 </>
               ) : null}
               {analyzeWarning ? (
-                <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-caption leading-snug text-amber-950 whitespace-pre-wrap">
+                <p className="rounded-md border border-synkaYellow/30 bg-synkaYellow/8 px-3 py-2 text-caption leading-snug text-synkaNavy/80 whitespace-pre-wrap">
                   {analyzeWarning}
                 </p>
               ) : null}
@@ -3096,7 +3096,7 @@ export function TankestromImportDialog({
                   Velg barn
                 </label>
                 {childrenList.length === 0 ? (
-                  <p className="mt-1 text-caption text-amber-800">
+                  <p className="mt-1 text-caption text-synkaNavy/70">
                     Legg til minst ett barn under Innstillinger for å lagre timeplanen.
                   </p>
                 ) : (
@@ -3139,9 +3139,9 @@ export function TankestromImportDialog({
                   })()}
                 </p>
                 {schoolLessonConflicts.length > 0 ? (
-                  <div className="mb-3 rounded-lg border border-amber-300/80 bg-amber-50 px-3 py-3">
-                    <p className="text-caption font-semibold text-amber-950">Velg spor (parallelle timer)</p>
-                    <p className="mt-1 text-caption leading-snug text-amber-900/95">
+                  <div className="mb-3 rounded-lg border border-synkaYellow/30 bg-synkaYellow/8 px-3 py-3">
+                    <p className="text-caption font-semibold text-synkaNavy/80">Velg spor (parallelle timer)</p>
+                    <p className="mt-1 text-caption leading-snug text-synkaNavy/80">
                       Timeplanen viser flere mulige fag i samme tidsrom (for eksempel D1/D2 eller ulike språk). Dette er
                       vanligvis ulike grupper — barnet har bare ett av dem. Velg det som gjelder for dette barnet. Vi
                       lagrer ikke flere overlappende timer for samme spor.
@@ -3150,7 +3150,7 @@ export function TankestromImportDialog({
                       {schoolLessonConflicts.map((group) => (
                         <li
                           key={lessonConflictGroupId(group)}
-                          className="rounded-md border border-amber-200/90 bg-white/90 px-3 py-2.5 shadow-sm"
+                          className="rounded-md border border-synkaYellow/25 bg-white/90 px-3 py-2.5 shadow-sm"
                         >
                           <p className="text-caption font-medium text-zinc-900">
                             {WD_LABEL_NB[group.weekday]}{' '}
@@ -3167,7 +3167,7 @@ export function TankestromImportDialog({
                                 <label
                                   key={fieldId}
                                   htmlFor={fieldId}
-                                  className="flex cursor-pointer items-start gap-2.5 rounded-md border border-zinc-200/80 bg-zinc-50/80 px-2.5 py-2 transition hover:border-amber-300/60"
+                                  className="flex cursor-pointer items-start gap-2.5 rounded-md border border-zinc-200/80 bg-zinc-50/80 px-2.5 py-2 transition hover:border-synkaYellow/25"
                                 >
                                   <input
                                     id={fieldId}
@@ -3221,11 +3221,11 @@ export function TankestromImportDialog({
                           <span className="text-zinc-500"> · Per-dag-oppsummering avviker</span>
                         ) : null}
                       </p>
-                      <details className="rounded-md border border-amber-200/90 bg-amber-50/50 open:bg-amber-50/70">
-                        <summary className="cursor-pointer px-2 py-1.5 text-caption font-semibold text-amber-950">
+                      <details className="rounded-md border border-synkaYellow/25 bg-synkaYellow/5 open:bg-synkaYellow/6">
+                        <summary className="cursor-pointer px-2 py-1.5 text-caption font-semibold text-synkaNavy/80">
                           Avvik per dag og per time (snapshot → draft)
                         </summary>
-                        <pre className="max-h-48 overflow-auto border-t border-amber-100/80 bg-white/90 p-2 text-[10px] font-mono leading-snug whitespace-pre-wrap text-zinc-900">
+                        <pre className="max-h-48 overflow-auto border-t border-synkaYellow/15 bg-white/90 p-2 text-[10px] font-mono leading-snug whitespace-pre-wrap text-zinc-900">
                           {schoolImportDebugPanel.snapshotDraftDiff}
                         </pre>
                       </details>
@@ -3282,7 +3282,7 @@ export function TankestromImportDialog({
                 </p>
               ) : null}
               {!updatePerson ? (
-                <p className="text-caption text-amber-800">Lagring er ikke tilgjengelig. Prøv å oppdatere appen.</p>
+                <p className="text-caption text-synkaNavy/70">Lagring er ikke tilgjengelig. Prøv å oppdatere appen.</p>
               ) : null}
             </div>
               ) : (
@@ -3302,7 +3302,7 @@ export function TankestromImportDialog({
                     Gjelder barn
                   </label>
                   {childrenList.length === 0 ? (
-                    <p className="mt-1 text-caption text-amber-800">
+                    <p className="mt-1 text-caption text-synkaNavy/70">
                       Legg til minst ett barn under Innstillinger for å lagre overlay og knytte oppgaver riktig.
                     </p>
                   ) : (
@@ -3351,16 +3351,16 @@ export function TankestromImportDialog({
                 </div>
               ) : null}
               {analyzeWarning ? (
-                <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-caption leading-snug text-amber-950 whitespace-pre-wrap">
+                <p className="rounded-md border border-synkaYellow/30 bg-synkaYellow/8 px-3 py-2 text-caption leading-snug text-synkaNavy/80 whitespace-pre-wrap">
                   {analyzeWarning}
                 </p>
               ) : null}
               {isTankestromImportDebugVisible() ? (
-                <div className="rounded-md border border-amber-200/80 bg-amber-50/30 px-3 py-2">
+                <div className="rounded-md border border-synkaYellow/25 bg-synkaYellow/5 px-3 py-2">
                   <button
                     type="button"
                     onClick={() => setTankestromPipelineDebugOpen((v) => !v)}
-                    className="text-caption font-semibold text-amber-950 underline decoration-amber-300 underline-offset-2 hover:text-amber-900"
+                    className="text-caption font-semibold text-synkaNavy/80 underline decoration-synkaYellow/50 underline-offset-2 hover:text-synkaNavy/80"
                   >
                     {tankestromPipelineDebugOpen ? 'Skjul import-debug' : 'Vis import-debug'}
                   </button>
@@ -3386,7 +3386,7 @@ export function TankestromImportDialog({
                   </div>
                   <div className="rounded-md bg-white/70 px-2 py-1.5">
                     <dt className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400">Trenger retting</dt>
-                    <dd className="text-body font-bold tabular-nums text-amber-800">{reviewSelectionStats.withErrors}</dd>
+                    <dd className="text-body font-bold tabular-nums text-synkaNavy/70">{reviewSelectionStats.withErrors}</dd>
                   </div>
                   <div className="rounded-md bg-white/70 px-2 py-1.5">
                     <dt className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400">Klare</dt>
@@ -3919,7 +3919,7 @@ export function TankestromImportDialog({
                                   ? 'border-teal-300/90 bg-teal-50/95 text-teal-950'
                                   : existingEventLinkChoice === 'skip'
                                     ? 'border-zinc-300/90 bg-zinc-50/95 text-zinc-900'
-                                    : 'border-amber-200/90 bg-amber-50/95 text-amber-950'
+                                    : 'border-synkaYellow/25 bg-synkaYellow/8 text-synkaNavy/80'
                               }`}
                             >
                               <p className="text-caption font-semibold leading-snug">{existingMatchHeadline}</p>
@@ -3946,7 +3946,7 @@ export function TankestromImportDialog({
                                   </p>
                                 </>
                               ) : existingEventLinkChoice === 'new' ? (
-                                <p className="mt-1.5 text-[10px] leading-snug text-amber-900/95 sm:text-caption">
+                                <p className="mt-1.5 text-[10px] leading-snug text-synkaNavy/80 sm:text-caption">
                                   Du har valgt ny rad. Godkjenning oppretter et ekstra arrangement i tillegg til
                                   det som finnes.
                                 </p>
@@ -3978,7 +3978,7 @@ export function TankestromImportDialog({
                                   className={`touch-manipulation rounded-md border px-2.5 py-1.5 text-caption font-semibold transition ${
                                     existingEventLinkChoice === 'update'
                                       ? 'border-brandTeal bg-brandTeal/15 text-brandNavy ring-1 ring-brandTeal/25'
-                                      : 'border-amber-300/90 bg-white text-amber-950 hover:bg-amber-100/80 disabled:cursor-not-allowed disabled:opacity-45'
+                                      : 'border-synkaYellow/30 bg-white text-synkaNavy/80 hover:bg-synkaYellow/15 disabled:cursor-not-allowed disabled:opacity-45'
                                   }`}
                                 >
                                   Oppdater eksisterende
@@ -3989,7 +3989,7 @@ export function TankestromImportDialog({
                                   className={`touch-manipulation rounded-md border px-2.5 py-1.5 text-caption font-semibold transition ${
                                     existingEventLinkChoice === 'new'
                                       ? 'border-zinc-400 bg-zinc-100 text-zinc-900 ring-1 ring-zinc-300/60'
-                                      : 'border-amber-200/90 bg-white text-amber-950 hover:bg-amber-100/60'
+                                      : 'border-synkaYellow/25 bg-white text-synkaNavy/80 hover:bg-synkaYellow/10'
                                   }`}
                                 >
                                   Behold som nytt
@@ -4988,7 +4988,7 @@ export function TankestromImportDialog({
                             <p className="mt-0.5 text-[9px] text-zinc-500 sm:text-[10px]">Ikke valgt</p>
                           ) : null}
                           {taskLangMismatch ? (
-                            <p className="mt-0.5 text-[9px] leading-snug text-amber-800 sm:text-[10px]">
+                            <p className="mt-0.5 text-[9px] leading-snug text-synkaNavy/70 sm:text-[10px]">
                               Annen språktrack.
                             </p>
                           ) : null}
@@ -5621,7 +5621,7 @@ export function TankestromImportDialog({
               ) : null}
 
               {selectedIds.size > 0 && !canApproveSelection && (
-                <p className="text-caption leading-snug text-amber-900">
+                <p className="text-caption leading-snug text-synkaNavy/80">
                   <span className="font-semibold">Noen valgte kort mangler person, dato eller tid</span> (eller har
                   ugyldige verdier). Åpne «Rediger» på kortene merket med rød tekst over, eller følg de røde
                   feltmerknadene når redigeringspanelet er åpent.

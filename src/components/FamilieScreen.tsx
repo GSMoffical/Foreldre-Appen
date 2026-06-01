@@ -573,24 +573,31 @@ function PersonWizard({
         <h1 className="truncate text-heading font-bold text-synkaNavy">{heading}</h1>
       </header>
 
-      {/* Dot progress indicator */}
-      <div className="flex shrink-0 items-center justify-center gap-2 py-4">
-        {Array.from({ length: totalSteps }, (_, i) => {
-          const idx = (i + 1) as 1 | 2 | 3
-          const state = idx < step ? 'done' : idx === step ? 'current' : 'upcoming'
-          return (
-            <motion.span
-              key={idx}
-              animate={{
-                width: state === 'current' ? 28 : 8,
-                backgroundColor:
-                  state === 'done' ? '#7bc7c4' : state === 'current' ? '#f5c842' : '#d8d4cd',
-              }}
-              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-              className="h-2 rounded-pill"
-            />
-          )
-        })}
+      {/* Step progress indicator */}
+      <div className="shrink-0 px-5 pt-4 pb-2">
+        <p className="mb-2 text-caption text-synkaNavy/50">
+          Steg {step} av {totalSteps} — {(['Grunninfo', 'Timeplan', 'Invitasjon'] as const)[step - 1]}
+        </p>
+        <div className="flex gap-1.5">
+          {Array.from({ length: totalSteps }, (_, i) => {
+            const idx = (i + 1) as 1 | 2 | 3
+            const state = idx < step ? 'done' : idx === step ? 'current' : 'upcoming'
+            const bgClass =
+              state === 'current' ? 'bg-synkaPrimary' :
+              state === 'done' ? 'bg-synkaPrimary/40' :
+              'bg-synkaNavy/10'
+            return (
+              <motion.div
+                key={idx}
+                className={`flex-1 h-1 rounded-pill ${bgClass}`}
+                initial={state === 'current' ? { scaleX: 0 } : false}
+                animate={{ scaleX: 1 }}
+                style={{ originX: 0 }}
+                transition={{ type: 'tween', duration: 0.3 }}
+              />
+            )
+          })}
+        </div>
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-5 [-webkit-overflow-scrolling:touch]">

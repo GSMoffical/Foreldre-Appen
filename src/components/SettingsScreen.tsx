@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { cardSection, typSectionCap, btnSecondary, btnDanger } from '../lib/ui'
+import { cardSection, typSectionCap, btnSecondary, btnDanger, btnDangerOutline } from '../lib/ui'
+import { SectionDots } from './SectionDots'
 import { useAuth } from '../context/AuthContext'
 import { useUserPreferences } from '../context/UserPreferencesContext'
 import { useEffectiveUserId } from '../context/EffectiveUserIdContext'
@@ -44,23 +45,15 @@ export function SettingsScreen({
     setNotifStatus(result)
   }
 
-  const SectionDots = () => (
-    <>
-      <span className="inline-block h-1.5 w-1.5 rounded-pill bg-synkaTeal" aria-hidden />
-      <span className="inline-block h-1.5 w-1.5 rounded-pill bg-synkaYellow" aria-hidden />
-    </>
-  )
-
   return (
     <div className="flex w-full min-w-0 max-w-full flex-col px-4 pt-5 pb-10">
       <div className="flex items-center gap-2">
-        <span className="inline-block h-2 w-2 rounded-pill bg-synkaTeal" aria-hidden />
-        <span className="inline-block h-2 w-2 rounded-pill bg-synkaYellow" aria-hidden />
+        <SectionDots />
         <h2 className="text-display text-synkaPrimary">Innstillinger</h2>
       </div>
 
       <div className={`mt-6 ${cardSection} p-4`}>
-        <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Konto</p></div>
+        <div className="flex items-center gap-2"><SectionDots size="sm" /><p className={typSectionCap}>Konto</p></div>
         <p className="mt-1.5 text-body-sm text-zinc-800 break-all">{user?.email ?? '—'}</p>
         <p className="mt-1.5 text-caption text-zinc-500">
           {isCalendarOwner ? (
@@ -73,21 +66,21 @@ export function SettingsScreen({
 
       {isLinked && (
         <div className="mt-4 rounded-md border border-zinc-200 bg-zinc-50 p-4">
-          <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Delt familie</p></div>
+          <div className="flex items-center gap-2"><SectionDots size="sm" /><p className={typSectionCap}>Delt familie</p></div>
           <p className="mt-2 text-body-sm text-zinc-600">
             Du ser på og redigerer en familie du ble invitert til. Hendelser kan du endre som vanlig; familien og
             invitasjoner håndteres av eieren. For å gå tilbake til din egen kalender, forlat familien.
           </p>
           {confirmUnlink ? (
-            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3.5 space-y-3">
-              <p className="text-body-sm font-medium text-amber-900">Forlate delt familie og gå tilbake til din egen kalender?</p>
+            <div className="mt-3 rounded-md border border-synkaYellow/30 bg-synkaYellow/8 p-3.5 space-y-3">
+              <p className="text-body-sm font-medium text-synkaNavy/80">Forlate delt familie og gå tilbake til din egen kalender?</p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setConfirmUnlink(false)} className={`flex-1 ${btnSecondary}`}>Avbryt</button>
                 <button type="button" onClick={handleUnlink} className="flex-1 rounded-md bg-synkaCoral py-3 text-body font-semibold text-white hover:bg-synkaCoral/90">Forlat</button>
               </div>
             </div>
           ) : (
-            <button type="button" onClick={() => setConfirmUnlink(true)} className="mt-3 rounded-pill border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition">
+            <button type="button" onClick={() => setConfirmUnlink(true)} className="mt-3 rounded-pill border border-zinc-300 px-4 py-2 text-body-sm font-medium text-zinc-700 hover:bg-zinc-50 transition">
               Forlat familie
             </button>
           )}
@@ -95,7 +88,7 @@ export function SettingsScreen({
       )}
 
       <div className={`mt-4 ${cardSection} p-4`}>
-        <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Varsler</p></div>
+        <div className="flex items-center gap-2"><SectionDots size="sm" /><p className={typSectionCap}>Varsler</p></div>
         {notifStatus === 'granted' ? (
           <p className="mt-2 text-body-sm text-zinc-600">Varsler er skrudd på. Påminnelser dukker opp før hendelser.</p>
         ) : notifStatus === 'denied' ? (
@@ -103,14 +96,14 @@ export function SettingsScreen({
         ) : notifStatus === 'unsupported' ? (
           <p className="mt-2 text-body-sm text-zinc-500">Nettleservarsler er ikke støttet her.</p>
         ) : (
-          <button type="button" onClick={handleEnableNotifications} className="mt-2 rounded-pill bg-synkaPrimary px-4 py-2 text-sm font-medium text-white transition hover:brightness-95">
+          <button type="button" onClick={handleEnableNotifications} className="mt-2 rounded-pill bg-synkaPrimary px-4 py-2 text-body-sm font-medium text-white transition hover:brightness-95">
             Skru på påminnelser
           </button>
         )}
       </div>
 
       <div className={`mt-4 ${cardSection} p-4`}>
-        <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Tilbakemelding</p></div>
+        <div className="flex items-center gap-2"><SectionDots size="sm" /><p className={typSectionCap}>Tilbakemelding</p></div>
         <div className="mt-3 flex items-center justify-between gap-4">
           <div className="min-w-0 flex-1">
             <p className="text-body-sm font-medium text-zinc-800">Lett vibrasjon ved lagring</p>
@@ -127,9 +120,9 @@ export function SettingsScreen({
 
       {onRestartOnboarding && (
         <div className={`mt-4 ${cardSection} p-4`}>
-          <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Hjelp</p></div>
+          <div className="flex items-center gap-2"><SectionDots size="sm" /><p className={typSectionCap}>Hjelp</p></div>
           <p className="mt-2 text-body-sm text-zinc-600">Vil du se gjennomgangen av appen på nytt?</p>
-          <button type="button" onClick={onRestartOnboarding} className="mt-3 rounded-pill border border-synkaNavy/20 px-4 py-2 text-sm font-medium text-synkaNavy transition hover:bg-synkaNavy/5">
+          <button type="button" onClick={onRestartOnboarding} className="mt-3 rounded-pill border border-synkaNavy/20 px-4 py-2 text-body-sm font-medium text-synkaNavy transition hover:bg-synkaNavy/5">
             Vis gjennomgang på nytt
           </button>
         </div>
@@ -143,7 +136,7 @@ export function SettingsScreen({
             </svg>
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Personvern</p></div>
+            <div className="flex items-center gap-2"><SectionDots size="sm" /><p className={typSectionCap}>Personvern</p></div>
             <p className="mt-2 text-body-sm leading-relaxed text-zinc-600">
               Kalenderen kan inneholde <span className="font-medium text-zinc-800">navn på barn</span>,{' '}
               <span className="font-medium text-zinc-800">skole og hendelser</span>, tider og steder. Tenk deg om før du
@@ -162,7 +155,7 @@ export function SettingsScreen({
       </div>
 
       <div className={`mt-4 ${cardSection} p-4`}>
-        <div className="flex items-center gap-2"><SectionDots /><p className={typSectionCap}>Rettigheter</p></div>
+        <div className="flex items-center gap-2"><SectionDots size="sm" /><p className={typSectionCap}>Rettigheter</p></div>
         <ul className="mt-2.5 space-y-2 text-body-sm text-zinc-600">
           <li className="flex gap-2">
             <span className="mt-px shrink-0 text-zinc-300">·</span>
@@ -194,7 +187,7 @@ export function SettingsScreen({
               </div>
             </div>
           ) : (
-            <button type="button" onClick={() => setConfirmClear(true)} className="mt-3 rounded-pill border border-synkaCoral px-4 py-2 text-body-sm font-medium text-synkaCoral transition hover:bg-synkaCoral/5">
+            <button type="button" onClick={() => setConfirmClear(true)} className={`mt-3 ${btnDangerOutline} px-4 py-2 text-body-sm`}>
               Slett alle hendelser
             </button>
           )
@@ -202,15 +195,15 @@ export function SettingsScreen({
       </div>
 
       {confirmLogout ? (
-        <div className="mt-8 rounded-md border border-amber-200 bg-amber-50 p-3.5 space-y-3">
-          <p className="text-body-sm font-medium text-amber-900">Er du sikker på at du vil logge ut?</p>
+        <div className="mt-8 rounded-md border border-synkaYellow/30 bg-synkaYellow/8 p-3.5 space-y-3">
+          <p className="text-body-sm font-medium text-synkaNavy/80">Er du sikker på at du vil logge ut?</p>
           <div className="flex gap-2">
             <button type="button" onClick={() => setConfirmLogout(false)} className={`flex-1 ${btnSecondary}`}>Avbryt</button>
             <button type="button" onClick={() => signOut()} className="flex-1 rounded-md bg-synkaCoral py-3 text-body font-semibold text-white hover:bg-synkaCoral/90">Logg ut</button>
           </div>
         </div>
       ) : (
-        <button type="button" onClick={() => setConfirmLogout(true)} className="mt-8 w-full rounded-pill border border-synkaCoral/40 py-3 text-body-sm font-medium text-synkaCoral transition hover:bg-synkaCoral/5 active:bg-synkaCoral/10">
+        <button type="button" onClick={() => setConfirmLogout(true)} className={`mt-8 w-full ${btnDangerOutline} border-synkaCoral/40 py-3 text-body-sm`}>
           Logg ut
         </button>
       )}

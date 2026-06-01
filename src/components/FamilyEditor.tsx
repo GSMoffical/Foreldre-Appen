@@ -264,7 +264,7 @@ export function FamilyEditor({ onPersonRemoved }: FamilyEditorProps) {
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="rounded-pill bg-synkaPrimary px-4 py-2 text-sm font-medium text-white transition hover:brightness-95"
+            className="rounded-pill bg-synkaPrimary px-4 py-2 text-body-sm font-medium text-white transition hover:brightness-95"
           >
             Legg til person
           </button>

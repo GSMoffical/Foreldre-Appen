@@ -37,7 +37,7 @@ export function TankestromImportDebugPanel({ snapshot }: { snapshot: TankestromI
 
   if (!snapshot) {
     return (
-      <div className="rounded-lg border border-dashed border-amber-300/80 bg-amber-50/50 px-3 py-2 text-caption text-amber-950">
+      <div className="rounded-lg border border-dashed border-synkaYellow/30 bg-synkaYellow/5 px-3 py-2 text-caption text-synkaNavy/80">
         Ingen import-debug ennå. Kjør analyse (eller analyser på nytt) for å fylle snapshot.
       </div>
     )
@@ -46,20 +46,20 @@ export function TankestromImportDebugPanel({ snapshot }: { snapshot: TankestromI
   const a = snapshot.analyze
 
   return (
-    <div className="space-y-4 rounded-lg border border-amber-200/90 bg-amber-50/40 px-3 py-3 text-zinc-900">
+    <div className="space-y-4 rounded-lg border border-synkaYellow/25 bg-synkaYellow/5 px-3 py-3 text-zinc-900">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-caption font-semibold text-amber-950">Tankestrøm import-debug (kun utvikling)</p>
+        <p className="text-caption font-semibold text-synkaNavy/80">Tankestrøm import-debug (kun utvikling)</p>
         <button
           type="button"
           onClick={onCopyJson}
-          className="rounded-md border border-amber-400/80 bg-white px-2.5 py-1 text-caption font-semibold text-amber-950 hover:bg-amber-50"
+          className="rounded-md border border-synkaYellow/50 bg-white px-2.5 py-1 text-caption font-semibold text-synkaNavy/80 hover:bg-synkaYellow/8"
         >
           Copy debug JSON
         </button>
       </div>
-      {copyMsg ? <p className="text-[10px] text-amber-800">{copyMsg}</p> : null}
+      {copyMsg ? <p className="text-[10px] text-synkaNavy/70">{copyMsg}</p> : null}
       {snapshot.analyzeWarning ? (
-        <p className="rounded-md border border-amber-200 bg-white/80 px-2 py-1.5 text-[10px] whitespace-pre-wrap text-amber-950">
+        <p className="rounded-md border border-synkaYellow/30 bg-white/80 px-2 py-1.5 text-[10px] whitespace-pre-wrap text-synkaNavy/80">
           {snapshot.analyzeWarning}
         </p>
       ) : null}
@@ -130,7 +130,7 @@ export function TankestromImportDebugPanel({ snapshot }: { snapshot: TankestromI
         {snapshot.warnings.length === 0 ? (
           <p className="text-[10px] text-zinc-600">Ingen automatiske varsler.</p>
         ) : (
-          <ul className="list-inside list-disc space-y-0.5 text-[10px] text-amber-950">
+          <ul className="list-inside list-disc space-y-0.5 text-[10px] text-synkaNavy/80">
             {snapshot.warnings.map((x, i) => (
               <li key={i}>{x}</li>
             ))}

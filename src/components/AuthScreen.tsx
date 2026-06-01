@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
+import { inputBase } from '../lib/ui'
 
 const MIN_PASSWORD_LENGTH = 6
 const INVITE_MEMBER_KIND_KEY = 'invite-member-kind'
@@ -217,7 +218,7 @@ export function AuthScreen() {
                   autoComplete="name"
                   required
                   placeholder="F.eks. Anne eller Ola"
-                  className="w-full rounded-md border border-synkaNavy/15 bg-white/70 px-4 py-3 text-body-sm text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20"
+                  className={`${inputBase} w-full`}
                   value={name}
                   onChange={(e) => { setName(e.target.value); clearMessages() }}
                 />
@@ -234,7 +235,7 @@ export function AuthScreen() {
                     autoComplete="off"
                     required
                     placeholder="F.eks. Olsen eller Hansen"
-                    className="w-full rounded-md border border-synkaNavy/15 bg-white/70 px-4 py-3 text-body-sm text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20"
+                    className={`${inputBase} w-full`}
                     value={familyName}
                     onChange={(e) => { setFamilyName(e.target.value); clearMessages() }}
                   />
@@ -253,7 +254,7 @@ export function AuthScreen() {
               type="email"
               autoComplete="email"
               required
-              className="w-full rounded-md border border-synkaNavy/15 bg-white/70 px-4 py-3 text-body-sm text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 aria-[invalid]:border-synkaCoral"
+              className={`${inputBase} w-full aria-[invalid]:border-synkaCoral`}
               value={email}
               onChange={(e) => { setEmail(e.target.value); clearMessages() }}
               aria-invalid={!!error && (error.toLowerCase().includes('e-post') || error.toLowerCase().includes('bruker'))}
@@ -272,7 +273,7 @@ export function AuthScreen() {
                 autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                 required
                 minLength={mode === 'signup' ? MIN_PASSWORD_LENGTH : undefined}
-                className="w-full rounded-md border border-synkaNavy/15 bg-white/70 px-4 py-3 pr-10 text-body-sm text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 aria-[invalid]:border-synkaCoral"
+                className={`${inputBase} w-full pr-10 aria-[invalid]:border-synkaCoral`}
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); clearMessages() }}
                 aria-invalid={!!error && error.toLowerCase().includes('passord')}
@@ -327,7 +328,7 @@ export function AuthScreen() {
                 type="password"
                 autoComplete="new-password"
                 required
-                className="w-full rounded-md border border-synkaNavy/15 bg-white/70 px-4 py-3 text-body-sm text-zinc-900 outline-none focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 aria-[invalid]:border-synkaCoral"
+                className={`${inputBase} w-full aria-[invalid]:border-synkaCoral`}
                 value={confirmPassword}
                 onChange={(e) => { setConfirmPassword(e.target.value); clearMessages() }}
                 aria-invalid={!!(error && error.includes('Passordene'))}
