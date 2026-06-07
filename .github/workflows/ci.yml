@@ -87,6 +87,7 @@ jobs:
         run: npm ci
 
       - name: Verify Playwright browsers (preinstalled in container)
+        shell: bash
         run: |
           set -euo pipefail
           INSTALLED="$(node -p "require('@playwright/test/package.json').version")"
@@ -102,6 +103,7 @@ jobs:
           fi
 
       - name: Check E2E env presence (safe)
+        shell: bash
         run: |
           echo "has E2E_LOGIN_EMAIL: $([ -n "${E2E_LOGIN_EMAIL}" ] && echo yes || echo no)"
           echo "has E2E_LOGIN_PASSWORD: $([ -n "${E2E_LOGIN_PASSWORD}" ] && echo yes || echo no)"
