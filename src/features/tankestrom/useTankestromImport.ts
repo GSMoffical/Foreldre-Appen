@@ -552,6 +552,17 @@ function isEmbeddedScheduleParentCalendarItem(item: PortalProposalItem): item is
   return item.kind === 'event' && isEmbeddedScheduleParentProposalItem(item)
 }
 
+/**
+ * Programforelder (exportAsCalendarEvent=false) skal eksportere valgte delprogram-rader til kalender,
+ * ikke bare oppdatere én eksisterende forelder-rad når konservativ match finnes.
+ */
+export function tankestromEmbeddedParentSkipsExistingEventUpdateOnlyPath(
+  item: PortalProposalItem,
+  draft: TankestromImportDraft | undefined
+): boolean {
+  return item.kind === 'event' && draft?.importKind === 'event' && isEmbeddedScheduleParentCalendarItem(item)
+}
+
 function isEmbeddedScheduleParentForReview(
   item: PortalProposalItem,
   draft: TankestromImportDraft | undefined
@@ -1866,13 +1877,41 @@ function applyEmbeddedScheduleExportTimeMetadata(
 ): void {
   const ex = draft.embeddedScheduleExport
   if (!ex?.usesSyntheticLayoutEnd) return
-  metadata.timePrecision = 'start_only'
-  metadata.layoutEndOnly = true
-  metadata.endTimeSource =
+  const startNorm = normalizeTimeInput(draft.start)
+  const endNorm = normalizeTimeInput(draft.end)
+  const hasTimedEndAfterStart =
+    Boolean(draft.start.trim() && draft.end.trim()) &&
+    isHm24(startNorm) &&
+    isHm24(endNorm) &&
+    parseTime(endNorm) > parseTime(startNorm)
+  const endTimeSource =
     typeof ex.endTimeSource === 'string' && ex.endTimeSource.trim()
       ? ex.endTimeSource.trim()
       : embeddedExportEndTimeSourceForPolicy(ex.policy)
-  const isFrontendFallback = ex.endTimeSource === 'frontend_canonical_fallback'
+  const isFrontendFallback = endTimeSource === 'frontend_canonical_fallback'
+  const isTrustedTimedEnd =
+    hasTimedEndAfterStart &&
+    (ex.endTimeProvenance === 'frontend_canonical_fallback' ||
+      ex.endTimeProvenance === 'api_inferred_end' ||
+      ex.endTimeProvenance === 'source_confirmed_end')
+
+  if (isTrustedTimedEnd) {
+    metadata.timePrecision = 'timed'
+    delete metadata.layoutEndOnly
+    metadata.endTimeSource = endTimeSource
+    metadata.requiresManualTimeReview = false
+    if (ex.inferredEndTime) metadata.inferredEndTime = true
+    if (isFrontendFallback) {
+      metadata.displayTimeLabel = TANKESTROM_ESTIMATED_END_REVIEW_HINT_NB
+    } else {
+      delete metadata.displayTimeLabel
+    }
+    return
+  }
+
+  metadata.timePrecision = 'start_only'
+  metadata.layoutEndOnly = true
+  metadata.endTimeSource = endTimeSource
   metadata.displayTimeLabel = isFrontendFallback
     ? TANKESTROM_ESTIMATED_END_REVIEW_HINT_NB
     : CALENDAR_SLUTTID_IKKE_OPPGITT_NB
@@ -1953,7 +1992,7 @@ function buildEmbeddedChildCanonicalPreviewForPersist(
   )
 }
 
-function buildPersistTimes(draft: TankestromEventDraft): { start: string; end: string } {
+export function buildPersistTimes(draft: TankestromEventDraft): { start: string; end: string } {
   if (!draftIsDateOnly(draft)) {
     if (isFlightDraftWithUnknownEndForImport(draft)) {
       const s = normalizeTimeInput(draft.start)
@@ -3931,6 +3970,25 @@ export function useTankestromImport({
         existingEventLinkByProposalId[id] ??
         (existingEventMatchesByProposalId[id]?.candidate ? 'update_default' : 'new_default'),
     }))
+    logTankestromImportPersist({
+      tankestromImportSelectedIds: ids,
+      tankestromImportDraftsBuilt: ids.map((id) => {
+        const d = draftByProposalId[id]
+        if (!d) return { proposalId: id, importKind: 'missing' as const }
+        if (d.importKind === 'task') {
+          return { proposalId: id, importKind: 'task' as const, title: d.task.title, date: d.task.date }
+        }
+        return {
+          proposalId: id,
+          importKind: 'event' as const,
+          title: d.event.title,
+          date: d.event.date,
+          start: d.event.start,
+          end: d.event.end,
+          personId: d.event.personId,
+        }
+      }),
+    })
     if (isTankestromConsoleDebugEnabled()) {
       console.info('[Tankestrom import approve clicked]', {
         importAttemptId,
@@ -4110,6 +4168,19 @@ export function useTankestromImport({
           }
         }
 
+        logTankestromImportPersist({
+          tankestromPersistEventAttempt: {
+            proposalId: logProposalId,
+            date: dateKey,
+            title: input.title,
+            start: input.start,
+            end: input.end,
+            personId: input.personId ?? null,
+            timePrecision: metaRec?.timePrecision,
+            endTimeSource: metaRec?.endTimeSource,
+            inferredEndTime: metaRec?.inferredEndTime,
+          },
+        })
         if (isTankestromConsoleDebugEnabled()) {
           console.info('[Tankestrom create event attempt]', {
             proposalId: logProposalId,
@@ -4149,6 +4220,18 @@ export function useTankestromImport({
           await createEvent(dateKey, input)
           batchPersistFingerprints.add(fp)
           const persisted = findCreatedEventByProposalId(logProposalId)
+          logTankestromImportPersist({
+            tankestromPersistEventSuccess: {
+              proposalId: logProposalId,
+              date: dateKey,
+              eventId: persisted?.event.id ?? null,
+              anchorDate: persisted?.anchorDate ?? dateKey,
+              title: persisted?.event.title ?? input.title,
+              start: persisted?.event.start ?? input.start,
+              end: persisted?.event.end ?? input.end,
+              personId: persisted?.event.personId ?? input.personId ?? null,
+            },
+          })
           if (isTankestromConsoleDebugEnabled()) {
             if (persisted) {
               console.info('[Tankestrom create event success]', {
@@ -4175,6 +4258,17 @@ export function useTankestromImport({
           }
           return { kind: 'created' }
         } catch (error) {
+          const classified = classifyTankestromPersistThrownError(error, 'createEvent')
+          logTankestromImportPersist({
+            tankestromPersistEventError: {
+              proposalId: logProposalId,
+              date: dateKey,
+              kind: classified.kind,
+              message: classified.message,
+              supabaseCode: classified.supabaseCode,
+              supabaseMessage: classified.supabaseMessage,
+            },
+          })
           console.error('[Tankestrom create event failure]', {
             proposalId: logProposalId,
             title: input.title,
@@ -4199,11 +4293,35 @@ export function useTankestromImport({
         const from = sorted[0]!
         const to = sorted[sorted.length - 1]!
         const refetched = await prefetchEventsForDateRange(from, to)
+        logTankestromImportPersist({
+          calendarRefreshAfterTankestromImport: {
+            range: { from, to },
+            refetchOk: Boolean(refetched && typeof refetched === 'object'),
+          },
+        })
         if (!refetched || typeof refetched !== 'object') return
         const expectedIds = new Set(
           createdEvents.map((e) => e.id).filter((id) => !id.startsWith(EMBEDDED_CHILD_ID_PREFIX))
         )
         const fetchedFlat = Object.values(refetched).flat()
+        logTankestromImportPersist({
+          calendarEventsAfterRefresh: fetchedFlat.map((e) => ({
+            id: e.id,
+            title: e.title,
+            date: e.metadata?.__anchorDate ?? undefined,
+            start: e.start,
+            end: e.end,
+            personId: e.personId,
+            integrationProposalId:
+              e.metadata &&
+              typeof e.metadata === 'object' &&
+              !Array.isArray(e.metadata) &&
+              typeof (e.metadata as Record<string, unknown>).integration === 'object'
+                ? ((e.metadata as Record<string, unknown>).integration as Record<string, unknown>)
+                    .proposalId
+                : undefined,
+          })),
+        })
         if (isTankestromConsoleDebugEnabled()) {
           console.info('[Tankestrom post-import event refetch]', {
             range: { from, to },
@@ -4948,11 +5066,28 @@ export function useTankestromImport({
           continue
         }
 
+        const isEmbeddedParentSelectedChildExport = tankestromEmbeddedParentSkipsExistingEventUpdateOnlyPath(
+          item,
+          unified
+        )
+        if (
+          isEmbeddedParentSelectedChildExport &&
+          persistPlan.mode === 'update' &&
+          (import.meta.env.DEV || TANKESTROM_IMPORT_PERSIST_DEBUG)
+        ) {
+          logTankestromImportPersist({
+            tankestromEmbeddedParentBypassUpdateOnlyPath: true,
+            proposalId: id,
+            persistPlanMode: persistPlan.mode,
+          })
+        }
+
         if (
           item.kind === 'event' &&
           editEvent &&
           getAnchoredForegroundEventsForMatching &&
-          persistPlan.mode === 'update'
+          persistPlan.mode === 'update' &&
+          !isEmbeddedParentSelectedChildExport
         ) {
           const target = persistPlan.target
           const anchorsNow = getAnchoredForegroundEventsForMatching()
@@ -5850,6 +5985,7 @@ export function useTankestromImport({
     existingEventLinkByProposalId,
     existingEventUpdateTarget,
     existingEventMatchesByProposalId,
+    prefetchEventsForDateRange,
   ])
 
   /**
