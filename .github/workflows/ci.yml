@@ -59,6 +59,7 @@ jobs:
   # workflow_dispatch, eller PR som rører e2e/**/Tankestrøm UI).
   e2e-fast:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs:
       - test
       - build
@@ -94,14 +95,32 @@ jobs:
           key: pw-browsers-${{ runner.os }}-${{ steps.pw.outputs.version }}-chromium-v1
 
       - name: Install Playwright (chromium only)
+        timeout-minutes: 5
         # Chromium på Ubuntu trenger sjelden ekstra apt-deps; vi dropper
         # `--with-deps` med vilje for å spare 3–5 min. Hvis cache traff,
-        # er dette nesten gratis.
+        # er dette nesten gratis. Steg-timeout hindrer at utpakking etter
+        # «100%»-nedlasting henger jobben uten synlig feil.
         run: |
-          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
+          set -euo pipefail
+          PW_CACHE="$HOME/.cache/ms-playwright"
+          chromium_ready() {
+            ls -d "${PW_CACHE}"/chromium-* >/dev/null 2>&1
+          }
+          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ] && chromium_ready; then
             echo "Browsers cache hit — skipping download"
           else
+            if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
+              echo "Cache hit but chromium missing — reinstalling"
+            else
+              echo "Cache miss — downloading chromium"
+            fi
+            echo "Starting: npx playwright install chromium"
             npx playwright install chromium
+            echo "Finished: npx playwright install chromium"
+            if ! chromium_ready; then
+              echo "::error::Playwright install finished but chromium is missing under ${PW_CACHE}"
+              exit 1
+            fi
           fi
 
       - name: Check E2E env presence (safe)
@@ -113,6 +132,7 @@ jobs:
           echo "has VITE_TANKESTROM_ANALYZE_URL: $([ -n "${VITE_TANKESTROM_ANALYZE_URL}" ] && echo yes || echo no)"
 
       - name: Run Playwright E2E (mobile-chrome only)
+        timeout-minutes: 8
         run: npx playwright test e2e/tankestrom-vaacup.spec.ts e2e/tankestrom-hostcup.spec.ts --project=mobile-chrome
 
       - name: Upload playwright-report on failure
