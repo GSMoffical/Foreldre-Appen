@@ -53,12 +53,15 @@ jobs:
       - name: Build app
         run: npm run build
 
-  # PR-rask e2e: kun mobile-chrome (chromium). Cacher Playwright-browsere så
-  # `npx playwright install --with-deps` ikke kjøres på hver PR. Full matrise
-  # med mobile-safari/webkit kjøres i e2e-full-workflowen (push main, nightly,
-  # workflow_dispatch, eller PR som rører e2e/**/Tankestrøm UI).
+  # PR-rask e2e: kun mobile-chrome (chromium). Kjører i samme Playwright-container
+  # som e2e-full — browsere er forhåndsinstallert, ingen nedlasting i CI.
+  # Full matrise (mobile-safari/webkit) kjøres i e2e-full-workflowen.
   e2e-fast:
     runs-on: ubuntu-latest
+    # Container må holdes i sync med @playwright/test i package-lock.json.
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-jammy
+      options: --user 1001
     timeout-minutes: 15
     needs:
       - test
@@ -83,44 +86,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Read Playwright version (for cache key)
-        id: pw
-        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Playwright browsers
-        id: pw-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: pw-browsers-${{ runner.os }}-${{ steps.pw.outputs.version }}-chromium-v1
-
-      - name: Install Playwright (chromium only)
-        timeout-minutes: 5
-        # Chromium på Ubuntu trenger sjelden ekstra apt-deps; vi dropper
-        # `--with-deps` med vilje for å spare 3–5 min. Hvis cache traff,
-        # er dette nesten gratis. Steg-timeout hindrer at utpakking etter
-        # «100%»-nedlasting henger jobben uten synlig feil.
+      - name: Verify Playwright browsers (preinstalled in container)
         run: |
           set -euo pipefail
-          PW_CACHE="$HOME/.cache/ms-playwright"
-          chromium_ready() {
-            ls -d "${PW_CACHE}"/chromium-* >/dev/null 2>&1
-          }
-          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ] && chromium_ready; then
-            echo "Browsers cache hit — skipping download"
-          else
-            if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
-              echo "Cache hit but chromium missing — reinstalling"
-            else
-              echo "Cache miss — downloading chromium"
-            fi
-            echo "Starting: npx playwright install chromium"
-            npx playwright install chromium
-            echo "Finished: npx playwright install chromium"
-            if ! chromium_ready; then
-              echo "::error::Playwright install finished but chromium is missing under ${PW_CACHE}"
-              exit 1
-            fi
+          INSTALLED="$(node -p "require('@playwright/test/package.json').version")"
+          echo "Installed @playwright/test: $INSTALLED"
+          if [ "$INSTALLED" != "1.58.2" ]; then
+            echo "::warning::Container er pinnet til v1.58.2 men lock-fila har $INSTALLED — oppdater container-tag i ci.yml (e2e-fast)."
+          fi
+          npx playwright --version
+          ls -la /ms-playwright/
+          if ! ls -d /ms-playwright/chromium-* >/dev/null 2>&1; then
+            echo "::error::Chromium mangler i Playwright-containeren"
+            exit 1
           fi
 
       - name: Check E2E env presence (safe)
