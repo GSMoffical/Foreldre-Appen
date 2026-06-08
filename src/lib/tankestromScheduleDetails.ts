@@ -1403,6 +1403,44 @@ export function augmentHighlightsFromSourceText(
   return [...highlights, ...added].sort((a, b) => a.time.localeCompare(b.time))
 }
 
+/**
+ * Behold maks én oppmøte-highlight før første bekreftede kamp.
+ *
+ * Live-API (eller frontend-avledning) kan produsere flere oppmøtetider for samme
+ * kamp — typisk 16:40 fra «50 minutter før kampstart» og en lekkende 16:45 fra en
+ * «45 minutter»-regel som egentlig hører til en annen dag. Vi beholder den
+ * source-støttede oppmøte-tiden, ellers den tidligste, og dropper resten *før*
+ * kampen. Oppmøte etter første kamp (f.eks. før andre kamp) røres ikke.
+ */
+function dedupePreMatchOppmoteHighlights(
+  highlights: TankestromScheduleHighlight[],
+  sourceText: string | undefined
+): TankestromScheduleHighlight[] {
+  if (highlights.length < 2) return highlights
+  const matchMinutes = highlights
+    .filter((h) => h.type === 'match' && isHm(h.time) && !highlightLabelIsTentative(h.label))
+    .map((h) => hmToMinutes(h.time))
+  if (matchMinutes.length === 0) return highlights
+  const firstMatch = Math.min(...matchMinutes)
+  const isOppmote = (h: TankestromScheduleHighlight): boolean =>
+    h.type === 'meeting' || normalizeLabelForKeyMatch(h.label) === 'oppmote'
+  const preMatchOppmote = highlights.filter(
+    (h) => isOppmote(h) && isHm(h.time) && hmToMinutes(h.time) < firstMatch
+  )
+  if (preMatchOppmote.length < 2) return highlights
+  const text = (sourceText ?? '').trim()
+  const sourceSupported = (h: TankestromScheduleHighlight): boolean =>
+    text.length > 0 && (sourceContainsTime(text, h.time) || isDerivedOppmoteFromOffsetInSource(h.time, text))
+  const keep = [...preMatchOppmote].sort((a, b) => {
+    const sa = sourceSupported(a) ? 0 : 1
+    const sb = sourceSupported(b) ? 0 : 1
+    if (sa !== sb) return sa - sb
+    return hmToMinutes(a.time) - hmToMinutes(b.time)
+  })[0]!
+  const drop = new Set(preMatchOppmote.filter((h) => h !== keep))
+  return highlights.filter((h) => !drop.has(h))
+}
+
 export function emptyNormalizedTankestromDetails(): NormalizedTankestromScheduleDetails {
   return {
     highlights: [],
@@ -1677,6 +1715,8 @@ export function normalizeTankestromScheduleDetails(input: {
       !highlightLabelIsTentative(h.label) &&
       !sourceMentionsTimeAsTentativeWindow(h.time, sourceTextForValidation)
   )
+
+  highlights = dedupePreMatchOppmoteHighlights(highlights, sourceTextForValidation)
 
   const bringPartition = partitionTankestromBringItemsForPreview(bringItems)
   bringItems = dedupeBringItemsList(bringPartition.concreteBring)

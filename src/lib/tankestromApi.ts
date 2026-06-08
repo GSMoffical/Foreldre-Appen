@@ -750,6 +750,62 @@ export function normalizeTankestromAnalyzeHttpJson(json: unknown): unknown {
 }
 
 /**
+ * Tittel som åpenbart beskriver et arrangement (cup/turnering/stevne …). Bevisst
+ * generell — matcher norske arrangement-substantiv, ikke et spesifikt arrangement.
+ */
+const ARRANGEMENT_TITLE_RE =
+  /(?:cup(?:en|er|ene)?|turnering(?:en|a|er|ene)?|stevne(?:t|r|ne)?|mesterskap(?:et|er)?|camp(?:en)?|festival(?:en)?|seriespill)\b/i
+
+/** Frist-/påmeldingsnatur i en task (Spond-svarfrist o.l.). */
+const TASK_DEADLINE_HINT_RE = /\b(frist|svar|p[åa]melding|meld|spond|innen)\b/i
+
+function taskLooksLikeArrangementDeadline(task: PortalTaskProposal['task']): boolean {
+  if (!ARRANGEMENT_TITLE_RE.test(task.title)) return false
+  if (typeof task.dueTime === 'string' && task.dueTime.trim().length > 0) return true
+  return TASK_DEADLINE_HINT_RE.test(`${task.title}\n${task.notes ?? ''}`)
+}
+
+/**
+ * Defensiv fallback: når analysen kun ga en task hvis tittel åpenbart er et
+ * arrangement (cup/turnering/stevne …) med frist-natur (f.eks. Spond-svarfrist),
+ * beholder vi selve arrangementet som et eget dato-only event-forslag i tillegg
+ * til frist-tasken. Da reduseres ikke cup-tekster til «1 gjøremål».
+ *
+ * Viktig: vi finner IKKE på program (ingen highlights/tider) — kun arrangementet
+ * som event-skall. Kjører bare når analysen ikke allerede ga event/school_profile,
+ * slik at ekte Tankestrøm-arrangement/embedded schedule aldri overstyres.
+ */
+function buildArrangementEventFallbacksFromTasks(items: PortalProposalItem[]): PortalEventProposal[] {
+  if (items.some((i) => i.kind === 'event' || i.kind === 'school_profile')) return []
+  const out: PortalEventProposal[] = []
+  for (const it of items) {
+    if (it.kind !== 'task') continue
+    if (!taskLooksLikeArrangementDeadline(it.task)) continue
+    out.push({
+      proposalId: newBatchImportRunId(),
+      kind: 'event',
+      sourceId: it.sourceId,
+      originalSourceType: it.originalSourceType,
+      confidence: it.confidence,
+      externalRef: it.externalRef,
+      calendarOwnerUserId: it.calendarOwnerUserId,
+      event: {
+        date: it.task.date,
+        personId: '',
+        title: it.task.title.trim(),
+        start: '',
+        end: '',
+        metadata: {
+          tankestromArrangementFromTaskFallback: true,
+          timePrecision: 'date_only',
+        },
+      },
+    })
+  }
+  return out
+}
+
+/**
  * Validerer og parser JSON fra analyse-backend til typet bundle.
  */
 export function parsePortalImportProposalBundle(data: unknown): PortalImportProposalBundle {
@@ -783,6 +839,9 @@ export function parsePortalImportProposalBundle(data: unknown): PortalImportProp
     throw new Error(
       'Ugyldig svar: items må inneholde minst ett forslag, eller toppnivåfeltet schoolProfile / schoolProfileProposal / schoolWeekOverlayProposal må være satt'
     )
+  }
+  for (const ev of buildArrangementEventFallbacksFromTasks(items)) {
+    items.push(ev)
   }
   const eventItems = items.filter((i): i is PortalEventProposal => i.kind === 'event')
   if (eventItems.length >= 2) {
