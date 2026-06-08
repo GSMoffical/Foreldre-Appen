@@ -25,7 +25,7 @@ import {
   normalizeEmbeddedScheduleParentDisplayTitle,
 } from '../../lib/tankestromCupEmbeddedScheduleMerge'
 import { normalizeCalendarEventTitle } from '../../lib/tankestromTitleNormalization'
-import { dedupeNearDuplicateCalendarProposals } from '../../lib/tankestromImportDedupe'
+import { dedupeNearDuplicateCalendarProposals, semanticTitleCore } from '../../lib/tankestromImportDedupe'
 import {
   dedupeEmbeddedScheduleSegments,
   foldLegacyArrangementChildSegments,
@@ -495,6 +495,81 @@ export function parseEmbeddedChildProposalId(proposalId: string): {
   const origIndex = Number(rest.slice(lastColon + 1))
   if (!Number.isInteger(origIndex) || origIndex < 0) return null
   return { parentProposalId, origIndex }
+}
+
+function isArrangementFromTaskFallbackEvent(item: PortalProposalItem): item is PortalEventProposal {
+  if (item.kind !== 'event') return false
+  const meta = item.event.metadata
+  return (
+    !!meta &&
+    typeof meta === 'object' &&
+    !Array.isArray(meta) &&
+    (meta as Record<string, unknown>).tankestromArrangementFromTaskFallback === true
+  )
+}
+
+function arrangementFallbackEventForDeadlineTask(
+  task: PortalTaskProposal,
+  items: PortalProposalItem[]
+): PortalEventProposal | undefined {
+  const core = semanticTitleCore(task.task.title)
+  if (!core) return undefined
+  return items.find(
+    (i): i is PortalEventProposal =>
+      isArrangementFromTaskFallbackEvent(i) && semanticTitleCore(i.event.title) === core
+  )
+}
+
+/**
+ * Samme tekst som importknappen i modalen (`Importer valgte (…)`).
+ * Eksportert for regresjonstester mot faktisk UI-kontrakt.
+ */
+export function buildImportSelectionSummaryText(
+  selectedIds: Set<string>,
+  draftByProposalId: Record<string, TankestromImportDraft>,
+  primaryCalendarProposalItems: PortalProposalItem[]
+): string {
+  let taskCount = 0
+  let embeddedChildCount = 0
+  const seenParents = new Set<string>()
+  let standaloneEventCount = 0
+  for (const id of selectedIds) {
+    const draft = draftByProposalId[id]
+    if (draft?.importKind === 'task') {
+      taskCount += 1
+      continue
+    }
+    const parsed = parseEmbeddedChildProposalId(id)
+    if (parsed) {
+      embeddedChildCount += 1
+      seenParents.add(parsed.parentProposalId)
+      continue
+    }
+    const item = primaryCalendarProposalItems.find((i) => i.proposalId === id)
+    if (!item || item.kind !== 'event') continue
+    const meta =
+      item.event.metadata && typeof item.event.metadata === 'object' && !Array.isArray(item.event.metadata)
+        ? (item.event.metadata as Record<string, unknown>)
+        : null
+    const isNonExportParent =
+      meta?.isArrangementParent === true && meta?.exportAsCalendarEvent === false
+    if (isNonExportParent) continue
+    standaloneEventCount += 1
+  }
+  const parentCount = seenParents.size
+  const parts: string[] = []
+  if (parentCount > 0 && embeddedChildCount > 0) {
+    parts.push(`${parentCount} arrangement / ${embeddedChildCount} hendelser`)
+  } else if (embeddedChildCount > 0) {
+    parts.push(`${embeddedChildCount} hendelser`)
+  }
+  if (standaloneEventCount > 0) {
+    parts.push(`${standaloneEventCount} hendelse${standaloneEventCount === 1 ? '' : 'r'}`)
+  }
+  if (taskCount > 0) {
+    parts.push(`${taskCount} gjøremål`)
+  }
+  return parts.length > 0 ? parts.join(' / ') : String(selectedIds.size)
 }
 
 /** Antall kalenderhendelser brukeren forventer fra valget (programbarn + enkelthendelser), ikke gjøremål. */
@@ -1429,6 +1504,13 @@ export function initialSelectedIdsForGeneralImport(
       out.add(childId)
     }
   }
+  for (const item of items) {
+    if (item.kind !== 'task') continue
+    const fallback = arrangementFallbackEventForDeadlineTask(item, items)
+    if (!fallback) continue
+    out.delete(item.proposalId)
+    out.add(fallback.proposalId)
+  }
   return out
 }
 
@@ -2284,7 +2366,13 @@ function importDraftFromProposal(
 ): TankestromImportDraft {
   if (item.kind === 'event') {
     const eventDraft = buildEventDraftFromProposal(item, validPersonIds, people, defaultPersonId)
-    if (item.event.start && !item.event.end) {
+    const meta = item.event.metadata
+    const isArrangementFallback =
+      !!meta &&
+      typeof meta === 'object' &&
+      !Array.isArray(meta) &&
+      (meta as Record<string, unknown>).tankestromArrangementFromTaskFallback === true
+    if (!isArrangementFallback && item.event.start && !item.event.end) {
       return { importKind: 'task', task: taskDraftFromEventDraft(eventDraft, people, validPersonIds) }
     }
     return { importKind: 'event', event: eventDraft }

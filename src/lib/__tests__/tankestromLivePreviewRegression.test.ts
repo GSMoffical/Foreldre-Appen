@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildDraftsFromItems,
   buildEmbeddedChildCanonicalPreviewForReview,
+  buildImportSelectionSummaryText,
   initialSelectedIdsForGeneralImport,
   makeEmbeddedChildProposalId,
 } from '../../features/tankestrom/useTankestromImport'
@@ -16,15 +17,6 @@ import {
 import { runHostcupLiveNarrativePreviewCase } from '../tankestromEval/hostcupLiveNarrativePreviewHarness'
 
 const root = join(process.cwd(), 'fixtures/tankestrom')
-
-function importSummary(selected: Set<string>, parentId: string): string {
-  const embeddedChildCount = [...selected].filter((id) => id.includes('__embedded_child__')).length
-  const parentSelected = selected.has(parentId)
-  if (parentSelected && embeddedChildCount > 0) {
-    return `1 arrangement / ${embeddedChildCount} hendelser`
-  }
-  return `${embeddedChildCount} hendelser`
-}
 
 describe('live preview regression — faktisk API-shape', () => {
   it('Høstcup fredag: duplikat 16:40/16:45 oppmøte i dayContent skal ikke vises i canonical preview', () => {
@@ -82,7 +74,7 @@ describe('live preview regression — faktisk API-shape', () => {
     expect(conditionalHits.length).toBeLessThanOrEqual(3)
   })
 
-  it('Vårcup task-only payload skal ikke gi «1 gjøremål»-import', () => {
+  it('Vårcup task-only payload: arrangement fallback skal prioriteres som hendelse, ikke «1 gjøremål»', () => {
     const source = readFileSync(join(root, 'vaacup_original.txt'), 'utf8')
     const taskOnly = {
       schemaVersion: '1.0.0',
@@ -130,8 +122,23 @@ describe('live preview regression — faktisk API-shape', () => {
       undefined,
       { originalImportText: source }
     )
-    const summary = importSummary(selected, bundle.items[0]!.proposalId)
+    const taskItem = bundle.items.find((i) => i.kind === 'task')!
+    const fallbackEvent = bundle.items.find(
+      (i) =>
+        i.kind === 'event' &&
+        i.event.metadata &&
+        typeof i.event.metadata === 'object' &&
+        !Array.isArray(i.event.metadata) &&
+        (i.event.metadata as Record<string, unknown>).tankestromArrangementFromTaskFallback === true
+    )
+    expect(fallbackEvent).toBeDefined()
+    expect(drafts[fallbackEvent!.proposalId]?.importKind).toBe('event')
+    expect(drafts[taskItem.proposalId]?.importKind).toBe('task')
+    expect(selected.has(fallbackEvent!.proposalId)).toBe(true)
+    expect(selected.has(taskItem.proposalId)).toBe(false)
+    const summary = buildImportSelectionSummaryText(selected, drafts, bundle.items)
+    expect(summary).toBe('1 hendelse')
     expect(summary).not.toBe('1 gjøremål')
-    expect(bundle.items.some((i) => i.kind === 'event')).toBe(true)
+    expect([...selected].filter((id) => id.includes('__embedded_child__'))).toHaveLength(0)
   })
 })
