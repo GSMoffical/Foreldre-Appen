@@ -64,7 +64,6 @@ import type { UseEventControllerReturn } from '../calendar/hooks/useEventControl
 import {
   useTankestromImport,
   makeEmbeddedChildProposalId,
-  parseEmbeddedChildProposalId,
   filterSubjectUpdatesByLanguageTrack,
   getTankestromDraftFieldErrors,
   getTankestromTaskFieldErrors,
@@ -76,6 +75,7 @@ import {
   scanNotesBodyForLanguage,
   taskIndicatesForeignLanguageMismatchWithTrack,
   buildEmbeddedChildCanonicalPreviewForReview,
+  buildImportSelectionSummaryText,
   draftHasFrontendCanonicalEstimatedEnd,
   draftHasStartWithoutKnownEnd,
   type TankestromPendingFile,
@@ -2583,49 +2583,10 @@ export function TankestromImportDialog({
     return n
   }, [selectedIds, draftByProposalId])
   /** Samme utvalg som import/persist: oppgaver, innebygde barn, frittstående hendelser (ikke program-forelder uten egen rad). */
-  const importSelectionSummaryText = useMemo(() => {
-    let taskCount = 0
-    let embeddedChildCount = 0
-    const seenParents = new Set<string>()
-    let standaloneEventCount = 0
-    for (const id of selectedIds) {
-      const draft = draftByProposalId[id]
-      if (draft?.importKind === 'task') {
-        taskCount += 1
-        continue
-      }
-      const parsed = parseEmbeddedChildProposalId(id)
-      if (parsed) {
-        embeddedChildCount += 1
-        seenParents.add(parsed.parentProposalId)
-        continue
-      }
-      const item = primaryCalendarProposalItems.find((i) => i.proposalId === id)
-      if (!item || item.kind !== 'event') continue
-      const meta =
-        item.event.metadata && typeof item.event.metadata === 'object' && !Array.isArray(item.event.metadata)
-          ? (item.event.metadata as Record<string, unknown>)
-          : null
-      const isNonExportParent =
-        meta?.isArrangementParent === true && meta?.exportAsCalendarEvent === false
-      if (isNonExportParent) continue
-      standaloneEventCount += 1
-    }
-    const parentCount = seenParents.size
-    const parts: string[] = []
-    if (parentCount > 0 && embeddedChildCount > 0) {
-      parts.push(`${parentCount} arrangement / ${embeddedChildCount} hendelser`)
-    } else if (embeddedChildCount > 0) {
-      parts.push(`${embeddedChildCount} hendelser`)
-    }
-    if (standaloneEventCount > 0) {
-      parts.push(`${standaloneEventCount} hendelse${standaloneEventCount === 1 ? '' : 'r'}`)
-    }
-    if (taskCount > 0) {
-      parts.push(`${taskCount} gjøremål`)
-    }
-    return parts.length > 0 ? parts.join(' / ') : String(selectedIds.size)
-  }, [selectedIds, draftByProposalId, primaryCalendarProposalItems])
+  const importSelectionSummaryText = useMemo(
+    () => buildImportSelectionSummaryText(selectedIds, draftByProposalId, primaryCalendarProposalItems),
+    [selectedIds, draftByProposalId, primaryCalendarProposalItems]
+  )
 
   const resolvedOverlayChildName = useMemo(
     () => people.find((p) => p.id === schoolProfileChildId)?.name ?? '',
