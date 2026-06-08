@@ -24,6 +24,7 @@ import type {
 import { resolveSubjectKey } from './schoolContext'
 import { normalizeTaskIntent } from './taskIntent'
 import { normalizeImportTime, rawEventTimeInput } from './tankestromImportTime'
+import { semanticTitleCore } from './tankestromImportDedupe'
 import { isTankestromConsoleDebugEnabled, isTankestromHttpDebugEnabled } from './tankestromConsoleDebug'
 
 function isRecord(x: unknown): x is Record<string, unknown> {
@@ -765,6 +766,80 @@ function taskLooksLikeArrangementDeadline(task: PortalTaskProposal['task']): boo
   return TASK_DEADLINE_HINT_RE.test(`${task.title}\n${task.notes ?? ''}`)
 }
 
+function isArrangementFromTaskFallbackMetadata(meta: unknown): boolean {
+  return (
+    !!meta &&
+    typeof meta === 'object' &&
+    !Array.isArray(meta) &&
+    (meta as Record<string, unknown>).tankestromArrangementFromTaskFallback === true
+  )
+}
+
+function eventHasEmbeddedSchedule(item: PortalEventProposal): boolean {
+  const meta = item.event.metadata
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return false
+  const sched = (meta as Record<string, unknown>).embeddedSchedule
+  return Array.isArray(sched) && sched.length > 0
+}
+
+/**
+ * Tankestrøm kan returnere cup/turnering som enkelt-tids event (f.eks. Spond-frist 20:00)
+ * uten sluttid — det er ikke et ekte arrangement-event med program.
+ */
+export function portalEventProposalIsArrangementDeadlineMisclassification(
+  item: PortalEventProposal
+): boolean {
+  if (isArrangementFromTaskFallbackMetadata(item.event.metadata)) return false
+  if (!ARRANGEMENT_TITLE_RE.test(item.event.title)) return false
+  if (eventHasEmbeddedSchedule(item)) return false
+  const start = item.event.start.trim()
+  const end = item.event.end.trim()
+  if (!start || end) return false
+  const blob = `${item.event.title}\n${item.event.notes ?? ''}`
+  if (TASK_DEADLINE_HINT_RE.test(blob)) return true
+  return true
+}
+
+function itemBlocksArrangementTaskFallback(item: PortalProposalItem): boolean {
+  if (item.kind === 'school_profile') return true
+  if (item.kind !== 'event') return false
+  if (isArrangementFromTaskFallbackMetadata(item.event.metadata)) return false
+  return !portalEventProposalIsArrangementDeadlineMisclassification(item)
+}
+
+function arrangementFallbackAlreadyExistsForTitle(
+  items: PortalProposalItem[],
+  title: string
+): boolean {
+  const core = semanticTitleCore(title)
+  if (!core) return false
+  return items.some(
+    (i) =>
+      i.kind === 'event' &&
+      isArrangementFromTaskFallbackMetadata(i.event.metadata) &&
+      semanticTitleCore(i.event.title) === core
+  )
+}
+
+/** Normaliser feilklassifisert enkelt-tids cup-event til dato-only arrangement-fallback. */
+function normalizeMisclassifiedArrangementDeadlineEvents(items: PortalProposalItem[]): void {
+  for (const it of items) {
+    if (it.kind !== 'event') continue
+    if (!portalEventProposalIsArrangementDeadlineMisclassification(it)) continue
+    const prevMeta =
+      it.event.metadata && typeof it.event.metadata === 'object' && !Array.isArray(it.event.metadata)
+        ? (it.event.metadata as Record<string, unknown>)
+        : {}
+    it.event.start = ''
+    it.event.end = ''
+    it.event.metadata = {
+      ...prevMeta,
+      tankestromArrangementFromTaskFallback: true,
+      timePrecision: 'date_only',
+    }
+  }
+}
+
 /**
  * Defensiv fallback: når analysen kun ga en task hvis tittel åpenbart er et
  * arrangement (cup/turnering/stevne …) med frist-natur (f.eks. Spond-svarfrist),
@@ -772,15 +847,16 @@ function taskLooksLikeArrangementDeadline(task: PortalTaskProposal['task']): boo
  * til frist-tasken. Da reduseres ikke cup-tekster til «1 gjøremål».
  *
  * Viktig: vi finner IKKE på program (ingen highlights/tider) — kun arrangementet
- * som event-skall. Kjører bare når analysen ikke allerede ga event/school_profile,
- * slik at ekte Tankestrøm-arrangement/embedded schedule aldri overstyres.
+ * som event-skall. Kjører bare når analysen ikke allerede ga ekte event/school_profile,
+ * slik at Tankestrøm-arrangement/embedded schedule aldri overstyres.
  */
 function buildArrangementEventFallbacksFromTasks(items: PortalProposalItem[]): PortalEventProposal[] {
-  if (items.some((i) => i.kind === 'event' || i.kind === 'school_profile')) return []
+  if (items.some(itemBlocksArrangementTaskFallback)) return []
   const out: PortalEventProposal[] = []
   for (const it of items) {
     if (it.kind !== 'task') continue
     if (!taskLooksLikeArrangementDeadline(it.task)) continue
+    if (arrangementFallbackAlreadyExistsForTitle(items, it.task.title)) continue
     out.push({
       proposalId: newBatchImportRunId(),
       kind: 'event',
@@ -797,6 +873,7 @@ function buildArrangementEventFallbacksFromTasks(items: PortalProposalItem[]): P
         end: '',
         metadata: {
           tankestromArrangementFromTaskFallback: true,
+          relatedTaskProposalId: it.proposalId,
           timePrecision: 'date_only',
         },
       },
@@ -840,6 +917,7 @@ export function parsePortalImportProposalBundle(data: unknown): PortalImportProp
       'Ugyldig svar: items må inneholde minst ett forslag, eller toppnivåfeltet schoolProfile / schoolProfileProposal / schoolWeekOverlayProposal må være satt'
     )
   }
+  normalizeMisclassifiedArrangementDeadlineEvents(items)
   for (const ev of buildArrangementEventFallbacksFromTasks(items)) {
     items.push(ev)
   }

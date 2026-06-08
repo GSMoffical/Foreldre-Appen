@@ -2,12 +2,14 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  applyTankestromPostParseCalendarPipeline,
   buildDraftsFromItems,
   buildEmbeddedChildCanonicalPreviewForReview,
   buildImportSelectionSummaryText,
   initialSelectedIdsForGeneralImport,
   makeEmbeddedChildProposalId,
 } from '../../features/tankestrom/useTankestromImport'
+import type { PortalImportProposalBundle } from '../../features/tankestrom/types'
 import { parsePortalImportProposalBundle } from '../tankestromApi'
 import { flattenEmbeddedScheduleOrdered } from '../embeddedSchedule'
 import {
@@ -17,6 +19,33 @@ import {
 import { runHostcupLiveNarrativePreviewCase } from '../tankestromEval/hostcupLiveNarrativePreviewHarness'
 
 const root = join(process.cwd(), 'fixtures/tankestrom')
+
+const vaacupPeople = [
+  {
+    id: 'person-a',
+    name: 'Test',
+    memberKind: 'child' as const,
+    colorTint: 'bg-slate-200',
+    colorAccent: 'border-slate-400',
+  },
+]
+
+function runVaacupImportReviewContract(bundle: PortalImportProposalBundle, sourceText: string) {
+  const items = applyTankestromPostParseCalendarPipeline(bundle.items, { sourceText })
+  const drafts = buildDraftsFromItems(items, new Set(['person-a']), 'person-a', vaacupPeople, undefined, {
+    originalImportText: sourceText,
+  })
+  const selected = initialSelectedIdsForGeneralImport(
+    items,
+    drafts,
+    vaacupPeople,
+    'person-a',
+    undefined,
+    { originalImportText: sourceText }
+  )
+  const summary = buildImportSelectionSummaryText(selected, drafts, items)
+  return { items, drafts, selected, summary }
+}
 
 describe('live preview regression — faktisk API-shape', () => {
   it('Høstcup fredag: duplikat 16:40/16:45 oppmøte i dayContent skal ikke vises i canonical preview', () => {
@@ -102,28 +131,9 @@ describe('live preview regression — faktisk API-shape', () => {
       ],
     }
     const bundle = parsePortalImportProposalBundle(taskOnly)
-    const people = [
-      {
-        id: 'person-a',
-        name: 'Test',
-        memberKind: 'child' as const,
-        colorTint: 'bg-slate-200',
-        colorAccent: 'border-slate-400',
-      },
-    ]
-    const drafts = buildDraftsFromItems(bundle.items, new Set(['person-a']), 'person-a', people, undefined, {
-      originalImportText: source,
-    })
-    const selected = initialSelectedIdsForGeneralImport(
-      bundle.items,
-      drafts,
-      people,
-      'person-a',
-      undefined,
-      { originalImportText: source }
-    )
-    const taskItem = bundle.items.find((i) => i.kind === 'task')!
-    const fallbackEvent = bundle.items.find(
+    const { items, drafts, selected, summary } = runVaacupImportReviewContract(bundle, source)
+    const taskItem = items.find((i) => i.kind === 'task')!
+    const fallbackEvent = items.find(
       (i) =>
         i.kind === 'event' &&
         i.event.metadata &&
@@ -136,9 +146,113 @@ describe('live preview regression — faktisk API-shape', () => {
     expect(drafts[taskItem.proposalId]?.importKind).toBe('task')
     expect(selected.has(fallbackEvent!.proposalId)).toBe(true)
     expect(selected.has(taskItem.proposalId)).toBe(false)
-    const summary = buildImportSelectionSummaryText(selected, drafts, bundle.items)
     expect(summary).toBe('1 hendelse')
     expect(summary).not.toBe('1 gjøremål')
     expect([...selected].filter((id) => id.includes('__embedded_child__'))).toHaveLength(0)
+  })
+
+  it('Vårcup live-shaped single-time event: skal ikke bli gjøremål med Frist 20:00', () => {
+    const source = readFileSync(join(root, 'vaacup_original.txt'), 'utf8')
+    const misclassifiedEventOnly = {
+      schemaVersion: '1.0.0',
+      provenance: {
+        sourceSystem: 'tankestrom',
+        sourceType: 'live_capture',
+        generatedAt: new Date().toISOString(),
+        importRunId: 'live-misclassified-event-regression',
+      },
+      items: [
+        {
+          proposalId: '00000000-0000-4000-8000-000000000401',
+          kind: 'event',
+          sourceId: 'live',
+          originalSourceType: 'pasted_text',
+          confidence: 0.85,
+          event: {
+            date: '2026-06-12',
+            personId: '',
+            title: 'Vårcupen 2026',
+            start: '20:00',
+            end: '',
+            notes: 'Svar i Spond senest mandag 8. juni kl. 20:00',
+          },
+        },
+      ],
+    }
+    const bundle = parsePortalImportProposalBundle(misclassifiedEventOnly)
+    const { items, drafts, selected, summary } = runVaacupImportReviewContract(bundle, source)
+    const eventItem = items.find((i) => i.kind === 'event')!
+    expect(
+      (eventItem.event.metadata as Record<string, unknown> | undefined)?.tankestromArrangementFromTaskFallback
+    ).toBe(true)
+    const eventDraft = drafts[eventItem.proposalId]
+    expect(eventDraft?.importKind).toBe('event')
+    expect(eventDraft?.importKind).not.toBe('task')
+    if (eventDraft?.importKind === 'event') {
+      expect(eventDraft.event.start.trim()).toBe('')
+      expect(eventDraft.event.end.trim()).toBe('')
+    }
+    expect(selected.has(eventItem.proposalId)).toBe(true)
+    expect(summary).toBe('1 hendelse')
+    expect(summary).not.toBe('1 gjøremål')
+  })
+
+  it('Vårcup task + misclassified event: kun arrangement-fallback hendelse skal være valgt', () => {
+    const source = readFileSync(join(root, 'vaacup_original.txt'), 'utf8')
+    const taskPlusMisclassifiedEvent = {
+      schemaVersion: '1.0.0',
+      provenance: {
+        sourceSystem: 'tankestrom',
+        sourceType: 'live_capture',
+        generatedAt: new Date().toISOString(),
+        importRunId: 'live-task-plus-misclassified-event',
+      },
+      items: [
+        {
+          proposalId: '00000000-0000-4000-8000-000000000501',
+          kind: 'task',
+          sourceId: 'live',
+          originalSourceType: 'pasted_text',
+          confidence: 0.85,
+          task: {
+            date: '2026-06-12',
+            title: 'Vårcupen 2026',
+            notes: 'Svar i Spond senest mandag 8. juni kl. 20:00',
+            dueTime: '20:00',
+            personId: '',
+          },
+        },
+        {
+          proposalId: '00000000-0000-4000-8000-000000000502',
+          kind: 'event',
+          sourceId: 'live',
+          originalSourceType: 'pasted_text',
+          confidence: 0.82,
+          event: {
+            date: '2026-06-12',
+            personId: '',
+            title: 'Vårcupen 2026',
+            start: '20:00',
+            end: '',
+            notes: 'Svar i Spond senest mandag 8. juni kl. 20:00',
+          },
+        },
+      ],
+    }
+    const bundle = parsePortalImportProposalBundle(taskPlusMisclassifiedEvent)
+    const { items, drafts, selected, summary } = runVaacupImportReviewContract(bundle, source)
+    const taskItem = items.find((i) => i.kind === 'task')!
+    const fallbackEvents = items.filter(
+      (i) =>
+        i.kind === 'event' &&
+        (i.event.metadata as Record<string, unknown> | undefined)?.tankestromArrangementFromTaskFallback === true
+    )
+    expect(fallbackEvents.length).toBeGreaterThanOrEqual(1)
+    const selectedFallback = fallbackEvents.find((i) => selected.has(i.proposalId))
+    expect(selectedFallback).toBeDefined()
+    expect(drafts[selectedFallback!.proposalId]?.importKind).toBe('event')
+    expect(selected.has(taskItem.proposalId)).toBe(false)
+    expect(summary).toBe('1 hendelse')
+    expect(summary).not.toBe('1 gjøremål')
   })
 })
