@@ -68,6 +68,7 @@ import {
   analyzeDocumentWithTankestrom,
   analyzeTextWithTankestrom,
   mergePortalImportProposalBundles,
+  portalEventProposalIsArrangementDeadlineMisclassification,
 } from '../../lib/tankestromApi'
 import { detectLessonConflicts } from '../../lib/schoolProfileConflicts'
 import { normalizeTaskIntent, suggestTaskIntentFromTitleAndNotes } from '../../lib/taskIntent'
@@ -215,6 +216,19 @@ function countEmbeddedScheduleRowsForDebug(items: PortalProposalItem[]): number 
     n += embedded.length
   }
   return n
+}
+
+/** Samme kalender-item-pipeline som tekst-/fil-analyse etter parse (for regresjonstester). */
+export function applyTankestromPostParseCalendarPipeline(
+  items: PortalProposalItem[],
+  opts?: { sourceText?: string }
+): PortalProposalItem[] {
+  const withLegacySegments = foldLegacyArrangementChildSegments(items)
+  const itemsPreDefensive = applyCupWeekendEmbeddedScheduleMerge(
+    dedupeNearDuplicateCalendarProposals(withLegacySegments),
+    { sourceText: opts?.sourceText }
+  )
+  return applyDefensiveArrangementNormalization(itemsPreDefensive)
 }
 
 function applyDefensiveArrangementNormalization(items: PortalProposalItem[]): PortalProposalItem[] {
@@ -513,6 +527,12 @@ function arrangementFallbackEventForDeadlineTask(
   items: PortalProposalItem[]
 ): PortalEventProposal | undefined {
   const core = semanticTitleCore(task.task.title)
+  const byId = items.find((i): i is PortalEventProposal => {
+    if (!isArrangementFromTaskFallbackEvent(i)) return false
+    const meta = i.event.metadata as Record<string, unknown> | undefined
+    return meta?.relatedTaskProposalId === task.proposalId
+  })
+  if (byId) return byId
   if (!core) return undefined
   return items.find(
     (i): i is PortalEventProposal =>
@@ -2373,6 +2393,9 @@ function importDraftFromProposal(
       !Array.isArray(meta) &&
       (meta as Record<string, unknown>).tankestromArrangementFromTaskFallback === true
     if (!isArrangementFallback && item.event.start && !item.event.end) {
+      if (portalEventProposalIsArrangementDeadlineMisclassification(item)) {
+        return { importKind: 'event', event: { ...eventDraft, start: '', end: '' } }
+      }
       return { importKind: 'task', task: taskDraftFromEventDraft(eventDraft, people, validPersonIds) }
     }
     return { importKind: 'event', event: eventDraft }
