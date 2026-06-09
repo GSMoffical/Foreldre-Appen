@@ -59,9 +59,12 @@ const TankestromImportDialog = lazy(() =>
     default: m.TankestromImportDialog,
   }))
 )
+const OnboardingFlow = lazy(() =>
+  import('./features/onboarding/OnboardingFlow').then(m => ({ default: m.OnboardingFlow }))
+)
 
 /** Set to true to re-enable the onboarding tour. */
-const ENABLE_ONBOARDING = false
+const ENABLE_ONBOARDING = true
 
 function App() {
   useTimeOfDaySurface()
@@ -349,11 +352,20 @@ function App() {
     setNotifyToast('Import angret')
   }, [tankestromToast, deleteEvent, dismissTankestromToast])
   const [showTour, setShowTour] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
   useEffect(() => {
     if (!ENABLE_ONBOARDING) return
     if (user && !loadOnboarding(user.id).tourCompleted) {
       const t = setTimeout(() => setShowTour(true), 600)
       return () => clearTimeout(t)
+    }
+  }, [user])
+  useEffect(() => {
+    if (!user) return
+    const createdAt = user.created_at ? new Date(user.created_at).getTime() : 0
+    const isNewUser = Date.now() - createdAt < 60_000
+    if (isNewUser) {
+      setShowOnboarding(true)
     }
   }, [user])
   useEffect(() => {
@@ -847,6 +859,11 @@ function App() {
         </div>
       </MobileFrame>
 
+      {ENABLE_ONBOARDING && showOnboarding && (
+        <Suspense fallback={null}>
+          <OnboardingFlow onComplete={() => setShowOnboarding(false)} />
+        </Suspense>
+      )}
       {ENABLE_ONBOARDING && showTour && (
         <OnboardingTour onComplete={() => setShowTour(false)} />
       )}
