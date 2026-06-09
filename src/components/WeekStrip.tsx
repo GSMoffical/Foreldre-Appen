@@ -2,6 +2,7 @@ import { motion, useReducedMotion } from 'framer-motion'
 import type { WeekDayMeta } from '../types'
 import { WeekDayCard } from './WeekDayCard'
 import { weekStripStagger } from '../lib/motion'
+import { todayKeyOslo } from '../lib/osloCalendar'
 
 interface WeekStripProps {
   days: WeekDayMeta[]
@@ -15,14 +16,16 @@ export function WeekStrip({ days, selectedDate, onSelectDay, loading, taskCountB
   const reducedMotion = useReducedMotion() ?? false
   const { container, item } = weekStripStagger(reducedMotion)
   const weekKey = days[0]?.date ?? 'empty'
+  const todayKey = todayKeyOslo()
 
   return (
     <motion.div
       key={weekKey}
-      className={`flex w-full min-w-0 max-w-full gap-1 px-2 py-3 ${loading ? 'opacity-60' : ''}`}
+      className={`flex w-full min-w-0 max-w-full gap-1 px-4 py-1 ${loading ? 'opacity-60' : ''}`}
       variants={container}
       initial="hidden"
       animate="visible"
+      style={{ willChange: 'transform, opacity' }}
     >
       {days.map((day) => (
         <WeekDayCard
@@ -31,7 +34,9 @@ export function WeekStrip({ days, selectedDate, onSelectDay, loading, taskCountB
           isSelected={day.date === selectedDate}
           onSelect={() => onSelectDay(day.date)}
           variants={item}
-          openTaskCount={taskCountByDate?.[day.date] ?? 0}
+          isToday={day.date === todayKey}
+          hasEvents={day.personIdsWithEvents.length > 0}
+          hasOverdueTask={day.date < todayKey && (taskCountByDate?.[day.date] ?? 0) > 0}
         />
       ))}
     </motion.div>

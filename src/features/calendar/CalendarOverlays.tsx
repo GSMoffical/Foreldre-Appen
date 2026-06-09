@@ -1,9 +1,14 @@
-import { useMemo } from 'react'
+import { useMemo, lazy, Suspense } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { AddEventSheet, REPEAT_INTERVAL_DAYS } from '../../components/AddEventSheet'
 import { EditEventSheet } from '../../components/EditEventSheet'
 import { EventDetailSheet } from '../../components/EventDetailSheet'
-import { BackgroundDetailSheet } from '../../components/BackgroundDetailSheet'
+
+const BackgroundDetailSheet = lazy(() =>
+  import('../../components/BackgroundDetailSheet').then((m) => ({
+    default: m.BackgroundDetailSheet,
+  }))
+)
 import { AddTaskSheet } from '../tasks/components/AddTaskSheet'
 import { TaskDetailSheet } from '../tasks/components/TaskDetailSheet'
 import type { Event, Task } from '../../types'
@@ -32,6 +37,7 @@ interface CalendarOverlaysProps {
   onAddFlowSaved: () => void
   onAddFlowClosedWithoutSave: () => void
   onConflictResolved: () => void
+  onEventSaved?: () => void
   isAddingTask: boolean
   setIsAddingTask: (value: boolean) => void
   editingTask: Task | null
@@ -62,6 +68,7 @@ export function CalendarOverlays({
   onAddFlowSaved,
   onAddFlowClosedWithoutSave,
   onConflictResolved,
+  onEventSaved,
   isAddingTask,
   setIsAddingTask,
   editingTask,
@@ -124,31 +131,34 @@ export function CalendarOverlays({
         />
       )}
       {selectedBackgroundEvent && (
-        <BackgroundDetailSheet
-          event={selectedBackgroundEvent.event}
-          date={selectedBackgroundEvent.date}
-          foregroundEvents={dayEvents}
-          dayEvents={dayEvents}
-          dayTasks={dayTasks}
-          onResolveConflict={async (decision) => {
-            try {
-              await controller.resolveConflict(
-                selectedBackgroundEvent.date,
-                selectedBackgroundEvent.event,
-                decision
-              )
-              onConflictResolved()
-            } catch {
-              // feedback handled by controller
-            }
-          }}
-          onClose={() => setSelectedBackgroundEvent(null)}
-        />
+        <Suspense fallback={null}>
+          <BackgroundDetailSheet
+            event={selectedBackgroundEvent.event}
+            date={selectedBackgroundEvent.date}
+            foregroundEvents={dayEvents}
+            dayEvents={dayEvents}
+            dayTasks={dayTasks}
+            onResolveConflict={async (decision) => {
+              try {
+                await controller.resolveConflict(
+                  selectedBackgroundEvent.date,
+                  selectedBackgroundEvent.event,
+                  decision
+                )
+                onConflictResolved()
+              } catch {
+                // feedback handled by controller
+              }
+            }}
+            onClose={() => setSelectedBackgroundEvent(null)}
+          />
+        </Suspense>
       )}
       {isAdding && (
         <AddEventSheet
           key={`add-${addEventDateOverride ?? selectedDate}`}
           date={addEventDateOverride ?? selectedDate}
+          initialPersonId={mePersonId ?? undefined}
           onSave={async (data, options) => {
             const targetDate = addEventDateOverride ?? selectedDate
             try {
@@ -186,6 +196,7 @@ export function CalendarOverlays({
                 await controller.editEvent(editingEvent.date, editingEvent.event, data, newDate)
               }
               setEditingEvent(null)
+              onEventSaved?.()
             } catch {
               // feedback handled by controller
             }

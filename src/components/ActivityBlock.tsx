@@ -3,9 +3,9 @@ import { motion, useAnimation, useReducedMotion } from 'framer-motion'
 import type { DragReschedulePayload, EventLayoutBlock, PersonId } from '../types'
 import { useFamily } from '../context/FamilyContext'
 import { formatCalendarEventTimeLabel } from '../lib/schedule'
-import { shiftTime } from '../lib/time'
+import { formatTime, parseTime, shiftTime } from '../lib/time'
 import { getEventParticipantIds } from '../lib/schedule'
-import { blockEntranceDelay, springSnappy } from '../lib/motion'
+import { blockEntranceDelay } from '../lib/motion'
 
 interface ActivityBlockProps {
   block: EventLayoutBlock
@@ -76,6 +76,8 @@ export function ActivityBlock({
   /** Title + time on one row needs more height than title alone */
   const showTitleAndTime = useShortRow && !showBlank && !showTitleOnly
   const visualHeight = rawHeight
+  const isContinuation = block.metadata?.__isContinuation === true
+  const isOvernight = parseTime(block.end) <= parseTime(block.start)
 
   const [dragOffsetY, setDragOffsetY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
@@ -95,14 +97,18 @@ export function ActivityBlock({
 
   useLayoutEffect(() => {
     if (reducedMotion) {
-      void controls.set({ opacity: 1, scale: 1 })
+      void controls.set({ opacity: 1, y: 0 })
       return
     }
-    void controls.set({ opacity: 0, scale: 0.96 })
+    void controls.set({ opacity: 0, y: 12 })
     void controls.start({
       opacity: 1,
-      scale: 1,
-      transition: { ...springSnappy, delay: blockEntranceDelay(staggerIndex, reducedMotion) },
+      y: 0,
+      transition: {
+        duration: 0.2,
+        ease: 'easeOut',
+        delay: blockEntranceDelay(staggerIndex, reducedMotion),
+      },
     })
   }, [block.id, staggerIndex, reducedMotion, controls])
 
@@ -167,6 +173,7 @@ export function ActivityBlock({
             prevEnd: block.end,
             nextStart: shiftTime(block.start, snapped),
             nextEnd: shiftTime(block.end, snapped),
+            metadata: block.metadata,
           }
           await Promise.resolve(onDragReschedule(block.id, payload))
         } finally {
@@ -196,7 +203,7 @@ export function ActivityBlock({
     <motion.div
       initial={false}
       animate={controls}
-      className={`absolute z-[2] flex min-w-0 overflow-hidden rounded-block text-left shadow-planner-sm touch-manipulation transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandTeal/50 focus-visible:ring-offset-2 ${
+      className={`absolute z-[2] flex min-w-0 overflow-hidden rounded-md text-left shadow-planner-sm touch-manipulation transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-synkaPrimary/50 focus-visible:ring-offset-2 ${
         showBlank
           ? 'p-0'
           : showTitleOnly
@@ -206,8 +213,8 @@ export function ActivityBlock({
                 ? 'px-2 py-1'
                 : 'px-2.5 py-1.5'
               : 'px-3 py-2'
-      } ${isDragging ? 'z-50 cursor-grabbing opacity-90 shadow-card' : 'cursor-pointer'} ${
-        isHighlighted ? 'ring-2 ring-brandTeal/70 ring-offset-1' : ''
+      } ${isContinuation ? 'border-t-2 border-dashed' : isOvernight ? 'border-b-2 border-dashed' : ''} ${isDragging ? 'z-50 cursor-grabbing opacity-90 shadow-card' : 'cursor-pointer'} ${
+        isHighlighted ? 'ring-2 ring-synkaPrimary/70 ring-offset-1' : ''
       }`}
       style={{
         top: block.topPx + dragOffsetY,
@@ -215,9 +222,11 @@ export function ActivityBlock({
         width: `${widthPercent}%`,
         left: `${leftPercent}%`,
         boxSizing: 'border-box',
-        backgroundColor: primaryPerson.colorTint,
+        background: `linear-gradient(135deg, ${primaryPerson.colorTint}, ${primaryPerson.colorTint}cc)`,
         borderLeftWidth: 0,
         borderLeftColor: 'transparent',
+        borderTopColor: isContinuation ? primaryPerson.colorAccent : undefined,
+        borderBottomColor: !isContinuation && isOvernight ? primaryPerson.colorAccent : undefined,
         WebkitUserSelect: 'none',
         userSelect: 'none',
         WebkitTouchCallout: 'none',
@@ -235,10 +244,11 @@ export function ActivityBlock({
       whileTap={isDragging ? undefined : { scale: 0.98 }}
       aria-label={`${primaryPerson.name}, ${block.title}, ${formatCalendarEventTimeLabel(block)}`}
     >
+      <div className="pointer-events-none absolute inset-0 bg-synkaCream/30" aria-hidden />
       {/* Segmented left stripe showing all participants */}
       {participants.length > 0 && (
         <div
-          className="pointer-events-none absolute left-0 top-0 bottom-0 w-[6px] overflow-hidden rounded-l-block"
+          className="pointer-events-none absolute left-0 top-0 bottom-0 w-[6px] overflow-hidden rounded-l-[12px]"
           aria-hidden
         >
           <div className="flex h-full w-full">
@@ -251,7 +261,7 @@ export function ActivityBlock({
       {/* Shimmer sweep when commit is pending: a bright band slides left → right */}
       {isPendingCommit && (
         <motion.div
-          className="pointer-events-none absolute inset-0 overflow-hidden rounded-block z-10"
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-md z-10"
           aria-hidden
         >
           <motion.div
@@ -284,18 +294,23 @@ export function ActivityBlock({
         </>
       )}
       <span className="flex min-h-0 min-w-0 flex-1 flex-col items-start justify-start gap-0 overflow-hidden pointer-events-none select-none">
+        {isContinuation && !showBlank && (
+          <span className="block w-full truncate text-caption font-semibold text-synkaNavy/50 mb-1">
+            ← fortsetter fra i går
+          </span>
+        )}
         {!showBlank && !isCompact && participants.length > 1 && (
           <div className="mb-1 flex items-center gap-1.5">
             {participants.slice(0, 4).map((p) => (
               <span
                 key={p.id}
-                className="h-1.5 w-1.5 rounded-full"
+                className="h-1.5 w-1.5 rounded-pill"
                 style={{ backgroundColor: p.colorAccent }}
                 aria-hidden
               />
             ))}
             {participants.length > 4 && (
-              <span className="rounded-full bg-white/70 px-1 text-[10px] font-semibold text-zinc-700">
+              <span className="rounded-pill bg-white/70 px-1 text-[10px] font-semibold text-zinc-700">
                 +{participants.length - 4}
               </span>
             )}
@@ -304,61 +319,58 @@ export function ActivityBlock({
         {showBlank ? null : showTitleOnly ? (
           <span className="flex min-h-0 min-w-0 flex-1 items-center gap-1.5 overflow-hidden pr-7">
             <span
-              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              className="h-1.5 w-1.5 shrink-0 rounded-pill"
               style={{ backgroundColor: primaryPerson.colorAccent }}
               aria-hidden
             />
-            <span className="min-w-0 flex-1 truncate text-caption font-semibold leading-tight tracking-tight text-zinc-900">
+            <span className="min-w-0 flex-1 truncate text-caption font-semibold leading-tight tracking-tight text-synkaNavy">
               {block.title}
             </span>
           </span>
         ) : useShortRow && showTitleAndTime ? (
           <span className="flex min-h-0 min-w-0 flex-1 items-center gap-1.5 overflow-hidden pr-7">
             <span
-              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              className="h-1.5 w-1.5 shrink-0 rounded-pill"
               style={{ backgroundColor: primaryPerson.colorAccent }}
               aria-hidden
             />
-            <span className="min-w-0 flex-1 truncate text-caption font-semibold leading-normal tracking-tight text-zinc-900">
+            <span className="min-w-0 flex-1 truncate text-caption font-semibold leading-normal tracking-tight text-synkaNavy">
               {block.title}
             </span>
-            <span className="shrink-0 text-right text-[10px] font-medium tabular-nums leading-none text-zinc-600">
+            <span className="shrink-0 text-right text-caption font-medium tabular-nums leading-none text-synkaNavy/50">
               {formatCalendarEventTimeLabel(block)}
               {participants.length > 1 ? ` ·${participants.length}` : ''}
             </span>
           </span>
         ) : isMedium ? (
           <>
-            <span className="min-w-0 max-w-full truncate text-body-sm font-semibold leading-tight text-zinc-900">
+            <span className="min-w-0 max-w-full truncate text-body-sm font-semibold leading-tight text-synkaNavy">
               {block.title}
             </span>
-            <span className="mt-0.5 min-w-0 max-w-full truncate whitespace-nowrap text-caption tabular-nums text-zinc-500">
+            <span className="mt-0.5 min-w-0 max-w-full truncate whitespace-nowrap text-caption tabular-nums text-synkaNavy/50 uppercase tracking-wide">
               {formatCalendarEventTimeLabel(block)}
             </span>
           </>
         ) : (
           <>
-            <span
-              className="shrink-0 text-caption font-semibold uppercase tracking-wider"
-              style={{ color: primaryPerson.colorAccent }}
-            >
+            <span className="shrink-0 text-caption font-semibold uppercase tracking-wide text-synkaNavy/50">
               {primaryPerson.name}
             </span>
-            <span className="mt-0.5 min-w-0 max-w-full truncate text-subheading font-semibold leading-snug text-zinc-900">
+            <span className="mt-0.5 min-w-0 max-w-full truncate text-subheading font-semibold leading-snug text-synkaNavy">
               {block.title}
             </span>
-            <span className="mt-0.5 min-w-0 max-w-full truncate whitespace-nowrap text-caption tabular-nums text-zinc-500">
+            <span className="mt-0.5 min-w-0 max-w-full truncate whitespace-nowrap text-caption tabular-nums text-synkaNavy/50 uppercase tracking-wide">
               {formatCalendarEventTimeLabel(block)}
             </span>
           </>
         )}
       </span>
-      {onDragReschedule && !showBlank && (
+      {onDragReschedule && !showBlank && !isContinuation && (
         <button
           type="button"
           aria-label="Flytt hendelse"
           title="Flytt hendelse"
-          className={`absolute inline-flex items-center justify-center rounded-full border border-white/40 bg-white/45 text-zinc-600 backdrop-blur-sm transition hover:bg-white/75 ${
+          className={`absolute inline-flex items-center justify-center rounded-pill border border-white/40 bg-white/45 text-zinc-600 backdrop-blur-sm transition hover:bg-white/75 ${
             useShortRow || showTitleOnly ? 'right-1 top-1/2 h-5 w-5 -translate-y-1/2' : 'bottom-1.5 right-1.5 h-6 w-6'
           }`}
           style={{
@@ -377,6 +389,14 @@ export function ActivityBlock({
             <path strokeLinecap="round" strokeLinejoin="round" d="M8 6h8M8 12h8M8 18h8" />
           </svg>
         </button>
+      )}
+      {!isContinuation && isOvernight && !showBlank && (
+        <span
+          className="pointer-events-none absolute bottom-1.5 left-3 right-10 truncate text-caption font-semibold tabular-nums"
+          style={{ color: primaryPerson.colorAccent }}
+        >
+          → slutter {formatTime(block.end)}
+        </span>
       )}
     </motion.div>
   )

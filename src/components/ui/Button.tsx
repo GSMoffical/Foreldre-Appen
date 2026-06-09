@@ -1,4 +1,4 @@
-import { forwardRef } from 'react'
+﻿import { forwardRef } from 'react'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'neutral' | 'ghost'
 export type ButtonSize = 'sm' | 'md' | 'lg'
@@ -17,11 +17,11 @@ const base =
 
 const variants: Record<ButtonVariant, string> = {
   primary:
-    'bg-brandTeal text-white shadow-planner-sm hover:brightness-95 active:shadow-planner-press focus:ring-brandTeal/40',
+    'bg-synkaPrimary text-white shadow-planner-sm hover:brightness-95 active:shadow-planner-press focus:ring-synkaPrimary/40',
   secondary:
     'border border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 active:bg-zinc-100 focus:ring-zinc-300/60',
   danger:
-    'bg-rose-600 text-white hover:bg-rose-700 active:bg-rose-800 focus:ring-rose-500/40',
+    'bg-synkaCoral text-white hover:bg-synkaCoral/90 active:bg-synkaCoral focus:ring-synkaCoral/40',
   neutral:
     'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 active:bg-zinc-300 focus:ring-zinc-200',
   ghost:
@@ -29,9 +29,9 @@ const variants: Record<ButtonVariant, string> = {
 }
 
 const sizes: Record<ButtonSize, string> = {
-  sm: 'rounded-xl px-3.5 py-2 text-body-sm',
-  md: 'rounded-2xl px-5 py-3 text-body',
-  lg: 'rounded-2xl px-5 py-3.5 text-subheading',
+  sm: 'rounded-lg px-3.5 py-2 text-body-sm',
+  md: 'rounded-lg px-5 py-3 text-body',
+  lg: 'rounded-lg px-5 py-3.5 text-subheading',
 }
 
 const defaultWidth: Record<ButtonSize, boolean> = {

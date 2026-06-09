@@ -1,12 +1,20 @@
-import { formatNorwegianCalendarSummary } from '../lib/norwegianSchoolCalendar'
+import { useEffect, useState } from 'react'
+import {
+  ensureNorwegianHolidaysLoaded,
+  formatNorwegianCalendarSummary,
+} from '../lib/norwegianSchoolCalendar'
 
 /** Day timeline: shows Norwegian public holidays + skoleferie (default Oslo ranges) when relevant */
 export function CalendarDayNote({ date }: { date: string }) {
-  const line = formatNorwegianCalendarSummary(date)
+  const [holidaysReady, setHolidaysReady] = useState(false)
+  useEffect(() => {
+    void ensureNorwegianHolidaysLoaded().then(() => setHolidaysReady(true))
+  }, [])
+  const line = holidaysReady ? formatNorwegianCalendarSummary(date) : null
   if (!line) return null
   return (
     <div className="px-4 pb-1 pt-0.5" role="status">
-      <p className="text-center text-caption font-medium leading-snug text-brandNavy/80">{line}</p>
+      <p className="text-center text-caption font-medium leading-snug text-synkaNavy/80">{line}</p>
     </div>
   )
 }

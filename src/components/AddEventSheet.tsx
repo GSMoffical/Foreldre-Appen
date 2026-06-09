@@ -8,7 +8,7 @@ import { requestNotificationPermission } from '../hooks/useReminders'
 import { addCalendarDaysOslo } from '../lib/osloCalendar'
 import {
   inputBase, textareaBase, inputLabel,
-  btnPrimary, btnSecondary, btnDanger,
+  btnSecondary, btnDanger,
   sheetPanel, sheetHandle, sheetHandleBar, sheetFormBody,
   typLabel, sheetTitle, sheetSubtitle,
   btnDisclosure, personChipActive, personChipInactive, dropdownTrigger,
@@ -36,6 +36,7 @@ interface AddEventSheetProps {
       start: string
       end: string
       notes?: string
+      location?: string
       reminderMinutes?: number
       metadata?: { transport?: { dropoffBy?: PersonId; pickupBy?: PersonId }; participants?: PersonId[] }
     },
@@ -94,7 +95,7 @@ function Dropdown({ open, onClose, children }: { open: boolean; onClose: () => v
     <div
       ref={ref}
       role="listbox"
-      className="absolute left-0 right-0 top-full z-50 mt-1 rounded-xl border border-zinc-200 bg-white shadow-card overflow-hidden"
+      className="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-zinc-200 bg-white shadow-card overflow-hidden"
     >
       {children}
     </div>
@@ -108,7 +109,7 @@ function DropdownItem({ label, active, onClick }: { label: string; active: boole
       role="option"
       aria-selected={active}
       onClick={onClick}
-      className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] hover:bg-zinc-50 ${active ? 'font-semibold text-zinc-900' : 'text-zinc-700'}`}
+      className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-body-sm hover:bg-zinc-50 ${active ? 'font-semibold text-zinc-900' : 'text-zinc-700'}`}
     >
       {active && (
         <svg className="h-3.5 w-3.5 shrink-0 text-zinc-900" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
@@ -132,11 +133,15 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
   const [repeat, setRepeat] = useState<RepeatFrequency>('none')
   const [customIntervalDays, setCustomIntervalDays] = useState(3)
   const [endDate, setEndDate] = useState(() => addWeeks(date, 12))
+  const initialEndDateRef = useRef(addWeeks(date, 12))
   const [reminderMinutes, setReminderMinutes] = useState<number | undefined>(undefined)
   const [notes, setNotes] = useState('')
+  const [location, setLocation] = useState('')
   const [dropoffBy, setDropoffBy] = useState<PersonId | null>(null)
   const [pickupBy, setPickupBy] = useState<PersonId | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [titleError, setTitleError] = useState<string | null>(null)
+  const [timeError, setTimeError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(() =>
     typeof Notification !== 'undefined' ? Notification.permission : 'denied'
@@ -147,6 +152,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
   const [customReminderInput, setCustomReminderInput] = useState(60)
   const [showMore, setShowMore] = useState(false)
   const dialogRef = useRef<HTMLDivElement>(null)
+  const formRef = useRef<HTMLFormElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
 
   const isDirty = useMemo(() => {
@@ -160,13 +166,15 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
       || selectedPersonIds.length !== initialLen
       || (selectedPersonIds[0] ?? null) !== initialFirst
       || repeat !== 'none'
+      || (repeat !== 'none' && endDate !== initialEndDateRef.current)
       || notes.trim() !== ''
       || reminderMinutes !== undefined
       || allDayEndDate !== date
+      || location.trim() !== ''
       || dropoffBy !== null
       || pickupBy !== null
     )
-  }, [title, start, end, isAllDay, selectedPersonIds, initialPersonId, repeat, notes, reminderMinutes, allDayEndDate, date, dropoffBy, pickupBy])
+  }, [title, start, end, isAllDay, selectedPersonIds, initialPersonId, repeat, endDate, notes, location, reminderMinutes, allDayEndDate, date, dropoffBy, pickupBy])
   const { guardedClose, confirming, confirmClose, cancelConfirm } = useConfirmClose(isDirty, onClose)
 
   const guardedCloseRef = useRef(guardedClose)
@@ -243,6 +251,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
         start: saveStart,
         end: saveEnd,
         notes: notes.trim() || undefined,
+        location: location.trim() || undefined,
         reminderMinutes: isAllDay ? undefined : reminderMinutes,
       }
       data.metadata = {
@@ -265,7 +274,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
       await Promise.resolve(onSave(data, options))
       onClose()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Kunne ikke lagre hendelsen.')
+      setError(err instanceof Error ? err.message : 'Kunne ikke lagre hendelsen. Sjekk nett og prøv igjen.')
     } finally {
       setSaving(false)
     }
@@ -277,7 +286,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-30 bg-black/30"
+        className="fixed inset-0 z-30 bg-synkaNavy/30"
         onClick={guardedClose}
         aria-hidden
       />
@@ -299,20 +308,20 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
             type="button"
             onClick={guardedClose}
             aria-label="Lukk"
-            className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 touch-manipulation"
+            className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-pill text-synkaNavy/40 transition hover:bg-black/5 hover:text-synkaNavy/70 touch-manipulation"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-        <form className={sheetFormBody} onSubmit={handleSubmit}>
+        <form ref={formRef} className={sheetFormBody} onSubmit={handleSubmit}>
           <h2 className={sheetTitle}>Legg til hendelse</h2>
           <p className={sheetSubtitle}>{formatDisplayDate(date)}</p>
 
           {confirming && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5 space-y-3">
-              <p className="text-body-sm font-medium text-amber-900">Du har ulagrede endringer. Forkaste?</p>
+            <div className="rounded-lg border border-synkaYellow/30 bg-synkaYellow/8 p-3.5 space-y-3">
+              <p className="text-body-sm font-medium text-synkaNavy/80">Du har ulagrede endringer. Forkaste?</p>
               <div className="flex gap-2">
                 <button type="button" onClick={cancelConfirm} className={`flex-1 ${btnSecondary}`}>Bli her</button>
                 <button type="button" onClick={confirmClose} className={`flex-1 ${btnDanger}`}>Forkast</button>
@@ -321,7 +330,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
           )}
 
           <div className="space-y-1.5">
-            <label className={typLabel}>Hvem</label>
+            <label className={typLabel}>Hvem deltar?</label>
             <div className="flex flex-wrap gap-1">
               {people.map((p) => (
                 <button
@@ -336,12 +345,15 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
                       return [...prev, p.id]
                     })
                   }}
-                  className={selectedPersonIds.includes(p.id) ? personChipActive : personChipInactive}
+                  className={`${selectedPersonIds.includes(p.id) ? personChipActive : personChipInactive} active:opacity-70`}
                 >
                   {p.name}
                 </button>
               ))}
             </div>
+            {selectedPersonIds.length === 0 && (
+              <p className="mt-1 text-caption text-synkaNavy/40">Velg minst én person</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -351,74 +363,174 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
               className={inputBase}
               placeholder="f.eks. Fotball, Lekser"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => { setTitle(e.target.value); if (titleError) setTitleError(null) }}
+              onBlur={() => { if (!title.trim()) setTitleError('Tittel er påkrevd') }}
+            />
+            {titleError && <p className="mt-1 text-caption text-synkaCoral">{titleError}</p>}
+          </div>
+
+          <div className="space-y-1.5">
+            <label className={inputLabel} htmlFor="add-location">Sted (valgfritt)</label>
+            <input
+              id="add-location"
+              className={inputBase}
+              placeholder="f.eks. Parken"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
             />
           </div>
 
           <button
             type="button"
             onClick={() => { setIsAllDay((v) => !v); setError(null) }}
-            className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-[13px] font-medium transition-colors ${
+            className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-body-sm font-medium transition-colors active:opacity-70 ${
               isAllDay
-                ? 'border-brandTeal/40 bg-brandTeal/8 text-brandNavy'
+                ? 'border-synkaPrimary/40 bg-synkaPrimary/8 text-synkaNavy'
                 : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-100'
             }`}
           >
             <span>Heldagshendelse</span>
             <span
-              className={`inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-                isAllDay ? 'bg-brandTeal' : 'bg-zinc-300'
+              className={`inline-flex h-5 w-9 shrink-0 items-center rounded-pill transition-colors ${
+                isAllDay ? 'bg-synkaPrimary' : 'bg-zinc-300'
               }`}
             >
               <span
-                className={`h-4 w-4 translate-x-0.5 rounded-full bg-white shadow transition-transform ${isAllDay ? 'translate-x-4' : ''}`}
+                className={`h-4 w-4 translate-x-0.5 rounded-pill bg-white shadow transition-transform ${isAllDay ? 'translate-x-4' : ''}`}
               />
             </span>
           </button>
 
-          {!isAllDay && (
-            <div className="flex gap-3">
-              <div className="flex-1 space-y-1.5">
-                <label className={inputLabel} htmlFor="start">Starttid</label>
-                <input
-                  id="start"
-                  type="time"
-                  className={inputBase}
-                  value={start}
-                  onChange={(e) => setStart(e.target.value)}
-                />
-              </div>
-              <div className="flex-1 space-y-1.5">
-                <label className={inputLabel} htmlFor="end">Sluttid</label>
-                <input
-                  id="end"
-                  type="time"
-                  className={inputBase}
-                  value={end}
-                  onChange={(e) => setEnd(e.target.value)}
-                />
-              </div>
+          {isAllDay && (
+            <div className="space-y-1.5">
+              <label className={inputLabel} htmlFor="all-day-end">Sluttdato</label>
+              <input
+                id="all-day-end"
+                type="date"
+                className={inputBase}
+                value={allDayEndDate}
+                min={date}
+                onChange={(e) => setAllDayEndDate(e.target.value)}
+              />
+              <p className="text-caption text-zinc-500">Velg sluttdato for flerdagers hendelser</p>
             </div>
           )}
 
+          {!isAllDay && (
+            <>
+              <div className="flex gap-3">
+                <div className="flex-1 space-y-1.5">
+                  <label className={inputLabel} htmlFor="start">Starttid</label>
+                  <input
+                    id="start"
+                    type="time"
+                    className={inputBase}
+                    value={start}
+                    onChange={(e) => { setStart(e.target.value); setTimeError(null) }}
+                  />
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  <label className={inputLabel} htmlFor="end">Sluttid</label>
+                  <input
+                    id="end"
+                    type="time"
+                    className={inputBase}
+                    value={end}
+                    onChange={(e) => { setEnd(e.target.value); setTimeError(null) }}
+                    onBlur={() => {
+                      if (end && start) {
+                        if (end === start) {
+                          setTimeError('Sluttid må være etter starttid')
+                        } else if (end < start) {
+                          const [sh, sm] = start.split(':').map(Number)
+                          const [eh, em] = end.split(':').map(Number)
+                          const diff = (sh * 60 + sm) - (eh * 60 + em)
+                          if (diff <= 60) setTimeError('Sluttid må være etter starttid')
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+              {timeError && <p className="mt-1 text-caption text-synkaCoral">{timeError}</p>}
+            </>
+          )}
+
           {!isAllDay && end < start && (
-            <p className="rounded-lg bg-amber-50 px-3 py-2 text-[12px] text-amber-700">
+            <p className="rounded-md bg-synkaYellow/10 px-3 py-2 text-caption text-synkaNavy/70">
               Slutter neste dag kl. {end}
             </p>
           )}
 
-          <div className="space-y-1.5">
-            <label className={inputLabel} htmlFor="all-day-end">Sluttdato</label>
-            <input
-              id="all-day-end"
-              type="date"
-              className={inputBase}
-              value={allDayEndDate}
-              min={date}
-              onChange={(e) => setAllDayEndDate(e.target.value)}
-            />
-            <p className="text-[11px] text-zinc-500">Velg sluttdato for flerdagers hendelser</p>
+          {/* Gjentas — always-visible repeat field */}
+          <div className="space-y-1">
+            <label className={inputLabel}>Gjentas</label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => { setRepeatOpen(!repeatOpen); setReminderOpen(false) }}
+                aria-haspopup="listbox"
+                aria-expanded={repeatOpen}
+                className={dropdownTrigger}
+              >
+                <span className={repeat === 'none' ? 'text-zinc-400' : 'text-zinc-900'}>
+                  {repeatLabel(repeat, customIntervalDays)}
+                </span>
+                <svg className={`h-4 w-4 text-zinc-400 transition-transform ${repeatOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+              </button>
+              <Dropdown open={repeatOpen} onClose={() => setRepeatOpen(false)}>
+                {(['none', 'daily', 'weekly', 'biweekly', 'custom'] as RepeatFrequency[]).map((val) => (
+                  <DropdownItem
+                    key={val}
+                    label={repeatLabel(val, 0)}
+                    active={repeat === val}
+                    onClick={() => { setRepeat(val); if (val !== 'custom') setRepeatOpen(false) }}
+                  />
+                ))}
+                {repeat === 'custom' && (
+                  <div className="flex items-center gap-2 border-t border-zinc-100 px-4 py-3">
+                    <span className="text-body-sm text-zinc-600">Hver</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={customIntervalDays}
+                      onChange={(e) => setCustomIntervalDays(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-16 rounded-md border border-zinc-200 px-2 py-1 text-center text-body-sm outline-none focus:border-zinc-400"
+                    />
+                    <span className="text-body-sm text-zinc-600">dag</span>
+                    <button
+                      type="button"
+                      onClick={() => setRepeatOpen(false)}
+                      className="ml-auto rounded-pill bg-synkaPrimary px-3 py-1 text-caption font-medium text-white shadow-planner-sm"
+                    >
+                      Ferdig
+                    </button>
+                  </div>
+                )}
+              </Dropdown>
+            </div>
           </div>
+
+          {repeat !== 'none' && (
+            <div className="space-y-1.5">
+              <label className={inputLabel} htmlFor="end-date">Sluttdato</label>
+              <input
+                id="end-date"
+                type="date"
+                value={endDate}
+                min={date}
+                onChange={(e) => setEndDate(e.target.value)}
+                className={inputBase}
+              />
+              <p className="text-caption text-zinc-500">
+                Gjentas {repeat === 'custom' ? `hver ${customIntervalDays}. dag` : repeat === 'daily' ? 'hver dag' : repeat === 'biweekly' ? 'hver 2. uke' : 'hver uke'} til denne datoen
+              </p>
+              <p className="text-caption text-synkaNavy/40">Standard er 12 uker frem. Juster for hele sesonger.</p>
+            </div>
+          )}
 
           {/* Progressive disclosure toggle */}
           <button
@@ -432,80 +544,11 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
             </svg>
-            {showMore ? 'Skjul ekstradetaljer' : 'Mer (gjentak, påminnelse, transport)'}
+            {showMore ? 'Skjul ekstradetaljer' : 'Mer (påminnelse, transport)'}
           </button>
 
           {showMore && (
             <>
-              {/* Repeat dropdown */}
-              <div className="space-y-1">
-                <label className={inputLabel}>Gjentakelse</label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => { setRepeatOpen(!repeatOpen); setReminderOpen(false) }}
-                    aria-haspopup="listbox"
-                    aria-expanded={repeatOpen}
-                    className={dropdownTrigger}
-                  >
-                    <span className={repeat === 'none' ? 'text-zinc-400' : 'text-zinc-900'}>
-                      {repeatLabel(repeat, customIntervalDays)}
-                    </span>
-                    <svg className={`h-4 w-4 text-zinc-400 transition-transform ${repeatOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                    </svg>
-                  </button>
-                  <Dropdown open={repeatOpen} onClose={() => setRepeatOpen(false)}>
-                    {(['none', 'daily', 'weekly', 'biweekly', 'custom'] as RepeatFrequency[]).map((val) => (
-                      <DropdownItem
-                        key={val}
-                        label={repeatLabel(val, 0)}
-                        active={repeat === val}
-                        onClick={() => { setRepeat(val); if (val !== 'custom') setRepeatOpen(false) }}
-                      />
-                    ))}
-                    {repeat === 'custom' && (
-                      <div className="flex items-center gap-2 border-t border-zinc-100 px-4 py-3">
-                        <span className="text-[13px] text-zinc-600">Hver</span>
-                        <input
-                          type="number"
-                          min={1}
-                          max={365}
-                          value={customIntervalDays}
-                          onChange={(e) => setCustomIntervalDays(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-16 rounded-lg border border-zinc-200 px-2 py-1 text-center text-[13px] outline-none focus:border-zinc-400"
-                        />
-                        <span className="text-[13px] text-zinc-600">dag</span>
-                        <button
-                          type="button"
-                          onClick={() => setRepeatOpen(false)}
-                          className="ml-auto rounded-full bg-brandTeal px-3 py-1 text-[12px] font-medium text-white shadow-planner-sm"
-                        >
-                          Ferdig
-                        </button>
-                      </div>
-                    )}
-                  </Dropdown>
-                </div>
-              </div>
-
-              {repeat !== 'none' && (
-                <div className="space-y-1.5">
-                  <label className={inputLabel} htmlFor="end-date">Sluttdato</label>
-                  <input
-                    id="end-date"
-                    type="date"
-                    value={endDate}
-                    min={date}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className={inputBase}
-                  />
-                  <p className="text-[11px] text-zinc-500">
-                    Gjentas {repeat === 'custom' ? `hver ${customIntervalDays}. dag` : repeat === 'daily' ? 'hver dag' : repeat === 'biweekly' ? 'hver 2. uke' : 'hver uke'} til denne datoen
-                  </p>
-                </div>
-              )}
-
               {/* Reminder dropdown */}
               <div className="space-y-1">
                 <label className={inputLabel}>Påminnelse</label>
@@ -555,13 +598,13 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
                           max={10080}
                           value={customReminderInput}
                           onChange={(e) => setCustomReminderInput(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-16 rounded-lg border border-zinc-200 px-2 py-1 text-center text-[13px] outline-none focus:border-zinc-400"
+                          className="w-16 rounded-md border border-zinc-200 px-2 py-1 text-center text-body-sm outline-none focus:border-zinc-400"
                         />
-                        <span className="text-[13px] text-zinc-600">min før</span>
+                        <span className="text-body-sm text-zinc-600">min før</span>
                         <button
                           type="button"
                           onClick={() => { setReminderMinutes(customReminderInput); setShowCustomReminder(false); setReminderOpen(false) }}
-                          className="ml-auto rounded-full bg-brandTeal px-3 py-1 text-[12px] font-medium text-white shadow-planner-sm"
+                          className="ml-auto rounded-pill bg-synkaPrimary px-3 py-1 text-caption font-medium text-white shadow-planner-sm"
                         >
                           Ferdig
                         </button>
@@ -572,7 +615,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
               </div>
 
               {reminderMinutes !== undefined && notifPermission !== 'granted' && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12px] text-amber-800">
+                <div className="rounded-md border border-synkaYellow/30 bg-synkaYellow/8 px-3 py-2.5 text-caption text-synkaNavy/80">
                   <p>Påminnelsen virker ikke uten varslingstillatelse.</p>
                   {notifPermission !== 'denied' && (
                     <button
@@ -629,7 +672,20 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
             </>
           )}
 
-          {error && <p className="text-caption text-rose-600">{error}</p>}
+          {error && (
+            <div className="flex items-center gap-2">
+              <p className="flex-1 text-caption text-synkaCoral">{error}</p>
+              {!error.includes('tittel') && !error.includes('person') && (
+                <button
+                  type="button"
+                  onClick={() => formRef.current?.requestSubmit()}
+                  className="shrink-0 text-caption font-medium text-synkaPrimary underline underline-offset-2"
+                >
+                  Prøv igjen
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="flex gap-2 pt-1">
             <button
@@ -642,7 +698,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
             <button
               type="submit"
               disabled={saving}
-              className={`flex-1 ${btnPrimary}`}
+              className="flex-1 h-12 rounded-lg bg-synkaPrimary text-white font-semibold transition disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-synkaPrimary/40 touch-manipulation select-none"
             >
               {saving ? 'Lagrer…' : 'Legg til'}
             </button>

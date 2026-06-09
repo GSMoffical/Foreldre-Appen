@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
+﻿import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { inputBase, inputLabel, inputHint, inputError as inputErrorCls } from '../../lib/ui'
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -21,7 +21,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           ref={ref}
           id={inputId}
-          className={`${inputBase} ${hasError ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-400/20' : ''} ${className}`.trim()}
+          className={`${inputBase} ${hasError ? 'border-synkaCoral/60 focus:border-synkaCoral focus:ring-synkaCoral/20' : ''} ${className}`.trim()}
           aria-invalid={hasError || undefined}
           aria-describedby={
             hasError
@@ -104,7 +104,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     }, [autoResize, minRowsSafe, maxRowsSafe, props.value])
 
     const base =
-      'w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 placeholder-zinc-400 outline-none resize-none transition focus:border-brandTeal focus:bg-white focus:ring-1 focus:ring-brandTeal/20'
+      'w-full rounded-lg border border-synkaNavy/15 bg-white/60 px-3.5 py-2.5 text-body text-zinc-900 placeholder-zinc-400 outline-none resize-none transition focus:border-synkaPrimary focus:bg-white focus:ring-1 focus:ring-synkaPrimary/20'
     return (
       <div className="space-y-1">
         {label && (
@@ -116,7 +116,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={innerRef}
           id={textareaId}
           rows={rows}
-          className={`${base} ${hasError ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-400/20' : ''} ${className}`.trim()}
+          className={`${base} ${hasError ? 'border-synkaCoral/60 focus:border-synkaCoral focus:ring-synkaCoral/20' : ''} ${className}`.trim()}
           aria-invalid={hasError || undefined}
           aria-describedby={
             hasError

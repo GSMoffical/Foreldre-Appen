@@ -43,7 +43,7 @@ function fmtTime(ts: string): string {
 function eventColor(name: string): string {
   if (name.startsWith('task_')) return 'text-emerald-400'
   if (name.startsWith('event_')) return 'text-sky-400'
-  if (name.startsWith('onboarding_')) return 'text-amber-400'
+  if (name.startsWith('onboarding_')) return 'text-synkaYellow'
   if (name.startsWith('search_')) return 'text-violet-400'
   if (name.startsWith('tab_') || name.startsWith('sheet_') || name.startsWith('session_')) return 'text-zinc-300'
   return 'text-zinc-400'
@@ -69,15 +69,15 @@ export function DebugOverlay() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         title="Debug log"
-        className="fixed bottom-[80px] left-2 z-[300] flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800/85 text-[11px] text-zinc-300 shadow-lg backdrop-blur-sm transition hover:bg-zinc-700 active:scale-95"
+        className="fixed bottom-[80px] left-2 z-[300] flex h-7 w-7 items-center justify-center rounded-pill bg-zinc-800/85 text-caption text-zinc-300 shadow-lg backdrop-blur-sm transition hover:bg-zinc-700 active:scale-95"
         aria-label="Toggle debug log"
       >
-        {open ? '✕' : '⚙'}
+        {open ? 'X' : 'D'}
       </button>
 
       {/* Log panel */}
       {open && (
-        <div className="fixed bottom-[116px] left-2 right-2 z-[300] flex max-h-64 flex-col overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-950/96 shadow-2xl backdrop-blur-sm">
+        <div className="fixed bottom-[116px] left-2 right-2 z-[300] flex max-h-64 flex-col overflow-hidden rounded-lg border border-zinc-700 bg-zinc-950/96 shadow-2xl backdrop-blur-sm">
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between border-b border-zinc-800 px-3 py-2">
             <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
@@ -90,7 +90,7 @@ export function DebugOverlay() {
                 clearEventLog()
                 setEntries([])
               }}
-              className="text-[10px] text-rose-500 hover:text-rose-400"
+              className="text-[10px] text-synkaCoral hover:text-synkaCoral/70"
             >
               Clear
             </button>
@@ -99,7 +99,7 @@ export function DebugOverlay() {
           {/* Event list — newest first */}
           <div className="overflow-y-auto overscroll-contain">
             {entries.length === 0 ? (
-              <p className="px-3 py-4 text-center text-[11px] text-zinc-600">
+              <p className="px-3 py-4 text-center text-caption text-zinc-600">
                 No events yet. Trigger an action.
               </p>
             ) : (
@@ -111,7 +111,7 @@ export function DebugOverlay() {
                   <span className="shrink-0 font-mono text-[9px] text-zinc-600">
                     {fmtTime(e.ts)}
                   </span>
-                  <span className={`shrink-0 text-[11px] font-semibold ${eventColor(e.name)}`}>
+                  <span className={`shrink-0 text-caption font-semibold ${eventColor(e.name)}`}>
                     {e.name}
                   </span>
                   {Object.keys(e.payload).length > 0 && (

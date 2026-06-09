@@ -8,7 +8,7 @@ import { useConfirmClose } from '../../../hooks/useConfirmClose'
 import {
   inputBase, textareaBase, selectBase, inputLabel,
   btnPrimary, btnSecondary, btnDanger, btnDisclosure,
-  sheetPanel, sheetHandle, sheetHandleBar, sheetFormBody,
+  sheetPanel, sheetHandle, sheetFormBody,
   sheetTitle,
 } from '../../../lib/ui'
 
@@ -38,6 +38,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
   const [showInMonthView, setShowInMonthView] = useState(initialTask?.showInMonthView ?? false)
   const [taskIntent, setTaskIntent] = useState<TaskIntent>(initialTask?.taskIntent ?? 'must_do')
   const [saving, setSaving] = useState(false)
+  const [titleError, setTitleError] = useState<string | null>(null)
 
   const isDirty = useMemo(
     () =>
@@ -52,7 +53,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
   const { guardedClose, confirming, confirmClose, cancelConfirm } = useConfirmClose(isDirty, onClose)
   const [showMore, setShowMore] = useState(() => {
     if (!initialTask) return false
-    return !!(initialTask.dueTime || initialTask.assignedToPersonId || initialTask.childPersonId || initialTask.notes || initialTask.showInMonthView)
+    return !!(initialTask.dueTime || initialTask.notes || initialTask.showInMonthView)
   })
 
   const titleRef = useRef<HTMLInputElement>(null)
@@ -63,7 +64,8 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim() || saving) return
+    if (saving) return
+    if (!title.trim()) { setTitleError('Tittel er påkrevd'); return }
     setSaving(true)
     try {
       if (assignedTo !== PERSON_NONE) {
@@ -87,7 +89,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
   return (
     <>
       <motion.div
-        className="fixed inset-0 z-30 bg-black/40"
+        className="fixed inset-0 z-30 bg-synkaNavy/30"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -106,12 +108,11 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
         aria-label={isEdit ? 'Rediger gjøremål' : 'Nytt gjøremål'}
       >
         <div className={`${sheetHandle} relative`}>
-          <div className={sheetHandleBar} aria-hidden />
           <button
             type="button"
             onClick={guardedClose}
             aria-label="Lukk"
-            className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 touch-manipulation"
+            className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-pill text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 touch-manipulation"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -128,12 +129,48 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
               ref={titleRef}
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => { setTitle(e.target.value); if (titleError) setTitleError(null) }}
+              onBlur={() => { if (!title.trim()) setTitleError('Tittel er påkrevd') }}
               placeholder="Hva skal gjøres?"
               required
               className={inputBase}
             />
+            {titleError && <p className="mt-1 text-caption text-synkaCoral">{titleError}</p>}
           </div>
+
+          {people.length > 0 && (
+            <div className="space-y-1.5">
+              <label className={inputLabel} htmlFor="task-child">Hvem gjelder det?</label>
+              <select
+                id="task-child"
+                value={childPerson}
+                onChange={(e) => setChildPerson(e.target.value)}
+                className={selectBase}
+              >
+                <option value={PERSON_NONE}>Ingen</option>
+                {people.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {people.length > 0 && (
+            <div className="space-y-1.5">
+              <label className={inputLabel} htmlFor="task-assigned">Ansvarlig</label>
+              <select
+                id="task-assigned"
+                value={assignedTo}
+                onChange={(e) => setAssignedTo(e.target.value)}
+                className={selectBase}
+              >
+                <option value={PERSON_NONE}>Ingen</option>
+                {people.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label className={inputLabel} htmlFor="task-date">Dato *</label>
@@ -149,13 +186,13 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
 
           <div className="space-y-1">
             <span className={inputLabel}>Type</span>
-            <div className="flex rounded-xl border border-zinc-200 bg-zinc-50/90 p-0.5">
+            <div className="flex rounded-lg border border-zinc-200 bg-zinc-50/90 p-0.5">
               {(['must_do', 'can_help'] as const).map((intent) => (
                 <button
                   key={intent}
                   type="button"
                   onClick={() => setTaskIntent(intent)}
-                  className={`flex-1 rounded-lg px-2 py-2 text-[12px] font-semibold transition touch-manipulation ${
+                  className={`flex-1 rounded-md px-2 py-2 text-caption font-semibold transition touch-manipulation ${
                     taskIntent === intent
                       ? intent === 'must_do'
                         ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200/80'
@@ -180,7 +217,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
             </svg>
-            {showMore ? 'Skjul ekstradetaljer' : 'Mer (klokkeslett, person, notater)'}
+            {showMore ? 'Skjul ekstradetaljer' : 'Mer (klokkeslett, notater)'}
           </button>
 
           {showMore && (
@@ -195,40 +232,6 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
                   className={inputBase}
                 />
               </div>
-
-              {people.length > 0 && (
-                <div className="space-y-1.5">
-                  <label className={inputLabel} htmlFor="task-child">Hvem gjelder det?</label>
-                  <select
-                    id="task-child"
-                    value={childPerson}
-                    onChange={(e) => setChildPerson(e.target.value)}
-                    className={selectBase}
-                  >
-                    <option value={PERSON_NONE}>Ingen</option>
-                    {people.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {people.length > 0 && (
-                <div className="space-y-1.5">
-                  <label className={inputLabel} htmlFor="task-assigned">Ansvarlig</label>
-                  <select
-                    id="task-assigned"
-                    value={assignedTo}
-                    onChange={(e) => setAssignedTo(e.target.value)}
-                    className={selectBase}
-                  >
-                    <option value={PERSON_NONE}>Ingen</option>
-                    {people.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
 
               <div className="space-y-1.5">
                 <label className={inputLabel} htmlFor="task-notes">Notater</label>
@@ -255,12 +258,12 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
                   role="switch"
                   aria-checked={showInMonthView}
                   onClick={() => setShowInMonthView((v) => !v)}
-                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brandTeal/50 ${
-                    showInMonthView ? 'bg-brandTeal' : 'bg-zinc-300'
+                  className={`relative h-6 w-11 shrink-0 rounded-pill transition-colors focus:outline-none focus:ring-2 focus:ring-synkaTeal/50 ${
+                    showInMonthView ? 'bg-synkaTeal' : 'bg-zinc-300'
                   }`}
                 >
                   <span
-                    className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                    className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-pill bg-white shadow-sm transition-transform ${
                       showInMonthView ? 'translate-x-5' : 'translate-x-0'
                     }`}
                   />
@@ -270,8 +273,8 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
           )}
 
           {confirming && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5 space-y-3">
-              <p className="text-body-sm font-medium text-amber-900">Du har ulagrede endringer. Forkaste?</p>
+            <div className="rounded-lg border border-synkaYellow/30 bg-synkaYellow/10 p-3.5 space-y-3">
+              <p className="text-body-sm font-medium text-synkaNavy/80">Du har ulagrede endringer. Forkaste?</p>
               <div className="flex gap-2">
                 <button type="button" onClick={cancelConfirm} className={`flex-1 ${btnSecondary}`}>Bli her</button>
                 <button type="button" onClick={confirmClose} className={`flex-1 ${btnDanger}`}>Forkast</button>

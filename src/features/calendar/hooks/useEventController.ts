@@ -243,11 +243,15 @@ export function useEventController({
 
   const dragReschedule = useCallback(
     (date: string, eventId: string, times: DragReschedulePayload) => {
-      logEvent('event_drag_reschedule', { date, from: times.prevStart, to: times.nextStart })
+      const targetDate =
+        times.metadata?.__isContinuation === true && typeof times.metadata.__continuationFromDate === 'string'
+          ? times.metadata.__continuationFromDate
+          : date
+      logEvent('event_drag_reschedule', { date: targetDate, from: times.prevStart, to: times.nextStart })
       return runWithUndo(
-        () => updateEventData(date, eventId, { start: times.nextStart, end: times.nextEnd }),
+        () => updateEventData(targetDate, eventId, { start: times.nextStart, end: times.nextEnd }),
         'Tid endret',
-        () => updateEventData(date, eventId, { start: times.prevStart, end: times.prevEnd })
+        () => updateEventData(targetDate, eventId, { start: times.prevStart, end: times.prevEnd })
       )
     },
     [runWithUndo, updateEventData]

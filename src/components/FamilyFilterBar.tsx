@@ -1,4 +1,4 @@
-import { LayoutGroup, motion } from 'framer-motion'
+import { LayoutGroup, motion, useReducedMotion } from 'framer-motion'
 import type { PersonId } from '../types'
 import { useFamily } from '../context/FamilyContext'
 
@@ -13,13 +13,24 @@ const ALL_ID = 'all' as const
 
 export function FamilyFilterBar({ selectedPersonIds, onFilterChange, mePersonId }: FamilyFilterBarProps) {
   const { people } = useFamily()
+  const reducedMotion = useReducedMotion() ?? false
   const isAll = selectedPersonIds.length === 0 || selectedPersonIds.length === people.length
+
+  // Active chips settle at full scale; inactive ones sit very slightly smaller.
+  // Faster in (150ms) than out (100ms) so selection feels responsive.
+  const chipScale = (active: boolean) =>
+    reducedMotion
+      ? { animate: { scale: 1 }, transition: { duration: 0 } }
+      : {
+          animate: { scale: active ? 1 : 0.97 },
+          transition: { duration: active ? 0.15 : 0.1, ease: 'easeOut' as const },
+        }
 
   if (people.length === 0) {
     return (
       <div className="px-4 pb-2 pt-2 text-center">
-        <p className="text-[13px] text-zinc-600">
-          Ingen familiemedlemmer ennå. Gå til <span className="font-medium text-zinc-800">Innstillinger</span> for å
+        <p className="text-body-sm text-zinc-600">
+          Ingen familiemedlemmer ennå. Gå til <span className="font-medium text-zinc-800">Mer → Familie</span> for å
           legge til foreldre og barn.
         </p>
       </div>
@@ -39,17 +50,19 @@ export function FamilyFilterBar({ selectedPersonIds, onFilterChange, mePersonId 
 
   return (
     <LayoutGroup id="family-filter">
-    <div className="flex max-w-full min-w-0 gap-2 overflow-x-auto pb-1 pt-2 scrollbar-none">
-      <div className="flex shrink-0 px-1" />
+    <div className="flex max-w-full min-w-0 gap-2 overflow-x-auto py-1.5 scrollbar-none">
+      <div className="w-4 shrink-0" />
       <motion.button
         type="button"
         layout
         onClick={() => handleTap(ALL_ID)}
-        className="flex shrink-0 items-center rounded-full px-3.5 py-1.5 text-body-sm font-medium transition-colors touch-manipulation"
-        style={{
-          backgroundColor: isAll ? 'rgb(228 228 231)' : 'rgb(241 245 249)',
-          color: isAll ? 'rgb(39 39 42)' : 'rgb(113 113 122)',
-        }}
+        className={`flex shrink-0 items-center rounded-pill border px-3.5 py-1.5 text-body-sm font-medium transition-colors touch-manipulation ${
+          isAll
+            ? 'border-transparent bg-synkaPrimary text-white'
+            : 'border-synkaNavy/20 bg-synkaCream text-synkaNavy/70'
+        }`}
+        animate={chipScale(isAll).animate}
+        transition={chipScale(isAll).transition}
         whileTap={{ scale: 0.97 }}
         aria-pressed={isAll}
         aria-label="Vis alle familiemedlemmer"
@@ -65,13 +78,15 @@ export function FamilyFilterBar({ selectedPersonIds, onFilterChange, mePersonId 
             type="button"
             layout
             onClick={() => handleTap(person.id)}
-            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-body-sm font-medium transition-colors touch-manipulation ${isMe ? 'ring-2 ring-offset-1 ring-brandNavy/30' : ''}`}
+            className={`flex shrink-0 items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-body-sm font-medium transition-colors touch-manipulation ${isMe ? 'ring-2 ring-offset-1 ring-synkaNavy/30' : ''}`}
             style={{
               backgroundColor: active ? person.colorTint : 'rgb(241 245 249)',
               color: active ? person.colorAccent : 'rgb(113 113 122)',
               borderWidth: active ? 1.5 : 0,
               borderColor: active ? person.colorAccent : 'transparent',
             }}
+            animate={chipScale(active).animate}
+            transition={chipScale(active).transition}
             whileTap={{ scale: 0.97 }}
             aria-pressed={active}
             aria-label={isMe ? `${person.name} (deg)` : `Filtrer på ${person.name}`}

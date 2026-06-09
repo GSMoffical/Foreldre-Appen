@@ -37,14 +37,14 @@ export function OnboardingHint({ hintId, children, autoDismissMs = 5000 }: Onboa
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 8, opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-x-4 z-[9999] flex items-start gap-3 rounded-xl bg-zinc-900 px-4 py-3 shadow-2xl"
+          className="fixed inset-x-4 z-[9999] flex items-start gap-3 rounded-lg bg-zinc-900 px-4 py-3 shadow-2xl"
           style={{ bottom: 128 }}
           onClick={() => setVisible(false)}
           role="status"
           aria-live="polite"
         >
           <svg
-            className="mt-0.5 h-4 w-4 shrink-0 text-brandTeal"
+            className="mt-0.5 h-4 w-4 shrink-0 text-synkaPrimary"
             fill="none"
             viewBox="0 0 24 24"
             strokeWidth={2}
@@ -57,7 +57,7 @@ export function OnboardingHint({ hintId, children, autoDismissMs = 5000 }: Onboa
               d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"
             />
           </svg>
-          <p className="flex-1 text-[13px] leading-relaxed text-white/90">{children}</p>
+          <p className="flex-1 text-body-sm leading-relaxed text-white/90">{children}</p>
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setVisible(false) }}

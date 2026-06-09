@@ -6,6 +6,7 @@
 import type { Event, PersonId, DaySummary, GapInfo, WeekDayMeta } from '../types'
 import {
   parseTime,
+  durationMinutes,
   formatTime,
   formatTimeRange,
   TIMELINE_START_HOUR,
@@ -56,7 +57,7 @@ function isRenderableEvent(e: Event): boolean {
     return Number.isFinite(start) && Number.isFinite(end) && end >= start
   }
   // Timed foreground blocks without person (f.eks. dokumentimport) skal fortsatt vises.
-  return hasPositiveDuration(e)
+  return hasPositiveDuration(e) || durationMinutes(e.start, e.end) > 0
 }
 
 /** Filter events by selected person IDs and drop invalid/zero-length ones. Empty or "all" = show everyone. */

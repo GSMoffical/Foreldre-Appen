@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import type { Event, Person, SchoolDayOverride } from '../../types'
 import { buildBackgroundEventsForDate } from '../backgroundEvents'
+import { ensureNorwegianHolidaysLoaded } from '../norwegianSchoolCalendar'
 
 // 2026-04-20 = mandag (Mon = weekday 0 i WeekdayMonFri).
 const MONDAY = '2026-04-20'
@@ -9,6 +10,10 @@ const SATURDAY = '2026-04-25'
 const SUMMER_MONDAY = '2026-07-06'
 /** 1. mai (offentlig helligdag, fredag i 2026) */
 const MAY_DAY = '2026-05-01'
+
+beforeAll(async () => {
+  await ensureNorwegianHolidaysLoaded()
+})
 
 function makeChild(overrides: Partial<Person> = {}): Person {
   return {

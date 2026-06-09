@@ -12,7 +12,7 @@ import type {
   WeekdayMonFri,
 } from '../types'
 import { springDialog } from '../lib/motion'
-import { sheetPanel, sheetHandle, sheetHandleBar, sheetDetailBody, typSectionCap, btnRowAction } from '../lib/ui'
+import { sheetPanel, sheetHandle, sheetDetailBody, typSectionCap, btnRowAction } from '../lib/ui'
 import { useFamily } from '../context/FamilyContext'
 import { dateKeyToWeekdayMon0 } from '../lib/weekday'
 import { subjectLabelForKey } from '../data/norwegianSubjects'
@@ -438,24 +438,22 @@ export function BackgroundDetailSheet({
           aria-modal="true"
           aria-label="Detaljer skole og jobb"
         >
-          <div className={sheetHandle}>
-            <div className={sheetHandleBar} aria-hidden />
-          </div>
+          <div className={sheetHandle} />
           <div className={sheetDetailBody}>
             <p className={typSectionCap}>{title}</p>
             <h2 className="mt-1 text-[20px] font-bold text-zinc-900 leading-tight">{person.name}</h2>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <p className="text-body-sm text-zinc-600">{formatTimeRange(event.start, event.end)}</p>
               {schoolDayOverride ? (
-                <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-800">
+                <span className="inline-flex items-center rounded-pill border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-800">
                   {schoolDayOverrideKindLabel(schoolDayOverride.kind)}
                 </span>
               ) : null}
             </div>
             {isSchool && weekOverlaySummaryLines.length > 0 ? (
-              <div className="mt-2 rounded-lg border border-indigo-200 bg-indigo-50/60 px-2.5 py-2">
+              <div className="mt-2 rounded-md border border-indigo-200 bg-indigo-50/60 px-2.5 py-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-900">Ukeoppsummering</p>
-                <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px] text-indigo-950">
+                <ul className="mt-1 list-disc space-y-0.5 pl-4 text-caption text-indigo-950">
                   {weekOverlaySummaryLines.map((line, idx) => (
                     <li key={`${line}-${idx}`}>{line}</li>
                   ))}
@@ -468,7 +466,7 @@ export function BackgroundDetailSheet({
                 const conflicts = relevantForeground.filter((ev) => overlaps(r.start, r.end, ev.start, ev.end))
                 const rowItems = r.lesson ? schoolItemsByLesson.get(r.lesson) ?? [] : []
                 return (
-                  <div key={`${r.start}-${r.end}-${idx}`} className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-3">
+                  <div key={`${r.start}-${r.end}-${idx}`} className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-3">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-body-sm font-semibold text-zinc-900">{r.label}</p>
                       <p className="text-caption text-zinc-500">{formatTimeRange(r.start, r.end)}</p>
@@ -478,17 +476,17 @@ export function BackgroundDetailSheet({
                         {rowItems.map(({ event: sev, ctx }) => (
                           <li
                             key={sev.id}
-                            className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5"
+                            className="flex items-start gap-2 rounded-md border border-zinc-200 bg-white px-2.5 py-1.5"
                           >
                             <span
-                              className={`mt-0.5 inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${schoolItemTypeChipClass(ctx.itemType)}`}
+                              className={`mt-0.5 inline-flex shrink-0 items-center rounded-pill border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${schoolItemTypeChipClass(ctx.itemType)}`}
                             >
                               {schoolItemTypeLabel(ctx.itemType)}
                             </span>
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-[12px] font-semibold text-zinc-900">{sev.title}</p>
+                              <p className="truncate text-caption font-semibold text-zinc-900">{sev.title}</p>
                               {sev.notes?.trim() ? (
-                                <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-zinc-500">
+                                <p className="mt-0.5 line-clamp-2 text-caption leading-snug text-zinc-500">
                                   {sev.notes.trim()}
                                 </p>
                               ) : null}
@@ -498,7 +496,7 @@ export function BackgroundDetailSheet({
                       </ul>
                     ) : null}
                     {isSchool && weekOverlayDayAction?.subjectUpdates?.length ? (
-                      <div className="mt-2 rounded-lg border border-indigo-200 bg-indigo-50/70 p-2">
+                      <div className="mt-2 rounded-md border border-indigo-200 bg-indigo-50/70 p-2">
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-900">
                           {isReplaceDay ? 'Uke-overlay for erstatningsdag' : 'Uke-overlay'}
                         </p>
@@ -522,7 +520,7 @@ export function BackgroundDetailSheet({
                                 const readOnlySections = sectionsForReadOnly(update.sections)
                                 const missing = sectionKeysMissing(draft)
                                 return (
-                                  <li key={itemKey} className="rounded-md border border-indigo-200 bg-white/85 px-2 py-1.5 text-[11px] text-indigo-950">
+                                  <li key={itemKey} className="rounded-md border border-indigo-200 bg-white/85 px-2 py-1.5 text-caption text-indigo-950">
                                     <div className="flex items-center justify-between gap-2">
                                       <p className="font-medium">
                                         {update.customLabel ? `${update.customLabel} (${update.subjectKey})` : update.subjectKey}
@@ -556,7 +554,7 @@ export function BackgroundDetailSheet({
                                           ))}
                                         </ul>
                                       ) : (
-                                        <p className="mt-1 text-[11px] text-indigo-900/80">Ingen seksjoner registrert.</p>
+                                        <p className="mt-1 text-caption text-indigo-900/80">Ingen seksjoner registrert.</p>
                                       )
                                     ) : (
                                       <div className="mt-1.5 space-y-1.5">
@@ -571,7 +569,7 @@ export function BackgroundDetailSheet({
                                               onChange={(e) =>
                                                 setOverlayDraftSections((prev) => ({ ...prev, [key]: e.target.value }))
                                               }
-                                              className="w-full rounded border border-indigo-200 bg-white px-2 py-1 text-[11px] text-zinc-900"
+                                              className="w-full rounded border border-indigo-200 bg-white px-2 py-1 text-caption text-zinc-900"
                                             />
                                           </label>
                                         ))}
@@ -587,7 +585,7 @@ export function BackgroundDetailSheet({
                                           </button>
                                         ) : null}
                                         {overlaySaveError ? (
-                                          <p className="text-[10px] text-rose-700">{overlaySaveError}</p>
+                                          <p className="text-[10px] text-synkaCoral">{overlaySaveError}</p>
                                         ) : null}
                                         <div className="flex gap-1.5">
                                           <button
@@ -645,7 +643,7 @@ export function BackgroundDetailSheet({
                             )}
                           </ul>
                         ) : (
-                          <p className="mt-1 text-[11px] text-indigo-900/80">
+                          <p className="mt-1 text-caption text-indigo-900/80">
                             {isReplaceDay
                               ? 'Ingen seksjoner registrert for erstatningsdagen.'
                               : 'Ingen fagspesifikke tillegg for denne raden.'}
@@ -661,16 +659,16 @@ export function BackgroundDetailSheet({
                           const severityLabel = severity === 'hard' ? COPY.status.needsClarification : COPY.conflicts.note
                           const alternatives = buildAlternativeSlots(r.start, r.end, c.start, c.end)
                           return (
-                            <div key={c.id} className="rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+                            <div key={c.id} className="rounded-md border border-synkaYellow/30 bg-synkaYellow/8 p-2.5">
                               <div className="flex items-center justify-between gap-2">
-                                <p className="text-[12px] font-semibold text-amber-900">
+                                <p className="text-caption font-semibold text-synkaNavy/80">
                                   {COPY.conflicts.collidesWith}: {c.title} ({formatTimeRange(c.start, c.end)})
                                 </p>
-                                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                                <span className="rounded-pill bg-synkaYellow/15 px-2 py-0.5 text-[10px] font-semibold text-synkaNavy/70">
                                   {severityLabel}
                                 </span>
                               </div>
-                              <p className="mt-1 text-[11px] text-amber-800">
+                              <p className="mt-1 text-caption text-synkaNavy/70">
                                 {COPY.conflicts.suggestion}: {alternatives[0]} eller {alternatives[1]}
                               </p>
                               {needsResolution ? (
@@ -728,7 +726,7 @@ export function BackgroundDetailSheet({
                                   </button>
                                 </div>
                               ) : (
-                                <p className="mt-2 text-[11px] text-amber-800">
+                                <p className="mt-2 text-caption text-synkaNavy/70">
                                   Skole + avtale regnes som planlagt og trenger ikke avklaring.
                                 </p>
                               )}
@@ -753,24 +751,24 @@ export function BackgroundDetailSheet({
                     return (
                       <li
                         key={sev.id}
-                        className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5"
+                        className="flex items-start gap-2 rounded-md border border-zinc-200 bg-white px-2.5 py-1.5"
                       >
                         <span
-                          className={`mt-0.5 inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${schoolItemTypeChipClass(ctx.itemType)}`}
+                          className={`mt-0.5 inline-flex shrink-0 items-center rounded-pill border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${schoolItemTypeChipClass(ctx.itemType)}`}
                         >
                           {schoolItemTypeLabel(ctx.itemType)}
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <p className="truncate text-[12px] font-semibold text-zinc-900">{sev.title}</p>
+                            <p className="truncate text-caption font-semibold text-zinc-900">{sev.title}</p>
                             {subjectLabel ? (
-                              <span className="shrink-0 text-[11px] font-medium text-zinc-500">
+                              <span className="shrink-0 text-caption font-medium text-zinc-500">
                                 {subjectLabel}
                               </span>
                             ) : null}
                           </div>
                           {sev.notes?.trim() ? (
-                            <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-zinc-500">
+                            <p className="mt-0.5 line-clamp-2 text-caption leading-snug text-zinc-500">
                               {sev.notes.trim()}
                             </p>
                           ) : null}
@@ -786,8 +784,8 @@ export function BackgroundDetailSheet({
                 <p className={typSectionCap}>Uke-overlay (ikke koblet til spesifikk time)</p>
                 <ul className="mt-2 space-y-1.5">
                   {weekOverlayUnplacedUpdates.map((u, idx) => (
-                    <li key={`${u.subjectKey}-${idx}`} className="rounded-lg border border-indigo-200 bg-indigo-50/70 px-2.5 py-1.5">
-                      <p className="text-[12px] font-semibold text-indigo-950">
+                    <li key={`${u.subjectKey}-${idx}`} className="rounded-md border border-indigo-200 bg-indigo-50/70 px-2.5 py-1.5">
+                      <p className="text-caption font-semibold text-indigo-950">
                         {u.customLabel ? `${u.customLabel} (${u.subjectKey})` : u.subjectKey}
                       </p>
                     </li>
@@ -805,23 +803,27 @@ export function BackgroundDetailSheet({
                     return (
                       <li
                         key={t.id}
-                        className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5"
+                        className="flex items-start gap-2 rounded-md border border-zinc-200 bg-white px-2.5 py-1.5"
                       >
                         <span
                           className={`mt-0.5 inline-flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded border ${done ? 'border-emerald-400 bg-emerald-100 text-emerald-700' : 'border-zinc-300 bg-white text-transparent'}`}
                           aria-hidden
                         >
-                          {done ? '✓' : ''}
+                          {done ? (
+                            <svg viewBox="0 0 10 10" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <polyline points="1.5,5 4,8 8.5,2" />
+                            </svg>
+                          ) : null}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className={`truncate text-[12px] font-semibold ${done ? 'text-zinc-400 line-through' : 'text-zinc-900'}`}>
+                          <p className={`truncate text-caption font-semibold ${done ? 'text-zinc-400 line-through' : 'text-zinc-900'}`}>
                             {t.title}
                           </p>
                           {t.dueTime ? (
-                            <p className="mt-0.5 text-[11px] font-medium text-amber-700">Frist {t.dueTime}</p>
+                            <p className="mt-0.5 text-caption font-medium text-synkaNavy/70">Frist {t.dueTime}</p>
                           ) : null}
                           {t.notes?.trim() ? (
-                            <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-zinc-500">
+                            <p className="mt-0.5 line-clamp-2 text-caption leading-snug text-zinc-500">
                               {t.notes.trim()}
                             </p>
                           ) : null}

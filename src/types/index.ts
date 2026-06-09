@@ -88,7 +88,7 @@ export interface ParentWorkProfile {
   weekdays: Partial<Record<WeekdayMonFri, { start: string; end: string }>>
 }
 
-export type MemberKind = 'parent' | 'child'
+export type MemberKind = 'parent' | 'child' | 'guest'
 
 export interface Person {
   id: PersonId;
@@ -284,6 +284,9 @@ export interface EventMetadata {
   /** YYYY-MM-DD end date for multi-day events (anchor date = start date stored in DB `date` column).
    *  Absent for single-day events. Inclusive: the event is visible on every day from anchor → endDate. */
   endDate?: string;
+  __isContinuation?: boolean;
+  __continuationFromDate?: string;
+  __originalStart?: string;
   /** Migreringsfri kobling til et spesifikt fag/time i barnets timeplan. */
   schoolContext?: SchoolContext;
   /**
@@ -404,6 +407,7 @@ export interface DragReschedulePayload {
   prevEnd: string
   nextStart: string
   nextEnd: string
+  metadata?: EventMetadata
 }
 
 /** Timeline layout item: currently always a single block (columns handle overlaps). */

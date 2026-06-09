@@ -4,45 +4,51 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Person-coded: tint (bg) and accent (border/active)
-        emma: { tint: '#dcfce7', accent: '#16a34a' }, // fresh green
-        leo: { tint: '#fef9c3', accent: '#ca8a04' }, // warm amber
-        mom: { tint: '#fef2f2', accent: '#e11d48' }, // soft rose
-        dad: { tint: '#ffedd5', accent: '#ea580c' }, // orange
-        family: { tint: '#f5f5f4', accent: '#57534e' }, // warm neutral
-        // Brand palette (non‑blue, warm neutrals)
-        brandSky: '#f0fdf4',      // light teal-green (green-50)
-        brandSkyDeep: '#dcfce7',  // deeper teal-green (green-100)
-        brandTeal: '#1aab50',     // green accent — toned from green-500 for calmer feel
-        brandNavy: '#292524',     // dark warm neutral
-        brandSun: '#facc15',
+        // Person-coded: tints of Synka brand palette
+        emma: { tint: '#c8ecea', accent: '#166b4f' }, // synkaTealLight / synkaPrimary
+        leo:  { tint: '#fef9d4', accent: '#c9920a' }, // yellow tint / amber
+        mom:  { tint: '#fce8e2', accent: '#e05a3a' }, // coral tint / synkaCoral
+        dad:  { tint: '#d4ede8', accent: '#0f4d38' }, // teal tint / synkaPrimaryDark
+        family: { tint: '#faf0e4', accent: '#6b5a45' }, // synkaCream / warm brown
+        // Synka brand palette
+        synkaPrimary:     '#166b4f',
+        synkaPrimaryDark: '#0f4d38',
+        synkaTeal:        '#7bc7c4',
+        synkaTealLight:   '#c8ecea',
+        synkaYellow:      '#f5c842',
+        synkaCream:       '#f4f2ef',
+        synkaCreamDeep:   '#edeae5',
+        synkaNavy:        '#0f1e2b',
+        synkaCoral:       '#e05a3a',
         // RGB triplets in index.css so `bg-surface/95` etc. work with time-of-day tint
         surface: 'rgb(var(--color-surface-rgb) / <alpha-value>)',
         muted: '#71717a',
       },
       fontFamily: {
-        sans: ['"Source Sans 3"', 'system-ui', 'sans-serif'],
-        display: ['Literata', 'Georgia', 'serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       fontSize: {
         // Existing utility sizes (keep)
         'micro': ['0.75rem', { lineHeight: '1.25', letterSpacing: '0.05em' }],
         'rail': ['0.6875rem', { lineHeight: '1.25' }],
-        // Semantic type scale (new — use these going forward)
-        'display': ['1.375rem', { lineHeight: '1.15', letterSpacing: '-0.01em' }], // 22px
-        'heading': ['1.0625rem', { lineHeight: '1.3' }],                           // 17px
-        'subheading': ['0.9375rem', { lineHeight: '1.4' }],                        // 15px
-        'body': ['0.875rem', { lineHeight: '1.5' }],                               // 14px
-        'body-sm': ['0.8125rem', { lineHeight: '1.45' }],                          // 13px
-        'label': ['0.75rem', { lineHeight: '1.25' }],                              // 12px
-        'caption': ['0.6875rem', { lineHeight: '1.2' }],                           // 11px
+        // Semantic type scale
+        'display':  ['22px', { lineHeight: '1.2',  fontWeight: '600' }],
+        'heading':  ['17px', { lineHeight: '1.3',  fontWeight: '600' }],
+        'subheading': ['15px', { lineHeight: '1.4', fontWeight: '600' }],
+        'body':     ['15px', { lineHeight: '1.5',  fontWeight: '400' }],
+        'body-sm':  ['13px', { lineHeight: '1.5',  fontWeight: '400' }],
+        'label':    ['12px', { lineHeight: '1.25' }],
+        'caption':  ['11px', { lineHeight: '1.4',  fontWeight: '500' }],
       },
       borderRadius: {
-        'card': '20px',    // large surface cards
-        'block': '16px',   // activity blocks, medium cards
-        'pill': '9999px',  // FAB-style add buttons, person chips
-        'sheet': '28px',   // bottom sheet top radius (new)
+        'none': '0',
+        'xs':   '4px',
+        'sm':   '8px',
+        'md':   '12px',
+        'lg':   '16px',
+        'xl':   '24px',
+        'pill': '999px',
       },
       boxShadow: {
         soft: '0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06)',

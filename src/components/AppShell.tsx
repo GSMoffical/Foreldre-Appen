@@ -1,6 +1,4 @@
 import { type ReactNode } from 'react'
-// TODO: remove build fingerprint after deploy verification
-import { BuildFingerprintMarker } from './BuildFingerprintMarker'
 
 interface AppShellProps {
   children: ReactNode
@@ -23,8 +21,6 @@ export function AppShell({ children }: AppShellProps) {
           {children}
         </div>
       </div>
-      {/* TODO: remove build fingerprint after deploy verification */}
-      <BuildFingerprintMarker />
     </div>
   )
 }

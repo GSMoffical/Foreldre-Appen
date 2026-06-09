@@ -1,4 +1,4 @@
-import { timeToY, TIMELINE_START_HOUR, PIXELS_PER_HOUR } from '../lib/time'
+﻿import { timeToY, TIMELINE_START_HOUR, PIXELS_PER_HOUR } from '../lib/time'
 
 interface CurrentTimeIndicatorProps {
   /** Current time as "HH:mm" */
@@ -18,14 +18,8 @@ export function CurrentTimeIndicator({
       style={{ top: y, transform: 'translateY(-50%)' }}
       aria-hidden
     >
-      <div
-        className="h-2.5 w-2.5 shrink-0 rounded-full"
-        style={{ backgroundColor: 'rgb(239 68 68 / 0.80)' }}
-      />
-      <div
-        className="h-[1.5px] flex-1"
-        style={{ backgroundColor: 'rgb(239 68 68 / 0.40)' }}
-      />
+      <div className="h-2.5 w-2.5 shrink-0 rounded-pill bg-synkaTeal" />
+      <div className="h-[1.5px] flex-1 bg-synkaTeal/40" />
     </div>
   )
 }

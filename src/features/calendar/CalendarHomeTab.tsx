@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { IconCalendarPlus, IconCheckbox } from '@tabler/icons-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FamilyFilterBar } from '../../components/FamilyFilterBar'
 import { SearchBar } from '../../components/SearchBar'
@@ -11,12 +12,22 @@ import { TimelineContainer } from '../../components/TimelineContainer'
 import { AllDayRow } from '../../components/AllDayRow'
 import { springSnappy } from '../../lib/motion'
 import { logEvent } from '../../lib/appLogger'
-import { COPY } from '../../lib/norwegianCopy'
 import { formatCalendarPeriodContextLabel, todayKeyOslo } from '../../lib/osloCalendar'
 import { useFamily } from '../../context/FamilyContext'
+import { usePermissions } from '../../hooks/usePermissions'
 import type { Event, Task, PersonId, TimelineLayoutItem, GapInfo } from '../../types'
-import type { SaveFeedbackState } from '../app/hooks/useSaveFeedback'
 import type { WeekDayLayout } from '../../hooks/useScheduleState'
+import { STORAGE_KEYS } from '../../lib/constants'
+
+const FILTER_STORAGE_KEY = STORAGE_KEYS.FILTER_PERSON_IDS
+const FIRST_OPEN_KEY = STORAGE_KEYS.FIRST_OPEN
+const INVITE_BANNER_DISMISSED_KEY = STORAGE_KEYS.INVITE_BANNER_DISMISSED
+
+function formatFullDate(dateKey: string): string {
+  const d = new Date(dateKey + 'T12:00:00')
+  const label = d.toLocaleDateString('nb-NO', { weekday: 'long', day: 'numeric', month: 'long' })
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}
 
 interface CalendarHomeTabProps {
   selectedPersonIds: PersonId[]
@@ -27,13 +38,12 @@ interface CalendarHomeTabProps {
   setSelectedDate: (date: string) => void
   selectedDate: string
   handleSelectEvent: (event: Event, date: string) => void
-  handleChangeWeek: (deltaWeeks: number) => void
-  handleJumpToToday: () => void
-  saveFeedback: SaveFeedbackState
-  reducedMotion: boolean
+  handleChangeWeek?: (deltaWeeks: number) => void
+  reducedMotion?: boolean
   weekEventsLoading: boolean
   showNoFamilyEmpty: boolean
   showListView: boolean
+  setShowListView: (v: boolean) => void
   hasAnyWeekEvents: boolean
   isWeekFilteredEmpty: boolean
   isDayFilteredEmpty: boolean
@@ -50,6 +60,7 @@ interface CalendarHomeTabProps {
   allDayEvents: Event[]
   unspecifiedEvents: Event[]
   highlightedEventIds?: Set<string>
+  onOpenMer?: () => void
 }
 
 export function CalendarHomeTab({
@@ -62,12 +73,11 @@ export function CalendarHomeTab({
   selectedDate,
   handleSelectEvent,
   handleChangeWeek,
-  handleJumpToToday,
-  saveFeedback,
   reducedMotion,
   weekEventsLoading,
   showNoFamilyEmpty,
   showListView,
+  setShowListView,
   hasAnyWeekEvents,
   isWeekFilteredEmpty,
   isDayFilteredEmpty,
@@ -84,10 +94,48 @@ export function CalendarHomeTab({
   allDayEvents,
   unspecifiedEvents,
   highlightedEventIds,
+  onOpenMer,
 }: CalendarHomeTabProps) {
   const [showTodayPanel, setShowTodayPanel] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [showAddMenu, setShowAddMenu] = useState(false)
+  const [inviteBannerDismissed, setInviteBannerDismissed] = useState(() => {
+    try { return localStorage.getItem(INVITE_BANNER_DISMISSED_KEY) === '1' } catch { return false }
+  })
   const { people } = useFamily()
+  const { isGuest } = usePermissions()
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(FILTER_STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw) as PersonId[]
+        if (Array.isArray(parsed)) setSelectedPersonIds(parsed)
+      }
+    } catch {}
+    try {
+      if (!localStorage.getItem(FIRST_OPEN_KEY)) {
+        localStorage.setItem(FIRST_OPEN_KEY, Date.now().toString())
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(selectedPersonIds))
+    } catch {}
+  }, [selectedPersonIds])
+
+  useEffect(() => {
+    if (people.length === 0) return
+    const validIds = new Set(people.map((p) => p.id))
+    const filtered = selectedPersonIds.filter((id) => validIds.has(id))
+    if (filtered.length !== selectedPersonIds.length) {
+      setSelectedPersonIds(filtered)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [people])
 
   const calendarTasksWithPerson = useMemo(
     () =>
@@ -115,6 +163,15 @@ export function CalendarHomeTab({
     [selectedDate, weekLayoutData.length]
   )
 
+  const hasLinkedPartner = people.some((p) => p.memberKind === 'parent' && !!p.linkedAuthUserId)
+  let showInviteBanner = false
+  if (!inviteBannerDismissed && !hasLinkedPartner) {
+    try {
+      const firstOpen = localStorage.getItem(FIRST_OPEN_KEY)
+      showInviteBanner = !!firstOpen && Date.now() - parseInt(firstOpen, 10) > 24 * 60 * 60 * 1000
+    } catch {}
+  }
+
   const todayKey = todayKeyOslo()
   const todayDayData = weekLayoutData.find((d) => d.date === todayKey)
   const todayEvents = todayDayData?.events ?? []
@@ -122,138 +179,218 @@ export function CalendarHomeTab({
   const todayHasData = todayEvents.length > 0 || todayOpenTasks.length > 0
 
   return (
-    <div className="relative mt-2 flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden pb-4">
+    <div className="relative flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden pb-4">
       <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-hidden">
-        <FamilyFilterBar
-          selectedPersonIds={selectedPersonIds}
-          onFilterChange={setSelectedPersonIds}
-          mePersonId={mePersonId}
-        />
-        {/* Controls row — collapses to a full-width search strip when search is open */}
-        {searchOpen ? (
-          /* Search mode: only the SearchBar (input + X button), full row width */
-          <div className="flex items-center px-3 pb-1.5 pt-0.5">
-            <SearchBar
-              open={true}
-              onOpenChange={setSearchOpen}
-              weekLayoutData={weekLayoutData}
-              onJumpToDate={setSelectedDate}
-              onSelectEvent={handleSelectEvent}
-            />
-          </div>
-        ) : (
-          /* Normal mode: nav + action buttons + search icon at right */
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-3 pb-1.5 pt-0.5">
-            <button
-              type="button"
-              onClick={() => handleChangeWeek(-1)}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 shadow-soft transition hover:bg-zinc-50 active:bg-zinc-100 touch-manipulation"
-              aria-label="Forrige uke"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 19.5-7.5-7.5 7.5-7.5" />
-              </svg>
-            </button>
-            <button
-              id="onb-jump-today"
-              type="button"
-              onClick={handleJumpToToday}
-              aria-label="Hopp til i dag"
-              className="shrink-0 rounded-xl border border-zinc-200 bg-white px-2.5 py-1.5 text-caption font-medium text-zinc-600 shadow-soft transition hover:bg-zinc-50 active:bg-zinc-100 touch-manipulation"
-            >
-              I dag
-            </button>
-            <button
-              type="button"
-              onClick={() => handleChangeWeek(1)}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 shadow-soft transition hover:bg-zinc-50 active:bg-zinc-100 touch-manipulation"
-              aria-label="Neste uke"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-              </svg>
-            </button>
-            <div className="h-5 w-px shrink-0 bg-zinc-200" />
-            <button
-              id="onb-add-event"
-              type="button"
-              onClick={() => openAddEvent()}
-              className="shrink-0 rounded-pill bg-brandTeal px-3 py-1.5 text-caption font-semibold text-white shadow-planner-sm transition hover:brightness-95 active:translate-y-px active:shadow-planner-press focus:outline-none focus:ring-2 focus:ring-brandTeal/50 touch-manipulation"
-            >
-              + Hendelse
-            </button>
-            <button
-              id="onb-add-task"
-              type="button"
-              onClick={() => openAddTask()}
-              className="shrink-0 rounded-pill border border-brandTeal px-3 py-1.5 text-caption font-semibold text-brandTeal transition hover:bg-brandTeal/10 active:translate-y-px focus:outline-none focus:ring-2 focus:ring-brandTeal/50 touch-manipulation"
-            >
-              + Gjøremål
-            </button>
-            {/* Right-side: save indicator + search icon — grouped so ml-auto works */}
-            <div className="ml-auto flex shrink-0 items-center gap-1.5">
-              {saveFeedback && (
-                <motion.span
-                  initial={reducedMotion ? false : { scale: 0.85, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={springSnappy}
-                  className={`inline-flex shrink-0 items-center gap-1 text-caption font-medium ${
-                    saveFeedback === 'error' ? 'text-rose-600' : saveFeedback === 'saving' ? 'text-zinc-400' : 'text-emerald-600'
-                  }`}
-                >
-                  {saveFeedback !== 'saving' && (
-                    <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                    </svg>
-                  )}
-                  {saveFeedback === 'saving'
-                    ? COPY.feedback.saving
-                    : saveFeedback === 'error'
-                      ? COPY.feedback.saveFailed
-                      : COPY.feedback.saved}
-                </motion.span>
-              )}
+        {/* HEADER — bg + shadow separates from timeline */}
+        <div
+          className="bg-synkaCream shadow-[0_1px_0_rgba(26,46,59,0.08)]"
+          style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        >
+          {/* ROW 1 — top utility bar */}
+          {searchOpen ? (
+            <div className="flex items-center px-4 pt-2 pb-0">
               <SearchBar
-                open={false}
+                open={true}
                 onOpenChange={setSearchOpen}
                 weekLayoutData={weekLayoutData}
                 onJumpToDate={setSelectedDate}
                 onSelectEvent={handleSelectEvent}
               />
             </div>
+          ) : (
+            <div className="px-4 pt-2 pb-0 flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleChangeWeek?.(-1)}
+                  aria-label="Forrige uke"
+                  className="flex w-7 h-7 items-center justify-center rounded-full bg-synkaNavy/8 text-synkaNavy/50 text-[14px] touch-manipulation hover:bg-synkaNavy/12 transition"
+                >
+                  ‹
+                </button>
+                <span className="text-caption font-semibold text-synkaNavy/50 uppercase tracking-wide px-0.5">
+                  {periodContextLabel ?? ''}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleChangeWeek?.(1)}
+                  aria-label="Neste uke"
+                  className="flex w-7 h-7 items-center justify-center rounded-full bg-synkaNavy/8 text-synkaNavy/50 text-[14px] touch-manipulation hover:bg-synkaNavy/12 transition"
+                >
+                  ›
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <SearchBar
+                  open={false}
+                  onOpenChange={setSearchOpen}
+                  weekLayoutData={weekLayoutData}
+                  onJumpToDate={setSelectedDate}
+                  onSelectEvent={handleSelectEvent}
+                />
+                {!isGuest && (
+                <div className="relative">
+                  <button
+                    id="onb-add-event"
+                    type="button"
+                    onClick={() => setShowAddMenu((v) => !v)}
+                    aria-label="Legg til"
+                    className="flex w-8 h-8 items-center justify-center rounded-full bg-synkaPrimary text-white text-[20px] font-light touch-manipulation hover:bg-synkaPrimaryDark active:scale-95 transition"
+                  >
+                    +
+                  </button>
+                  <AnimatePresence>
+                    {showAddMenu && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => setShowAddMenu(false)}
+                          aria-hidden
+                        />
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95, y: 4 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95, y: 4 }}
+                          transition={{ duration: 0.12 }}
+                          className="absolute top-10 right-0 z-50 w-64 overflow-hidden rounded-xl border border-synkaNavy/8 bg-white shadow-lg"
+                        >
+                          <motion.button
+                            type="button"
+                            initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={reducedMotion ? { duration: 0 } : { duration: 0.15, ease: 'easeOut', delay: 0 }}
+                            onClick={() => { openAddEvent(); setShowAddMenu(false) }}
+                            className="flex w-full items-center gap-3 px-4 py-3 active:bg-synkaCream/80 touch-manipulation"
+                          >
+                            <div className="w-8 h-8 shrink-0 rounded-lg bg-synkaPrimary/10 flex items-center justify-center text-synkaPrimary">
+                              <IconCalendarPlus size={20} aria-hidden />
+                            </div>
+                            <div className="min-w-0 text-left">
+                              <p className="text-body font-semibold text-synkaNavy">Hendelse</p>
+                              <p className="text-caption text-synkaNavy/50">Legg til i kalenderen</p>
+                            </div>
+                          </motion.button>
+                          <div className="border-t border-synkaNavy/6" />
+                          <motion.button
+                            type="button"
+                            initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={reducedMotion ? { duration: 0 } : { duration: 0.15, ease: 'easeOut', delay: 0.06 }}
+                            onClick={() => { openAddTask(); setShowAddMenu(false) }}
+                            className="flex w-full items-center gap-3 px-4 py-3 active:bg-synkaCream/80 touch-manipulation"
+                          >
+                            <div className="w-8 h-8 shrink-0 rounded-lg bg-synkaTeal/15 flex items-center justify-center text-synkaTeal">
+                              <IconCheckbox size={20} aria-hidden />
+                            </div>
+                            <div className="min-w-0 text-left">
+                              <p className="text-body font-semibold text-synkaNavy">Gjøremål</p>
+                              <p className="text-caption text-synkaNavy/50">Noe som må huskes</p>
+                            </div>
+                          </motion.button>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ROW 2 — week strip */}
+          <div id="onb-week-strip">
+            <WeekStrip
+              days={weekLayoutData}
+              selectedDate={selectedDate}
+              onSelectDay={setSelectedDate}
+              loading={weekEventsLoading}
+              taskCountByDate={taskCountByDate}
+            />
           </div>
-        )}
-        <div id="onb-week-strip">
-          {periodContextLabel ? (
-            <p
-              className="px-3 pb-1 pt-0.5 text-center text-[12px] font-semibold leading-tight text-zinc-700 tabular-nums"
-              aria-live="polite"
-            >
-              {periodContextLabel}
-            </p>
-          ) : null}
-          <WeekStrip
-            days={weekLayoutData}
-            selectedDate={selectedDate}
-            onSelectDay={setSelectedDate}
-            loading={weekEventsLoading}
-            taskCountByDate={taskCountByDate}
+
+          {/* DIVIDER */}
+          <div className="border-t border-synkaNavy/8" />
+
+          {/* ROW 3 — filter chips */}
+          <FamilyFilterBar
+            selectedPersonIds={selectedPersonIds}
+            onFilterChange={(ids) => setSelectedPersonIds(ids.length === people.length ? [] : ids)}
+            mePersonId={mePersonId}
           />
+
+          {/* DIVIDER */}
+          <div className="border-t border-synkaNavy/8" />
+
+          {showInviteBanner && (
+            <div className="mx-4 mt-2 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+              <p className="min-w-0 flex-1 text-caption text-synkaNavy/80">Inviter partneren din til Synka</p>
+              <button
+                type="button"
+                onClick={() => onOpenMer?.()}
+                className="shrink-0 rounded-pill bg-emerald-600 px-3 py-1 text-caption font-semibold text-white touch-manipulation"
+              >
+                Inviter
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setInviteBannerDismissed(true)
+                  try { localStorage.setItem(INVITE_BANNER_DISMISSED_KEY, '1') } catch {}
+                }}
+                aria-label="Skjul banner"
+                className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full text-synkaNavy/40 hover:bg-synkaNavy/8 text-[14px] leading-none touch-manipulation"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {/* ROW 4 — date label + Dag/Uke toggle */}
+          <div className="px-4 py-1.5 flex items-center justify-between">
+            <span className="text-[13px] font-semibold text-synkaNavy">
+              {formatFullDate(selectedDate)}
+            </span>
+            <div className="flex items-center bg-synkaNavy/8 rounded-pill p-[2px]">
+              <button
+                type="button"
+                onClick={() => setShowListView(false)}
+                className={`px-3 py-1 text-caption rounded-pill transition touch-manipulation ${
+                  !showListView
+                    ? 'bg-white text-synkaPrimary font-semibold'
+                    : 'text-synkaNavy/40'
+                }`}
+              >
+                Dag
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowListView(true)}
+                className={`px-3 py-1 text-caption rounded-pill transition touch-manipulation ${
+                  showListView
+                    ? 'bg-white text-synkaPrimary font-semibold'
+                    : 'text-synkaNavy/40'
+                }`}
+              >
+                Uke
+              </button>
+            </div>
+          </div>
         </div>
+
         <CalendarDayNote date={selectedDate} />
         {todayHasData && (
-          <div className="px-3 pb-1">
+          <div className="px-4 pb-1">
             <button
               type="button"
               onClick={() => setShowTodayPanel((v) => !v)}
-              className="flex w-full items-center gap-2 rounded-xl px-1 py-1.5 text-left transition hover:bg-zinc-50"
+              className="flex w-full items-center gap-2 rounded-lg px-1 py-1.5 text-left transition hover:bg-zinc-50"
             >
               <span className="text-caption font-semibold uppercase tracking-wider text-zinc-400">I dag</span>
               <span className="min-w-0 flex-1 truncate text-caption text-zinc-400">
                 {todayEvents.length > 0 && `${todayEvents.length} ${todayEvents.length === 1 ? 'hendelse' : 'hendelser'}`}
                 {todayEvents.length > 0 && todayOpenTasks.length > 0 && ' · '}
                 {todayOpenTasks.length > 0 && (
-                  <span className="text-amber-500">{todayOpenTasks.length} gjøremål</span>
+                  <span className="text-synkaNavy/70">{todayOpenTasks.length} gjøremål</span>
                 )}
               </span>
               <motion.svg
@@ -289,9 +426,9 @@ export function CalendarHomeTab({
                       <div className="space-y-1">
                         {todayOpenTasks.map((t) => (
                           <div key={t.id} className="flex items-center gap-2">
-                            <span className="h-1.5 w-1.5 shrink-0 rounded-sm bg-amber-400" />
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-sm bg-synkaYellow" />
                             {t.dueTime && (
-                              <span className="shrink-0 tabular-nums text-caption font-semibold text-amber-500">{t.dueTime}</span>
+                              <span className="shrink-0 tabular-nums text-caption font-semibold text-synkaNavy/70">{t.dueTime}</span>
                             )}
                             <span className="min-w-0 truncate text-label font-medium text-zinc-800">{t.title}</span>
                           </div>
@@ -305,7 +442,7 @@ export function CalendarHomeTab({
           </div>
         )}
         {calendarTasksWithPerson.length > 0 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-3 pb-1.5 pt-0.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-4 pb-1.5 pt-0.5">
             <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-zinc-400" aria-hidden>Gjøremål</span>
             {calendarTasksWithPerson.map(({ task, person }) => (
               <button
@@ -323,18 +460,13 @@ export function CalendarHomeTab({
                   }
                 }}
                 aria-label={`Åpne gjøremål: ${task.title}`}
-                className={`flex shrink-0 cursor-pointer items-center gap-1.5 rounded-pill border px-2.5 py-1 text-caption font-medium transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:ring-offset-1 touch-manipulation ${
+                className={`flex shrink-0 cursor-pointer items-center gap-1.5 rounded-pill border px-2.5 py-1 text-caption font-medium text-synkaNavy/70 transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-synkaYellow/60 focus:ring-offset-1 touch-manipulation ${
                   task.completedAt ? 'opacity-75' : ''
-                }`}
+                } ${!person ? 'bg-synkaYellow/20 border-synkaYellow/60' : ''}`}
                 style={person ? {
                   backgroundColor: person.colorTint,
                   borderColor: person.colorAccent,
-                  color: '#3f3f46',
-                } : {
-                  backgroundColor: '#fef3c7',
-                  borderColor: '#fcd34d',
-                  color: '#b45309',
-                }}
+                } : undefined}
               >
                 <span
                   className="h-1.5 w-1.5 shrink-0 rounded-sm"
@@ -364,7 +496,7 @@ export function CalendarHomeTab({
           />
         )}
         {!showListView && unspecifiedEvents.length > 0 && (
-          <div className="mt-1 rounded-xl border border-zinc-200 bg-zinc-50/70 px-3 py-2">
+          <div className="mt-1 rounded-lg border border-zinc-200 bg-zinc-50/70 px-4 py-2">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
               Uspesifiserte hendelser
             </p>
@@ -373,8 +505,8 @@ export function CalendarHomeTab({
                 <li key={event.id}>
                   <button
                     type="button"
-                    className={`w-full text-left text-[12px] hover:text-zinc-900 ${
-                      highlightedEventIds?.has(event.id) ? 'rounded-md bg-brandTeal/10 px-1 py-0.5 text-zinc-900' : 'text-zinc-700'
+                    className={`w-full text-left text-caption hover:text-zinc-900 ${
+                      highlightedEventIds?.has(event.id) ? 'rounded-md bg-synkaTeal/10 px-1 py-0.5 text-zinc-900' : 'text-zinc-700'
                     }`}
                     onClick={() => {
                       const anchorDate = (event.metadata as any)?.__anchorDate as string | undefined ?? selectedDate

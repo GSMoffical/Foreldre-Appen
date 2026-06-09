@@ -17,6 +17,24 @@ const gitSha =
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-motion': ['framer-motion'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-icons': ['@tabler/icons-react'],
+          'vendor-date': ['date-holidays'],
+          'feature-tankestrom': [
+            './src/features/tankestrom/useTankestromImport.ts',
+            './src/features/tankestrom/TankestrømPage.tsx',
+            './src/features/tankestrom/TankestromImportDialog.tsx',
+          ],
+        },
+      },
+    },
+  },
   define: {
     __APP_BUILD_FINGERPRINT__: JSON.stringify(buildFingerprintIso),
     __APP_VERSION__: JSON.stringify(pkg.version ?? '0.0.0'),

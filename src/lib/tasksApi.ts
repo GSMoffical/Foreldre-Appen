@@ -39,6 +39,12 @@ type TaskRow = {
   updated_at: string
 }
 
+export type SupabaseTaskRow = TaskRow
+
+export function taskFromSupabaseRow(row: SupabaseTaskRow): Task {
+  return mapRowToTask(row)
+}
+
 function mapRowToTask(row: TaskRow): Task {
   const intentRaw = row.task_intent
   const taskIntent: TaskIntent | undefined =

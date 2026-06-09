@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { springDialog } from '../../../lib/motion'
 import {
   sheetPanel,
   sheetHandle,
-  sheetHandleBar,
   sheetDetailBody,
   typDisplay,
   typBody,
@@ -122,12 +121,11 @@ export function TaskDetailSheet({
           aria-label="Gjøremålsdetaljer"
         >
           <div className={`${sheetHandle} relative`}>
-            <div className={sheetHandleBar} aria-hidden />
             <button
               type="button"
               onClick={onClose}
               aria-label="Lukk"
-              className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 touch-manipulation"
+              className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-pill text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 touch-manipulation"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -207,8 +205,8 @@ export function TaskDetailSheet({
                 </button>
               )}
               {showDeleteConfirm ? (
-                <div className="rounded-xl border border-rose-200 bg-rose-50/80 p-3">
-                  <p className="text-body-sm text-rose-900">Slette dette gjøremålet?</p>
+                <div className="rounded-lg border border-synkaCoral/25 bg-synkaCoral/8 p-3">
+                  <p className="text-body-sm text-synkaCoral">Slette dette gjøremålet?</p>
                   <div className="mt-2 flex gap-2">
                     <button
                       type="button"

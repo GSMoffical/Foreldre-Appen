@@ -1,11 +1,28 @@
-import Holidays from 'date-holidays'
 import { NORWAY_SCHOOL_BREAKS } from '../data/norwaySchoolBreaks'
 
-const hd = new Holidays('NO', { languages: ['no'] })
+type HolidaysInstance = import('date-holidays').default
+type HolidayEntry = ReturnType<HolidaysInstance['getHolidays']>[number]
 
-const holidaysByYear = new Map<number, ReturnType<typeof hd.getHolidays>>()
+let hd: HolidaysInstance | null = null
+let holidaysLoad: Promise<HolidaysInstance> | null = null
 
-function holidaysInYear(year: number) {
+/** Loads `date-holidays` on first use (not at app startup). */
+export function ensureNorwegianHolidaysLoaded(): Promise<void> {
+  if (hd) return Promise.resolve()
+  if (!holidaysLoad) {
+    holidaysLoad = import('date-holidays').then((mod) => {
+      const Holidays = mod.default
+      hd = new Holidays('NO', { languages: ['no'] })
+      return hd
+    })
+  }
+  return holidaysLoad.then(() => undefined)
+}
+
+const holidaysByYear = new Map<number, HolidayEntry[]>()
+
+function holidaysInYear(year: number): HolidayEntry[] {
+  if (!hd) return []
   let list = holidaysByYear.get(year)
   if (!list) {
     list = hd.getHolidays(year)
@@ -30,19 +47,7 @@ export type NorwegianDayMarker = {
  * Markers for a calendar day: Norwegian public/bank holidays (from `date-holidays`)
  * plus skoleferie windows from {@link NORWAY_SCHOOL_BREAKS} (default Oslo-style ranges).
  */
-export function getNorwegianDayMarkers(dateKey: string): NorwegianDayMarker[] {
-  const y = Number(dateKey.slice(0, 4))
-  if (!Number.isFinite(y)) return []
-
-  const list = holidaysInYear(y)
-  const out: NorwegianDayMarker[] = []
-
-  for (const h of list) {
-    if (!RELEVANT_TYPES.has(h.type)) continue
-    if (normDateKey(h.date) !== dateKey) continue
-    out.push({ kind: 'public', label: h.name })
-  }
-
+function appendSchoolBreakMarkers(dateKey: string, out: NorwegianDayMarker[]): void {
   for (const b of NORWAY_SCHOOL_BREAKS) {
     if (dateKey >= b.start && dateKey <= b.end) {
       const already = out.some((m) => m.kind === 'public')
@@ -52,7 +57,49 @@ export function getNorwegianDayMarkers(dateKey: string): NorwegianDayMarker[] {
       break
     }
   }
+}
 
+/** Skoleferier only — does not load `date-holidays`. */
+export function norwegianDayHasSchoolBreak(dateKey: string): boolean {
+  for (const b of NORWAY_SCHOOL_BREAKS) {
+    if (dateKey >= b.start && dateKey <= b.end) return true
+  }
+  return false
+}
+
+/** Public/bank holiday (requires `date-holidays` to have loaded). */
+export function norwegianDayHasPublicHoliday(dateKey: string): boolean {
+  if (!hd) return false
+  const y = Number(dateKey.slice(0, 4))
+  if (!Number.isFinite(y)) return false
+  for (const h of holidaysInYear(y)) {
+    if (!RELEVANT_TYPES.has(h.type)) continue
+    if (normDateKey(h.date) === dateKey) return true
+  }
+  return false
+}
+
+/** School break or public holiday — used to suppress school background blocks. */
+export function norwegianDayOffSchool(dateKey: string): boolean {
+  return norwegianDayHasSchoolBreak(dateKey) || norwegianDayHasPublicHoliday(dateKey)
+}
+
+export function getNorwegianDayMarkers(dateKey: string): NorwegianDayMarker[] {
+  const y = Number(dateKey.slice(0, 4))
+  if (!Number.isFinite(y)) return []
+
+  const out: NorwegianDayMarker[] = []
+
+  if (hd) {
+    const list = holidaysInYear(y)
+    for (const h of list) {
+      if (!RELEVANT_TYPES.has(h.type)) continue
+      if (normDateKey(h.date) !== dateKey) continue
+      out.push({ kind: 'public', label: h.name })
+    }
+  }
+
+  appendSchoolBreakMarkers(dateKey, out)
   return out
 }
 

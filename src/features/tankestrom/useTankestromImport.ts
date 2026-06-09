@@ -926,7 +926,7 @@ function buildEmbeddedChildEventDraft(
             policy: exportTimes!.embeddedScheduleChildExportTimePolicyUsed,
             inferredEndTime: canonicalTimes?.inferredEndTime === true,
             endTimeSource: canonicalTimes?.endTimeSource,
-            endTimeProvenance: canonicalTimes?.endTimeProvenance,
+            endTimeProvenance: canonicalTimes?.endTimeProvenance as any,
           }
         : undefined,
   }
@@ -1990,6 +1990,7 @@ function applyEmbeddedScheduleExportTimeMetadata(
     typeof ex.endTimeSource === 'string' && ex.endTimeSource.trim()
       ? ex.endTimeSource.trim()
       : embeddedExportEndTimeSourceForPolicy(ex.policy)
+<<<<<<< HEAD
   const isFrontendFallback = endTimeSource === 'frontend_canonical_fallback'
   const isTrustedTimedEnd =
     hasTimedEndAfterStart &&
@@ -2014,6 +2015,9 @@ function applyEmbeddedScheduleExportTimeMetadata(
   metadata.timePrecision = 'start_only'
   metadata.layoutEndOnly = true
   metadata.endTimeSource = endTimeSource
+=======
+  const isFrontendFallback = ex.endTimeSource === 'frontend_canonical_fallback'
+>>>>>>> redesign/synka-brand
   metadata.displayTimeLabel = isFrontendFallback
     ? TANKESTROM_ESTIMATED_END_REVIEW_HINT_NB
     : CALENDAR_SLUTTID_IKKE_OPPGITT_NB
@@ -3549,7 +3553,7 @@ export function useTankestromImport({
           : { inputMode, textCharCount: textInput.trim().length }
       )
       if (inputMode === 'text') {
-        const b = await analyzeTextWithTankestrom(textInput)
+        const b = await analyzeTextWithTankestrom(textInput) as PortalImportProposalBundle
         if (isSchoolProfileBundle(b)) {
           setImportPipelineAnalyzeSnapshot(null)
           setBundle(b)
@@ -3663,7 +3667,7 @@ export function useTankestromImport({
       for (const pf of queue) {
         patchPendingFile(pf.id, { status: 'analyzing', statusDetail: undefined })
         try {
-          const b = await analyzeDocumentWithTankestrom(pf.file)
+          const b = await analyzeDocumentWithTankestrom(pf.file) as PortalImportProposalBundle
           if (!hasAnalyzeContent(b)) {
             patchPendingFile(pf.id, {
               status: 'error',
