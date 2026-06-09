@@ -9,8 +9,7 @@ const TASK_COLUMNS =
 const TASK_COLUMNS_WITHOUT_TASK_INTENT =
   'id, user_id, title, notes, date, due_time, assigned_to_person_id, child_person_id, completed_at, show_in_month_view, created_at, updated_at'
 
-const TASK_INTENT_FALLBACK_DEBUG =
-  import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+const TASK_INTENT_FALLBACK_DEBUG = import.meta.env.DEV === true
 
 /**
  * PostgREST: kolonne finnes ikke i schema cache (migrering ikke kjørt, feil miljø, eller cache ikke oppdatert).

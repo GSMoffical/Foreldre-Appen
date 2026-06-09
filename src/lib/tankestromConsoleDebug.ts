@@ -1,19 +1,19 @@
 /**
  * Felles gate for Tankestrøm-relatert konsoll-støy (ikke brukerfeil).
- * Slås på i dev, eller eksplisitt via env.
+ * Kun aktivert i development builds — aldri i produksjon.
+ *
+ * SECURITY: VITE_* debug flags have been intentionally removed.
+ * Enabling debug logging in production would expose children's school data
+ * and AI response bodies in the browser console (GDPR risk).
  */
 export function isTankestromConsoleDebugEnabled(): boolean {
-  return (
-    import.meta.env.DEV === true ||
-    import.meta.env.VITE_TANKESTROM_HTTP_DEBUG === 'true' ||
-    import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
-  )
+  return import.meta.env.DEV === true
 }
 
 /**
- * HTTP-rådata (endpoint, headers, full body). Ikke koblet til skole-import alene —
- * unngår sensitiv logging når kun VITE_DEBUG_SCHOOL_IMPORT er satt.
+ * HTTP-rådata (endpoint, headers, full body).
+ * Kun aktivert i development builds — aldri i produksjon.
  */
 export function isTankestromHttpDebugEnabled(): boolean {
-  return import.meta.env.DEV === true || import.meta.env.VITE_TANKESTROM_HTTP_DEBUG === 'true'
+  return import.meta.env.DEV === true
 }

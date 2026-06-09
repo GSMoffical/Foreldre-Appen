@@ -27,7 +27,6 @@
     "verify:hostinger": "powershell -ExecutionPolicy Bypass -File ./scripts/verify-hostinger.ps1"
   },
   "dependencies": {
-    "@sentry/react": "^10.52.0",
     "@supabase/supabase-js": "^2.101.1",
     "@tabler/icons-react": "^3.44.0",
     "date-holidays": "^3.26.11",
