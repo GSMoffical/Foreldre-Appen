@@ -3,9 +3,10 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { inputBase } from '../lib/ui'
+import { INPUT_LIMITS } from '../lib/inputLimits'
 import { getAuthErrorMessage } from '../lib/authErrors'
 
-const MIN_PASSWORD_LENGTH = 6
+const MIN_PASSWORD_LENGTH = INPUT_LIMITS.PASSWORD_MIN
 const INVITE_MEMBER_KIND_KEY = 'invite-member-kind'
 
 export function AuthScreen() {
@@ -278,6 +279,7 @@ export function AuthScreen() {
                 autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                 required
                 minLength={mode === 'signup' ? MIN_PASSWORD_LENGTH : undefined}
+                maxLength={INPUT_LIMITS.PASSWORD_MAX}
                 className={`${inputBase} w-full pr-10 aria-[invalid]:border-synkaCoral`}
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); clearMessages() }}

@@ -23,6 +23,7 @@ import { usePermissions } from '../hooks/usePermissions'
 import { useEffectiveUserId } from '../context/EffectiveUserIdContext'
 import { buildInviteUrl, getOrCreateInviteForTarget } from '../lib/inviteApi'
 import { inputBase, typSectionCap } from '../lib/ui'
+import { INPUT_LIMITS } from '../lib/inputLimits'
 import { SectionDots } from './SectionDots'
 import { SchoolProfileFields } from './SchoolProfileFields'
 
@@ -356,7 +357,7 @@ function PersonWizard({
 
   function collectPayload() {
     return {
-      name: name.trim(),
+      name: name.trim().slice(0, INPUT_LIMITS.PERSON_NAME),
       colorTint,
       colorAccent,
       memberKind,
@@ -765,6 +766,7 @@ function StepBasics({
           value={name}
           onChange={(e) => onName(e.target.value)}
           placeholder={memberKind === 'child' ? 'f.eks. Emma' : 'f.eks. Anne'}
+          maxLength={INPUT_LIMITS.PERSON_NAME}
           className={`mt-1.5 ${inputBase}`}
           autoFocus
         />

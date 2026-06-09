@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { INPUT_LIMITS } from '../lib/inputLimits'
 import { motion } from 'framer-motion'
 import { springDialog } from '../lib/motion'
 import type { PersonId } from '../types'
@@ -216,6 +217,9 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    const trimmedTitle = title.trim().slice(0, INPUT_LIMITS.EVENT_TITLE)
+    const trimmedLocation = location.trim().slice(0, INPUT_LIMITS.EVENT_LOCATION)
+    const trimmedNotes = notes.trim().slice(0, INPUT_LIMITS.EVENT_NOTES)
     if (!title.trim()) {
       setError('Legg inn en kort tittel.')
       return
@@ -247,11 +251,11 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
       const saveEnd = isAllDay ? '23:59' : end
       const data: Parameters<AddEventSheetProps['onSave']>[0] = {
         personId: primaryPersonId,
-        title: title.trim(),
+        title: trimmedTitle,
         start: saveStart,
         end: saveEnd,
-        notes: notes.trim() || undefined,
-        location: location.trim() || undefined,
+        notes: trimmedNotes || undefined,
+        location: trimmedLocation || undefined,
         reminderMinutes: isAllDay ? undefined : reminderMinutes,
       }
       data.metadata = {
@@ -362,6 +366,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
               id="title"
               className={inputBase}
               placeholder="f.eks. Fotball, Lekser"
+              maxLength={INPUT_LIMITS.EVENT_TITLE}
               value={title}
               onChange={(e) => { setTitle(e.target.value); if (titleError) setTitleError(null) }}
               onBlur={() => { if (!title.trim()) setTitleError('Tittel er påkrevd') }}
@@ -375,6 +380,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
               id="add-location"
               className={inputBase}
               placeholder="f.eks. Parken"
+              maxLength={INPUT_LIMITS.EVENT_LOCATION}
               value={location}
               onChange={(e) => setLocation(e.target.value)}
             />
@@ -640,6 +646,7 @@ export function AddEventSheet({ date, initialPersonId, onSave, onClose }: AddEve
                   rows={2}
                   className={textareaBase}
                   placeholder="Eventuelle ekstra detaljer"
+                  maxLength={INPUT_LIMITS.EVENT_NOTES}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                 />

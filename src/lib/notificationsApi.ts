@@ -60,8 +60,8 @@ export async function markAllNotificationsRead(userId: string): Promise<void> {
   }
 }
 
-export async function deleteSingleNotification(id: string): Promise<void> {
-  const { error } = await supabase.from('notifications').delete().eq('id', id)
+export async function deleteSingleNotification(id: string, userId: string): Promise<void> {
+  const { error } = await supabase.from('notifications').delete().eq('id', id).eq('target_user_id', userId)
   if (error) {
     console.error('[notificationsApi] delete failed', error.message)
   }

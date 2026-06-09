@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { INPUT_LIMITS } from '../../../lib/inputLimits'
 import { motion } from 'framer-motion'
 import { springDialog } from '../../../lib/motion'
 import type { Task, PersonId, TaskIntent } from '../../../types'
@@ -66,14 +67,16 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
     e.preventDefault()
     if (saving) return
     if (!title.trim()) { setTitleError('Tittel er påkrevd'); return }
+    const trimmedTitle = title.trim().slice(0, INPUT_LIMITS.TASK_TITLE)
+    const trimmedNotes = notes.trim().slice(0, INPUT_LIMITS.TASK_NOTES)
     setSaving(true)
     try {
       if (assignedTo !== PERSON_NONE) {
         try { localStorage.setItem(LAST_ASSIGNED_KEY, assignedTo) } catch {}
       }
       await onSave({
-        title: title.trim(),
-        notes: notes.trim() || undefined,
+        title: trimmedTitle,
+        notes: trimmedNotes || undefined,
         date: taskDate,
         dueTime: dueTime || undefined,
         assignedToPersonId: assignedTo !== PERSON_NONE ? (assignedTo as PersonId) : undefined,
@@ -128,6 +131,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
               id="task-title"
               ref={titleRef}
               type="text"
+              maxLength={INPUT_LIMITS.TASK_TITLE}
               value={title}
               onChange={(e) => { setTitle(e.target.value); if (titleError) setTitleError(null) }}
               onBlur={() => { if (!title.trim()) setTitleError('Tittel er påkrevd') }}
@@ -241,6 +245,7 @@ export function AddTaskSheet({ date, initialTask, onSave, onClose }: AddTaskShee
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Valgfritt…"
                   rows={3}
+                  maxLength={INPUT_LIMITS.TASK_NOTES}
                   className={textareaBase}
                 />
               </div>

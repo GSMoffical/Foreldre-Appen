@@ -83,8 +83,8 @@ export function useNotifications(currentUserId: string | null): {
 
   const dismiss = useCallback(async (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id))
-    await deleteSingleNotification(id)
-  }, [])
+    if (currentUserId) await deleteSingleNotification(id, currentUserId)
+  }, [currentUserId])
 
   const clearLocal = useCallback(() => {
     setNotifications([])
