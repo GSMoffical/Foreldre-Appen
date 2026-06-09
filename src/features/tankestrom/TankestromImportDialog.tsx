@@ -231,7 +231,7 @@ function overlayActionLabel(action: string): string {
 }
 
 const DEBUG_SCHOOL_IMPORT_PANEL =
-  import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+  import.meta.env.DEV
 
 function normOverlayText(s: string): string {
   return s
@@ -1881,7 +1881,7 @@ function embeddedScheduleChildDetailTitleForPanel(
   const fromSeg = embeddedScheduleChildTitleForReview(parentForChildTitle, seg)
   const logRefined = (refinedTitle: string) => {
     if (refinedTitle === dt) return
-    if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+    if (import.meta.env.DEV) {
       console.debug('[tankestrom embedded child detail title]', {
         embeddedScheduleChildDisplayTitleRefined: true,
         childProposalId,
@@ -1923,7 +1923,7 @@ function logHighlightsReviewDebug(
   suppressed: false | 'duplicate' | 'weak',
   ctx: Record<string, unknown>
 ): void {
-  if (!import.meta.env.DEV && import.meta.env.VITE_DEBUG_SCHOOL_IMPORT !== 'true') return
+  if (!import.meta.env.DEV) return
   const hadHighlights = /høydepunkt(?:er)?\s*:/i.test(raw)
   if (!hadHighlights && suppressed === false) return
   console.debug('[tankestrom review highlights]', {
@@ -1973,7 +1973,7 @@ function formatEmbeddedSchedulePreviewLine(seg: EmbeddedScheduleSegment, parentE
   }
   let title = displayTitle
   if (seg.isConditional && !tankestromConditionalTitleSuffixAlreadyPresent(title)) {
-    if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+    if (import.meta.env.DEV) {
       logTankestromConditionalCopyDebug({ conditionalCopyRefined: true, context: 'embedded_preview_line' })
     }
     title = `${title} (${tankestromConditionalPreviewTitleSuffixNb()})`
@@ -1992,7 +1992,7 @@ function TankestromReviewConditionalBadge({
   variant: 'compact' | 'detail'
   proposalId?: string
 }) {
-  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+  if (import.meta.env.DEV) {
     logTankestromConditionalCopyDebug({
       conditionalLabelRendered: true,
       conditionalCopyRefined: true,
@@ -2016,7 +2016,7 @@ function TankestromReviewConditionalBadge({
 }
 
 function TankestromReviewTaskIntentChip({ proposalId, intent }: { proposalId: string; intent: TaskIntent }) {
-  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+  if (import.meta.env.DEV) {
     console.debug('[tankestrom review task intent]', {
       taskIntentLabelRendered: taskIntentLabelNb(intent),
       proposalId,
@@ -2061,7 +2061,7 @@ function TankestromEmbeddedSchedulePreview({
   const remainder = flat.length > EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX ? flat.length - EMBEDDED_SCHEDULE_PREVIEW_COLLAPSED_MAX : 0
   const previewParentTitle = parentTitleForPreviewLines?.trim() || item.event.title.trim()
 
-  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+  if (import.meta.env.DEV) {
     console.debug('[tankestrom review embedded schedule preview]', {
       embeddedSchedulePreviewRendered: true,
       embeddedSchedulePreviewCollapsed: !expanded,
@@ -2393,7 +2393,7 @@ export function TankestromImportDialog({
       if (wasOpen) next.delete(childProposalId)
       else next.add(childProposalId)
       const nowExpanded = !wasOpen
-      if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+      if (import.meta.env.DEV) {
         const hasNotes = Boolean(embeddedScheduleChildSegmentNotesBody(seg))
         console.debug('[tankestrom embedded schedule child detail]', {
           embeddedScheduleChildExpanded: nowExpanded,
@@ -2468,7 +2468,7 @@ export function TankestromImportDialog({
 
   useEffect(() => {
     if (!open || step !== 'review') return
-    if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+    if (import.meta.env.DEV) {
       console.debug('[tankestrom import header]', {
         reanalyzeButtonRenderedAsSecondary: true,
         reanalyzeButtonVisualWeightReduced: true,
@@ -2481,7 +2481,7 @@ export function TankestromImportDialog({
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
-      if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+      if (import.meta.env.DEV) {
         console.debug('[tankestrom review bulk person]', {
           reviewMultiPersonSelectionChanged: [...next],
         })
@@ -3695,7 +3695,7 @@ export function TankestromImportDialog({
                   if (
                     embeddedScheduleParentCard &&
                     u.importKind === 'event' &&
-                    (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true')
+                    (import.meta.env.DEV)
                   ) {
                     console.debug('[tankestrom embedded parent review display]', {
                       reviewParentDisplayTitleNormalized: cardTitle,
@@ -3772,7 +3772,7 @@ export function TankestromImportDialog({
                   if (
                     showExistingEventMatchBanner &&
                     existingMatchCandidate &&
-                    (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true')
+                    (import.meta.env.DEV)
                   ) {
                     console.debug('[tankestrom review existing match]', {
                       existingEventMatchBannerRendered: true,
@@ -3999,7 +3999,7 @@ export function TankestromImportDialog({
                                 const rows = embeddedScheduleReviewRowsByParentId[pid] ?? []
                                 const parentCalendarCoreForChild =
                                   u.importKind === 'event' ? parentCalendarExportCore : undefined
-                                if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+                                if (import.meta.env.DEV) {
                                   console.debug('[tankestrom embedded schedule review]', {
                                     embeddedScheduleChildReviewItemsVisible: rows.length,
                                     parentProposalId: pid,
@@ -4034,7 +4034,7 @@ export function TankestromImportDialog({
                                   )
                                   const structuredFromSegment = canonicalPreview.normalized
                                   const { timeLabel, uncertainTime, hasConcreteTimeDisplay } = canonicalPreview
-                                  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+                                  if (import.meta.env.DEV) {
                                     console.debug('[tankestrom embedded child display]', {
                                       reviewChildDisplayTitleNormalized: displayTitle,
                                       calendarExportTitleNormalized: calendarExportChildTitle,
@@ -4183,7 +4183,7 @@ export function TankestromImportDialog({
                                             type="button"
                                             disabled={!checked || !!embEdit}
                                             onClick={() => {
-                                              if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+                                              if (import.meta.env.DEV) {
                                                 console.debug('[tankestrom embedded child edit]', {
                                                   embeddedChildEditOpened: true,
                                                   childProposalId: childId,
@@ -4722,7 +4722,7 @@ export function TankestromImportDialog({
                                                 }
                                                 if (
                                                   import.meta.env.DEV ||
-                                                  import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+                                                  import.meta.env.DEV
                                                 ) {
                                                   console.debug('[tankestrom embedded child edit]', {
                                                     embeddedChildEditSaved: true,
@@ -4747,7 +4747,7 @@ export function TankestromImportDialog({
                                               onClick={() => {
                                                 if (
                                                   import.meta.env.DEV ||
-                                                  import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+                                                  import.meta.env.DEV
                                                 ) {
                                                   console.debug('[tankestrom embedded child edit]', {
                                                     embeddedChildEditCancelled: true,

@@ -27,6 +27,9 @@ import { normalizeImportTime, rawEventTimeInput } from './tankestromImportTime'
 import { semanticTitleCore } from './tankestromImportDedupe'
 import { isTankestromConsoleDebugEnabled, isTankestromHttpDebugEnabled } from './tankestromConsoleDebug'
 
+const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024 // 20 MB
+const MAX_TEXT_LENGTH = 20_000
+
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null && !Array.isArray(x)
 }
@@ -1233,6 +1236,11 @@ export function mergePortalImportProposalBundles(bundles: PortalImportProposalBu
  * Krever VITE_TANKESTROM_ANALYZE_URL og innlogget Supabase-session.
  */
 export async function analyzeDocumentWithTankestrom(file: File): Promise<PortalImportProposalBundle | TankestromV2RawResult> {
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    throw new Error(
+      `Filen "${file.name}" er for stor (${(file.size / 1024 / 1024).toFixed(1)} MB). Maksimal filstørrelse er 20 MB.`
+    )
+  }
   return analyzeWithTankestrom({ kind: 'file', file })
 }
 
@@ -1240,5 +1248,10 @@ export async function analyzeDocumentWithTankestrom(file: File): Promise<PortalI
 export async function analyzeTextWithTankestrom(text: string): Promise<PortalImportProposalBundle | TankestromV2RawResult> {
   const normalized = text.trim()
   if (!normalized) throw new Error('Skriv inn tekst før du analyserer.')
+  if (normalized.length > MAX_TEXT_LENGTH) {
+    throw new Error(
+      `Teksten er for lang (${normalized.length.toLocaleString('nb-NO')} tegn). Maksimalt ${MAX_TEXT_LENGTH.toLocaleString('nb-NO')} tegn er tillatt.`
+    )
+  }
   return analyzeWithTankestrom({ kind: 'text', text: normalized })
 }

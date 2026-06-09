@@ -1471,7 +1471,7 @@ export function initialSelectedIdsForGeneralImport(
       }
     }
   }
-  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+  if (import.meta.env.DEV) {
     console.debug('[tankestrom task language selection]', {
       reviewLanguageTrack: track,
       resolvedLanguageTrack: languageDiag.resolvedLanguageTrack,
@@ -2243,7 +2243,7 @@ function buildTaskDraftFromProposal(
   const prefilledNotes = buildTaskNotesPrefill(p)
   const resolvedLabel =
     taskSourceLabelHint?.trim() || p.originalSourceType?.trim() || 'Ukjent kilde'
-  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+  if (import.meta.env.DEV) {
     console.debug('[tankestrom task notes prefill]', {
       proposalId: p.proposalId,
       originalSourceType: p.originalSourceType,
@@ -2269,7 +2269,7 @@ function buildTaskDraftFromProposal(
   const fromApi = normalizeTaskIntent(t.taskIntent)
   const suggested = suggestTaskIntentFromTitleAndNotes(t.title, t.notes)
   const taskIntent = fromApi ?? suggested
-  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+  if (import.meta.env.DEV) {
     console.debug('[tankestrom task intent]', {
       taskIntentSuggested: taskIntent,
       taskIntentDefaultedToMustDo: taskIntent === 'must_do' && !fromApi && suggested === 'must_do',
@@ -2390,7 +2390,7 @@ export function buildDraftsFromItems(
     const base = drafts[item.proposalId]
     if (!base || base.importKind !== 'event') continue
     const flat = flattenEmbeddedScheduleOrdered(item.event.metadata)
-    if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+    if (import.meta.env.DEV) {
       console.debug('[tankestrom embedded schedule review]', {
         embeddedScheduleChildReviewItemsBuilt: flat.length,
         embeddedScheduleParentRetained: true,
@@ -2438,7 +2438,7 @@ function overlayToChildWeekOverlay(
   const resolvedTrack = proposal.languageTrack?.resolvedTrack
   const valgfagTrack = inferValgfagTrackFromChildSchool(childSchool)
   const dbg =
-    import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+    import.meta.env.DEV
 
   for (const [dayRaw, action] of Object.entries(proposal.dailyActions)) {
     if (!action) continue
@@ -2715,7 +2715,7 @@ export function useTankestromImport({
       count: visibleSecondaryImportCandidates.length,
       importRunId: bundle?.provenance.importRunId,
     })
-    if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+    if (import.meta.env.DEV) {
       console.debug('[tankestrom secondary zone]', {
         secondaryCandidateShown: true,
         candidateIds: visibleSecondaryImportCandidates.map((c) => c.candidateId),
@@ -2974,7 +2974,7 @@ export function useTankestromImport({
       choice: 'new' | 'update' | 'skip',
       updateTarget?: { eventId: string; anchorDate: string }
     ) => {
-      if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+      if (import.meta.env.DEV) {
         console.debug('[tankestrom existing event link]', {
           existingEventLinkChoiceResolved: choice,
           existingEventUpdateModeSelected: choice,
@@ -3080,7 +3080,7 @@ export function useTankestromImport({
       return next
     })
 
-    if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+    if (import.meta.env.DEV) {
       console.debug('[tankestrom task language on child change]', {
         reviewLanguageTrack: track,
         resolvedLanguageTrack: languageDiag.resolvedLanguageTrack,
@@ -3114,7 +3114,7 @@ export function useTankestromImport({
       if (item.kind !== 'event') continue
       const rawSched = item.event.metadata?.embeddedSchedule
       const hasRawSchedule = Array.isArray(rawSched) && rawSched.length > 0
-      if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+      if (import.meta.env.DEV) {
         if (hasRawSchedule) {
           const h = evaluateEmbeddedScheduleParentCardHeuristic(item)
           if (h.ok) {
@@ -3237,7 +3237,7 @@ export function useTankestromImport({
     setDetachedEmbeddedChildren((prev) => [...prev.filter((d) => d.proposal.proposalId !== childId), { proposal: synthetic, parentProposalId }])
     setDetachedEmbeddedChildIds((prev) => new Set(prev).add(childId))
 
-    if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+    if (import.meta.env.DEV) {
       console.debug('[tankestrom embedded schedule review]', {
         embeddedScheduleChildDetached: true,
         embeddedScheduleParentRetained: true,
@@ -3326,7 +3326,7 @@ export function useTankestromImport({
         merged.participantPersonIds = undefined
       }
       if (
-        (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') &&
+        (import.meta.env.DEV) &&
         patch.personId != null &&
         patch.personId !== cur.event.personId
       ) {
@@ -3375,7 +3375,7 @@ export function useTankestromImport({
         return next
       })
 
-      if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+      if (import.meta.env.DEV) {
         console.debug('[tankestrom review bulk person]', {
           reviewBulkPersonSelectionApplied: true,
           reviewParentChildPersonInheritanceApplied: true,
@@ -3395,7 +3395,7 @@ export function useTankestromImport({
       if (!cur || cur.importKind !== 'task') return prev
       const nextTask = { ...cur.task, ...patch }
       if (
-        (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') &&
+        (import.meta.env.DEV) &&
         patch.taskIntent != null &&
         patch.taskIntent !== cur.task.taskIntent
       ) {
@@ -3411,7 +3411,7 @@ export function useTankestromImport({
   const setSchoolProfileDraft = useCallback((next: ChildSchoolProfile) => {
     setSchoolReview((prev) => {
       if (!prev) return null
-      if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+      if (import.meta.env.DEV) {
         console.debug('[school import draft update]', {
           before: prev.draft,
           after: next,
@@ -3525,7 +3525,7 @@ export function useTankestromImport({
             meta: { confidence: primary.confidence, originalSourceType: primary.originalSourceType },
             parsedProfileSnapshotJson,
           })
-          if (import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+          if (import.meta.env.DEV) {
             console.debug('[tankestrom school import] text path: parsed profile (etter API)', {
               gradeBand: primary.schoolProfile.gradeBand,
               weekdays: primary.schoolProfile.weekdays,
@@ -3630,7 +3630,7 @@ export function useTankestromImport({
             failureLines.push(`${pf.file.name}: ingen forslag`)
             continue
           }
-          if (import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+          if (import.meta.env.DEV) {
             console.debug('[tankestrom analyze result:file]', {
               fileName: pf.file.name,
               itemsLength: b.items.length,
@@ -3664,7 +3664,7 @@ export function useTankestromImport({
         setError('Ingen forslag etter sammenslåing.')
         return false
       }
-      if (import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+      if (import.meta.env.DEV) {
         const taskItemsCount = merged.items.filter((i) => i.kind === 'task').length
         console.debug('[tankestrom analyze result:merged]', {
           itemsLength: merged.items.length,
@@ -3693,7 +3693,7 @@ export function useTankestromImport({
           meta: { confidence: primary.confidence, originalSourceType: primary.originalSourceType },
           parsedProfileSnapshotJson,
         })
-        if (import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+        if (import.meta.env.DEV) {
           console.debug('[tankestrom school import] file path: parsed profile (etter API)', {
             gradeBand: primary.schoolProfile.gradeBand,
             weekdays: primary.schoolProfile.weekdays,
@@ -3840,18 +3840,18 @@ export function useTankestromImport({
     })
     clearReviewStateForReanalyze()
     logEvent('tankestromReanalyzeStarted', { inputMode })
-    if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+    if (import.meta.env.DEV) {
       console.debug('[tankestrom reanalyze]', { tankestromReanalyzeStarted: true, inputMode })
     }
     const ok = await runAnalyze()
     if (ok) {
       logEvent('tankestromReanalyzeCompleted', { inputMode })
-      if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+      if (import.meta.env.DEV) {
         console.debug('[tankestrom reanalyze]', { tankestromReanalyzeCompleted: true, inputMode })
       }
     } else {
       logEvent('tankestromReanalyzeFailed', { inputMode })
-      if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+      if (import.meta.env.DEV) {
         console.debug('[tankestrom reanalyze]', { tankestromReanalyzeFailed: true, inputMode })
       }
     }
@@ -3885,7 +3885,7 @@ export function useTankestromImport({
     setSelectedIds((prev) => new Set(prev).add(newItem.proposalId))
     logEvent('manualReviewItemAdded', { kind: 'task', proposalId: newItem.proposalId })
     logEvent('manualReviewTaskAdded', { proposalId: newItem.proposalId })
-    if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+    if (import.meta.env.DEV) {
       console.debug('[tankestrom manual review]', { manualReviewTaskAdded: true, proposalId: newItem.proposalId })
     }
   }, [bundle, schoolReview, people, validPersonIds])
@@ -3911,7 +3911,7 @@ export function useTankestromImport({
     setSelectedIds((prev) => new Set(prev).add(newItem.proposalId))
     logEvent('manualReviewItemAdded', { kind: 'event', proposalId: newItem.proposalId })
     logEvent('manualReviewEventAdded', { proposalId: newItem.proposalId })
-    if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+    if (import.meta.env.DEV) {
       console.debug('[tankestrom manual review]', { manualReviewEventAdded: true, proposalId: newItem.proposalId })
     }
   }, [bundle, schoolReview, people, validPersonIds])
@@ -4938,7 +4938,7 @@ export function useTankestromImport({
           const safeIntent = normalizeTaskIntent(rawIntent) ?? 'must_do'
           if (
             rawIntent !== safeIntent &&
-            (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true')
+            (import.meta.env.DEV)
           ) {
             console.debug('[tankestrom task persist]', {
               tankestromTaskPersistFixApplied: true,
@@ -4978,7 +4978,7 @@ export function useTankestromImport({
             taskIntent: safeIntent,
           }
           try {
-            if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+            if (import.meta.env.DEV) {
               console.debug('[tankestrom task persist]', {
                 tankestromTaskPersistPayload: {
                   proposalId: id,
@@ -5089,7 +5089,7 @@ export function useTankestromImport({
               )
             : { mode: 'new' as const, reason: 'not_event' }
 
-        if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+        if (import.meta.env.DEV) {
           if (item.kind === 'event') {
             const mr = existingEventMatchesByProposalId[id]
             console.debug('[tankestrom approve existing event chain]', {
@@ -5125,7 +5125,7 @@ export function useTankestromImport({
               ? 'Oppdatering er ikke tilgjengelig (mangler editEvent).'
               : 'Oppdatering er ikke tilgjengelig (mangler kalenderdata for match).'
           )
-          if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+          if (import.meta.env.DEV) {
             console.debug('[tankestrom approve existing event chain]', {
               proposalId: id,
               existingEventUpdateFlowBrokeAt: !editEvent ? 'missing_editEvent' : 'missing_getAnchoredForegroundEventsForMatching',
@@ -5259,7 +5259,7 @@ export function useTankestromImport({
           const incomingStableForPatch = readArrangementStableKey(ev.metadata)
           if (incomingStableForPatch && !readArrangementStableKey(baseMeta)) {
             metadata.arrangementStableKey = incomingStableForPatch
-            if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+            if (import.meta.env.DEV) {
               console.debug('[tankestrom approve existing event stable key]', {
                 existingEventStableKeyLearned: true,
                 existingEventStableKeyBackfilled: true,
@@ -5310,7 +5310,7 @@ export function useTankestromImport({
               start: existingEvent.start,
               end: existingEvent.end,
             })
-            if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+            if (import.meta.env.DEV) {
               console.debug('[tankestrom approve selected]', {
                 tankestromApproveSelectedEditEventChosen: true,
                 proposalId: id,
@@ -5353,7 +5353,7 @@ export function useTankestromImport({
           isEmbeddedScheduleParentCalendarItem(item)
 
         if (isEmbeddedParentCreate) {
-          if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+          if (import.meta.env.DEV) {
             console.debug('[tankestrom approve selected]', {
               tankestromApproveSelectedCreateEventChosen: true,
               proposalId: id,
@@ -6096,7 +6096,7 @@ export function useTankestromImport({
           confidence: c.confidence,
           suggestedKind: c.suggestedKind,
         })
-        if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+        if (import.meta.env.DEV) {
           console.debug(
             targetKind === 'task' ? 'secondaryCandidatePromotedToTask' : 'secondaryCandidatePromotedToEvent',
             { candidateId: c.candidateId, sourceProposalId: pid }
@@ -6131,7 +6131,7 @@ export function useTankestromImport({
         suggestedKind: c.suggestedKind,
         apiOnly: true,
       })
-      if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+      if (import.meta.env.DEV) {
         console.debug(
           targetKind === 'task' ? 'secondaryCandidatePromotedToTask' : 'secondaryCandidatePromotedToEvent',
           { candidateId: c.candidateId, newProposalId: newItem.proposalId, apiOnly: true }
@@ -6148,7 +6148,7 @@ export function useTankestromImport({
         candidateId: c.candidateId,
         titleSnippet: c.title.slice(0, 120),
       })
-      if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+      if (import.meta.env.DEV) {
         console.debug('secondaryCandidateSuppressedAsNoise', { candidateId: c.candidateId })
       }
     } else {
