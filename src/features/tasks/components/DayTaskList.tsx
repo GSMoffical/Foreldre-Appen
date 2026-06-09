@@ -53,7 +53,7 @@ function TaskRow({ task, people, onComplete, onUndoComplete, onEdit, onDelete }:
             </svg>
           </div>
         ) : (
-          <div className="h-4 w-4 rounded-pill border-2 border-zinc-300 transition-colors hover:border-brandTeal" />
+          <div className="h-4 w-4 rounded-pill border-2 border-zinc-300 transition-colors hover:border-synkaPrimary" />
         )}
       </button>
 

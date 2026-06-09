@@ -2090,7 +2090,7 @@ function TankestromEmbeddedSchedulePreview({
         <button
           type="button"
           onClick={onToggleExpanded}
-          className="mt-1 text-left text-[10px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:decoration-brandNavy touch-manipulation sm:text-caption"
+          className="mt-1 text-left text-[10px] font-semibold text-synkaNavy underline decoration-synkaNavy/30 underline-offset-2 hover:decoration-synkaNavy touch-manipulation sm:text-caption"
         >
           {effectiveExpanded ? 'Skjul program' : 'Vis hele programmet'}
         </button>
@@ -2197,7 +2197,7 @@ function pendingFileStatusClass(p: TankestromPendingFile): string {
     case 'ready':
       return 'border-zinc-200 bg-zinc-50 text-zinc-600'
     case 'analyzing':
-      return 'border-brandTeal/40 bg-brandSky/30 text-brandNavy'
+      return 'border-synkaPrimary/40 bg-synkaCream/30 text-synkaNavy'
     case 'done':
       return 'border-emerald-200 bg-emerald-50 text-emerald-900'
     case 'error':
@@ -2891,7 +2891,7 @@ export function TankestromImportDialog({
                   onClick={() => setInputMode('file')}
                   className={`rounded-lg border px-3 py-2 text-body-sm font-medium transition ${
                     inputMode === 'file'
-                      ? 'border-brandTeal/50 bg-brandSky/35 text-brandNavy'
+                      ? 'border-synkaPrimary/50 bg-synkaCream/35 text-synkaNavy'
                       : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50'
                   }`}
                 >
@@ -2902,7 +2902,7 @@ export function TankestromImportDialog({
                   onClick={() => setInputMode('text')}
                   className={`rounded-lg border px-3 py-2 text-body-sm font-medium transition ${
                     inputMode === 'text'
-                      ? 'border-brandTeal/50 bg-brandSky/35 text-brandNavy'
+                      ? 'border-synkaPrimary/50 bg-synkaCream/35 text-synkaNavy'
                       : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50'
                   }`}
                 >
@@ -2934,7 +2934,7 @@ export function TankestromImportDialog({
                     tabIndex={0}
                     className={`mt-3 flex min-h-[100px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-3 py-4 text-center transition sm:min-h-[112px] ${
                       fileDropActive
-                        ? 'border-brandTeal bg-brandSky/25 text-brandNavy'
+                        ? 'border-synkaPrimary bg-synkaCream/25 text-synkaNavy'
                         : 'border-zinc-200 bg-zinc-50/80 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50'
                     }`}
                     onKeyDown={(e) => {
@@ -3173,7 +3173,7 @@ export function TankestromImportDialog({
                                     id={fieldId}
                                     type="radio"
                                     name={lessonConflictGroupId(group)}
-                                    className="mt-0.5 h-4 w-4 shrink-0 border-zinc-300 text-brandTeal focus:ring-brandTeal/30"
+                                    className="mt-0.5 h-4 w-4 shrink-0 border-zinc-300 text-synkaPrimary focus:ring-synkaPrimary/30"
                                     onChange={() =>
                                       setSchoolProfileDraft(
                                         applyLessonConflictChoice(schoolReview.draft, group, idx)
@@ -3289,7 +3289,7 @@ export function TankestromImportDialog({
             <div className="space-y-4">
               {analyzeLoading && !bundle ? (
                 <p
-                  className="rounded-md border border-brandTeal/20 bg-brandSky/20 px-3 py-2.5 text-body-sm text-brandNavy"
+                  className="rounded-md border border-synkaPrimary/20 bg-synkaCream/20 px-3 py-2.5 text-body-sm text-synkaNavy"
                   role="status"
                   aria-live="polite"
                 >
@@ -3371,8 +3371,8 @@ export function TankestromImportDialog({
                   ) : null}
                 </div>
               ) : null}
-              <div className="rounded-lg border border-brandNavy/15 bg-brandSky/20 px-3 py-2.5">
-                <p className="text-caption font-medium leading-snug text-brandNavy">
+              <div className="rounded-lg border border-synkaNavy/15 bg-synkaCream/20 px-3 py-2.5">
+                <p className="text-caption font-medium leading-snug text-synkaNavy">
                   Gå gjennom forslagene nedenfor. Kun <span className="font-semibold">avkryssede</span> kort importeres
                   som hendelser eller gjøremål
                   {schoolWeekOverlayProposal
@@ -3382,7 +3382,7 @@ export function TankestromImportDialog({
                 <dl className="mt-2 grid grid-cols-3 gap-2 text-center">
                   <div className="rounded-md bg-white/70 px-2 py-1.5">
                     <dt className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400">Valgt</dt>
-                    <dd className="text-body font-bold tabular-nums text-brandNavy">{reviewSelectionStats.selected}</dd>
+                    <dd className="text-body font-bold tabular-nums text-synkaNavy">{reviewSelectionStats.selected}</dd>
                   </div>
                   <div className="rounded-md bg-white/70 px-2 py-1.5">
                     <dt className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400">Trenger retting</dt>
@@ -3458,7 +3458,7 @@ export function TankestromImportDialog({
                           onClick={() => toggleBulkPersonPick(p.id)}
                           className={`rounded-pill border px-2.5 py-1 text-caption font-semibold transition touch-manipulation ${
                             on
-                              ? 'border-brandTeal/80 bg-brandTeal/15 text-brandNavy shadow-sm'
+                              ? 'border-synkaPrimary/80 bg-synkaPrimary/15 text-synkaNavy shadow-sm'
                               : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 active:bg-zinc-100'
                           }`}
                         >
@@ -3472,7 +3472,7 @@ export function TankestromImportDialog({
                       type="button"
                       disabled={bulkPersonPick.size === 0}
                       onClick={() => applyReviewBulkPersonTargets([...bulkPersonPick], 'selected')}
-                      className="rounded-md border border-brandNavy/35 bg-brandSky/20 px-3 py-2 text-caption font-semibold text-brandNavy hover:bg-brandSky/35 disabled:cursor-not-allowed disabled:opacity-45"
+                      className="rounded-md border border-synkaNavy/35 bg-synkaCream/20 px-3 py-2 text-caption font-semibold text-synkaNavy hover:bg-synkaCream/35 disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       Bruk på valgte forslag
                     </button>
@@ -3828,14 +3828,14 @@ export function TankestromImportDialog({
                       key={pid}
                       className={`overflow-hidden rounded-lg border-2 transition-colors sm:rounded-lg ${
                         checked
-                          ? 'border-brandTeal/50 bg-white shadow-planner-sm ring-1 ring-brandTeal/10'
+                          ? 'border-synkaPrimary/50 bg-white shadow-planner-sm ring-1 ring-synkaPrimary/10'
                           : 'border-zinc-200 bg-zinc-50/90 opacity-[0.88]'
                       }`}
                     >
                       <div className="flex items-start gap-1.5 border-b border-zinc-100/80 px-2 py-1.5 sm:gap-3 sm:px-4 sm:py-2.5">
                         <input
                           type="checkbox"
-                          className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-brandTeal focus:ring-brandTeal/30 sm:mt-1 sm:h-[18px] sm:w-[18px]"
+                          className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-synkaPrimary focus:ring-synkaPrimary/30 sm:mt-1 sm:h-[18px] sm:w-[18px]"
                           checked={checked}
                           onChange={() => toggleProposal(pid)}
                           aria-label={`Velg forslag: ${cardTitle}`}
@@ -3882,7 +3882,7 @@ export function TankestromImportDialog({
                               <button
                                 type="button"
                                 onClick={() => toggleReviewCardEditor(pid)}
-                                className="rounded px-1 py-0.5 text-[9px] font-semibold text-brandNavy hover:bg-brandSky/30 sm:text-caption"
+                                className="rounded px-1 py-0.5 text-[9px] font-semibold text-synkaNavy hover:bg-synkaCream/30 sm:text-caption"
                                 aria-expanded={editorOpen}
                               >
                                 {editorOpen ? 'Skjul' : 'Rediger'}
@@ -3901,7 +3901,7 @@ export function TankestromImportDialog({
                             </p>
                           ) : null}
                           {embeddedScheduleParentCard ? (
-                            <p className="mt-1 text-[10px] font-medium leading-snug text-brandNavy sm:text-caption">
+                            <p className="mt-1 text-[10px] font-medium leading-snug text-synkaNavy sm:text-caption">
                               Importerer {programImportCount} kalenderhendelser fra programmet
                             </p>
                           ) : null}
@@ -3977,7 +3977,7 @@ export function TankestromImportDialog({
                                   }
                                   className={`touch-manipulation rounded-md border px-2.5 py-1.5 text-caption font-semibold transition ${
                                     existingEventLinkChoice === 'update'
-                                      ? 'border-brandTeal bg-brandTeal/15 text-brandNavy ring-1 ring-brandTeal/25'
+                                      ? 'border-synkaPrimary bg-synkaPrimary/15 text-synkaNavy ring-1 ring-synkaPrimary/25'
                                       : 'border-synkaYellow/30 bg-white text-synkaNavy/80 hover:bg-synkaYellow/15 disabled:cursor-not-allowed disabled:opacity-45'
                                   }`}
                                 >
@@ -4030,7 +4030,7 @@ export function TankestromImportDialog({
                             </p>
                           ) : null}
                           {embeddedScheduleParentCard && item.kind === 'event' ? (
-                            <div className="mt-2 space-y-2.5 border-l-2 border-brandTeal/40 pl-2.5 sm:space-y-3 sm:pl-3">
+                            <div className="mt-2 space-y-2.5 border-l-2 border-synkaPrimary/40 pl-2.5 sm:space-y-3 sm:pl-3">
                               <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400 sm:text-[10px]">
                                 Delprogram
                               </p>
@@ -4122,7 +4122,7 @@ export function TankestromImportDialog({
                                       <div className="flex items-start gap-2 sm:gap-2.5">
                                         <input
                                           type="checkbox"
-                                          className="mt-1.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-brandTeal focus:ring-brandTeal/30"
+                                          className="mt-1.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-synkaPrimary focus:ring-synkaPrimary/30"
                                           checked={childChecked}
                                           disabled={!checked}
                                           onChange={() => toggleProposal(childId)}
@@ -4133,7 +4133,7 @@ export function TankestromImportDialog({
                                           id={detailTriggerId}
                                           aria-expanded={delprogramDetailOpen}
                                           aria-controls={detailPanelId}
-                                          className="min-w-0 flex-1 rounded-md text-left outline-none ring-brandTeal/25 transition hover:bg-zinc-50/90 focus-visible:ring-2 active:bg-zinc-50 touch-manipulation"
+                                          className="min-w-0 flex-1 rounded-md text-left outline-none ring-synkaPrimary/25 transition hover:bg-zinc-50/90 focus-visible:ring-2 active:bg-zinc-50 touch-manipulation"
                                           onClick={() => toggleDelprogramChildExpanded(childId, row.segment)}
                                         >
                                           <div className="flex flex-col gap-1.5">
@@ -4150,7 +4150,7 @@ export function TankestromImportDialog({
                                               <span
                                                 className={`inline-flex min-h-[1.375rem] shrink-0 items-center tabular-nums text-[10px] sm:min-h-0 sm:text-caption ${
                                                   hasConcreteTimeDisplay
-                                                    ? 'font-semibold text-brandNavy'
+                                                    ? 'font-semibold text-synkaNavy'
                                                     : row.segment.isConditional
                                                       ? 'font-medium text-zinc-500'
                                                       : 'rounded-md bg-zinc-100/70 px-2 py-0.5 font-medium text-zinc-600'
@@ -4294,7 +4294,7 @@ export function TankestromImportDialog({
                                                 },
                                               }))
                                             }}
-                                            className="rounded-md px-2 py-1 text-[9px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:bg-brandSky/25 hover:decoration-brandNavy disabled:cursor-not-allowed disabled:opacity-40 sm:text-[10px]"
+                                            className="rounded-md px-2 py-1 text-[9px] font-semibold text-synkaNavy underline decoration-synkaNavy/30 underline-offset-2 hover:bg-synkaCream/25 hover:decoration-synkaNavy disabled:cursor-not-allowed disabled:opacity-40 sm:text-[10px]"
                                           >
                                             Rediger
                                           </button>
@@ -4309,7 +4309,7 @@ export function TankestromImportDialog({
                                               })
                                               detachEmbeddedScheduleChild(pid, row.origIndex)
                                             }}
-                                            className="rounded-md px-2 py-1 text-[9px] font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:bg-brandSky/25 hover:decoration-brandNavy disabled:cursor-not-allowed disabled:opacity-40 sm:text-[10px]"
+                                            className="rounded-md px-2 py-1 text-[9px] font-semibold text-synkaNavy underline decoration-synkaNavy/30 underline-offset-2 hover:bg-synkaCream/25 hover:decoration-synkaNavy disabled:cursor-not-allowed disabled:opacity-40 sm:text-[10px]"
                                           >
                                             Løsne
                                           </button>
@@ -4317,11 +4317,11 @@ export function TankestromImportDialog({
                                       </div>
                                       {embEdit ? (
                                         <div
-                                          className="mt-2 space-y-2 rounded-md border border-brandTeal/30 bg-brandSky/15 px-2 py-2 sm:px-3"
+                                          className="mt-2 space-y-2 rounded-md border border-synkaPrimary/30 bg-synkaCream/15 px-2 py-2 sm:px-3"
                                           role="region"
                                           aria-label="Rediger programpunkt"
                                         >
-                                          <p className="text-[9px] font-semibold uppercase tracking-wide text-brandNavy/90 sm:text-[10px]">
+                                          <p className="text-[9px] font-semibold uppercase tracking-wide text-synkaNavy/90 sm:text-[10px]">
                                             Rediger programpunkt
                                           </p>
                                           <Input
@@ -4396,7 +4396,7 @@ export function TankestromImportDialog({
                                             </label>
                                             <select
                                               id={`ts-emb-${childId}-person`}
-                                              className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-body-sm text-zinc-900 shadow-sm focus:border-brandTeal focus:outline-none focus:ring-2 focus:ring-brandTeal/25"
+                                              className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-body-sm text-zinc-900 shadow-sm focus:border-synkaPrimary focus:outline-none focus:ring-2 focus:ring-synkaPrimary/25"
                                               value={embEdit.personId}
                                               disabled={!checked}
                                               onChange={(e) =>
@@ -4496,7 +4496,7 @@ export function TankestromImportDialog({
                                                       }
                                                     })
                                                   }
-                                                  className="text-[10px] font-semibold text-brandNavy underline underline-offset-2"
+                                                  className="text-[10px] font-semibold text-synkaNavy underline underline-offset-2"
                                                 >
                                                   + Legg til høydepunkt
                                                 </button>
@@ -4559,7 +4559,7 @@ export function TankestromImportDialog({
                                                         }
                                                       })
                                                     }
-                                                    className="text-[10px] font-semibold text-brandNavy underline underline-offset-2"
+                                                    className="text-[10px] font-semibold text-synkaNavy underline underline-offset-2"
                                                   >
                                                     + Legg til huskepunkt
                                                   </button>
@@ -4622,7 +4622,7 @@ export function TankestromImportDialog({
                                                       }
                                                     })
                                                   }
-                                                  className="text-[10px] font-semibold text-brandNavy underline underline-offset-2"
+                                                  className="text-[10px] font-semibold text-synkaNavy underline underline-offset-2"
                                                 >
                                                   + Legg til notat
                                                 </button>
@@ -4776,7 +4776,7 @@ export function TankestromImportDialog({
                                                   return n
                                                 })
                                               }}
-                                              className="rounded-md bg-brandNavy px-3 py-1.5 text-caption font-semibold text-white shadow-sm hover:bg-brandNavy/90 disabled:cursor-not-allowed disabled:opacity-45 sm:text-caption"
+                                              className="rounded-md bg-synkaNavy px-3 py-1.5 text-caption font-semibold text-white shadow-sm hover:bg-synkaNavy/90 disabled:cursor-not-allowed disabled:opacity-45 sm:text-caption"
                                             >
                                               Lagre
                                             </button>
@@ -5032,7 +5032,7 @@ export function TankestromImportDialog({
                               onClick={() => setProposalImportKind(pid, 'event')}
                               className={`rounded px-1.5 py-0.5 text-[9px] font-semibold transition sm:px-2 sm:text-caption ${
                                 u.importKind === 'event'
-                                  ? 'bg-brandNavy text-white shadow-sm'
+                                  ? 'bg-synkaNavy text-white shadow-sm'
                                   : 'text-zinc-600 hover:bg-zinc-100'
                               }`}
                             >
@@ -5044,7 +5044,7 @@ export function TankestromImportDialog({
                               onClick={() => setProposalImportKind(pid, 'task')}
                               className={`rounded px-1.5 py-0.5 text-[9px] font-semibold transition sm:px-2 sm:text-caption ${
                                 u.importKind === 'task'
-                                  ? 'bg-brandNavy text-white shadow-sm'
+                                  ? 'bg-synkaNavy text-white shadow-sm'
                                   : 'text-zinc-600 hover:bg-zinc-100'
                               }`}
                             >
@@ -5112,7 +5112,7 @@ export function TankestromImportDialog({
                                 className={`w-full rounded-lg border bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:ring-1 disabled:opacity-50 ${
                                   eventFieldErrors.personId
                                     ? 'border-synkaCoral/60 focus:border-synkaCoral focus:ring-synkaCoral/20'
-                                    : 'border-zinc-200 focus:border-brandTeal focus:ring-brandTeal/20'
+                                    : 'border-zinc-200 focus:border-synkaPrimary focus:ring-synkaPrimary/20'
                                 }`}
                                 value={u.event.personId}
                                 onChange={(e) => updateEventDraft(pid, { personId: e.target.value })}
@@ -5208,7 +5208,7 @@ export function TankestromImportDialog({
                                   </label>
                                   <select
                                     id={`ts-${pid}-reminder`}
-                                    className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
+                                    className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 disabled:opacity-50"
                                     value={u.event.reminderMinutes == null ? '' : String(u.event.reminderMinutes)}
                                     onChange={(e) =>
                                       updateEventDraft(pid, {
@@ -5239,7 +5239,7 @@ export function TankestromImportDialog({
                                     <label className="flex items-center gap-2 text-caption text-zinc-700">
                                       <input
                                         type="checkbox"
-                                        className="h-4 w-4 rounded border-zinc-300 text-brandTeal focus:ring-brandTeal/30"
+                                        className="h-4 w-4 rounded border-zinc-300 text-synkaPrimary focus:ring-synkaPrimary/30"
                                         checked={u.event.includeRecurrence}
                                         onChange={(e) =>
                                           updateEventDraft(pid, { includeRecurrence: e.target.checked })
@@ -5265,7 +5265,7 @@ export function TankestromImportDialog({
                                       </label>
                                       <select
                                         id={`ts-${pid}-dropoff`}
-                                        className="w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-body-sm text-zinc-900 outline-none transition focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
+                                        className="w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-body-sm text-zinc-900 outline-none transition focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 disabled:opacity-50"
                                         value={u.event.dropoffBy}
                                         onChange={(e) => updateEventDraft(pid, { dropoffBy: e.target.value })}
                                         disabled={disabled}
@@ -5287,7 +5287,7 @@ export function TankestromImportDialog({
                                       </label>
                                       <select
                                         id={`ts-${pid}-pickup`}
-                                        className="w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-body-sm text-zinc-900 outline-none transition focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
+                                        className="w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-body-sm text-zinc-900 outline-none transition focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 disabled:opacity-50"
                                         value={u.event.pickupBy}
                                         onChange={(e) => updateEventDraft(pid, { pickupBy: e.target.value })}
                                         disabled={disabled}
@@ -5315,7 +5315,7 @@ export function TankestromImportDialog({
                                       <>
                                         <button
                                           type="button"
-                                          className="mt-2 text-left text-caption font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:decoration-brandNavy"
+                                          className="mt-2 text-left text-caption font-semibold text-synkaNavy underline decoration-synkaNavy/30 underline-offset-2 hover:decoration-synkaNavy"
                                           onClick={() => toggleSourceExpanded(pid)}
                                           aria-expanded={sourceExpanded}
                                           aria-controls={`ts-source-expanded-${pid}`}
@@ -5421,7 +5421,7 @@ export function TankestromImportDialog({
                               </label>
                               <select
                                 id={`ts-${pid}-task-child`}
-                                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
+                                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 disabled:opacity-50"
                                 value={u.task.childPersonId}
                                 onChange={(e) => updateTaskDraft(pid, { childPersonId: e.target.value })}
                                 disabled={disabled}
@@ -5449,7 +5449,7 @@ export function TankestromImportDialog({
                               </label>
                               <select
                                 id={`ts-${pid}-task-assign`}
-                                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:border-brandTeal focus:ring-1 focus:ring-brandTeal/20 disabled:opacity-50"
+                                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-body text-zinc-900 outline-none transition focus:bg-white focus:border-synkaPrimary focus:ring-1 focus:ring-synkaPrimary/20 disabled:opacity-50"
                                 value={u.task.assignedToPersonId}
                                 onChange={(e) => updateTaskDraft(pid, { assignedToPersonId: e.target.value })}
                                 disabled={disabled}
@@ -5465,7 +5465,7 @@ export function TankestromImportDialog({
                             <label className="flex items-center gap-2 text-caption text-zinc-700">
                               <input
                                 type="checkbox"
-                                className="h-4 w-4 rounded border-zinc-300 text-brandTeal focus:ring-brandTeal/30"
+                                className="h-4 w-4 rounded border-zinc-300 text-synkaPrimary focus:ring-synkaPrimary/30"
                                 checked={u.task.showInMonthView}
                                 onChange={(e) => updateTaskDraft(pid, { showInMonthView: e.target.checked })}
                                 disabled={disabled}
@@ -5527,7 +5527,7 @@ export function TankestromImportDialog({
                                       <>
                                         <button
                                           type="button"
-                                          className="mt-2 text-left text-caption font-semibold text-brandNavy underline decoration-brandNavy/30 underline-offset-2 hover:decoration-brandNavy"
+                                          className="mt-2 text-left text-caption font-semibold text-synkaNavy underline decoration-synkaNavy/30 underline-offset-2 hover:decoration-synkaNavy"
                                           onClick={() => toggleSourceExpanded(pid)}
                                           aria-expanded={sourceExpanded}
                                         >

@@ -249,7 +249,7 @@ function App() {
       success.updatedEvents.length === 0 &&
       success.createdTasks.length === 0
     ) {
-      console.warn('[Tankestrom import toast skipped: empty success payload]')
+      if (import.meta.env.DEV) { console.warn('[Tankestrom import toast skipped: empty success payload]') }
       return
     }
     const firstEvent = [...success.createdEvents, ...success.updatedEvents]
@@ -761,7 +761,7 @@ function App() {
               className="pointer-events-none fixed inset-x-0 z-[50] flex justify-center px-3"
               style={{ bottom: 'calc(72px + env(safe-area-inset-bottom, 0px))' }}
             >
-              <div className="flex w-full max-w-[390px] items-center gap-3 rounded-lg border-2 border-brandTeal/30 bg-brandTeal px-3 py-2.5 text-white shadow-planner">
+              <div className="flex w-full max-w-[390px] items-center gap-3 rounded-lg border-2 border-synkaPrimary/30 bg-synkaPrimary px-3 py-2.5 text-white shadow-planner">
                 <p className="min-w-0 flex-1 text-body-sm font-medium leading-snug">Varslet din partner om «{notifyToast}»</p>
               </div>
             </div>
@@ -782,7 +782,7 @@ function App() {
                   className={`w-full max-w-[390px] rounded-lg border px-3 py-2.5 shadow-planner ${
                     tankestromToast.variant === 'warning'
                       ? 'border-synkaYellow/30 bg-synkaYellow/8'
-                      : 'border-brandTeal/30 bg-white'
+                      : 'border-synkaPrimary/30 bg-white'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -803,7 +803,7 @@ function App() {
                     <button
                       type="button"
                       onClick={jumpToImportedCalendar}
-                      className="rounded-pill bg-brandTeal px-3 py-1.5 text-caption font-semibold text-white"
+                      className="rounded-pill bg-synkaPrimary px-3 py-1.5 text-caption font-semibold text-white"
                     >
                       {tankestromToast.openTasks ? 'Åpne gjøremål' : 'Se i kalenderen'}
                     </button>

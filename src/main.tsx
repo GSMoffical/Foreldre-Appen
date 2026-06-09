@@ -9,11 +9,13 @@ import { ProfileProvider } from './context/ProfileContext'
 import { UserPreferencesProvider } from './context/UserPreferencesContext'
 import { UndoProvider } from './context/UndoContext'
 
-console.info('[Foreldre app version]', {
-  version: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'unknown',
-  buildTime: typeof __APP_BUILD_FINGERPRINT__ !== 'undefined' ? __APP_BUILD_FINGERPRINT__ : 'unknown',
-  gitSha: typeof __GIT_SHA__ !== 'undefined' ? __GIT_SHA__ : 'unknown',
-})
+if (import.meta.env.DEV) {
+  console.info('[Foreldre app version]', {
+    version: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'unknown',
+    buildTime: typeof __APP_BUILD_FINGERPRINT__ !== 'undefined' ? __APP_BUILD_FINGERPRINT__ : 'unknown',
+    gitSha: typeof __GIT_SHA__ !== 'undefined' ? __GIT_SHA__ : 'unknown',
+  })
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

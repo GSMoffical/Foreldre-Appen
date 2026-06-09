@@ -905,11 +905,13 @@ export function getTankestromAnalyzeErrorMessage(httpStatus: number, responseTex
 }
 
 function throwTankestromAnalyzeFailure(httpStatus: number, responseText: string, payload: unknown): never {
-  console.error('[Tankestrom analyze failed]', {
-    status: httpStatus,
-    responseText,
-    payload,
-  })
+  if (import.meta.env.DEV) {
+    console.error('[Tankestrom analyze failed]', {
+      status: httpStatus,
+      responseText,
+      payload,
+    })
+  }
   throw new Error(getTankestromAnalyzeErrorMessage(httpStatus, responseText, payload))
 }
 
@@ -995,7 +997,7 @@ async function analyzeWithTankestrom(analyzePayload: AnalyzePayload): Promise<Po
   const failedPayload = isRecord(responseJson) && responseJson.ok === false
 
   if (!res.ok || failedPayload) {
-    if (failedPayload) {
+    if (failedPayload && import.meta.env.DEV) {
       console.error('[Tankestrom analyze] ok:false payload', responseJson)
     }
     throwTankestromAnalyzeFailure(res.status, responseText, responseJson)
@@ -1032,7 +1034,7 @@ async function analyzeWithTankestrom(analyzePayload: AnalyzePayload): Promise<Po
     return parsePortalImportProposalBundle(normalized)
   } catch (e) {
     const failMsg = e instanceof Error ? e.message : String(e)
-    if (analyzePayload.kind === 'text') {
+    if (analyzePayload.kind === 'text' && import.meta.env.DEV) {
       console.warn('[tankestrom text analyze] bundle parse failed', {
         tankestrom_text_bundle_parse_failed_reason: failMsg,
         tankestrom_text_response_top_keys: isRecord(json) ? Object.keys(json).sort() : null,

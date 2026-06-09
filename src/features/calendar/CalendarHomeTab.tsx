@@ -17,10 +17,11 @@ import { useFamily } from '../../context/FamilyContext'
 import { usePermissions } from '../../hooks/usePermissions'
 import type { Event, Task, PersonId, TimelineLayoutItem, GapInfo } from '../../types'
 import type { WeekDayLayout } from '../../hooks/useScheduleState'
+import { STORAGE_KEYS } from '../../lib/constants'
 
-const FILTER_STORAGE_KEY = 'synka-filter-person-ids'
-const FIRST_OPEN_KEY = 'synka-first-open'
-const INVITE_BANNER_DISMISSED_KEY = 'synka-invite-banner-dismissed'
+const FILTER_STORAGE_KEY = STORAGE_KEYS.FILTER_PERSON_IDS
+const FIRST_OPEN_KEY = STORAGE_KEYS.FIRST_OPEN
+const INVITE_BANNER_DISMISSED_KEY = STORAGE_KEYS.INVITE_BANNER_DISMISSED
 
 function formatFullDate(dateKey: string): string {
   const d = new Date(dateKey + 'T12:00:00')

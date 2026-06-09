@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { IconArrowLeft, IconChevronRight } from '@tabler/icons-react'
 import { SectionDots } from './SectionDots'
+import { APP_VERSION, SUPPORT_EMAIL } from '../lib/constants'
 
 interface HjelpScreenProps {
   onBack: () => void
 }
-
-const APP_VERSION = '0.1.0-beta'
 
 export function HjelpScreen({ onBack }: HjelpScreenProps) {
   const [toast, setToast] = useState(false)
@@ -51,10 +50,10 @@ export function HjelpScreen({ onBack }: HjelpScreenProps) {
           <div className="rounded-md border border-synkaNavy/8 bg-white p-4">
             <p className="text-caption font-semibold uppercase tracking-wide text-synkaNavy/40">Kontakt oss</p>
             <a
-              href="mailto:hjelp@synka.no"
+              href={`mailto:${SUPPORT_EMAIL}`}
               className="mt-3 flex items-center justify-between rounded-md border border-synkaNavy/8 px-4 py-3 touch-manipulation active:bg-synkaCream transition"
             >
-              <span className="text-body font-medium text-synkaNavy">hjelp@synka.no</span>
+              <span className="text-body font-medium text-synkaNavy">{SUPPORT_EMAIL}</span>
               <IconChevronRight size={16} className="shrink-0 text-synkaNavy/40" aria-hidden />
             </a>
           </div>
