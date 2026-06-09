@@ -23,6 +23,24 @@ export async function createInvite(
   const expiresAt = new Date()
   expiresAt.setDate(expiresAt.getDate() + INVITE_EXPIRY_DAYS)
 
+  // Limit: max 10 active invites per user at any time
+  const MAX_ACTIVE_INVITES = 10
+  const { count, error: countError } = await supabase
+    .from('family_invites')
+    .select('id', { count: 'exact', head: true })
+    .eq('from_user_id', fromUserId)
+    .gt('expires_at', new Date().toISOString())
+
+  if (countError) {
+    console.error('[inviteApi] createInvite count error', countError)
+    return null
+  }
+
+  if ((count ?? 0) >= MAX_ACTIVE_INVITES) {
+    console.warn('[inviteApi] createInvite: too many active invites', { fromUserId })
+    return null
+  }
+
   const { error } = await supabase.from('family_invites').insert({
     from_user_id: fromUserId,
     token,

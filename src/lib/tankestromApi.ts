@@ -30,6 +30,8 @@ import { isTankestromConsoleDebugEnabled, isTankestromHttpDebugEnabled } from '.
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024 // 20 MB
 const MAX_TEXT_LENGTH = 20_000
 
+let _analysisInFlight = false
+
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null && !Array.isArray(x)
 }
@@ -1058,6 +1060,14 @@ function throwTankestromAnalyzeFailure(httpStatus: number, responseText: string,
 export type TankestromV2RawResult = { __v2: true; data: unknown; version: string }
 
 async function analyzeWithTankestrom(analyzePayload: AnalyzePayload): Promise<PortalImportProposalBundle | TankestromV2RawResult> {
+  if (_analysisInFlight) {
+    throw new Error(
+      'En analyse pågår allerede. Vent til den er ferdig før du starter en ny.'
+    )
+  }
+  _analysisInFlight = true
+
+  try {
   const urlRaw = import.meta.env.VITE_TANKESTROM_ANALYZE_URL
   const url = typeof urlRaw === 'string' ? urlRaw.trim() : ''
   if (!url) {
@@ -1192,6 +1202,9 @@ async function analyzeWithTankestrom(analyzePayload: AnalyzePayload): Promise<Po
       })
     }
     throw e
+  }
+  } finally {
+    _analysisInFlight = false
   }
 }
 
