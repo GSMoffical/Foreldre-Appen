@@ -31,7 +31,6 @@ import {
   foldLegacyArrangementChildSegments,
 } from '../../lib/tankestromLegacyArrangementSegments'
 import { redistributeEnrichSubjectUpdatesForDay } from '../../lib/schoolWeekOverlayEnrichRouting'
-import type { EmbeddedScheduleChildExportTimePolicy } from '../../lib/tankestromEmbeddedChildNotesPresentation'
 import {
   presentEmbeddedChildNotesForReview,
   resolveEmbeddedScheduleSegmentTimesForCalendarExport,
@@ -1965,13 +1964,6 @@ function applyFlightStartOnlyPersistMetadata(metadata: Record<string, unknown>, 
   metadata.displayTimeLabel = TANKESTROM_FLIGHT_MISSING_END_LABEL
 }
 
-function embeddedExportEndTimeSourceForPolicy(
-  policy: EmbeddedScheduleChildExportTimePolicy
-): 'missing_or_unreadable' | 'layout_only' | 'fallback_duration' {
-  if (policy === 'derived_meeting_conservative_end') return 'layout_only'
-  if (policy === 'no_safe_segment_clock_default_slot') return 'fallback_duration'
-  return 'missing_or_unreadable'
-}
 
 function applyEmbeddedScheduleExportTimeMetadata(
   metadata: Record<string, unknown>,
@@ -1979,45 +1971,7 @@ function applyEmbeddedScheduleExportTimeMetadata(
 ): void {
   const ex = draft.embeddedScheduleExport
   if (!ex?.usesSyntheticLayoutEnd) return
-  const startNorm = normalizeTimeInput(draft.start)
-  const endNorm = normalizeTimeInput(draft.end)
-  const hasTimedEndAfterStart =
-    Boolean(draft.start.trim() && draft.end.trim()) &&
-    isHm24(startNorm) &&
-    isHm24(endNorm) &&
-    parseTime(endNorm) > parseTime(startNorm)
-  const endTimeSource =
-    typeof ex.endTimeSource === 'string' && ex.endTimeSource.trim()
-      ? ex.endTimeSource.trim()
-      : embeddedExportEndTimeSourceForPolicy(ex.policy)
-<<<<<<< HEAD
-  const isFrontendFallback = endTimeSource === 'frontend_canonical_fallback'
-  const isTrustedTimedEnd =
-    hasTimedEndAfterStart &&
-    (ex.endTimeProvenance === 'frontend_canonical_fallback' ||
-      ex.endTimeProvenance === 'api_inferred_end' ||
-      ex.endTimeProvenance === 'source_confirmed_end')
-
-  if (isTrustedTimedEnd) {
-    metadata.timePrecision = 'timed'
-    delete metadata.layoutEndOnly
-    metadata.endTimeSource = endTimeSource
-    metadata.requiresManualTimeReview = false
-    if (ex.inferredEndTime) metadata.inferredEndTime = true
-    if (isFrontendFallback) {
-      metadata.displayTimeLabel = TANKESTROM_ESTIMATED_END_REVIEW_HINT_NB
-    } else {
-      delete metadata.displayTimeLabel
-    }
-    return
-  }
-
-  metadata.timePrecision = 'start_only'
-  metadata.layoutEndOnly = true
-  metadata.endTimeSource = endTimeSource
-=======
   const isFrontendFallback = ex.endTimeSource === 'frontend_canonical_fallback'
->>>>>>> redesign/synka-brand
   metadata.displayTimeLabel = isFrontendFallback
     ? TANKESTROM_ESTIMATED_END_REVIEW_HINT_NB
     : CALENDAR_SLUTTID_IKKE_OPPGITT_NB

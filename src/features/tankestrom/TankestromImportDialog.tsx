@@ -75,10 +75,7 @@ import {
   scanNotesBodyForLanguage,
   taskIndicatesForeignLanguageMismatchWithTrack,
   buildEmbeddedChildCanonicalPreviewForReview,
-<<<<<<< HEAD
   buildImportSelectionSummaryText,
-=======
->>>>>>> redesign/synka-brand
   draftHasFrontendCanonicalEstimatedEnd,
   draftHasStartWithoutKnownEnd,
   type TankestromPendingFile,
@@ -86,7 +83,6 @@ import {
 } from './useTankestromImport'
 import {
   formatTankestromImportCardValidationBanner,
-  formatTankestromEstimatedEndReviewHint,
   formatTankestromMissingEndReviewHint,
   norwegianWeekdayLowercase,
   summarizeEmbeddedChildrenImportValidation,
@@ -3531,11 +3527,7 @@ export function TankestromImportDialog({
                   const parentMissingEndHint =
                     checked && u.importKind === 'event'
                       ? draftHasFrontendCanonicalEstimatedEnd(u.event)
-<<<<<<< HEAD
-                        ? formatTankestromEstimatedEndReviewHint(norwegianWeekdayLowercase(u.event.date))
-=======
                         ? formatTankestromMissingEndReviewHint(norwegianWeekdayLowercase(u.event.date))
->>>>>>> redesign/synka-brand
                         : draftHasStartWithoutKnownEnd(u.event)
                           ? formatTankestromMissingEndReviewHint(norwegianWeekdayLowercase(u.event.date))
                           : null
@@ -4156,11 +4148,7 @@ export function TankestromImportDialog({
                                               const endHint =
                                                 cd?.importKind === 'event'
                                                   ? draftHasFrontendCanonicalEstimatedEnd(cd.event)
-<<<<<<< HEAD
-                                                    ? formatTankestromEstimatedEndReviewHint(
-=======
                                                     ? formatTankestromMissingEndReviewHint(
->>>>>>> redesign/synka-brand
                                                         norwegianWeekdayLowercase(row.segment.date)
                                                       )
                                                     : draftHasStartWithoutKnownEnd(cd.event)
