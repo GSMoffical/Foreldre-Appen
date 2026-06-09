@@ -1,3 +1,4 @@
+import { initSentryClient } from './lib/sentry'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
@@ -8,6 +9,8 @@ import { FamilyProvider } from './context/FamilyContext'
 import { ProfileProvider } from './context/ProfileContext'
 import { UserPreferencesProvider } from './context/UserPreferencesContext'
 import { UndoProvider } from './context/UndoContext'
+
+initSentryClient()
 
 if (import.meta.env.DEV) {
   console.info('[Foreldre app version]', {
