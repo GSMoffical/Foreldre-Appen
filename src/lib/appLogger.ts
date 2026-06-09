@@ -30,8 +30,10 @@ export function logEvent(name: string, payload?: Record<string, unknown>): void 
   }
   buffer.push(entry)
   if (buffer.length > BUFFER_MAX) buffer.shift()
-  // eslint-disable-next-line no-console
-  console.log('[APP]', name, Object.keys(entry.payload).length ? entry.payload : '')
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.log('[APP]', name, Object.keys(entry.payload).length ? entry.payload : '')
+  }
   listeners.forEach((cb) => cb())
 }
 

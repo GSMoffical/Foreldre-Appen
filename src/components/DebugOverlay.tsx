@@ -25,6 +25,7 @@ import {
 } from '../lib/appLogger'
 
 function isEnabled(): boolean {
+  if (!import.meta.env.DEV) return false
   try {
     return localStorage.getItem('debug_overlay') === '1'
   } catch {
