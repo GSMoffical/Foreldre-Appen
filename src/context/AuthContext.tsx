@@ -16,6 +16,7 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, options: SignUpOptions) => Promise<void>
   signOut: () => Promise<void>
+  deleteAccount: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -140,8 +141,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut()
   }
 
+  async function deleteAccount() {
+    const { error } = await supabase.rpc('delete_user_account')
+    if (error) {
+      console.error('[auth] deleteAccount error', error)
+      throw error
+    }
+    // Auth session is now invalid — sign out locally
+    await supabase.auth.signOut()
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, deleteAccount }}>
       {children}
     </AuthContext.Provider>
   )

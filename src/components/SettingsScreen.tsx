@@ -16,7 +16,7 @@ export function SettingsScreen({
   onClearAllEvents,
   onRestartOnboarding,
 }: SettingsScreenProps) {
-  const { user, signOut } = useAuth()
+  const { user, signOut, deleteAccount } = useAuth()
   const { hapticsEnabled, setHapticsEnabled } = useUserPreferences()
   const { isLinked, unlink } = useEffectiveUserId()
   const { canClearAllEvents, isCalendarOwner } = usePermissions()
@@ -27,6 +27,22 @@ export function SettingsScreen({
   const [confirmClear, setConfirmClear] = useState(false)
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [clearDone, setClearDone] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  async function handleDeleteAccount() {
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteAccount()
+      // AuthContext will clear the user — app will redirect to login automatically
+    } catch {
+      setDeleteError('Noe gikk galt. Prøv igjen eller kontakt support.')
+      setDeleting(false)
+      setConfirmDelete(false)
+    }
+  }
 
   async function handleUnlink() {
     await unlink()
@@ -146,8 +162,8 @@ export function SettingsScreen({
               deg og for andre du deler familien med. Vi bruker ikke innholdet til reklame og selger det ikke videre.
             </p>
             <p className="mt-2.5 text-caption text-zinc-400">
-              Ved å bruke appen godtar du at du er ansvarlig for opplysningene du registrerer. Ta kontakt med den som
-              administrerer familien hvis du vil slette konto eller data.
+              Ved å bruke appen godtar du at du er ansvarlig for opplysningene du registrerer. Du kan slette kontoen og alle data permanent under
+              Fareområde nedenfor.
             </p>
           </div>
         </div>
@@ -191,6 +207,52 @@ export function SettingsScreen({
             </button>
           )
         )}
+
+        <div className="mt-6 border-t border-synkaCoral/15 pt-5">
+          <p className="text-caption font-medium uppercase tracking-wide text-synkaCoral/70">
+            Slett konto
+          </p>
+          <p className="mt-2 text-body-sm text-synkaNavy/60">
+            Sletter kontoen din og alle data permanent — hendelser, gjøremål,
+            familiemedlemmer og profil. Dette kan ikke angres.
+          </p>
+          {deleteError && (
+            <p className="mt-2 text-caption text-synkaCoral">{deleteError}</p>
+          )}
+          {confirmDelete ? (
+            <div className="mt-3 rounded-md border border-synkaCoral/30 bg-white p-3.5 space-y-3">
+              <p className="text-body-sm font-medium text-synkaCoral">
+                Er du helt sikker? All data slettes permanent og kan ikke gjenopprettes.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setConfirmDelete(false); setDeleteError(null) }}
+                  className={`flex-1 ${btnSecondary}`}
+                  disabled={deleting}
+                >
+                  Avbryt
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteAccount}
+                  className={`flex-1 ${btnDanger}`}
+                  disabled={deleting}
+                >
+                  {deleting ? 'Sletter...' : 'Slett konto'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className={`mt-3 ${btnDangerOutline} px-4 py-2 text-body-sm`}
+            >
+              Slett konto permanent
+            </button>
+          )}
+        </div>
       </div>
 
       {confirmLogout ? (
