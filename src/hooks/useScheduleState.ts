@@ -18,7 +18,7 @@ import {
   getEventParticipantIds,
 } from '../lib/schedule'
 import { layoutTimelineWithOverlapGroups } from '../lib/overlaps'
-import { PIXELS_PER_HOUR, shiftTime } from '../lib/time'
+import { parseTime, PIXELS_PER_HOUR, shiftTime } from '../lib/time'
 import { useAuth } from '../context/AuthContext'
 import { useEffectiveUserId } from '../context/EffectiveUserIdContext'
 import { formatScheduleLoadError } from '../lib/supabaseErrors'
@@ -105,16 +105,13 @@ function getTodayKey(): string {
   return todayKeyOslo()
 }
 
-function addDays(dateKey: string, delta: number): string {
-  return addCalendarDaysOslo(dateKey, delta)
-}
-
-function isOvernightEvent(e: Event): boolean {
-  return e.end <= e.start
-}
-
 function isDateOnlyEvent(e: Event): boolean {
   return e.metadata?.timePrecision === 'date_only'
+}
+
+function isValidContinuationEndTime(end: string): boolean {
+  const parsed = parseTime(end)
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(end) && Number.isFinite(parsed) && parsed > 0
 }
 
 /** Returns the 7 date keys (YYYY-MM-DD) for the week (Mon–Sun) containing the given date. */
@@ -291,7 +288,7 @@ export function useScheduleState() {
 
   function getAllEventsForDate(date: string): Event[] {
     const own = userEventsByDate[date] ?? []
-    const prevDate = addDays(date, -1)
+    const prevDate = addCalendarDaysOslo(date, -1)
     const prev = userEventsByDate[prevDate] ?? []
 
     const out: Event[] = []
@@ -299,21 +296,25 @@ export function useScheduleState() {
 
     for (const e of own) {
       seenIds.add(e.id)
-      if (isAllDayEvent(e)) {
-        out.push(e)
-      } else if (isOvernightEvent(e)) {
-        out.push({ ...e, end: '23:59' })
-      } else {
-        out.push(e)
-      }
+      out.push(e)
     }
 
     for (const e of prev) {
       if (seenIds.has(e.id)) continue
-      if (isAllDayEvent(e)) continue
-      if (!isOvernightEvent(e)) continue
-      seenIds.add(e.id)
-      out.push({ ...e, start: '00:00', end: e.end })
+      if (parseTime(e.end) <= parseTime(e.start) && isValidContinuationEndTime(e.end)) {
+        seenIds.add(e.id)
+        out.push({
+          ...e,
+          start: '00:00',
+          end: e.end,
+          metadata: {
+            ...e.metadata,
+            __isContinuation: true,
+            __continuationFromDate: prevDate,
+            __originalStart: e.start,
+          },
+        })
+      }
     }
 
     // Project multi-day all-day events anchored on earlier dates onto this date.

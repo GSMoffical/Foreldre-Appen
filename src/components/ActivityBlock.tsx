@@ -3,7 +3,7 @@ import { motion, useAnimation, useReducedMotion } from 'framer-motion'
 import type { DragReschedulePayload, EventLayoutBlock, PersonId } from '../types'
 import { useFamily } from '../context/FamilyContext'
 import { formatCalendarEventTimeLabel } from '../lib/schedule'
-import { shiftTime } from '../lib/time'
+import { formatTime, parseTime, shiftTime } from '../lib/time'
 import { getEventParticipantIds } from '../lib/schedule'
 import { blockEntranceDelay } from '../lib/motion'
 
@@ -76,6 +76,8 @@ export function ActivityBlock({
   /** Title + time on one row needs more height than title alone */
   const showTitleAndTime = useShortRow && !showBlank && !showTitleOnly
   const visualHeight = rawHeight
+  const isContinuation = block.metadata?.__isContinuation === true
+  const isOvernight = parseTime(block.end) <= parseTime(block.start)
 
   const [dragOffsetY, setDragOffsetY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
@@ -171,6 +173,7 @@ export function ActivityBlock({
             prevEnd: block.end,
             nextStart: shiftTime(block.start, snapped),
             nextEnd: shiftTime(block.end, snapped),
+            metadata: block.metadata,
           }
           await Promise.resolve(onDragReschedule(block.id, payload))
         } finally {
@@ -210,7 +213,7 @@ export function ActivityBlock({
                 ? 'px-2 py-1'
                 : 'px-2.5 py-1.5'
               : 'px-3 py-2'
-      } ${isDragging ? 'z-50 cursor-grabbing opacity-90 shadow-card' : 'cursor-pointer'} ${
+      } ${isContinuation ? 'border-t-2 border-dashed' : isOvernight ? 'border-b-2 border-dashed' : ''} ${isDragging ? 'z-50 cursor-grabbing opacity-90 shadow-card' : 'cursor-pointer'} ${
         isHighlighted ? 'ring-2 ring-synkaPrimary/70 ring-offset-1' : ''
       }`}
       style={{
@@ -222,6 +225,8 @@ export function ActivityBlock({
         background: `linear-gradient(135deg, ${primaryPerson.colorTint}, ${primaryPerson.colorTint}cc)`,
         borderLeftWidth: 0,
         borderLeftColor: 'transparent',
+        borderTopColor: isContinuation ? primaryPerson.colorAccent : undefined,
+        borderBottomColor: !isContinuation && isOvernight ? primaryPerson.colorAccent : undefined,
         WebkitUserSelect: 'none',
         userSelect: 'none',
         WebkitTouchCallout: 'none',
@@ -289,6 +294,11 @@ export function ActivityBlock({
         </>
       )}
       <span className="flex min-h-0 min-w-0 flex-1 flex-col items-start justify-start gap-0 overflow-hidden pointer-events-none select-none">
+        {isContinuation && !showBlank && (
+          <span className="block w-full truncate text-caption font-semibold text-synkaNavy/50 mb-1">
+            ← fortsetter fra i går
+          </span>
+        )}
         {!showBlank && !isCompact && participants.length > 1 && (
           <div className="mb-1 flex items-center gap-1.5">
             {participants.slice(0, 4).map((p) => (
@@ -355,7 +365,7 @@ export function ActivityBlock({
           </>
         )}
       </span>
-      {onDragReschedule && !showBlank && (
+      {onDragReschedule && !showBlank && !isContinuation && (
         <button
           type="button"
           aria-label="Flytt hendelse"
@@ -379,6 +389,14 @@ export function ActivityBlock({
             <path strokeLinecap="round" strokeLinejoin="round" d="M8 6h8M8 12h8M8 18h8" />
           </svg>
         </button>
+      )}
+      {!isContinuation && isOvernight && !showBlank && (
+        <span
+          className="pointer-events-none absolute bottom-1.5 left-3 right-10 truncate text-caption font-semibold tabular-nums"
+          style={{ color: primaryPerson.colorAccent }}
+        >
+          → slutter {formatTime(block.end)}
+        </span>
       )}
     </motion.div>
   )

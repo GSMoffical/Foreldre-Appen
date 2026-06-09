@@ -10,7 +10,7 @@ import {
   tankestromConditionalBadgeLabelNb,
 } from '../lib/tankestromConditionalCopy'
 import { formatCalendarEventTimeLabel } from '../lib/schedule'
-import { formatTimeRange, durationMinutes } from '../lib/time'
+import { formatTime, formatTimeRange, durationMinutes } from '../lib/time'
 import { useFamily } from '../context/FamilyContext'
 import { getParticipantPeople } from '../lib/eventParticipants'
 import { TankestromScheduleDetails } from './TankestromScheduleDetails'
@@ -151,6 +151,14 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
     typeof event.metadata?.attendanceTime === 'string' ? event.metadata.attendanceTime.trim() : ''
   const endTimeIsComputed =
     event.metadata?.endTimeSource === 'computed_from_duration_and_aftertime'
+  const isContinuation = event.metadata?.__isContinuation === true
+  const continuationFromDate =
+    typeof event.metadata?.__continuationFromDate === 'string' ? event.metadata.__continuationFromDate : ''
+  const originalStart =
+    isContinuation && typeof event.metadata?.__originalStart === 'string'
+      ? event.metadata.__originalStart
+      : event.start
+  const displayEvent = isContinuation ? { ...event, start: originalStart } : event
 
   const scheduleGroups = useMemo(() => {
     const parsed = parseEmbeddedScheduleFromMetadata(event.metadata)
@@ -267,7 +275,12 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
             </p>
           ) : (
             <>
-              <p className="mt-2 text-body text-synkaNavy/70">{formatCalendarEventTimeLabel(event)}</p>
+              <p className="mt-2 text-body text-synkaNavy/70">{formatCalendarEventTimeLabel(displayEvent)}</p>
+              {isContinuation && continuationFromDate ? (
+                <p className="mt-1 text-caption text-synkaNavy/50">
+                  Hendelsen starter i går kl. {formatTime(originalStart)}
+                </p>
+              ) : null}
               {endTimeIsComputed ? (
                 <p className="mt-1 text-caption leading-snug text-zinc-500">Sluttid er beregnet</p>
               ) : null}
