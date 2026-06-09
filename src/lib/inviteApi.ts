@@ -10,7 +10,6 @@ export interface InviteInfo {
   invitedEmail: string | null
   expiresAt: string
   acceptedAt: string | null
-  fromEmail: string | null
   /** Owner’s family_members.id — invitee claims this parent row on accept */
   targetMemberId: string | null
 }
@@ -52,7 +51,6 @@ export async function getInviteByToken(token: string): Promise<InviteInfo | null
     invitedEmail: row.invited_email ?? null,
     expiresAt: row.expires_at,
     acceptedAt: row.accepted_at ?? null,
-    fromEmail: row.from_email ?? null,
     targetMemberId: row.target_member_id ?? null,
   }
 }

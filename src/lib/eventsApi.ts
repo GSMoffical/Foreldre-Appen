@@ -291,18 +291,6 @@ export async function deleteEventsByGroup(userId: string, groupId: string): Prom
   return true
 }
 
-export async function deleteAllEventsForUser(userId: string): Promise<boolean> {
-  const { error } = await supabase
-    .from('events')
-    .delete()
-    .eq('user_id', userId)
-  if (error) {
-    console.error('[eventsApi] deleteAllEventsForUser error', error)
-    return false
-  }
-  return true
-}
-
 /**
  * Owner-only bulk delete via a SECURITY DEFINER RPC that rejects linked (partner) users
  * at the database level. Use this instead of deleteAllEventsForUser in the app.

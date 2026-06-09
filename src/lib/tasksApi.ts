@@ -160,7 +160,8 @@ export async function createTask(userId: string, input: Omit<Task, 'id'>): Promi
 
 export async function updateTask(
   taskId: string,
-  updates: TaskUpdates
+  updates: TaskUpdates,
+  userId: string
 ): Promise<Task | null> {
   const payload: Record<string, unknown> = {}
   if (updates.title != null) payload.title = updates.title
@@ -178,6 +179,7 @@ export async function updateTask(
     .from('tasks')
     .update(payload)
     .eq('id', taskId)
+    .eq('user_id', userId)
     .select(TASK_COLUMNS)
     .single()
   if (error) {

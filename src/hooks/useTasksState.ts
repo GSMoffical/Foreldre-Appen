@@ -264,7 +264,7 @@ export function useTasksState(selectedDate: string) {
   }
 
   async function patchTask(taskId: string, oldDate: string, updates: TaskUpdates) {
-    if (!user) throw new Error('Must be signed in to edit tasks')
+    if (!user || !effectiveUserId) throw new Error('Must be signed in to edit tasks')
     fetchRequestIdRef.current++
     setLocalOverrides((prev) => new Map(prev).set(taskId, updates as Partial<Task>))
 
@@ -280,7 +280,7 @@ export function useTasksState(selectedDate: string) {
     })
 
     try {
-      const updated = await updateTaskApi(taskId, updates)
+      const updated = await updateTaskApi(taskId, updates, effectiveUserId)
       if (!updated) throw new Error('Could not update task')
       setRawTasksByDate((prev) => setTaskInByDate(prev, taskId, oldDate, newDate, updated))
     } catch (err) {

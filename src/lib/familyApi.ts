@@ -111,21 +111,6 @@ export async function addFamilyMember(
   return mapRowToPerson(data as Parameters<typeof mapRowToPerson>[0])
 }
 
-export async function deleteFamilyMember(userId: string, memberId: string): Promise<boolean> {
-  const { error } = await supabase
-    .from('family_members')
-    .delete()
-    .eq('user_id', userId)
-    .eq('id', memberId)
-
-  if (error) {
-    // eslint-disable-next-line no-console
-    console.error('[familyApi] deleteFamilyMember error', error)
-    return false
-  }
-  return true
-}
-
 export async function deleteFamilyMemberAndEvents(memberId: string): Promise<boolean> {
   const { data, error } = await supabase.rpc('delete_family_member_and_events_keep_owner', {
     p_member_id: memberId,
