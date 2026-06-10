@@ -276,6 +276,37 @@ function applyDefensiveArrangementNormalization(items: PortalProposalItem[]): Po
 type Step = 'pick' | 'review'
 export type TankestromInputMode = 'file' | 'text'
 
+export type TankestromAnalyzePickBlockedReason = 'no_people' | 'file_mode_no_files' | 'text_mode_empty'
+
+/** Hvorfor «Analyser» er deaktivert på pick-steget (null = kan kjøre). */
+export function getTankestromAnalyzePickBlockedReason(opts: {
+  hasPeople: boolean
+  inputMode: TankestromInputMode
+  pendingFileCount: number
+  textInput: string
+}): TankestromAnalyzePickBlockedReason | null {
+  if (!opts.hasPeople) return 'no_people'
+  if (opts.inputMode === 'file') {
+    if (opts.pendingFileCount === 0) return 'file_mode_no_files'
+    return null
+  }
+  if (!opts.textInput.trim()) return 'text_mode_empty'
+  return null
+}
+
+export function tankestromAnalyzePickBlockedMessageNb(reason: TankestromAnalyzePickBlockedReason): string {
+  switch (reason) {
+    case 'no_people':
+      return 'Legg til familiemedlemmer under Innstillinger før du kan analysere.'
+    case 'file_mode_no_files':
+      return 'Velg minst én fil, eller bytt til Tekst og lim inn innholdet.'
+    case 'text_mode_empty':
+      return 'Lim inn tekst i feltet over før du analyserer.'
+    default:
+      return 'Kan ikke analysere ennå.'
+  }
+}
+
 export type TankestromPendingFileStatus = 'ready' | 'analyzing' | 'done' | 'error'
 
 export interface TankestromPendingFile {
@@ -2606,7 +2637,7 @@ export function useTankestromImport({
   updatePerson,
 }: UseTankestromImportOptions) {
   const [step, setStep] = useState<Step>('pick')
-  const [inputMode, setInputMode] = useState<TankestromInputMode>('file')
+  const [inputMode, setInputMode] = useState<TankestromInputMode>('text')
   const [pendingFiles, setPendingFiles] = useState<TankestromPendingFile[]>([])
   const [textInput, setTextInput] = useState('')
   const [bundle, setBundle] = useState<PortalImportProposalBundle | null>(null)
@@ -3009,7 +3040,7 @@ export function useTankestromImport({
 
   const reset = useCallback(() => {
     setStep('pick')
-    setInputMode('file')
+    setInputMode('text')
     setPendingFiles([])
     setTextInput('')
     setBundle(null)
@@ -3487,12 +3518,26 @@ export function useTankestromImport({
   }, [])
 
   const runAnalyze = useCallback(async (): Promise<boolean> => {
+    if (isTankestromConsoleDebugEnabled()) {
+      console.info('[tankestrom runAnalyze enter]', {
+        inputMode,
+        textInputLength: textInput.length,
+        pendingFileCount: pendingFiles.length,
+        step,
+      })
+    }
     if (inputMode === 'file') {
       if (pendingFiles.length === 0) {
+        if (isTankestromConsoleDebugEnabled()) {
+          console.info('[tankestrom runAnalyze] early exit: file_mode_no_files')
+        }
         setError('Velg minst én fil.')
         return false
       }
     } else if (!textInput.trim()) {
+      if (isTankestromConsoleDebugEnabled()) {
+        console.info('[tankestrom runAnalyze] early exit: text_mode_empty')
+      }
       setError('Skriv inn tekst først.')
       return false
     }
@@ -3507,6 +3552,11 @@ export function useTankestromImport({
           : { inputMode, textCharCount: textInput.trim().length }
       )
       if (inputMode === 'text') {
+        if (isTankestromConsoleDebugEnabled()) {
+          console.info('[tankestrom runAnalyze] calling analyzeTextWithTankestrom', {
+            textCharCount: textInput.trim().length,
+          })
+        }
         const b = await analyzeTextWithTankestrom(textInput) as PortalImportProposalBundle
         if (isSchoolProfileBundle(b)) {
           setImportPipelineAnalyzeSnapshot(null)
@@ -3621,6 +3671,12 @@ export function useTankestromImport({
       for (const pf of queue) {
         patchPendingFile(pf.id, { status: 'analyzing', statusDetail: undefined })
         try {
+          if (isTankestromConsoleDebugEnabled()) {
+            console.info('[tankestrom runAnalyze] calling analyzeDocumentWithTankestrom', {
+              fileName: pf.file.name,
+              fileSize: pf.file.size,
+            })
+          }
           const b = await analyzeDocumentWithTankestrom(pf.file) as PortalImportProposalBundle
           if (!hasAnalyzeContent(b)) {
             patchPendingFile(pf.id, {
@@ -3789,13 +3845,18 @@ export function useTankestromImport({
       }
       return true
     } catch (e) {
+      if (isTankestromConsoleDebugEnabled()) {
+        console.warn('[tankestrom runAnalyze failed]', {
+          message: e instanceof Error ? e.message : String(e),
+        })
+      }
       addTankestromSentryBreadcrumb('tankestrom_analysis_failed', { reason: 'exception' })
       setError(e instanceof Error ? e.message : 'Analyse feilet.')
       return false
     } finally {
       setAnalyzeLoading(false)
     }
-  }, [inputMode, patchPendingFile, pendingFiles, people, textInput, validPersonIds])
+  }, [inputMode, patchPendingFile, pendingFiles, people, textInput, validPersonIds, step])
 
   /** Tømmer review-tilstand uten å gå til «Velg innhold» eller endre tekst/filer. */
   const clearReviewStateForReanalyze = useCallback(() => {

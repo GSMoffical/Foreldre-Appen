@@ -78,6 +78,8 @@ import {
   buildImportSelectionSummaryText,
   draftHasFrontendCanonicalEstimatedEnd,
   draftHasStartWithoutKnownEnd,
+  getTankestromAnalyzePickBlockedReason,
+  tankestromAnalyzePickBlockedMessageNb,
   type TankestromPendingFile,
   type TankestromImportSuccess,
 } from './useTankestromImport'
@@ -101,6 +103,7 @@ import { TankestromScheduleDetails } from '../../components/TankestromScheduleDe
 import { TankestromImportPreviewBoundary } from '../../components/TankestromImportPreviewBoundary'
 import { SchoolProfileFields } from '../../components/SchoolProfileFields'
 import { logEvent } from '../../lib/appLogger'
+import { isTankestromHttpDebugEnabled } from '../../lib/tankestromConsoleDebug'
 import { formatTimeRange } from '../../lib/time'
 import { TANKESTROM_FLIGHT_MISSING_END_LABEL } from '../../lib/tankestromFlightImportEnd'
 import {
@@ -2742,9 +2745,48 @@ export function TankestromImportDialog({
     overlayEditedDraftChanged,
   ])
 
-  if (!open) return null
-
   const hasPeople = people.length > 0
+
+  const analyzePickBlocked = useMemo(
+    () =>
+      getTankestromAnalyzePickBlockedReason({
+        hasPeople,
+        inputMode,
+        pendingFileCount: pendingFiles.length,
+        textInput,
+      }),
+    [hasPeople, inputMode, pendingFiles.length, textInput]
+  )
+
+  const handleAnalyzePickClick = useCallback(() => {
+    if (import.meta.env.DEV || isTankestromHttpDebugEnabled()) {
+      console.info('[tankestrom analyze click]', {
+        step,
+        inputMode,
+        textInputLength: textInput.length,
+        pendingFileCount: pendingFiles.length,
+        hasPeople,
+        analyzePickBlocked,
+        analyzeLoading,
+      })
+    }
+    logEvent('tankestrom_analyze_started', {
+      mode: inputMode,
+      fileCount: inputMode === 'file' ? pendingFiles.length : 0,
+    })
+    void runAnalyze()
+  }, [
+    step,
+    inputMode,
+    textInput,
+    pendingFiles.length,
+    hasPeople,
+    analyzePickBlocked,
+    analyzeLoading,
+    runAnalyze,
+  ])
+
+  if (!open) return null
 
   return (
     <div
@@ -5648,7 +5690,16 @@ export function TankestromImportDialog({
           </div>
         ) : null}
 
-        <div className="flex shrink-0 gap-2 border-t border-zinc-100 px-4 py-3">
+        <div className="flex shrink-0 flex-col gap-2 border-t border-zinc-100 px-4 py-3">
+          {step === 'pick' && analyzePickBlocked ? (
+            <p
+              className="text-[12px] leading-snug text-amber-900"
+              data-testid="tankestrom-analyze-blocked-hint"
+            >
+              {tankestromAnalyzePickBlockedMessageNb(analyzePickBlocked)}
+            </p>
+          ) : null}
+          <div className="flex gap-2">
           <Button type="button" variant="secondary" fullWidth={false} className="flex-1" onClick={handleClose}>
             Avbryt
           </Button>
@@ -5659,16 +5710,11 @@ export function TankestromImportDialog({
               className="flex-1"
               data-testid="tankestrom-analyze"
               loading={analyzeLoading}
-              disabled={
-                !hasPeople || (inputMode === 'file' ? pendingFiles.length === 0 : !textInput.trim())
+              disabled={analyzePickBlocked != null || analyzeLoading}
+              title={
+                analyzePickBlocked ? tankestromAnalyzePickBlockedMessageNb(analyzePickBlocked) : undefined
               }
-              onClick={() => {
-                logEvent('tankestrom_analyze_started', {
-                  mode: inputMode,
-                  fileCount: inputMode === 'file' ? pendingFiles.length : 0,
-                })
-                void runAnalyze()
-              }}
+              onClick={handleAnalyzePickClick}
             >
               Analyser
             </Button>
@@ -5713,6 +5759,7 @@ export function TankestromImportDialog({
                 : `Importer valgte (${importSelectionSummaryText})`}
             </Button>
           )}
+          </div>
         </div>
       </div>
     </div>
