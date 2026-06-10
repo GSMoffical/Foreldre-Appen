@@ -868,6 +868,18 @@ function App() {
         <OnboardingTour onComplete={() => setShowTour(false)} />
       )}
       <DebugOverlay />
+      {import.meta.env.DEV ? (
+        <button
+          type="button"
+          data-testid="tankestrom-import-open"
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden
+          onClick={() => openTankestromImport('settings')}
+        >
+          E2E: åpne Tankestrøm-import
+        </button>
+      ) : null}
       <Suspense fallback={null}>
         <TankestromImportDialog
           open={tankestromImportOpen}
