@@ -1,80 +1,74 @@
-/** Lightweight onboarding state — stored in localStorage, no external deps. */
-
 export interface TourStep {
   id: string
   title: string
   body: string
-  /** DOM element ID to ring-highlight; null = no spotlight */
   targetId: string | null
-  /**
-   * Explicit card placement override.
-   * 'top'    — card anchored near top of viewport (use when target is in lower screen half).
-   * 'bottom' — card anchored above BottomNav (default for top-of-screen targets).
-   * Omit to let OnboardingTour compute placement from measured ring position.
-   */
   cardPlacement?: 'top' | 'bottom' | 'center'
 }
 
 export const SHORT_TOUR_STEPS: TourStep[] = [
   {
-    id: 'today-nav',
-    title: 'Bytt visning og finn tilbake',
-    body: 'Knappen nederst til venstre sykler mellom visningene: «I dag» → «Uke» → «Måned» → tilbake til «I dag». Trykk «I dag» i verktøylinjen øverst for å hoppe direkte tilbake til dagens uke uansett hvor du er.',
-    targetId: 'onb-nav-cycle',
-    cardPlacement: 'center',
-  },
-  {
-    id: 'move-blocks',
-    title: 'Flytt blokker med dra/sveip',
-    body: 'I dagsvisning kan du dra i håndtaket på en hendelsesblokk for å flytte tidspunkt. I ukelisten kan du sveipe en rad til venstre for raske handlinger.',
-    targetId: 'onb-timeline',
+    id: 'week-strip',
+    title: 'Dette er dagen din',
+    body: '«I dag» er hjemmebasen din. Trykk på en dag i ukestripen øverst for å hoppe rett dit – perfekt når du skal sjekke onsdagen i farta.',
+    targetId: 'onb-week-strip',
     cardPlacement: 'bottom',
   },
   {
     id: 'add-event',
-    title: 'Legg til en hendelse',
-    body: '«+ Hendelse» oppretter noe med fast tid – fotball, trening, møter.',
+    title: 'Hendelser har et klokkeslett',
+    body: 'Fotball, tannlege, foreldremøte – alt med fast tid er en hendelse. Den lander som en farget blokk på tidslinjen.',
     targetId: 'onb-add-event',
+    cardPlacement: 'top',
+  },
+  {
+    id: 'drag-event',
+    title: 'Flytt hendelser med dra',
+    body: 'Trykk og hold på en hendelsesblokk for å flytte den til et nytt tidspunkt. Dra i håndtaket nederst til høyre.',
+    targetId: 'onb-timeline',
+    cardPlacement: 'top',
   },
   {
     id: 'tasks-tab',
-    title: 'Alle gjøremål samlet',
-    body: '«Gjøremål»-fanen viser alle åpne gjøremål på tvers av alle dager, sortert etter dato. Merk dem ferdige direkte der.',
+    title: 'Gjøremål – alt det andre',
+    body: 'Kjøpe melk, ringe skolen, sende skjema? Gjøremål er for alt uten fast klokkeslett. Samles her, sortert etter dato.',
     targetId: 'onb-tasks-tab',
-    cardPlacement: 'top', // target is in BottomNav — card must sit above the spotlight ring
+    cardPlacement: 'top',
+  },
+  {
+    id: 'tankestrom',
+    title: 'La Synka lese skoleskrivene',
+    body: 'Under «Mer» finner du Tankestrøm: last opp et skoleskriv, så lager den hendelser og gjøremål for deg. Litt magisk, faktisk.',
+    targetId: 'onb-mer-tab',
+    cardPlacement: 'top',
   },
 ]
 
 export const EXTRA_TOUR_STEPS: TourStep[] = [
   {
-    id: 'nav-week-strip',
-    title: 'Bytt dag raskt',
-    body: 'Trykk på en dag i ukeremsen for å se den dagen med en gang. Pilene blar uke for uke.',
-    targetId: 'onb-week-strip',
-  },
-  {
-    id: 'add-task',
-    title: 'Legg til et gjøremål',
-    body: '«+ Gjøremål» er for ting uten fast starttid – f.eks. ringe legen, kjøpe melk eller sende et skjema.',
-    targetId: 'onb-add-task',
-  },
-  {
     id: 'transport',
-    title: 'Levering og henting',
-    body: 'En fargestripe øverst på en hendelsesblokk (↑) viser hvem som leverer; en stripe nederst (↓) viser hvem som henter.',
+    title: 'Hvem leverer og henter?',
+    body: 'Stripen øverst på en hendelsesblokk viser hvem som leverer, stripen nederst hvem som henter. Ett blikk – null misforståelser.',
     targetId: null,
+    cardPlacement: 'center',
+  },
+  {
+    id: 'partner',
+    title: 'Del med partneren din',
+    body: 'Gå til Mer → Familie og inviter partneren din. Da ser dere samme kalender – og slipper «trodde du tok det?».',
+    targetId: null,
+    cardPlacement: 'center',
   },
 ]
 
 export interface OnboardingState {
   tourCompleted: boolean
   tourStep: number
-  /** IDs of one-time contextual hints already shown */
   seenHints: string[]
 }
 
 const STORAGE_KEY_PREFIX = 'foreldre_onboarding_v1'
-const storageKey = (userId: string) => `${STORAGE_KEY_PREFIX}_${userId}`
+const storageKey = (userId: string) => `${STORAGE_KEY_PREFIX}_${userId}` 
 
 export function loadOnboarding(userId: string): OnboardingState {
   try {
@@ -94,16 +88,4 @@ export function resetOnboarding(userId: string): void {
   try {
     localStorage.removeItem(storageKey(userId))
   } catch {}
-}
-
-export function hasSeenHint(hintId: string, userId: string): boolean {
-  return loadOnboarding(userId).seenHints.includes(hintId)
-}
-
-export function markHintSeen(hintId: string, userId: string): void {
-  const state = loadOnboarding(userId)
-  if (!state.seenHints.includes(hintId)) {
-    state.seenHints.push(hintId)
-    saveOnboarding(state, userId)
-  }
 }

@@ -38,7 +38,7 @@ export function BottomNav({ active, onSelect, logisticsNotifyCount = 0 }: Bottom
             return (
               <button
                 key={tab.id}
-                id={tab.id === 'tasks' ? 'onb-tasks-tab' : undefined}
+                id={tab.id === 'tasks' ? 'onb-tasks-tab' : tab.id === 'mer' ? 'onb-mer-tab' : undefined}
                 type="button"
                 onClick={() => onSelect?.(tab.id)}
                 aria-label={tab.label}

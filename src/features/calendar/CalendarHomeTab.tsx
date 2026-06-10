@@ -272,6 +272,7 @@ export function CalendarHomeTab({
                           </motion.button>
                           <div className="border-t border-synkaNavy/6" />
                           <motion.button
+                            id="onb-add-task"
                             type="button"
                             initial={reducedMotion ? false : { opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}

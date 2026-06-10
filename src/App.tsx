@@ -35,10 +35,9 @@ import { CalendarOverlays } from './features/calendar/CalendarOverlays'
 import { useEventController } from './features/calendar/hooks/useEventController'
 import { useTasksState } from './hooks/useTasksState'
 import { useTaskController } from './features/tasks/hooks/useTaskController'
-import { OnboardingTour } from './components/OnboardingTour'
 import { DebugOverlay } from './components/DebugOverlay'
-import { loadOnboarding, resetOnboarding } from './lib/onboarding'
-import { FamilySetupScreen, isFamilySetupSkipped } from './components/FamilySetupScreen'
+import { OnboardingTour } from './components/OnboardingTour'
+import { loadOnboarding, saveOnboarding } from './lib/onboarding'
 import { IconArrowLeft } from '@tabler/icons-react'
 import type { TankestromImportSuccess } from './features/tankestrom/useTankestromImport'
 
@@ -71,7 +70,7 @@ function App() {
   const { isOnline } = useNetworkStatus()
   const reducedMotion = useReducedMotion() ?? false
   const { user, loading } = useAuth()
-  const { refetch: refetchEffectiveUserId, isLinked, linkLoading, effectiveUserId } = useEffectiveUserId()
+  const { refetch: refetchEffectiveUserId, isLinked, effectiveUserId } = useEffectiveUserId()
   const {
     error: familyError,
     people,
@@ -351,15 +350,8 @@ function App() {
     dismissTankestromToast()
     setNotifyToast('Import angret')
   }, [tankestromToast, deleteEvent, dismissTankestromToast])
-  const [showTour, setShowTour] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
-  useEffect(() => {
-    if (!ENABLE_ONBOARDING) return
-    if (user && !loadOnboarding(user.id).tourCompleted) {
-      const t = setTimeout(() => setShowTour(true), 600)
-      return () => clearTimeout(t)
-    }
-  }, [user])
+  const [showTour, setShowTour] = useState(false)
   useEffect(() => {
     if (!user) return
     const createdAt = user.created_at ? new Date(user.created_at).getTime() : 0
@@ -375,16 +367,11 @@ function App() {
     }
   }, [])
 
-  const [familySetupDismissed, setFamilySetupDismissed] = useState(false)
   const [tankestromImportOpen, setTankestromImportOpen] = useState(false)
   const openTankestromImport = useCallback((source: 'settings' | 'toast') => {
     addTankestromSentryBreadcrumb('tankestrom_import_opened', { source })
     setTankestromImportOpen(true)
   }, [])
-  useEffect(() => {
-    if (user?.id && isFamilySetupSkipped(user.id)) setFamilySetupDismissed(true)
-  }, [user?.id])
-
   useEffect(() => {
     if (user) logEvent('session_start', { userId: user.id.slice(0, 8) })
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -485,19 +472,24 @@ function App() {
     )
   }
 
-  const hasChildren = people.some((p) => p.memberKind === 'child')
-  const needsFamilySetup =
-    !isLinked && !linkLoading && familyLoaded && !hasChildren && !familySetupDismissed
-
-  if (needsFamilySetup) {
+  if (ENABLE_ONBOARDING && showOnboarding) {
     return (
-      <AppShell>
-        <MobileFrame>
-          <FamilySetupScreen
-            onSkip={() => setFamilySetupDismissed(true)}
-          />
-        </MobileFrame>
-      </AppShell>
+      <Suspense fallback={null}>
+        <OnboardingFlow
+          onComplete={() => {
+            setShowOnboarding(false)
+            if (user) {
+              const tourState = loadOnboarding(user.id)
+              if (!tourState.tourCompleted) {
+                saveOnboarding({ ...tourState, tourStep: 0 }, user.id)
+                setShowTour(true)
+              }
+            } else {
+              setShowTour(true)
+            }
+          }}
+        />
+      </Suspense>
     )
   }
 
@@ -627,11 +619,9 @@ function App() {
                   <SettingsScreen
                     onClearAllEvents={clearAllEvents}
                     onRestartOnboarding={() => {
-                      resetOnboarding(user.id)
                       setNavTab('today')
                       setShowListView(false)
                       setMerSubScreen(null)
-                      setShowTour(true)
                     }}
                   />
                 </div>
@@ -859,14 +849,6 @@ function App() {
         </div>
       </MobileFrame>
 
-      {ENABLE_ONBOARDING && showOnboarding && (
-        <Suspense fallback={null}>
-          <OnboardingFlow onComplete={() => setShowOnboarding(false)} />
-        </Suspense>
-      )}
-      {ENABLE_ONBOARDING && showTour && (
-        <OnboardingTour onComplete={() => setShowTour(false)} />
-      )}
       <DebugOverlay />
       {import.meta.env.DEV ? (
         <button
@@ -880,6 +862,7 @@ function App() {
           E2E: åpne Tankestrøm-import
         </button>
       ) : null}
+      {showTour && <OnboardingTour onComplete={() => setShowTour(false)} />}
       <Suspense fallback={null}>
         <TankestromImportDialog
           open={tankestromImportOpen}
