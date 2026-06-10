@@ -44,6 +44,7 @@ export function MerScreen({ onNavigateSettings, onNavigateTankestrom, onNavigate
       >
         {/* Tankestrøm — featured */}
         <motion.button
+          id="onb-tankestrom-card"
           type="button"
           variants={reducedMotion ? undefined : cardItem(300)}
           onClick={onNavigateTankestrom}

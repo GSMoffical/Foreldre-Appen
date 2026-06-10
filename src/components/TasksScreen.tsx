@@ -1,6 +1,5 @@
 import { useState, useMemo, useCallback, type ReactNode } from 'react'
 import { motion, useReducedMotion, type Variants } from 'framer-motion'
-import { OnboardingHint } from './OnboardingHint'
 import { typHeading, typSectionCap, btnPrimaryPill, screenHeaderRow } from '../lib/ui'
 import { SectionDots } from './SectionDots'
 import type { Task, Person } from '../types'
@@ -510,10 +509,6 @@ export function TasksScreen({
 
   return (
     <div className="mt-3 flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden pb-4">
-      <OnboardingHint hintId="tasks_page">
-        Her samles alle gjøremålene dine for uken. Merk dem ferdige direkte i listen. Bruk «+ Nytt gjøremål» for å legge til nye.
-      </OnboardingHint>
-
       <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto scrollbar-none">
         {/* Screen header */}
         <div className={screenHeaderRow}>
