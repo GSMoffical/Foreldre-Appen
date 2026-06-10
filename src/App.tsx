@@ -36,6 +36,8 @@ import { useEventController } from './features/calendar/hooks/useEventController
 import { useTasksState } from './hooks/useTasksState'
 import { useTaskController } from './features/tasks/hooks/useTaskController'
 import { DebugOverlay } from './components/DebugOverlay'
+import { OnboardingTour } from './components/OnboardingTour'
+import { loadOnboarding, saveOnboarding } from './lib/onboarding'
 import { IconArrowLeft } from '@tabler/icons-react'
 import type { TankestromImportSuccess } from './features/tankestrom/useTankestromImport'
 
@@ -349,6 +351,7 @@ function App() {
     setNotifyToast('Import angret')
   }, [tankestromToast, deleteEvent, dismissTankestromToast])
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [showTour, setShowTour] = useState(false)
   useEffect(() => {
     if (!user) return
     const createdAt = user.created_at ? new Date(user.created_at).getTime() : 0
@@ -472,7 +475,20 @@ function App() {
   if (ENABLE_ONBOARDING && showOnboarding) {
     return (
       <Suspense fallback={null}>
-        <OnboardingFlow onComplete={() => setShowOnboarding(false)} />
+        <OnboardingFlow
+          onComplete={() => {
+            setShowOnboarding(false)
+            if (user) {
+              const tourState = loadOnboarding(user.id)
+              if (!tourState.tourCompleted) {
+                saveOnboarding({ ...tourState, tourStep: 0 }, user.id)
+                setShowTour(true)
+              }
+            } else {
+              setShowTour(true)
+            }
+          }}
+        />
       </Suspense>
     )
   }
@@ -834,6 +850,7 @@ function App() {
       </MobileFrame>
 
       <DebugOverlay />
+      {showTour && <OnboardingTour onComplete={() => setShowTour(false)} />}
       <Suspense fallback={null}>
         <TankestromImportDialog
           open={tankestromImportOpen}
