@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { loginAndOpenApp, openTankestromImportDialog } from './tankestrom-e2e-helpers'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const hostcupText = readFileSync(join(here, 'fixtures', 'hostcup-original.txt'), 'utf-8')
@@ -16,57 +17,6 @@ function analyzeUrlMatches(url: URL): boolean {
   if (p.includes('/api/analyze')) return true
   if (/\/analyze(\/|\?|$)/i.test(p)) return true
   return url.href.includes('/api/analyze')
-}
-
-async function loginAndOpenCalendar(page: import('@playwright/test').Page) {
-  const email = process.env.E2E_LOGIN_EMAIL?.trim()
-  const password = process.env.E2E_LOGIN_PASSWORD?.trim()
-  const hasE2EEmail = Boolean(email)
-  const hasE2EPassword = Boolean(password)
-  test.skip(!email || !password, 'Sett E2E_LOGIN_EMAIL og E2E_LOGIN_PASSWORD for innlogging.')
-
-  const innstillinger = page.getByRole('button', { name: /Innstillinger/i }).first()
-  const kalender = page.getByRole('button', { name: /Kalender/i }).first()
-  const oppgaver = page.getByRole('button', { name: /Oppgaver/i }).first()
-  const familyHeading = page.getByRole('heading', { name: 'Familie' }).first()
-  const waitForAuthenticatedShell = async (timeoutMs: number) => {
-    const candidates = [innstillinger, kalender, oppgaver, familyHeading]
-    await Promise.any(candidates.map((locator) => locator.waitFor({ state: 'visible', timeout: timeoutMs })))
-  }
-
-  await page.goto('/')
-  if (await innstillinger.isVisible().catch(() => false)) return
-
-  await page.getByLabel('E-post').fill(email)
-  await page.getByLabel('Passord').fill(password)
-  await page.getByRole('button', { name: 'Logg inn' }).click()
-  try {
-    await waitForAuthenticatedShell(25_000)
-  } catch {
-    const hasSupabaseUrl = Boolean(process.env.VITE_SUPABASE_URL?.trim())
-    const hasSupabaseAnonKey = Boolean(process.env.VITE_SUPABASE_ANON_KEY?.trim())
-    const hasAnalyzeUrl = Boolean(process.env.VITE_TANKESTROM_ANALYZE_URL?.trim())
-    const currentUrl = page.url()
-    const loginErrorText = (
-      (await page.locator('p.text-rose-600, [role="alert"]').first().textContent().catch(() => '')) ?? ''
-    ).trim()
-    const bodyText = (
-      (await page.locator('body').innerText().catch(() => '')) ?? ''
-    )
-      .replace(/\s+/g, ' ')
-      .slice(0, 500)
-    const screenshotPath = `test-results/login-failure-hostcup-${Date.now()}.png`
-    await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => undefined)
-    throw new Error(
-      `Innlogging nådde ikke en stabil "innlogget"-tilstand innen 25s. currentURL=${currentUrl}. hasE2EEmail=${hasE2EEmail}, hasE2EPassword=${hasE2EPassword}, hasSupabaseUrl=${hasSupabaseUrl}, hasSupabaseAnonKey=${hasSupabaseAnonKey}, hasAnalyzeUrl=${hasAnalyzeUrl}. loginError="${loginErrorText || '—'}". bodySnippet="${bodyText || '—'}". screenshot="${screenshotPath}".`
-    )
-  }
-
-  const skipFamily = page.getByRole('button', { name: 'Hopp over for nå' })
-  if (await skipFamily.isVisible().catch(() => false)) {
-    await skipFamily.click()
-    await waitForAuthenticatedShell(15_000)
-  }
 }
 
 test.describe('Tankestrom Høstcupen import-preview', () => {
@@ -113,15 +63,12 @@ test.describe('Tankestrom Høstcupen import-preview', () => {
   })
 
   test('viser forventet delprogram, høydepunkter og ryddig struktur (Høstcupen)', async ({ page }) => {
-    await loginAndOpenCalendar(page)
-
-    await page.getByRole('button', { name: /Innstillinger/i }).click()
-    await page.getByTestId('tankestrom-import-open').click()
+    await loginAndOpenApp(page)
+    await openTankestromImportDialog(page)
 
     const dialog = page.getByTestId('tankestrom-import-dialog')
     await expect(dialog).toBeVisible()
 
-    await dialog.getByRole('button', { name: 'Tekst' }).click()
     const textBox = dialog.getByTestId('tankestrom-import-text')
     await textBox.fill(hostcupText)
     await expect(textBox).toHaveValue(hostcupText)
