@@ -19,6 +19,8 @@ interface ImportMetaEnv {
   readonly VITE_DEBUG_SCHOOL_IMPORT?: string
   /** Sett til `true` for å vise import-debug-panelet for Tankestrøm (også utenfor DEV). */
   readonly VITE_SHOW_TANKESTROM_DEBUG?: string
+  /** Sett til `true` i Playwright webServer — aktiverer skjult E2E-inngang til import-dialogen. */
+  readonly VITE_E2E?: string
 }
 
 interface ImportMeta {

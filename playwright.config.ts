@@ -36,6 +36,7 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       ...process.env,
+      VITE_E2E: '1',
       VITE_TANKESTROM_ANALYZE_URL:
         process.env.VITE_TANKESTROM_ANALYZE_URL ?? 'http://127.0.0.1:3000/api/analyze',
     },

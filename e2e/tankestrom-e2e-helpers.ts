@@ -1,5 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 
+const E2E_OPEN_PARAM = 'e2eOpenTankestromImport'
+
 /** Venter til innlogget app-shell (ny bottom nav etter redesign). */
 export async function loginAndOpenApp(page: Page) {
   const email = process.env.E2E_LOGIN_EMAIL?.trim()
@@ -50,10 +52,53 @@ export async function loginAndOpenApp(page: Page) {
   }
 }
 
-/** Åpner import-dialogen med full delprogram-preview (E2E-hook i dev, ikke produksjons-UX). */
+export async function logTankestromPickState(page: Page, label: string) {
+  const dialog = page.getByTestId('tankestrom-import-dialog')
+  const dialogVisible = await dialog.isVisible().catch(() => false)
+  const textCount = await dialog.getByTestId('tankestrom-import-text').count()
+  const analyze = dialog.getByTestId('tankestrom-analyze')
+  const analyzeCount = await analyze.count()
+  const analyzeEnabled =
+    analyzeCount > 0 ? await analyze.isEnabled().catch(() => false) : false
+  const blockedHint =
+    (await dialog.getByTestId('tankestrom-analyze-blocked-hint').textContent().catch(() => '')) ?? ''
+  const snippet = ((await dialog.innerText().catch(() => '')) ?? '').replace(/\s+/g, ' ').slice(0, 400)
+  console.log(
+    `[e2e tankestrom ${label}] dialogVisible=${dialogVisible} textAreas=${textCount} analyzeCount=${analyzeCount} analyzeEnabled=${analyzeEnabled} blocked="${blockedHint.trim()}" snippet="${snippet}"`
+  )
+}
+
+/** Åpner import-dialogen med full delprogram-preview (VITE_E2E-hook, ikke produksjons-UX). */
 export async function openTankestromImportDialog(page: Page) {
   const opener = page.getByTestId('tankestrom-import-open')
-  await expect(opener).toBeAttached({ timeout: 15_000 })
-  await opener.click({ force: true })
-  await expect(page.getByTestId('tankestrom-import-dialog')).toBeVisible()
+  const openerCount = await opener.count()
+  console.log(`[e2e tankestrom open] openerCount=${openerCount} url=${page.url()}`)
+
+  if (openerCount > 0) {
+    await opener.click({ force: true })
+  } else {
+    const url = new URL(page.url())
+    url.searchParams.set(E2E_OPEN_PARAM, '1')
+    console.log(`[e2e tankestrom open] fallback goto ${url.toString()}`)
+    await page.goto(url.toString())
+  }
+
+  const dialog = page.getByTestId('tankestrom-import-dialog')
+  try {
+    await expect(dialog).toBeVisible({ timeout: 25_000 })
+  } catch {
+    const body = ((await page.locator('body').innerText().catch(() => '')) ?? '')
+      .replace(/\s+/g, ' ')
+      .slice(0, 600)
+    throw new Error(
+      `[e2e tankestrom open] Import-dialog ble ikke synlig. openerCount=${await opener.count()}, url=${page.url()}, bodySnippet="${body}"`
+    )
+  }
+
+  await logTankestromPickState(page, 'after-open')
+  await expect(
+    dialog.getByTestId('tankestrom-import-text'),
+    'Familie må være lastet før tekstfelt vises i import-dialogen'
+  ).toBeVisible({ timeout: 30_000 })
+  await logTankestromPickState(page, 'textarea-ready')
 }

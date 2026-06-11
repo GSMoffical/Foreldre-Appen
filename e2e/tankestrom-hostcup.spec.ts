@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { loginAndOpenApp, openTankestromImportDialog } from './tankestrom-e2e-helpers'
+import { loginAndOpenApp, openTankestromImportDialog, logTankestromPickState } from './tankestrom-e2e-helpers'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const hostcupText = readFileSync(join(here, 'fixtures', 'hostcup-original.txt'), 'utf-8')
@@ -72,10 +72,12 @@ test.describe('Tankestrom Høstcupen import-preview', () => {
     const textBox = dialog.getByTestId('tankestrom-import-text')
     await textBox.fill(hostcupText)
     await expect(textBox).toHaveValue(hostcupText)
+    await logTankestromPickState(page, 'after-fill')
 
     const analyzeBtn = dialog.getByTestId('tankestrom-analyze')
     await expect(analyzeBtn).toBeEnabled({ timeout: 15_000 })
     await analyzeBtn.click()
+    await logTankestromPickState(page, 'after-analyze-click')
 
     const reviewHeaderMarker = dialog.getByText('Limt inn tekst', { exact: true })
     const dialogError = dialog.locator('p.text-rose-600').first()

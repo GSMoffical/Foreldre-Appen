@@ -373,6 +373,13 @@ function App() {
     setTankestromImportOpen(true)
   }, [])
   useEffect(() => {
+    if (!user || import.meta.env.VITE_E2E !== 'true') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('e2eOpenTankestromImport') === '1') {
+      openTankestromImport('settings')
+    }
+  }, [user, openTankestromImport])
+  useEffect(() => {
     if (user) logEvent('session_start', { userId: user.id.slice(0, 8) })
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -471,6 +478,39 @@ function App() {
       </AppShell>
     )
   }
+
+  const isE2EBuild = import.meta.env.VITE_E2E === 'true'
+  const tankestromImportLayer = (
+    <>
+      {isE2EBuild ? (
+        <button
+          type="button"
+          data-testid="tankestrom-import-open"
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden
+          onClick={() => openTankestromImport('settings')}
+        >
+          E2E: åpne Tankestrøm-import
+        </button>
+      ) : null}
+      <Suspense fallback={null}>
+        <TankestromImportDialog
+          open={tankestromImportOpen}
+          onClose={() => setTankestromImportOpen(false)}
+          people={people}
+          createEvent={controller.createEvent}
+          createTask={taskController.createTask}
+          editEvent={controller.editEvent}
+          getAnchoredForegroundEventsForMatching={getAnchoredForegroundEventsForMatching}
+          prefetchEventsForDateRange={prefetchEventsForDateRange}
+          deleteEvent={deleteEvent}
+          updatePerson={updatePerson}
+          onImportFinished={openTankestromToast}
+        />
+      </Suspense>
+    </>
+  )
 
   if (ENABLE_ONBOARDING && showOnboarding) {
     return (
@@ -850,34 +890,8 @@ function App() {
       </MobileFrame>
 
       <DebugOverlay />
-      {import.meta.env.DEV ? (
-        <button
-          type="button"
-          data-testid="tankestrom-import-open"
-          className="sr-only"
-          tabIndex={-1}
-          aria-hidden
-          onClick={() => openTankestromImport('settings')}
-        >
-          E2E: åpne Tankestrøm-import
-        </button>
-      ) : null}
+      {tankestromImportLayer}
       {showTour && <OnboardingTour onComplete={() => setShowTour(false)} />}
-      <Suspense fallback={null}>
-        <TankestromImportDialog
-          open={tankestromImportOpen}
-          onClose={() => setTankestromImportOpen(false)}
-          people={people}
-          createEvent={controller.createEvent}
-          createTask={taskController.createTask}
-          editEvent={controller.editEvent}
-          getAnchoredForegroundEventsForMatching={getAnchoredForegroundEventsForMatching}
-          prefetchEventsForDateRange={prefetchEventsForDateRange}
-          deleteEvent={deleteEvent}
-          updatePerson={updatePerson}
-          onImportFinished={openTankestromToast}
-        />
-      </Suspense>
       <CalendarOverlays
         selectedEvent={selectedEvent}
         setSelectedEvent={setSelectedEvent}
