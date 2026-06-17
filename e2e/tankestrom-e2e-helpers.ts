@@ -75,7 +75,9 @@ export async function openTankestromImportDialog(page: Page) {
   console.log(`[e2e tankestrom open] openerCount=${openerCount} url=${page.url()}`)
 
   if (openerCount > 0) {
-    await opener.click({ force: true })
+    // Hooken er sr-only (utenfor viewport). dispatchEvent omgår viewport/actionability-sjekker
+    // og trigger React onClick direkte, uten å gjøre knappen prod-synlig.
+    await opener.dispatchEvent('click')
   } else {
     const url = new URL(page.url())
     url.searchParams.set(E2E_OPEN_PARAM, '1')
