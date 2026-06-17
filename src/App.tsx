@@ -65,6 +65,13 @@ const OnboardingFlow = lazy(() =>
 /** Set to true to re-enable the onboarding tour. */
 const ENABLE_ONBOARDING = true
 
+/**
+ * E2E-only flagg satt av Playwright webServer (`VITE_E2E`). Aksepterer både `'1'` og `'true'`
+ * slik at produsent/forbruker-kontrakten ikke kan gå i stykker på verdiformat.
+ * I prod-build er `VITE_E2E` udefinert → statisk false → all E2E-kode dead-code-strippes.
+ */
+const IS_E2E = import.meta.env.VITE_E2E === '1' || import.meta.env.VITE_E2E === 'true'
+
 function App() {
   useTimeOfDaySurface()
   const { isOnline } = useNetworkStatus()
@@ -373,7 +380,7 @@ function App() {
     setTankestromImportOpen(true)
   }, [])
   useEffect(() => {
-    if (!user || import.meta.env.VITE_E2E !== 'true') return
+    if (!user || !IS_E2E) return
     const params = new URLSearchParams(window.location.search)
     if (params.get('e2eOpenTankestromImport') === '1') {
       openTankestromImport('settings')
@@ -479,7 +486,7 @@ function App() {
     )
   }
 
-  const isE2EBuild = import.meta.env.VITE_E2E === 'true'
+  const isE2EBuild = IS_E2E
   const tankestromImportLayer = (
     <>
       {isE2EBuild ? (
