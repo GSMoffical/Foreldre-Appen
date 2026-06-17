@@ -2,7 +2,12 @@ import { test, expect } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { loginAndOpenApp, openTankestromImportDialog, logTankestromPickState } from './tankestrom-e2e-helpers'
+import {
+  loginAndOpenApp,
+  openTankestromImportDialog,
+  logTankestromPickState,
+  clickTankestromAnalyze,
+} from './tankestrom-e2e-helpers'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const vaacupText = readFileSync(join(here, 'fixtures', 'vaacup-original.txt'), 'utf-8')
@@ -74,11 +79,7 @@ test.describe('Tankestrom Vårcupen import-preview', () => {
     await expect(textBox).toHaveValue(vaacupText)
     await logTankestromPickState(page, 'after-fill')
 
-    const analyzeBtn = dialog.getByTestId('tankestrom-analyze')
-    await expect(analyzeBtn, 'Analyser-knappen må være aktiv (familie må være lastet).').toBeEnabled({
-      timeout: 15_000,
-    })
-    await analyzeBtn.click()
+    await clickTankestromAnalyze(page, dialog)
     await logTankestromPickState(page, 'after-analyze-click')
 
     // Review-header for tekstmodus viser alltid «Limt inn tekst» (unik for review, ikke pick-skjerm).

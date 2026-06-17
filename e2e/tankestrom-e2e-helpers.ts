@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Page, type Locator } from '@playwright/test'
 
 const E2E_OPEN_PARAM = 'e2eOpenTankestromImport'
 
@@ -103,4 +103,39 @@ export async function openTankestromImportDialog(page: Page) {
     'Familie må være lastet før tekstfelt vises i import-dialogen'
   ).toBeVisible({ timeout: 30_000 })
   await logTankestromPickState(page, 'textarea-ready')
+}
+
+/**
+ * Klikker «Analyser» robust. Den auto-retryende `toBeEnabled()`-matcheren kan henge til test-timeout
+ * på enkelte mobil-prosjekter selv når knappen faktisk er enabled; vi poller DOM `disabled` direkte
+ * og trigger React onClick via dispatchEvent (samme tilnærming som sr-only-hooken).
+ */
+export async function clickTankestromAnalyze(page: Page, dialog: Locator) {
+  const analyzeBtn = dialog.getByTestId('tankestrom-analyze')
+  await expect(analyzeBtn, 'Analyser-knappen må finnes i dialogen').toBeAttached({ timeout: 15_000 })
+
+  try {
+    await page.waitForFunction(
+      () => {
+        const btn = document.querySelector(
+          '[data-testid="tankestrom-analyze"]'
+        ) as HTMLButtonElement | null
+        return !!btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true'
+      },
+      null,
+      { timeout: 15_000 }
+    )
+  } catch {
+    await logTankestromPickState(page, 'analyze-still-disabled')
+    const blocked =
+      (await dialog
+        .getByTestId('tankestrom-analyze-blocked-hint')
+        .textContent()
+        .catch(() => '')) ?? ''
+    throw new Error(
+      `[e2e tankestrom analyze] Analyser-knappen ble ikke enabled innen 15s. blocked="${blocked.trim()}". Familie/inputMode/textInput må være klar.`
+    )
+  }
+
+  await analyzeBtn.dispatchEvent('click')
 }
