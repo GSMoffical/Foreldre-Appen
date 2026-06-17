@@ -106,36 +106,46 @@ export async function openTankestromImportDialog(page: Page) {
 }
 
 /**
- * Klikker «Analyser» robust. Den auto-retryende `toBeEnabled()`-matcheren kan henge til test-timeout
- * på enkelte mobil-prosjekter selv når knappen faktisk er enabled; vi poller DOM `disabled` direkte
- * og trigger React onClick via dispatchEvent (samme tilnærming som sr-only-hooken).
+ * Klikker «Analyser» robust. Playwrights auto-retryende expect-matchere (`toBeEnabled`, `toBeAttached`)
+ * kan henge til test-timeout på mobil selv når knappen faktisk er enabled. Vi poller DOM direkte
+ * via evaluate og klikker med native `.click()` (trigger React onClick uten actionability-sjekker).
  */
 export async function clickTankestromAnalyze(page: Page, dialog: Locator) {
   const analyzeBtn = dialog.getByTestId('tankestrom-analyze')
-  await expect(analyzeBtn, 'Analyser-knappen må finnes i dialogen').toBeAttached({ timeout: 15_000 })
+  console.log('[e2e tankestrom analyze] polling for enabled button')
 
-  try {
-    await page.waitForFunction(
-      () => {
-        const btn = document.querySelector(
-          '[data-testid="tankestrom-analyze"]'
-        ) as HTMLButtonElement | null
-        return !!btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true'
-      },
-      null,
-      { timeout: 15_000 }
-    )
-  } catch {
+  const deadline = Date.now() + 15_000
+  let lastState = { attached: false, disabled: true, blocked: '' as string }
+
+  while (Date.now() < deadline) {
+    lastState = await analyzeBtn
+      .evaluate((el) => {
+        const btn = el as HTMLButtonElement
+        const hint = btn
+          .closest('[data-testid="tankestrom-import-dialog"]')
+          ?.querySelector('[data-testid="tankestrom-analyze-blocked-hint"]')
+        return {
+          attached: true,
+          disabled: btn.disabled || btn.getAttribute('aria-disabled') === 'true',
+          blocked: hint?.textContent?.trim() ?? '',
+        }
+      })
+      .catch(() => ({ attached: false, disabled: true, blocked: '' as string }))
+
+    if (lastState.attached && !lastState.disabled) break
+    await page.waitForTimeout(100)
+  }
+
+  if (!lastState.attached || lastState.disabled) {
     await logTankestromPickState(page, 'analyze-still-disabled')
-    const blocked =
-      (await dialog
-        .getByTestId('tankestrom-analyze-blocked-hint')
-        .textContent()
-        .catch(() => '')) ?? ''
     throw new Error(
-      `[e2e tankestrom analyze] Analyser-knappen ble ikke enabled innen 15s. blocked="${blocked.trim()}". Familie/inputMode/textInput må være klar.`
+      `[e2e tankestrom analyze] Analyser-knappen ble ikke enabled innen 15s. attached=${lastState.attached} disabled=${lastState.disabled} blocked="${lastState.blocked}". Familie/inputMode/textInput må være klar.`
     )
   }
 
-  await analyzeBtn.dispatchEvent('click')
+  console.log('[e2e tankestrom analyze] clicking via DOM .click()')
+  await analyzeBtn.evaluate((el) => {
+    ;(el as HTMLButtonElement).click()
+  })
+  console.log('[e2e tankestrom analyze] click done')
 }
