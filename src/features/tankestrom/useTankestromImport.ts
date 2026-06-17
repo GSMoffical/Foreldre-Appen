@@ -276,6 +276,37 @@ function applyDefensiveArrangementNormalization(items: PortalProposalItem[]): Po
 type Step = 'pick' | 'review'
 export type TankestromInputMode = 'file' | 'text'
 
+export type TankestromAnalyzePickBlockedReason = 'no_people' | 'file_mode_no_files' | 'text_mode_empty'
+
+/** Hvorfor «Analyser» er deaktivert på pick-steget (null = kan kjøre). */
+export function getTankestromAnalyzePickBlockedReason(opts: {
+  hasPeople: boolean
+  inputMode: TankestromInputMode
+  pendingFileCount: number
+  textInput: string
+}): TankestromAnalyzePickBlockedReason | null {
+  if (!opts.hasPeople) return 'no_people'
+  if (opts.inputMode === 'file') {
+    if (opts.pendingFileCount === 0) return 'file_mode_no_files'
+    return null
+  }
+  if (!opts.textInput.trim()) return 'text_mode_empty'
+  return null
+}
+
+export function tankestromAnalyzePickBlockedMessageNb(reason: TankestromAnalyzePickBlockedReason): string {
+  switch (reason) {
+    case 'no_people':
+      return 'Legg til familiemedlemmer under Innstillinger før du kan analysere.'
+    case 'file_mode_no_files':
+      return 'Velg minst én fil, eller bytt til Tekst og lim inn innholdet.'
+    case 'text_mode_empty':
+      return 'Lim inn tekst i feltet over før du analyserer.'
+    default:
+      return 'Kan ikke analysere ennå.'
+  }
+}
+
 export type TankestromPendingFileStatus = 'ready' | 'analyzing' | 'done' | 'error'
 
 export interface TankestromPendingFile {
@@ -2606,7 +2637,7 @@ export function useTankestromImport({
   updatePerson,
 }: UseTankestromImportOptions) {
   const [step, setStep] = useState<Step>('pick')
-  const [inputMode, setInputMode] = useState<TankestromInputMode>('file')
+  const [inputMode, setInputMode] = useState<TankestromInputMode>('text')
   const [pendingFiles, setPendingFiles] = useState<TankestromPendingFile[]>([])
   const [textInput, setTextInput] = useState('')
   const [bundle, setBundle] = useState<PortalImportProposalBundle | null>(null)
@@ -3009,7 +3040,7 @@ export function useTankestromImport({
 
   const reset = useCallback(() => {
     setStep('pick')
-    setInputMode('file')
+    setInputMode('text')
     setPendingFiles([])
     setTextInput('')
     setBundle(null)
