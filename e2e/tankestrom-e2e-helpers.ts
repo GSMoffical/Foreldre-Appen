@@ -23,7 +23,7 @@ export async function loginAndOpenApp(page: Page) {
   if (await idagTab.isVisible().catch(() => false)) return
 
   await page.getByLabel('E-post').fill(email!)
-  await page.getByLabel('Passord').fill(password!)
+  await page.getByRole('textbox', { name: 'Passord' }).fill(password!)
   await page.getByRole('button', { name: 'Logg inn' }).click()
   try {
     await waitForAuthenticatedShell(25_000)
