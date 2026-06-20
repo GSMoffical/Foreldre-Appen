@@ -83,7 +83,14 @@ export function TankestrømPage({
   const textAnalyzePendingRef = useRef(false)
 
   const handleAnalyzeText = () => {
-    if (!textInput.trim() || analyzeLoading) return
+    if (!textInput.trim() || analyzeLoading || bundle) return
+    if (inputMode === 'text') {
+      // Tekst er nå standard inputmodus, så setInputMode('text') gir ingen tilstandsendring
+      // (ingen re-render → effekten under trigges ikke). Start analysen direkte.
+      logEvent('tankestrom_analyze_started', { mode: 'text', textLength: textInput.length })
+      void runAnalyze()
+      return
+    }
     setInputMode('text')
     textAnalyzePendingRef.current = true
   }
