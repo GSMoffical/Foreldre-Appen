@@ -1,7 +1,10 @@
 import { initSentryClient } from './lib/sentry'
+import { isNative } from './lib/capacitor'
+import { initNativeShell } from './lib/nativeShell'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import App from './App'
+import { RouterProvider } from 'react-router-dom'
+import { router } from './router'
 import './index.css'
 import { AuthProvider } from './context/AuthContext'
 import { EffectiveUserIdProvider } from './context/EffectiveUserIdContext'
@@ -9,6 +12,13 @@ import { FamilyProvider } from './context/FamilyContext'
 import { ProfileProvider } from './context/ProfileContext'
 import { UserPreferencesProvider } from './context/UserPreferencesContext'
 import { UndoProvider } from './context/UndoContext'
+
+// On a native shell, Capacitor manages the viewport and safe areas directly.
+// Remove the web-only body top padding so it is not applied twice.
+if (isNative()) {
+  document.body.style.paddingTop = '0'
+  void initNativeShell()
+}
 
 initSentryClient()
 
@@ -28,7 +38,7 @@ createRoot(document.getElementById('root')!).render(
           <ProfileProvider>
             <UserPreferencesProvider>
               <UndoProvider>
-                <App />
+                <RouterProvider router={router} />
               </UndoProvider>
             </UserPreferencesProvider>
           </ProfileProvider>

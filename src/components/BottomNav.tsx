@@ -1,12 +1,13 @@
 import { LayoutGroup, motion } from 'framer-motion'
-import { IconCalendar, IconHome, IconCheck, IconMenu2 } from '@tabler/icons-react'
+import { IconCalendar, IconCheck, IconUsers, IconMenu2 } from '@tabler/icons-react'
 import type { Icon } from '@tabler/icons-react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { springSnappy } from '../lib/motion'
 
-export type NavTab = 'month' | 'today' | 'tasks' | 'mer'
+export type NavTab = 'kalender' | 'tasks' | 'familie' | 'mer'
 
 interface BottomNavProps {
-  active: NavTab
+  /** Optional side-effect hook fired after navigation (e.g. analytics, list-view reset). */
   onSelect?: (tab: NavTab) => void
   logisticsNotifyCount?: number
 }
@@ -18,13 +19,24 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  { id: 'month', label: 'Måned', Icon: IconCalendar },
-  { id: 'today', label: 'I dag', Icon: IconHome },
+  { id: 'kalender', label: 'I dag', Icon: IconCalendar },
   { id: 'tasks', label: 'Gjøremål', Icon: IconCheck },
+  { id: 'familie', label: 'Familie', Icon: IconUsers },
   { id: 'mer', label: 'Mer', Icon: IconMenu2 },
 ]
 
-export function BottomNav({ active, onSelect, logisticsNotifyCount = 0 }: BottomNavProps) {
+/** Derive the active top-level tab from the current pathname. */
+function activeTabFromPath(pathname: string): NavTab {
+  if (pathname.startsWith('/tasks')) return 'tasks'
+  if (pathname.startsWith('/familie')) return 'familie'
+  if (pathname.startsWith('/mer')) return 'mer'
+  return 'kalender'
+}
+
+export function BottomNav({ onSelect, logisticsNotifyCount = 0 }: BottomNavProps) {
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const active = activeTabFromPath(pathname)
   return (
     <nav className="relative flex h-[72px] min-h-[72px] w-full max-w-full min-w-0 shrink-0 items-stretch overflow-x-hidden overflow-y-visible px-4 py-2">
       <div
@@ -40,7 +52,10 @@ export function BottomNav({ active, onSelect, logisticsNotifyCount = 0 }: Bottom
                 key={tab.id}
                 id={tab.id === 'tasks' ? 'onb-tasks-tab' : tab.id === 'mer' ? 'onb-mer-tab' : undefined}
                 type="button"
-                onClick={() => onSelect?.(tab.id)}
+                onClick={() => {
+                  navigate(`/${tab.id}`)
+                  onSelect?.(tab.id)
+                }}
                 aria-label={tab.label}
                 className={`relative z-0 flex flex-1 flex-col items-center justify-center gap-1 overflow-visible rounded-md py-2 transition-colors touch-manipulation ${
                   isActive ? 'text-white' : 'text-synkaNavy/50 hover:bg-synkaCream/25'

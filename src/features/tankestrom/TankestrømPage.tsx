@@ -13,7 +13,7 @@ import { logEvent } from '../../lib/appLogger'
 const TANKESTROM_FILE_ACCEPT =
   'image/*,.pdf,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
-interface TankestrømPageProps {
+export interface TankestrømPageProps {
   onBack: () => void
   people: Person[]
   createEvent: (date: string, input: Omit<Event, 'id'>) => Promise<void>

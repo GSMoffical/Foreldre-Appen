@@ -6,14 +6,8 @@ import {
   IconChevronRight,
 } from '@tabler/icons-react'
 import { motion, useReducedMotion, type Variants } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { SectionDots } from './SectionDots'
-
-interface MerScreenProps {
-  onNavigateSettings: () => void
-  onNavigateTankestrom?: () => void
-  onNavigateFamilie?: () => void
-  onNavigateHjelp?: () => void
-}
 
 const CARDS_CONTAINER: Variants = {
   hidden: {},
@@ -26,8 +20,9 @@ const cardItem = (durationMs: number): Variants => ({
   visible: { opacity: 1, y: 0, transition: { duration: durationMs / 1000, ease: 'easeOut' } },
 })
 
-export function MerScreen({ onNavigateSettings, onNavigateTankestrom, onNavigateFamilie, onNavigateHjelp }: MerScreenProps) {
+export function MerScreen() {
   const reducedMotion = useReducedMotion() ?? false
+  const navigate = useNavigate()
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-synkaCream">
       <div className="flex items-center gap-2 px-4 pt-6 pb-4">
@@ -47,7 +42,7 @@ export function MerScreen({ onNavigateSettings, onNavigateTankestrom, onNavigate
           id="onb-tankestrom-card"
           type="button"
           variants={reducedMotion ? undefined : cardItem(300)}
-          onClick={onNavigateTankestrom}
+          onClick={() => navigate('/mer/tankestrom')}
           className="flex w-full items-center gap-3 rounded-md border border-synkaTeal/30 bg-synkaTeal/10 p-4 text-left cursor-pointer touch-manipulation active:bg-synkaCream/50"
         >
           <div className="flex w-9 h-9 shrink-0 items-center justify-center rounded-md bg-synkaNavy">
@@ -69,7 +64,7 @@ export function MerScreen({ onNavigateSettings, onNavigateTankestrom, onNavigate
         <motion.button
           type="button"
           variants={reducedMotion ? undefined : cardItem(200)}
-          onClick={onNavigateFamilie}
+          onClick={() => navigate('/familie')}
           className="flex items-center gap-3 p-4 bg-white rounded-md touch-manipulation active:bg-synkaCream text-left w-full"
         >
           <div className="flex w-9 h-9 shrink-0 items-center justify-center rounded-md bg-synkaPrimary">
@@ -86,7 +81,7 @@ export function MerScreen({ onNavigateSettings, onNavigateTankestrom, onNavigate
         <motion.button
           type="button"
           variants={reducedMotion ? undefined : cardItem(200)}
-          onClick={onNavigateSettings}
+          onClick={() => navigate('/mer/innstillinger')}
           className="flex items-center gap-3 p-4 bg-white rounded-md touch-manipulation active:bg-synkaCream text-left w-full"
         >
           <div className="flex w-9 h-9 shrink-0 items-center justify-center rounded-md bg-synkaNavy">
@@ -103,7 +98,7 @@ export function MerScreen({ onNavigateSettings, onNavigateTankestrom, onNavigate
         <motion.button
           type="button"
           variants={reducedMotion ? undefined : cardItem(200)}
-          onClick={onNavigateHjelp}
+          onClick={() => navigate('/mer/hjelp')}
           className="flex items-center gap-3 p-4 bg-white rounded-md touch-manipulation active:bg-synkaCream text-left w-full"
         >
           <div className="flex w-9 h-9 shrink-0 items-center justify-center rounded-md border border-synkaNavy/10 bg-synkaCream">
