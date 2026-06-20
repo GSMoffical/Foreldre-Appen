@@ -19,6 +19,32 @@ function analyzeUrlMatches(url: URL): boolean {
   return url.href.includes('/api/analyze')
 }
 
+/** Nye brukere kan få onboarding-flyten rett etter login; skru trygt forbi den. */
+async function dismissOnboardingIfPresent(page: import('@playwright/test').Page) {
+  const onboarding = page.getByRole('dialog', { name: 'Onboarding' })
+  const appeared = await onboarding
+    .waitFor({ state: 'visible', timeout: 3000 })
+    .then(() => true)
+    .catch(() => false)
+  if (!appeared) return
+  // Klikk gjennom velkomst-/hopp-over-stegene til dialogen forsvinner (maks 6 forsøk).
+  const advanceButtonNames = [/Kom i gang/i, /Hopp over for nå/i, /Hopp over/i, /Åpne kalenderen/i]
+  for (let i = 0; i < 6; i++) {
+    if (!(await onboarding.isVisible().catch(() => false))) return
+    let advanced = false
+    for (const name of advanceButtonNames) {
+      const btn = onboarding.getByRole('button', { name }).first()
+      if (await btn.isVisible().catch(() => false)) {
+        await btn.click().catch(() => undefined)
+        advanced = true
+        break
+      }
+    }
+    if (!advanced) return
+    await page.waitForTimeout(350)
+  }
+}
+
 async function loginAndOpenCalendar(page: import('@playwright/test').Page) {
   const email = process.env.E2E_LOGIN_EMAIL?.trim()
   const password = process.env.E2E_LOGIN_PASSWORD?.trim()
@@ -26,21 +52,28 @@ async function loginAndOpenCalendar(page: import('@playwright/test').Page) {
   const hasE2EPassword = Boolean(password)
   test.skip(!email || !password, 'Sett E2E_LOGIN_EMAIL og E2E_LOGIN_PASSWORD for innlogging.')
 
-  const innstillinger = page.getByRole('button', { name: /Innstillinger/i }).first()
-  const kalender = page.getByRole('button', { name: /Kalender/i }).first()
-  const oppgaver = page.getByRole('button', { name: /Oppgaver/i }).first()
-  const familyHeading = page.getByRole('heading', { name: 'Familie' }).first()
+  // Etter navigasjons-redesignet er den innloggede shellen bunnmenyen (BottomNav),
+  // ikke lenger topp-knapper «Innstillinger/Kalender/Oppgaver» eller en «Familie»-heading.
+  const navHome = page.getByRole('button', { name: 'I dag', exact: true }).first()
+  const navMonth = page.getByRole('button', { name: 'Måned', exact: true }).first()
+  const navTasks = page.getByRole('button', { name: 'Gjøremål', exact: true }).first()
+  const navMer = page.getByRole('button', { name: 'Mer', exact: true }).first()
   const waitForAuthenticatedShell = async (timeoutMs: number) => {
-    const candidates = [innstillinger, kalender, oppgaver, familyHeading]
+    const candidates = [navHome, navMonth, navTasks, navMer]
     await Promise.any(candidates.map((locator) => locator.waitFor({ state: 'visible', timeout: timeoutMs })))
   }
 
   await page.goto('/')
-  if (await innstillinger.isVisible().catch(() => false)) return
+  if (await navMer.isVisible().catch(() => false)) return
 
   await page.getByLabel('E-post').fill(email)
   await page.getByRole('textbox', { name: 'Passord' }).fill(password)
   await page.getByRole('button', { name: 'Logg inn' }).click()
+
+  // Nye brukere kan møte onboarding-flyten rett etter login; skru trygt forbi den
+  // FØR vi venter på shellen (onboarding erstatter shellen mens den vises).
+  await dismissOnboardingIfPresent(page)
+
   try {
     await waitForAuthenticatedShell(25_000)
   } catch {
@@ -48,6 +81,15 @@ async function loginAndOpenCalendar(page: import('@playwright/test').Page) {
     const hasSupabaseAnonKey = Boolean(process.env.VITE_SUPABASE_ANON_KEY?.trim())
     const hasAnalyzeUrl = Boolean(process.env.VITE_TANKESTROM_ANALYZE_URL?.trim())
     const currentUrl = page.url()
+    const loginButtonVisible = await page
+      .getByRole('button', { name: 'Logg inn' })
+      .isVisible()
+      .catch(() => false)
+    const onboardingVisible = await page
+      .getByRole('dialog', { name: 'Onboarding' })
+      .isVisible()
+      .catch(() => false)
+    const shellVisible = await navMer.isVisible().catch(() => false)
     const loginErrorText = (
       (await page.locator('p.text-rose-600, [role="alert"]').first().textContent().catch(() => '')) ?? ''
     ).trim()
@@ -59,14 +101,8 @@ async function loginAndOpenCalendar(page: import('@playwright/test').Page) {
     const screenshotPath = `test-results/login-failure-vaacup-${Date.now()}.png`
     await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => undefined)
     throw new Error(
-      `Innlogging nådde ikke en stabil "innlogget"-tilstand innen 25s. currentURL=${currentUrl}. hasE2EEmail=${hasE2EEmail}, hasE2EPassword=${hasE2EPassword}, hasSupabaseUrl=${hasSupabaseUrl}, hasSupabaseAnonKey=${hasSupabaseAnonKey}, hasAnalyzeUrl=${hasAnalyzeUrl}. loginError="${loginErrorText || '—'}". bodySnippet="${bodyText || '—'}". screenshot="${screenshotPath}".`
+      `Innlogging nådde ikke en stabil "innlogget"-tilstand innen 25s. currentURL=${currentUrl}. hasE2EEmail=${hasE2EEmail}, hasE2EPassword=${hasE2EPassword}, hasSupabaseUrl=${hasSupabaseUrl}, hasSupabaseAnonKey=${hasSupabaseAnonKey}, hasAnalyzeUrl=${hasAnalyzeUrl}. loginButtonVisible=${loginButtonVisible}, onboardingVisible=${onboardingVisible}, shellVisible=${shellVisible}. loginError="${loginErrorText || '—'}". bodySnippet="${bodyText || '—'}". screenshot="${screenshotPath}".`
     )
-  }
-
-  const skipFamily = page.getByRole('button', { name: 'Hopp over for nå' })
-  if (await skipFamily.isVisible().catch(() => false)) {
-    await skipFamily.click()
-    await waitForAuthenticatedShell(15_000)
   }
 }
 
@@ -112,54 +148,36 @@ test.describe('Tankestrom Vårcupen import-preview', () => {
     })
   })
 
-  test('viser forventet delprogram og høydepunkter (Vårcupen)', async ({ page }) => {
+  test('åpner Tankestrøm fra Mer og viser forslag etter analyse (Vårcupen, smoke)', async ({ page }) => {
     await loginAndOpenCalendar(page)
 
-    await page.getByRole('button', { name: /Innstillinger/i }).click()
-    await page.getByTestId('tankestrom-import-open').click()
+    // Dagens primærflyt: BottomNav → Mer → Tankestrøm (TankestrømPage).
+    await page.getByRole('button', { name: 'Mer', exact: true }).click()
+    await page.getByRole('button', { name: /Tankestrøm/i }).first().click()
 
-    const dialog = page.getByTestId('tankestrom-import-dialog')
-    await expect(dialog).toBeVisible()
-
-    await dialog.getByRole('button', { name: 'Tekst' }).click()
-    const textBox = dialog.getByTestId('tankestrom-import-text')
+    // TankestrømPage: åpne tekst-seksjonen og lim inn fixture-teksten.
+    await page.getByRole('button', { name: /Eller lim inn tekst/i }).click()
+    const textBox = page.getByPlaceholder(/Lim inn ukeplan/i)
     await textBox.fill(vaacupText)
     await expect(textBox).toHaveValue(vaacupText)
 
-    const analyzeBtn = dialog.getByTestId('tankestrom-analyze')
+    const analyzeBtn = page.getByRole('button', { name: 'Analyser tekst' })
     await expect(analyzeBtn, 'Analyser-knappen må være aktiv (familie må være lastet).').toBeEnabled({
       timeout: 15_000,
     })
     await analyzeBtn.click()
 
-    // Review-header for tekstmodus viser alltid «Limt inn tekst» (unik for review, ikke pick-skjerm).
-    // Unngå getByRole('button', { name: 'Analyser på nytt' }): ved loading=true har Button kun spinner (aria-hidden), uten tekstnavn.
-    const reviewHeaderMarker = dialog.getByText('Limt inn tekst', { exact: true })
-    const dialogError = dialog.locator('p.text-rose-600').first()
-
-    let outcome: 'review' | 'error' | 'timeout'
-    try {
-      outcome = await Promise.race([
-        reviewHeaderMarker.waitFor({ state: 'visible', timeout: 65_000 }).then(() => 'review' as const),
-        dialogError.waitFor({ state: 'visible', timeout: 65_000 }).then(() => 'error' as const),
-      ])
-    } catch {
-      outcome = 'timeout'
-    }
-
-    if (outcome === 'error') {
-      const msg = (await dialogError.textContent())?.trim() ?? '(tom feilmelding)'
+    // Forslag dukker opp på siden (mock /api/analyze må ha truffet).
+    const proposalsMarker = page.getByText('Foreslåtte hendelser')
+    const sawProposals = await proposalsMarker
+      .waitFor({ state: 'visible', timeout: 65_000 })
+      .then(() => true)
+      .catch(() => false)
+    if (!sawProposals) {
       throw new Error(
-        `Analyse feilet i UI: ${msg}. Mock POST-treff: ${mockStats.post}, OPTIONS: ${mockStats.options}, siste POST-URL: ${mockStats.lastPostUrl || '—'}`
+        `Forslag («Foreslåtte hendelser») kom ikke til syne innen 65s. Mock POST-treff: ${mockStats.post}, OPTIONS: ${mockStats.options}, siste POST-URL: ${mockStats.lastPostUrl || '—'}. Sjekk trace (Network + skjermbilde).`
       )
     }
-    if (outcome === 'timeout') {
-      throw new Error(
-        `Verken review («Limt inn tekst») eller feilmelding innen 65s. Mock POST-treff: ${mockStats.post}, OPTIONS: ${mockStats.options}, siste POST-URL: ${mockStats.lastPostUrl || '—'}. Sjekk trace (Network + skjermbilde).`
-      )
-    }
-
-    await expect(reviewHeaderMarker).toBeVisible()
 
     if (useMock) {
       expect(
@@ -168,77 +186,10 @@ test.describe('Tankestrom Vårcupen import-preview', () => {
       ).toBeGreaterThan(0)
     }
 
-    const confirm = page.getByTestId('tankestrom-import-confirm')
-    await expect(confirm).toBeVisible({ timeout: 15_000 })
-    await expect(confirm).toContainText('Importer valgte (1 arrangement / 2 hendelser)')
-
-    const friday = dialog.getByTestId('tankestrom-delprogram-day-2026-06-12')
-    const saturday = dialog.getByTestId('tankestrom-delprogram-day-2026-06-13')
-    const sunday = dialog.getByTestId('tankestrom-delprogram-day-2026-06-14')
-
-    await expect(friday).toBeVisible()
-    await expect(saturday).toBeVisible()
-    await expect(sunday).toBeVisible()
-
-    await expect(friday).toContainText(/Vårcupen.*– fredag/)
-    await expect(saturday).toContainText(/Vårcupen.*– lørdag/)
-    await expect(sunday).toContainText(/Vårcupen.*– søndag/)
-
-    /** Ikke ønskede «høydepunkt»-snutter i program (fredag/lørdag/søndag). */
-    const forbiddenHighlightSnippets = ['16:50', '19:15', '20:00', '18:40 Oppmøte'] as const
-
-    await friday.getByRole('button', { name: /Vårcupen.*– fredag/ }).click()
-    const friHi = friday.getByTestId('tankestrom-schedule-highlights-2026-06-12')
-    await expect(friHi).toBeVisible()
-    await expect(friHi).toContainText('17:45')
-    await expect(friHi).toContainText('Oppmøte')
-    await expect(friHi).toContainText('18:40')
-    await expect(friHi).toContainText('Første kamp')
-    for (const bad of forbiddenHighlightSnippets) {
-      await expect(friHi).not.toContainText(bad)
-    }
-
-    await saturday.getByRole('button', { name: /Vårcupen.*– lørdag/ }).click()
-    const lorHi = saturday.getByTestId('tankestrom-schedule-highlights-2026-06-13')
-    await expect(lorHi).toBeVisible()
-    await expect(lorHi).toContainText('08:35')
-    await expect(lorHi).toContainText('Oppmøte før første kamp')
-    await expect(lorHi).toContainText('09:20')
-    await expect(lorHi).toContainText('Første kamp')
-    await expect(lorHi).toContainText('14:25')
-    await expect(lorHi).toContainText('Oppmøte før andre kamp')
-    await expect(lorHi).toContainText('15:10')
-    await expect(lorHi).toContainText('Andre kamp')
-    for (const bad of forbiddenHighlightSnippets) {
-      await expect(lorHi).not.toContainText(bad)
-    }
-
-    await expect(sunday.getByText('Foreløpig')).toBeVisible()
-    await sunday.getByRole('button', { name: /Vårcupen.*– søndag/ }).click()
-    await expect(sunday.getByText('Ikke endelig avklart')).toBeVisible()
-
-    // Read-only UI rendrer ikke nødvendigvis notes-testid for søndag; krev maks én notes-boks (ingen dobbel notes).
-    const sunNotesBlocks = sunday.locator('[data-testid="tankestrom-schedule-notes-2026-06-14"]')
-    const sunNotesBlockCount = await sunNotesBlocks.count()
-    expect(
-      sunNotesBlockCount,
-      'Søndag skal ha 0 eller 1 strukturert notes-blokk (ikke dobbel notes-rendering).'
-    ).toBeLessThanOrEqual(1)
-    if (sunNotesBlockCount === 1) {
-      const noteItems = sunNotesBlocks.first().locator('ul li')
-      expect(await noteItems.count(), 'Når notes vises: én rad, ikke duplikatliste').toBeLessThanOrEqual(1)
-    }
-
-    const sunHi = sunday.getByTestId('tankestrom-schedule-highlights-2026-06-14')
-    if ((await sunHi.count()) > 0) {
-      await expect(sunHi).toBeVisible()
-      for (const bad of forbiddenHighlightSnippets) {
-        await expect(sunHi).not.toContainText(bad)
-      }
-    }
-
-    for (const bad of forbiddenHighlightSnippets) {
-      await expect(sunday).not.toContainText(bad)
-    }
+    // Import-CTA og forventet arrangementstittel vises.
+    // Rik delprogram-/høydepunkt-preview er flyttet til komponenttest
+    // (src/features/tankestrom/__tests__/tankestromImportDialogPreview.test.tsx).
+    await expect(page.getByRole('button', { name: /Legg til \d+ hendelse/i })).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText(/Vårcupen/i).first()).toBeVisible()
   })
 })
