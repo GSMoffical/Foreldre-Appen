@@ -5,7 +5,7 @@ import { useAuth } from './context/AuthContext'
 import { AuthScreen } from './components/AuthScreen'
 import { AppShell } from './components/AppShell'
 import { MobileFrame } from './components/MobileFrame'
-import { CalendarHomeTab } from './features/calendar/CalendarHomeTab'
+import { KalenderScreen } from './features/calendar/KalenderScreen'
 import { TasksScreen } from './components/TasksScreen'
 import { MerScreen } from './components/MerScreen'
 import { AppLayout, type AppOutletContext } from './App'
@@ -60,11 +60,6 @@ function AuthGuard() {
 // ── Routed screens ──────────────────────────────────────────────────────────────
 // Thin wrappers that pull their ready-to-spread props from the AppLayout outlet
 // context. The screen components themselves are mounted here but otherwise unchanged.
-
-function KalenderRoute() {
-  const ctx = useAppOutletContext()
-  return <CalendarHomeTab {...ctx.calendar} />
-}
 
 function TasksRoute() {
   const ctx = useAppOutletContext()
@@ -145,7 +140,7 @@ export const router = createHashRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: 'kalender', element: <KalenderRoute /> },
+          { path: 'kalender', element: <KalenderScreen /> },
           { path: 'tasks', element: <TasksRoute /> },
           { path: 'familie', element: <FamilieRoute /> },
           {

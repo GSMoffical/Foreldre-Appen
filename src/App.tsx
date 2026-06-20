@@ -24,7 +24,7 @@ import { useNetworkStatus } from './hooks/useNetworkStatus'
 import { startUxTimer, endUxTimer, logUxMetric } from './lib/uxMetrics'
 import { logEvent } from './lib/appLogger'
 import { addTankestromSentryBreadcrumb } from './lib/sentry'
-import { addCalendarDaysOslo } from './lib/osloCalendar'
+import { addCalendarDaysOslo, todayKeyOslo } from './lib/osloCalendar'
 import { useSaveFeedback } from './features/app/hooks/useSaveFeedback'
 import { useInviteAcceptance } from './features/invites/hooks/useInviteAcceptance'
 import { AppNoticeStack } from './features/app/components/AppNoticeStack'
@@ -58,6 +58,12 @@ const ENABLE_ONBOARDING = true
  */
 export interface AppOutletContext {
   calendar: Parameters<typeof CalendarHomeTab>[0]
+  month: {
+    events: Record<string, Event[]>
+    people: Person[]
+    onVisibleMonthRange: (startDate: string, endDate: string) => void
+    overdueTaskDates: Set<string>
+  }
   tasks: Parameters<typeof TasksScreen>[0]
   settings: { onClearAllEvents?: () => Promise<void>; onRestartOnboarding?: () => void }
   tankestrom: TankestrømPageProps
@@ -110,6 +116,7 @@ export function AppLayout() {
     reminderEvents,
     osloTodayDateKey,
     hasRawEventsInWeek,
+    getVisibleEventsForDate,
     prefetchEventsForDateRange,
     getAnchoredForegroundEventsForMatching,
   } = useScheduleState()
@@ -166,7 +173,37 @@ export function AppLayout() {
   const [recentImportedEventIds, setRecentImportedEventIds] = useState<Set<string>>(new Set())
   const { saveFeedback, showSaveFeedback, showSavingFeedback, showSaveError } = useSaveFeedback(hapticsEnabled)
   const showSaveFeedbackForControllers = useCallback(() => { setLastSaveType('other'); showSaveFeedback() }, [showSaveFeedback])
-  const { tasksByDate, addTask, patchTask, removeTask } = useTasksState(selectedDate)
+  const { tasksByDate, addTask, patchTask, removeTask, prefetchTasksForRange } = useTasksState(selectedDate)
+
+  const handleMonthRangePrefetch = useCallback(
+    (start: string, end: string) => {
+      void prefetchEventsForDateRange(start, end)
+      void prefetchTasksForRange(start, end)
+    },
+    [prefetchEventsForDateRange, prefetchTasksForRange]
+  )
+
+  const monthViewEvents = useMemo<Record<string, Event[]>>(
+    () =>
+      new Proxy({} as Record<string, Event[]>, {
+        get(_target, prop) {
+          if (typeof prop === 'string') return getVisibleEventsForDate(prop) ?? []
+          return undefined
+        },
+      }),
+    [getVisibleEventsForDate]
+  )
+
+  const overdueTaskDates = useMemo(() => {
+    const today = todayKeyOslo()
+    const result = new Set<string>()
+    for (const [date, tasks] of Object.entries(tasksByDate)) {
+      if (date < today && tasks.some((t) => !t.completedAt)) {
+        result.add(date)
+      }
+    }
+    return result
+  }, [tasksByDate])
 
   const filteredTasksByDate = useMemo(() => {
     if (selectedPersonIds.length === 0) return tasksByDate
@@ -537,6 +574,12 @@ export function AppLayout() {
       hasAddedTask,
       hasInvitedPartner: hasLinkedPartner,
       onNavigateToMer: () => navigate('/mer'),
+    },
+    month: {
+      events: monthViewEvents,
+      people,
+      onVisibleMonthRange: handleMonthRangePrefetch,
+      overdueTaskDates,
     },
     tasks: {
       weekLayoutData,
