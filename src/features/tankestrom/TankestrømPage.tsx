@@ -9,7 +9,8 @@ import {
   normalizeEmbeddedScheduleParentDisplayTitle,
 } from '../../lib/tankestromCupEmbeddedScheduleMerge'
 import { tankestromConditionalBadgeLabelNb } from '../../lib/tankestromConditionalCopy'
-import type { Event, Task, Person, EmbeddedScheduleSegment } from '../../types'
+import { readTankestromScheduleDetailsFromMetadata } from '../../lib/tankestromScheduleDetails'
+import type { Event, Task, Person, EmbeddedScheduleSegment, EventMetadata } from '../../types'
 import type { PortalEventProposal } from './types'
 import {
   useTankestromImport,
@@ -113,6 +114,58 @@ function EmbeddedScheduleDayBlocks({
           </div>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * Rikere forhåndsvisning for en *enkelthendelse* (ikke cup/embedded): sted, notater/beskrivelse,
+ * ta-med og ev. høydepunkter — uten å gjøre kortet om til underblokker. Gjenbruker samme
+ * normalisering (`readTankestromScheduleDetailsFromMetadata`) og delte `TankestromScheduleDetails`
+ * som dagblokkene. Viser ingen tomme seksjoner og finner ikke opp data som ikke finnes.
+ */
+function SingleEventDetails({
+  metadata,
+  title,
+  location,
+  notes,
+}: {
+  metadata: EventMetadata | undefined
+  title: string
+  location: string
+  notes: string
+}) {
+  const meta = readTankestromScheduleDetailsFromMetadata(metadata, [title])
+  const freeNotes = notes.trim()
+  const noteKey = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim()
+  const metaNoteKeys = new Set(meta.notes.map(noteKey))
+  const mergedNotes =
+    freeNotes && !metaNoteKeys.has(noteKey(freeNotes)) ? [...meta.notes, freeNotes] : meta.notes
+  const hasDetails =
+    meta.highlights.length > 0 ||
+    mergedNotes.length > 0 ||
+    meta.bringItems.length > 0 ||
+    meta.timeWindowSummaries.length > 0
+  const loc = location.trim()
+  if (!loc && !hasDetails) return null
+  return (
+    <div className="mt-1.5 space-y-1.5 rounded-md border border-synkaNavy/10 bg-white px-3 py-2">
+      {loc && (
+        <p className="text-caption text-synkaNavy/60">
+          <span className="font-medium text-synkaNavy/80">Sted:</span> {loc}
+        </p>
+      )}
+      {hasDetails && (
+        <TankestromScheduleDetails
+          compact
+          useNormalizedInput
+          highlights={meta.highlights}
+          notes={mergedNotes}
+          bringItems={meta.bringItems}
+          precomputedTimeWindowSummaries={meta.timeWindowSummaries}
+          titleContext={[title]}
+        />
+      )}
     </div>
   )
 }
@@ -472,20 +525,25 @@ export function TankestrømPage({
                 item.kind === 'event' ? flattenEmbeddedScheduleOrdered(item.event.metadata) : []
               const isEmbeddedParent = segments.length > 0
 
+              const eventDraft = draft?.importKind === 'event' ? draft.event : null
               let title = ''
               let dateKey = ''
               let timeLabel = ''
               let personColor = '#94a3b8'
+              let location = ''
+              let notes = ''
 
               if (item.kind === 'event') {
-                const eventDraft = draft?.importKind === 'event' ? draft.event : null
                 title = eventDraft?.title ?? item.event.title
                 dateKey = eventDraft?.date ?? item.event.date
                 const start = eventDraft?.start ?? item.event.start
                 const end = eventDraft?.end ?? item.event.end
                 if (start?.trim() && end?.trim()) timeLabel = `${start}–${end}`
+                else if (start?.trim()) timeLabel = start
                 const personId = eventDraft?.personId ?? item.event.personId
                 personColor = people.find((p) => p.id === personId)?.colorAccent ?? '#94a3b8'
+                location = eventDraft?.location ?? item.event.location ?? ''
+                notes = eventDraft?.notes ?? item.event.notes ?? ''
               }
 
               const dateLabel = dateKey
@@ -525,11 +583,18 @@ export function TankestrømPage({
                       )}
                     </div>
                   </button>
-                  {isEmbeddedParent && (
+                  {isEmbeddedParent ? (
                     <EmbeddedScheduleDayBlocks
                       parentItem={item as PortalEventProposal}
                       segments={segments}
                       originalImportText={analyzedImportTextSnapshot}
+                    />
+                  ) : (
+                    <SingleEventDetails
+                      metadata={item.event.metadata as EventMetadata | undefined}
+                      title={title}
+                      location={location}
+                      notes={notes}
                     />
                   )}
                 </div>
