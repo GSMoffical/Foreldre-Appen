@@ -186,6 +186,7 @@ export function TankestrømPage({
   })
 
   const [showTextSection, setShowTextSection] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
   const textAnalyzePendingRef = useRef(false)
 
   const handleAnalyzeText = () => {
@@ -234,6 +235,7 @@ export function TankestrømPage({
 
   const handleApprove = async () => {
     if (saveLoading) return
+    setImportError(null)
     const result = await approveSelected()
     if (result.ok && result.success) {
       onImportFinished?.({
@@ -242,7 +244,14 @@ export function TankestrømPage({
         failureMessage: result.failureMessage,
       })
       onBack()
+      return
     }
+    // Ikke svelg feil/noop: vis tydelig melding på siden. Tidligere ga en mislykket
+    // import (ok:false) verken bekreftelse eller feilmelding – den så bare ut til å «laste».
+    setImportError(
+      result.failureMessage ??
+        'Importen kunne ikke fullføres, og ingenting ble lagret. Prøv igjen.'
+    )
   }
 
   return (
@@ -446,6 +455,14 @@ export function TankestrømPage({
       {/* Sticky footer — only shows when proposals exist */}
       {displayItems.length > 0 && (
         <div className="shrink-0 border-t border-synkaNavy/8 bg-synkaCream px-4 pb-4 pt-3">
+          {importError && (
+            <p
+              role="alert"
+              className="mb-2 whitespace-pre-line text-caption font-medium text-rose-600"
+            >
+              {importError}
+            </p>
+          )}
           <button
             type="button"
             disabled={selectedCount === 0 || saveLoading || !canApproveSelection}

@@ -105,4 +105,63 @@ describe('TankestrømPage primærflyt-smoke', () => {
     expect(importBtn.textContent).toContain('Legg til 2 hendelser')
     expect(importBtn.textContent).not.toContain('Legg til 1 hendelse')
   })
+
+  it('viser tydelig feilmelding når importen ikke lagrer (ingen stille feil)', async () => {
+    const user = userEvent.setup()
+    const createEvent = vi.fn().mockRejectedValue(new Error('persist boom'))
+    render(
+      <TankestrømPage
+        onBack={() => undefined}
+        people={people}
+        createEvent={createEvent}
+        createTask={vi.fn()}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'Høstcupen 2026 test')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    const importBtn = await screen.findByRole('button', { name: /Legg til \d+ hendelse/i })
+    await user.click(importBtn)
+
+    // Persist ble forsøkt, og brukeren får en synlig feilmelding (ikke bare «laster»).
+    await waitFor(() => expect(createEvent).toHaveBeenCalled())
+    const alerts = await screen.findAllByRole('alert')
+    expect(alerts.length).toBeGreaterThan(0)
+    expect(alerts.some((a) => (a.textContent ?? '').trim().length > 0)).toBe(true)
+  })
+
+  it('viser gjøremål-forslag i preview når analysen returnerer en (primær) task', async () => {
+    const taskBundle = parsePortalImportProposalBundle({
+      schemaVersion: '1.0.0',
+      provenance: {
+        sourceSystem: 'tankestrom',
+        sourceType: 'e2e_fixture',
+        generatorVersion: 'test',
+        generatedAt: '2026-05-08T20:00:00.000Z',
+        importRunId: 'task-1',
+      },
+      items: [
+        {
+          proposalId: 'b1e2c3d4-5678-4abc-9def-0123456789ab',
+          kind: 'task',
+          sourceId: 'e2e',
+          originalSourceType: 'pasted_text',
+          confidence: 0.95,
+          task: { title: 'Betal turneringsavgift', date: '2026-09-10' },
+        },
+      ],
+    })
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(taskBundle)
+
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'Betal avgift innen fredag')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    expect(await screen.findByText('Betal turneringsavgift')).toBeTruthy()
+  })
 })
