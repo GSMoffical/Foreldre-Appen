@@ -224,6 +224,9 @@ export function TankestrømPage({
   const displayItems = primaryCalendarProposalItems.filter(
     (item) => item.kind === 'event' || item.kind === 'task'
   )
+  // Hold gjøremål adskilt fra kalenderhendelser/dagsblokker (egen «Foreslåtte gjøremål»-seksjon).
+  const eventDisplayItems = displayItems.filter((item) => item.kind === 'event')
+  const taskDisplayItems = displayItems.filter((item) => item.kind === 'task')
 
   const selectedCount = displayItems.filter((item) => selectedIds.has(item.proposalId)).length
 
@@ -357,19 +360,19 @@ export function TankestrømPage({
         </div>
 
         {/* Proposals section */}
-        {displayItems.length > 0 && (
+        {eventDisplayItems.length > 0 && (
           <div className="mt-5">
             {/* Section header */}
             <div className="mb-3 flex items-center gap-2 px-4">
               <SectionDots size="sm" />
               <span className="text-caption font-semibold text-synkaNavy">Foreslåtte hendelser</span>
               <span className="rounded-pill bg-synkaTeal/15 px-2 text-caption text-synkaTeal">
-                {displayItems.length}
+                {eventDisplayItems.length}
               </span>
             </div>
 
             {/* Proposal cards */}
-            {displayItems.map((item) => {
+            {eventDisplayItems.map((item) => {
               const isSelected = selectedIds.has(item.proposalId)
               const draft = draftByProposalId[item.proposalId]
 
@@ -390,14 +393,6 @@ export function TankestrømPage({
                 const end = eventDraft?.end ?? item.event.end
                 if (start?.trim() && end?.trim()) timeLabel = `${start}–${end}`
                 const personId = eventDraft?.personId ?? item.event.personId
-                personColor = people.find((p) => p.id === personId)?.colorAccent ?? '#94a3b8'
-              } else if (item.kind === 'task') {
-                const taskDraft = draft?.importKind === 'task' ? draft.task : null
-                title = taskDraft?.title ?? item.task.title
-                dateKey = taskDraft?.date ?? item.task.date
-                const dueTime = taskDraft?.dueTime ?? item.task.dueTime
-                if (dueTime) timeLabel = dueTime
-                const personId = taskDraft?.childPersonId ?? item.task.childPersonId
                 personColor = people.find((p) => p.id === personId)?.colorAccent ?? '#94a3b8'
               }
 
@@ -446,6 +441,59 @@ export function TankestrømPage({
                     />
                   )}
                 </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Tasks/frister — egen rolig seksjon, ikke blandet med kalenderdager */}
+        {taskDisplayItems.length > 0 && (
+          <div className="mt-5">
+            <div className="mb-3 flex items-center gap-2 px-4">
+              <SectionDots size="sm" />
+              <span className="text-caption font-semibold text-synkaNavy">Foreslåtte gjøremål</span>
+              <span className="rounded-pill bg-synkaTeal/15 px-2 text-caption text-synkaTeal">
+                {taskDisplayItems.length}
+              </span>
+            </div>
+            {taskDisplayItems.map((item) => {
+              if (item.kind !== 'task') return null
+              const isSelected = selectedIds.has(item.proposalId)
+              const draft = draftByProposalId[item.proposalId]
+              const taskDraft = draft?.importKind === 'task' ? draft.task : null
+              const title = taskDraft?.title ?? item.task.title
+              const dateKey = taskDraft?.date ?? item.task.date
+              const dueTime = taskDraft?.dueTime ?? item.task.dueTime
+              const personId = taskDraft?.childPersonId ?? item.task.childPersonId
+              const personColor = people.find((p) => p.id === personId)?.colorAccent ?? '#94a3b8'
+              const dateLabel = dateKey
+                ? new Date(`${dateKey}T12:00:00`).toLocaleDateString('nb-NO', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'long',
+                  })
+                : ''
+              const subLabel = [dateLabel, dueTime].filter(Boolean).join(' · ')
+              return (
+                <button
+                  key={item.proposalId}
+                  type="button"
+                  onClick={() => toggleProposal(item.proposalId)}
+                  className="mb-2 flex w-[calc(100%-2rem)] items-center gap-3 rounded-md border-l-4 bg-white p-3 text-left mx-4 touch-manipulation active:bg-synkaCream/60"
+                  style={{ borderLeftColor: personColor }}
+                >
+                  <div
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition ${
+                      isSelected ? 'border-synkaPrimary bg-synkaPrimary' : 'border-synkaNavy/20'
+                    }`}
+                  >
+                    {isSelected && <IconCheck size={10} color="white" aria-hidden />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-body-sm font-semibold text-synkaNavy">{title}</p>
+                    {subLabel && <p className="text-caption text-synkaNavy/50">{subLabel}</p>}
+                  </div>
+                </button>
               )
             })}
           </div>

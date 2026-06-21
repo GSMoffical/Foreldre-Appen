@@ -661,6 +661,24 @@ export function highlightLabelIsTentative(label: string): boolean {
   return /\b(?:foreløpig|forelopig|usikker|tentative)\b/i.test(label.trim())
 }
 
+/**
+ * Frist-/svarfrist-aktige labels (Spond, «svar innen/senest», frist, deadline, «gi beskjed»,
+ * «meld fra», påmelding). Generelt – ingen arrangement-spesifikke regler. Brukes til å holde
+ * svarfrist-klokkeslett UTE av program/høydepunkter; frister hører hjemme som gjøremål, ikke
+ * som kamp-/oppmøtetid i dagsprogrammet.
+ */
+export function highlightLabelIsDeadlineLike(label: string): boolean {
+  const t = label.trim()
+  if (!t) return false
+  return (
+    /\b(?:svarfrist|p[åa]meldingsfrist|p[åa]melding|frist|deadline|spond)\b/i.test(t) ||
+    /\bsvar(?:er|es)?\s+(?:innen|seinest|senest)\b/i.test(t) ||
+    /\bgi\s+beskjed\b/i.test(t) ||
+    /\bmeld\s+(?:fra|deg|p[åa]|inn)\b/i.test(t) ||
+    /\b(?:innen|seinest|senest)\s+(?:kl\.?|klokk|fristen)\b/i.test(t)
+  )
+}
+
 const TENTATIVE_TIME_SENTENCE_MARKERS: RegExp[] = [
   /\bmellom\b/i,
   /\ben\s+gang\s+mellom\b/i,
@@ -1713,6 +1731,7 @@ export function normalizeTankestromScheduleDetails(input: {
   highlights = highlights.filter(
     (h) =>
       !highlightLabelIsTentative(h.label) &&
+      !highlightLabelIsDeadlineLike(h.label) &&
       !sourceMentionsTimeAsTentativeWindow(h.time, sourceTextForValidation)
   )
 

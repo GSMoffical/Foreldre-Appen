@@ -162,7 +162,9 @@ describe('TankestrømPage primærflyt-smoke', () => {
     await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'Betal avgift innen fredag')
     await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
 
-    expect(await screen.findByText('Betal turneringsavgift')).toBeTruthy()
+    // Gjøremål vises i egen «Foreslåtte gjøremål»-seksjon, ikke blandet med hendelser/dagsblokker.
+    expect(await screen.findByText('Foreslåtte gjøremål')).toBeTruthy()
+    expect(screen.getByText('Betal turneringsavgift')).toBeTruthy()
   })
 
   it('gir embedded cup-dager gyldig person_id ved import (eneste barn som default)', async () => {
