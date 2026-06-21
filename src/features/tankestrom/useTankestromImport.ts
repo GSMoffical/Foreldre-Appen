@@ -453,6 +453,48 @@ function defaultChildPersonId(people: Person[], validPersonIds: Set<string>): st
   return c?.id ?? ''
 }
 
+export type TankestromImportPersonContext = {
+  /** Auto-default når valget er entydig (eneste barn, ev. eneste familiemedlem), ellers null. */
+  soleImportPersonId: string | null
+  /** Minst én valgt kalenderhendelse mangler en gyldig person. */
+  selectedEventLacksPerson: boolean
+  /** Brukeren MÅ velge person (flere kandidater + minst ett event uten person). */
+  needsPersonChoice: boolean
+  /** Kandidater til personvelgeren (barn foretrekkes; ellers alle familiemedlemmer). */
+  candidatePersons: Person[]
+}
+
+/**
+ * Felles personlogikk for import: brukt både av `approveSelected`-gaten (blokker null person_id)
+ * og av personvelgeren i TankestrømPage, slik at de aldri divergerer.
+ */
+export function computeTankestromImportPersonContext(
+  people: Person[],
+  validPersonIds: Set<string>,
+  selectedIds: Set<string>,
+  draftByProposalId: Record<string, TankestromImportDraft>
+): TankestromImportPersonContext {
+  const children = people.filter((p) => p.memberKind === 'child' && validPersonIds.has(p.id))
+  const all = people.filter((p) => validPersonIds.has(p.id))
+  const soleImportPersonId =
+    children.length === 1
+      ? children[0]!.id
+      : children.length === 0 && all.length === 1
+        ? all[0]!.id
+        : null
+  const selectedEventLacksPerson = [...selectedIds].some((id) => {
+    const d = draftByProposalId[id]
+    return d?.importKind === 'event' && normalizePersistedPersonId(d.event.personId) == null
+  })
+  const candidatePersons = children.length > 0 ? children : all
+  return {
+    soleImportPersonId,
+    selectedEventLacksPerson,
+    needsPersonChoice: selectedEventLacksPerson && !soleImportPersonId,
+    candidatePersons,
+  }
+}
+
 const EMBEDDED_CHILD_ID_PREFIX = 'ts-emb:'
 
 type TankestromPersistCreateResult =
@@ -2811,6 +2853,12 @@ export function useTankestromImport({
     return true
   }, [schoolReview, selectedIds, draftByProposalId, validPersonIds])
 
+  /** Personkontekst for personvelgeren i TankestrømPage (samme logikk som import-gaten). */
+  const importPersonContext = useMemo(
+    () => computeTankestromImportPersonContext(people, validPersonIds, selectedIds, draftByProposalId),
+    [people, validPersonIds, selectedIds, draftByProposalId]
+  )
+
   const canSaveSchoolProfile = useMemo(() => {
     if (!schoolReview || !updatePerson) return false
     if (detectLessonConflicts(schoolReview.draft).length > 0) return false
@@ -4113,25 +4161,19 @@ export function useTankestromImport({
       }
     }
 
-    // events.person_id er NOT NULL: alle kalenderhendelser må ha en person. Tekstimport uten
-    // dokumentnavn gir ingen person (status «not_specified»), og embedded cup-dager arver da
-    // tom person fra forelder-utkastet. Bruk eneste barn (ev. eneste familiemedlem) som default
-    // – samme mønster som defaultChildPersonId – ellers blokker med en forståelig melding i
-    // stedet for å sende null person_id til databasen.
-    const soleImportPersonId = ((): string | null => {
-      const children = people.filter((p) => p.memberKind === 'child' && validPersonIds.has(p.id))
-      if (children.length === 1) return children[0]!.id
-      const all = people.filter((p) => validPersonIds.has(p.id))
-      if (children.length === 0 && all.length === 1) return all[0]!.id
-      return null
-    })()
-    const selectedEventLacksPerson = ids.some((id) => {
-      const d = draftByProposalId[id]
-      return d?.importKind === 'event' && normalizePersistedPersonId(d.event.personId) == null
-    })
+    // events.person_id er NOT NULL: alle kalenderhendelser må ha en person. Eneste barn (ev.
+    // eneste familiemedlem) brukes som default; ved flere kandidater må bruker velge person
+    // (personvelger i TankestrømPage / per-kort i dialogen). Ellers blokker med forståelig
+    // melding i stedet for å sende null person_id til databasen.
+    const { soleImportPersonId, selectedEventLacksPerson } = computeTankestromImportPersonContext(
+      people,
+      validPersonIds,
+      selectedIds,
+      draftByProposalId
+    )
     if (selectedEventLacksPerson && !soleImportPersonId) {
       return failEarly(
-        'Vi vet ikke hvem hendelsene gjelder. Åpne forslaget og velg barnet eller personen før du legger dem til.'
+        'Vi vet ikke hvem hendelsene gjelder. Velg barnet eller personen i «Hvem gjelder dette?» før du legger dem til.'
       )
     }
 
@@ -6280,6 +6322,7 @@ export function useTankestromImport({
     people,
     canApproveSelection,
     promisedImportItemCount,
+    importPersonContext,
     canSaveSchoolProfile,
     canSaveSchoolWeekOverlay,
     schoolReview,

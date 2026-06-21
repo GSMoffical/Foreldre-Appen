@@ -173,6 +173,8 @@ export function TankestrømPage({
     setInputMode,
     analyzedImportTextSnapshot,
     promisedImportItemCount,
+    importPersonContext,
+    applyReviewBulkPersonTargets,
   } = useTankestromImport({
     open: true,
     people,
@@ -187,7 +189,15 @@ export function TankestrømPage({
 
   const [showTextSection, setShowTextSection] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
+  const [chosenPersonId, setChosenPersonId] = useState<string | null>(null)
   const textAnalyzePendingRef = useRef(false)
+
+  // Gjenbruker dialogens bulk-personlogikk: sett valgt person på alle kalenderhendelser
+  // (forelder + embedded cup-dager + enkelthendelser) og gjøremål.
+  const handlePickImportPerson = (personId: string) => {
+    setChosenPersonId(personId)
+    applyReviewBulkPersonTargets([personId], 'all_calendar')
+  }
 
   const handleAnalyzeText = () => {
     if (!textInput.trim() || analyzeLoading || bundle) return
@@ -358,6 +368,38 @@ export function TankestrømPage({
             </div>
           )}
         </div>
+
+        {/* Personvelger — kun når familien har flere kandidater og et valgt event mangler person */}
+        {displayItems.length > 0 &&
+          importPersonContext.candidatePersons.length > 1 &&
+          (importPersonContext.needsPersonChoice || chosenPersonId != null) && (
+            <div className="mx-4 mt-4 rounded-md border border-synkaNavy/10 bg-white p-3">
+              <p className="text-body-sm font-semibold text-synkaNavy">Hvem gjelder dette?</p>
+              <p className="mt-0.5 text-caption text-synkaNavy/50">
+                Velg barn/person før du legger til hendelsene.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {importPersonContext.candidatePersons.map((p) => {
+                  const on = chosenPersonId === p.id
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => handlePickImportPerson(p.id)}
+                      className={`rounded-pill border px-2.5 py-1 text-caption font-semibold transition touch-manipulation ${
+                        on
+                          ? 'border-synkaPrimary/80 bg-synkaPrimary/15 text-synkaNavy shadow-sm'
+                          : 'border-synkaNavy/15 bg-synkaCream/40 text-synkaNavy/70 hover:border-synkaNavy/25'
+                      }`}
+                    >
+                      {p.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
         {/* Proposals section */}
         {eventDisplayItems.length > 0 && (

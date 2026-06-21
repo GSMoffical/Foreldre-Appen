@@ -222,4 +222,67 @@ describe('TankestrømPage primærflyt-smoke', () => {
     expect(await screen.findByText(/Vi vet ikke hvem hendelsene gjelder/i)).toBeTruthy()
     expect(createEvent).not.toHaveBeenCalled()
   })
+
+  it('viser personvelger i TankestrømPage når familien har flere barn', async () => {
+    const user = userEvent.setup()
+    const twoChildren = [
+      { id: 'child-a', name: 'Ada', memberKind: 'child' as const, colorTint: 'bg-slate-200', colorAccent: 'border-slate-400' },
+      { id: 'child-b', name: 'Bo', memberKind: 'child' as const, colorTint: 'bg-slate-200', colorAccent: 'border-slate-400' },
+    ]
+    render(
+      <TankestrømPage onBack={() => undefined} people={twoChildren} createEvent={vi.fn()} createTask={vi.fn()} />
+    )
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'Høstcupen 2026 test')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    expect(await screen.findByText('Hvem gjelder dette?')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Ada' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Bo' })).toBeTruthy()
+  })
+
+  it('etter valg av barn importeres embedded cup-dager med valgt person_id', async () => {
+    const user = userEvent.setup()
+    const createEvent = vi.fn().mockResolvedValue(undefined)
+    const twoChildren = [
+      { id: 'child-a', name: 'Ada', memberKind: 'child' as const, colorTint: 'bg-slate-200', colorAccent: 'border-slate-400' },
+      { id: 'child-b', name: 'Bo', memberKind: 'child' as const, colorTint: 'bg-slate-200', colorAccent: 'border-slate-400' },
+    ]
+    render(
+      <TankestrømPage
+        onBack={() => undefined}
+        people={twoChildren}
+        createEvent={createEvent}
+        createTask={vi.fn()}
+        onImportFinished={() => undefined}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'Høstcupen 2026 test')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    // Velg Bo, så importer.
+    await user.click(await screen.findByRole('button', { name: 'Bo' }))
+    await user.click(await screen.findByRole('button', { name: /Legg til \d+ hendelse/i }))
+
+    await waitFor(() => expect(createEvent).toHaveBeenCalled())
+    for (const call of createEvent.mock.calls) {
+      const input = call[1] as { personId?: string | null }
+      expect(input.personId).toBe('child-b')
+    }
+  })
+
+  it('viser ikke personvelger for familie med ett barn (auto-default)', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'Høstcupen 2026 test')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    await screen.findByRole('button', { name: /Legg til \d+ hendelse/i })
+    expect(screen.queryByText('Hvem gjelder dette?')).toBeNull()
+  })
 })
