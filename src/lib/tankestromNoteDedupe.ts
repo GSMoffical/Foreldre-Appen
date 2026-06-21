@@ -93,6 +93,51 @@ function areSemanticallyNearDuplicate(normA: string, normB: string, rawA: string
   return jaccard >= 0.7
 }
 
+/** Konkret klokkeslett/dato gjør at et notat IKKE regnes som generisk boilerplate. */
+const TIME_TOKEN_RE = /\b([01]?\d|2[0-3]):[0-5]\d\b/
+const DATE_TOKEN_RE = /\b\d{1,2}\.\s*(?:jan|feb|mar|apr|mai|jun|jul|aug|sep|okt|nov|des)\w*\b/i
+
+/** Notatet formidler at dagen er betinget/foreløpig/usikker (konkret eller generelt). */
+const CONDITIONAL_INFO_RE =
+  /\b(?:betinget|forel(?:ø|o)pig|avheng\w*|usikker\w*|eventuell\w*|forbehold)\b|\bikke\s+(?:er\s+)?(?:endelig|avklart|bekreftet)\b|\bkan\s+(?:bli|endre\w*|komme|justeres)\b/i
+
+/** Sterke, generelle «dette er ikke en fast avtale»-formuleringer (Tankestrøm-generelt). */
+const STRONG_DISCLAIMER_RE =
+  /\bikke\s+behandle\b|\bfast\s+avtale\b|\bmed\s+forbehold\b|\bkun\s+veiledende\b|\bikke\s+(?:en\s+)?bindende\b/i
+
+/** Disclaimer-prefiks (kun et signal sammen med usikkerhets-innhold). */
+const DISCLAIMER_PREFIX_RE = /^\s*(?:nb|obs|merk)\b/i
+
+function noteConveysConditionalInfo(raw: string): boolean {
+  return CONDITIONAL_INFO_RE.test(raw)
+}
+
+/**
+ * En *generell* usikkerhets-boilerplate: et notat uten konkret tid/dato som enten har en
+ * sterk «ikke fast avtale»-formulering, eller et NB/OBS/Merk-prefiks kombinert med
+ * usikkerhets-innhold. Konkrete conditional-notater (f.eks. «Betinget opplegg – avhengig
+ * av resultat …») mangler disclaimer-preget og regnes derfor IKKE som boilerplate.
+ */
+function isGenericUncertaintyDisclaimer(raw: string): boolean {
+  if (TIME_TOKEN_RE.test(raw) || DATE_TOKEN_RE.test(raw)) return false
+  if (STRONG_DISCLAIMER_RE.test(raw)) return true
+  return DISCLAIMER_PREFIX_RE.test(raw) && noteConveysConditionalInfo(raw)
+}
+
+/**
+ * Når dagen allerede har et konkret conditional/tentative-notat, er en ekstra generell
+ * «NB: usikkert/betinget …»-boilerplate ren gjentakelse og fjernes. Finnes det IKKE et
+ * konkret conditional-notat, beholdes disclaimeren slik at dagen fortsatt har én tydelig
+ * usikkerhetsmarkering (vi fjerner aldri all usikkerhets-info).
+ */
+function dropRedundantGenericDisclaimers(notes: string[]): string[] {
+  const hasConcreteConditionalNote = notes.some(
+    (n) => !isGenericUncertaintyDisclaimer(n) && noteConveysConditionalInfo(n)
+  )
+  if (!hasConcreteConditionalNote) return notes
+  return notes.filter((n) => !isGenericUncertaintyDisclaimer(n))
+}
+
 /**
  * Deduplicate an array of note lines, preserving order (first occurrence wins).
  *
@@ -120,5 +165,5 @@ export function dedupeTankestromNotes(lines: readonly string[]): string[] {
     accepted.push({ raw: trimmed, norm })
   }
 
-  return accepted.map((a) => a.raw)
+  return dropRedundantGenericDisclaimers(accepted.map((a) => a.raw))
 }

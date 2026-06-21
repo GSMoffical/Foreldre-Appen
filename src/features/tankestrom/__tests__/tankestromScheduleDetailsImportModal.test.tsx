@@ -88,4 +88,22 @@ describe('TankestromScheduleDetails + import-modal (E2E-relevant)', () => {
     expect(block.textContent).toMatch(/13:55/)
     expect(block.textContent).toMatch(/Oppmøte før andre kamp/i)
   })
+
+  it('normalisering (delt av preview og import) fjerner repeterende generell NB når konkret tentative-notat finnes', () => {
+    const out = normalizeTankestromScheduleDetails({
+      highlights: [],
+      notes: [
+        'Betinget opplegg — avhengig av resultat eller tid som ikke er endelig.',
+        'Eventuell A-sluttspillkamp hvis laget går videre.',
+        'NB: Usikkert eller betinget opplegg (f.eks. avhengig av resultat eller tid som ikke er endelig). Ikke behandle som fast avtale.',
+      ],
+      bringItems: [],
+      isConditionalSegment: true,
+    })
+    // Generell boilerplate-NB er fjernet ...
+    expect(out.notes.some((n) => /ikke behandle som fast avtale/i.test(n))).toBe(false)
+    // ... men konkrete opplysninger + én tydelig usikkerhetsmarkering beholdes.
+    expect(out.notes.some((n) => /A-sluttspillkamp/i.test(n))).toBe(true)
+    expect(out.notes.some((n) => /Betinget opplegg/i.test(n))).toBe(true)
+  })
 })

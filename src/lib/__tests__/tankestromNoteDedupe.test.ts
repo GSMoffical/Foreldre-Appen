@@ -126,4 +126,78 @@ describe('dedupeTankestromNotes', () => {
     const result = dedupeTankestromNotes(input)
     expect(result).toHaveLength(2)
   })
+
+  it('fjerner generell NB-boilerplate når konkret conditional-notat finnes, men beholder konkret info', () => {
+    const input = [
+      'Betinget opplegg — avhengig av resultat eller tid som ikke er endelig.',
+      'Eventuell A-sluttspillkamp hvis laget går videre.',
+      'Kamp kan bli søndag formiddag eller tidlig ettermiddag.',
+      'Endelig sluttspilltid kommer i appen når arrangøren publiserer oppsettet.',
+      'Egen melding kommer når det er klart om laget går videre.',
+      'NB: Usikkert eller betinget opplegg (f.eks. avhengig av resultat eller tid som ikke er endelig). Ikke behandle som fast avtale.',
+    ]
+    const result = dedupeTankestromNotes(input)
+
+    // Den generelle boilerplate-NB er borte (to nesten like usikkerhetsadvarsler unngås).
+    expect(result.some((n) => /ikke behandle som fast avtale/i.test(n))).toBe(false)
+    expect(result.some((n) => /^NB:/i.test(n))).toBe(false)
+
+    // Konkrete opplysninger beholdes.
+    expect(result.some((n) => /A-sluttspillkamp/i.test(n))).toBe(true)
+    expect(result.some((n) => /formiddag eller tidlig ettermiddag/i.test(n))).toBe(true)
+    expect(result.some((n) => /arrangøren publiserer oppsettet/i.test(n))).toBe(true)
+    expect(result.some((n) => /Egen melding kommer/i.test(n))).toBe(true)
+
+    // Én tydelig usikkerhetsmarkering beholdes (det konkrete betinget-notatet).
+    expect(result.some((n) => /Betinget opplegg/i.test(n))).toBe(true)
+  })
+
+  it('fjerner også en frittstående «ikke behandle som fast avtale»-disclaimer når konkret info finnes', () => {
+    const input = [
+      'Betinget opplegg — avhengig av resultat.',
+      'Ikke behandle som fast avtale.',
+    ]
+    const result = dedupeTankestromNotes(input)
+    expect(result.some((n) => /fast avtale/i.test(n))).toBe(false)
+    expect(result.some((n) => /Betinget opplegg/i.test(n))).toBe(true)
+  })
+
+  it('beholder en enslig generell usikkerhets-NB når ingen konkret conditional-notat finnes', () => {
+    const input = [
+      'Husk drikkeflaske og matpakke.',
+      'NB: Usikkert eller betinget opplegg. Ikke behandle som fast avtale.',
+    ]
+    const result = dedupeTankestromNotes(input)
+    expect(result.some((n) => /ikke behandle som fast avtale/i.test(n))).toBe(true)
+    expect(result).toHaveLength(2)
+  })
+
+  it('beholder distinkte konkrete notater selv om begge handler om usikkerhet', () => {
+    const input = [
+      'Eventuell A-sluttspillkamp hvis laget går videre.',
+      'Kamp kan bli søndag formiddag eller tidlig ettermiddag.',
+    ]
+    const result = dedupeTankestromNotes(input)
+    expect(result).toHaveLength(2)
+  })
+
+  it('fjerner ikke et NB-notat som har et konkret klokkeslett', () => {
+    const input = [
+      'Betinget opplegg — avhengig av resultat.',
+      'NB: Mulig ekstra kamp 17:30 hvis laget går videre.',
+    ]
+    const result = dedupeTankestromNotes(input)
+    expect(result.some((n) => /17:30/.test(n))).toBe(true)
+    expect(result).toHaveLength(2)
+  })
+
+  it('rører ikke et vanlig NB/Merk-notat uten usikkerhets-innhold', () => {
+    const input = [
+      'Betinget opplegg — avhengig av resultat.',
+      'Merk: ta med leggskinn til alle.',
+    ]
+    const result = dedupeTankestromNotes(input)
+    expect(result.some((n) => /leggskinn/i.test(n))).toBe(true)
+    expect(result).toHaveLength(2)
+  })
 })
