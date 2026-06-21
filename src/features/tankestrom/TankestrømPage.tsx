@@ -175,6 +175,7 @@ export function TankestrømPage({
     promisedImportItemCount,
     importPersonContext,
     applyReviewBulkPersonTargets,
+    clearReviewBulkPersonTargets,
   } = useTankestromImport({
     open: true,
     people,
@@ -189,14 +190,21 @@ export function TankestrømPage({
 
   const [showTextSection, setShowTextSection] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
-  const [chosenPersonId, setChosenPersonId] = useState<string | null>(null)
+  const [chosenPersonIds, setChosenPersonIds] = useState<Set<string>>(() => new Set())
   const textAnalyzePendingRef = useRef(false)
 
-  // Gjenbruker dialogens bulk-personlogikk: sett valgt person på alle kalenderhendelser
-  // (forelder + embedded cup-dager + enkelthendelser) og gjøremål.
-  const handlePickImportPerson = (personId: string) => {
-    setChosenPersonId(personId)
-    applyReviewBulkPersonTargets([personId], 'all_calendar')
+  // Multi-select: gjenbruker dialogens bulk-personlogikk. Valgte personer settes på ALLE
+  // kalenderhendelser (forelder + embedded cup-dager + enkelthendelser) og gjøremål. Flere
+  // valgte lagres som deltakere (metadata.participants) på samme hendelse — ikke duplisering.
+  const handleTogglePerson = (personId: string) => {
+    const next = new Set(chosenPersonIds)
+    if (next.has(personId)) next.delete(personId)
+    else next.add(personId)
+    setChosenPersonIds(next)
+    if (next.size > 0) applyReviewBulkPersonTargets([...next], 'all_calendar')
+    // Avvelg alle: nullstill person på hendelses-utkastene (ellers ville importen brukt
+    // forrige valg selv om UI viser «ingen valgt»). Da blokkerer import-gaten på nytt.
+    else clearReviewBulkPersonTargets('all_calendar')
   }
 
   const handleAnalyzeText = () => {
@@ -369,24 +377,24 @@ export function TankestrømPage({
           )}
         </div>
 
-        {/* Personvelger — kun når familien har flere kandidater og et valgt event mangler person */}
+        {/* Personvelger (multi-select) — når familien har flere medlemmer og et valgt event mangler person */}
         {displayItems.length > 0 &&
           importPersonContext.candidatePersons.length > 1 &&
-          (importPersonContext.needsPersonChoice || chosenPersonId != null) && (
+          (importPersonContext.selectedEventLacksPerson || chosenPersonIds.size > 0) && (
             <div className="mx-4 mt-4 rounded-md border border-synkaNavy/10 bg-white p-3">
               <p className="text-body-sm font-semibold text-synkaNavy">Hvem gjelder dette?</p>
               <p className="mt-0.5 text-caption text-synkaNavy/50">
-                Velg barn/person før du legger til hendelsene.
+                Velg én eller flere personer.
               </p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {importPersonContext.candidatePersons.map((p) => {
-                  const on = chosenPersonId === p.id
+                  const on = chosenPersonIds.has(p.id)
                   return (
                     <button
                       key={p.id}
                       type="button"
                       aria-pressed={on}
-                      onClick={() => handlePickImportPerson(p.id)}
+                      onClick={() => handleTogglePerson(p.id)}
                       className={`rounded-pill border px-2.5 py-1 text-caption font-semibold transition touch-manipulation ${
                         on
                           ? 'border-synkaPrimary/80 bg-synkaPrimary/15 text-synkaNavy shadow-sm'
