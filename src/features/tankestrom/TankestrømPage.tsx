@@ -157,6 +157,8 @@ export function TankestrømPage({
   const {
     pendingFiles,
     addFilesFromList,
+    removePendingFile,
+    error,
     primaryCalendarProposalItems,
     selectedIds,
     toggleProposal,
@@ -338,6 +340,46 @@ export function TankestrømPage({
           aria-label="Velg filer til analyse"
           onChange={handleFileChange}
         />
+
+        {/* Analyse-/filfeil (f.eks. ikke-støttet filtype) i input-fasen — rolig melding, ikke rå feil */}
+        {error && !bundle && (
+          <p role="alert" className="mx-4 mt-2 text-caption font-medium text-rose-600">
+            {error}
+          </p>
+        )}
+
+        {/* Valgte filer med navn + status */}
+        {pendingFiles.length > 0 && (
+          <ul className="mx-4 mt-2 space-y-1.5">
+            {pendingFiles.map((pf) => (
+              <li
+                key={pf.id}
+                className="flex items-center gap-2 rounded-md border border-synkaNavy/10 bg-white px-3 py-2"
+              >
+                <span className="min-w-0 flex-1 truncate text-body-sm text-synkaNavy">{pf.file.name}</span>
+                <span className="shrink-0 text-caption text-synkaNavy/50">
+                  {pf.status === 'analyzing'
+                    ? 'Analyserer…'
+                    : pf.status === 'done'
+                      ? 'Ferdig'
+                      : pf.status === 'error'
+                        ? pf.statusDetail || 'Feil'
+                        : 'Klar'}
+                </span>
+                {!analyzeLoading && (
+                  <button
+                    type="button"
+                    onClick={() => removePendingFile(pf.id)}
+                    aria-label={`Fjern ${pf.file.name}`}
+                    className="shrink-0 rounded-md px-1.5 text-synkaNavy/40 transition hover:bg-synkaNavy/8 hover:text-synkaNavy/70"
+                  >
+                    ×
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
 
         {/* Paste text section */}
         <div className="mx-4 mt-3">

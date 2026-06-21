@@ -3227,6 +3227,10 @@ export function useTankestromImport({
   const addFilesFromList = useCallback((list: FileList | File[]) => {
     const arr = Array.from(list)
     if (arr.length === 0) return
+    // Filvalg må sette fil-modus. Standard inputMode er nå 'text', og uten dette ville
+    // runAnalyze kjørt tekst-grenen («Skriv inn tekst først») slik at filen aldri sendes
+    // til dokument-/bilde-analyse (analyzeDocumentWithTankestrom).
+    setInputMode('file')
     setError(null)
     setAnalyzeWarning(null)
     setPendingFiles((prev) => [
