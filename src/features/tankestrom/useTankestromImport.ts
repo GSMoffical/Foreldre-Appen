@@ -6191,6 +6191,29 @@ export function useTankestromImport({
     }
   }, [])
 
+  /**
+   * Antall elementer importen faktisk oppretter for gjeldende valg — samme telling som
+   * `approveSelected` (`countPromisedTankestromCalendarEventRows`): programdager (ikke selve
+   * programforelderen som ikke eksporteres), enkelthendelser og gjøremål. Brukes til ærlig
+   * knapp-/CTA-label, slik at en cup ikke vises som «1 hendelse».
+   */
+  const promisedImportItemCount = useMemo(() => {
+    if (!bundle) return 0
+    const calendarEvents = countPromisedTankestromCalendarEventRows(
+      [...selectedIds],
+      bundle,
+      draftByProposalId,
+      embeddedScheduleReviewRowsByParentId,
+      detachedEmbeddedChildIds,
+      selectedIds
+    )
+    let taskCount = 0
+    for (const id of selectedIds) {
+      if (draftByProposalId[id]?.importKind === 'task') taskCount += 1
+    }
+    return calendarEvents + taskCount
+  }, [bundle, selectedIds, draftByProposalId, embeddedScheduleReviewRowsByParentId, detachedEmbeddedChildIds])
+
   return {
     step,
     inputMode,
@@ -6228,6 +6251,7 @@ export function useTankestromImport({
     saveSchoolProfile,
     people,
     canApproveSelection,
+    promisedImportItemCount,
     canSaveSchoolProfile,
     canSaveSchoolWeekOverlay,
     schoolReview,

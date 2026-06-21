@@ -1,10 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { IconArrowLeft, IconUpload, IconCheck } from '@tabler/icons-react'
 import { SectionDots } from '../../components/SectionDots'
+import { TankestromScheduleDetails } from '../../components/TankestromScheduleDetails'
 import { btnPrimaryPill } from '../../lib/ui'
-import type { Event, Task, Person } from '../../types'
+import { flattenEmbeddedScheduleOrdered } from '../../lib/embeddedSchedule'
+import {
+  embeddedScheduleChildTitleForReview,
+  normalizeEmbeddedScheduleParentDisplayTitle,
+} from '../../lib/tankestromCupEmbeddedScheduleMerge'
+import { tankestromConditionalBadgeLabelNb } from '../../lib/tankestromConditionalCopy'
+import type { Event, Task, Person, EmbeddedScheduleSegment } from '../../types'
+import type { PortalEventProposal } from './types'
 import {
   useTankestromImport,
+  buildEmbeddedChildCanonicalPreviewForReview,
+  makeEmbeddedChildProposalId,
   type TankestromImportSuccess,
   type TankestromEditEventFn,
 } from './useTankestromImport'
@@ -12,6 +22,100 @@ import { logEvent } from '../../lib/appLogger'
 
 const TANKESTROM_FILE_ACCEPT =
   'image/*,.pdf,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+
+/** Datospenn for et arrangement (cup o.l.) — viser «12.–14. juni» heller enn 00:00–23:59. */
+function formatArrangementDateRange(startKey: string, segments: EmbeddedScheduleSegment[]): string {
+  const dates = segments.map((s) => s.date).filter(Boolean).sort()
+  const start = dates[0] || startKey
+  const end = dates[dates.length - 1] || startKey
+  if (!start) return ''
+  const fmt = (d: string) =>
+    new Date(`${d}T12:00:00`).toLocaleDateString('nb-NO', { day: 'numeric', month: 'long' })
+  if (start === end) return fmt(start)
+  if (start.slice(0, 7) === end.slice(0, 7)) {
+    return `${new Date(`${start}T12:00:00`).getDate()}.–${fmt(end)}`
+  }
+  return `${fmt(start)} – ${fmt(end)}`
+}
+
+/**
+ * Rolig forhåndsvisning av et arrangements delprogram (cup o.l.): én dagsblokk per dag,
+ * i samme kortstil som «Foreslåtte hendelser». Gjenbruker import-dialogens preview-pipeline
+ * (`buildEmbeddedChildCanonicalPreviewForReview` + delt `TankestromScheduleDetails`) slik at
+ * innholdet matcher dialogen. Read-only: selve valget styres av forelder-kortet over.
+ */
+function EmbeddedScheduleDayBlocks({
+  parentItem,
+  segments,
+  originalImportText,
+}: {
+  parentItem: PortalEventProposal
+  segments: EmbeddedScheduleSegment[]
+  originalImportText: string
+}) {
+  if (segments.length === 0) return null
+  const cardTitleRaw = parentItem.event.title.trim() || 'Uten tittel'
+  const parentCardTitle = normalizeEmbeddedScheduleParentDisplayTitle(cardTitleRaw).title
+  const siblingTitlesBlob = segments.map((s) => s.title.trim()).join('\n')
+  return (
+    <div className="mt-1.5 space-y-1.5 pl-3">
+      {segments.map((segment, origIndex) => {
+        const displayTitle = embeddedScheduleChildTitleForReview(cardTitleRaw, segment, siblingTitlesBlob)
+        const childId = makeEmbeddedChildProposalId(parentItem.proposalId, origIndex)
+        const preview = buildEmbeddedChildCanonicalPreviewForReview(segment, parentCardTitle, displayTitle, childId, {
+          originalImportText: originalImportText.trim().length > 0 ? originalImportText : undefined,
+        })
+        const details = preview.normalized
+        const dateLabel = segment.date
+          ? new Date(`${segment.date}T12:00:00`).toLocaleDateString('nb-NO', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+            })
+          : ''
+        const hasDetails =
+          details.highlights.length > 0 ||
+          details.notes.length > 0 ||
+          details.bringItems.length > 0 ||
+          details.timeWindowSummaries.length > 0
+        return (
+          <div
+            key={childId}
+            data-testid={`tankestrom-day-${segment.date}`}
+            className="rounded-md border border-synkaNavy/10 bg-white px-3 py-2"
+          >
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span className="text-body-sm font-semibold text-synkaNavy">{displayTitle}</span>
+              {preview.hasConcreteTimeDisplay && preview.timeLabel && (
+                <span className="text-caption tabular-nums text-synkaNavy/50">{preview.timeLabel}</span>
+              )}
+              {segment.isConditional && (
+                <span className="rounded-pill bg-synkaYellow/15 px-2 py-0.5 text-[10px] font-semibold text-synkaNavy/70">
+                  {tankestromConditionalBadgeLabelNb()}
+                </span>
+              )}
+            </div>
+            {dateLabel && <p className="mt-0.5 text-caption text-synkaNavy/50">{dateLabel}</p>}
+            {hasDetails && (
+              <div className="mt-1.5">
+                <TankestromScheduleDetails
+                  compact
+                  useNormalizedInput
+                  highlights={details.highlights}
+                  notes={details.notes}
+                  bringItems={details.bringItems}
+                  precomputedTimeWindowSummaries={details.timeWindowSummaries}
+                  titleContext={[displayTitle, cardTitleRaw]}
+                  highlightsTestId={`tankestrom-day-highlights-${segment.date}`}
+                />
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 interface TankestrømPageProps {
   onBack: () => void
@@ -67,6 +171,8 @@ export function TankestrømPage({
     setTextInput,
     inputMode,
     setInputMode,
+    analyzedImportTextSnapshot,
+    promisedImportItemCount,
   } = useTankestromImport({
     open: true,
     people,
@@ -258,6 +364,10 @@ export function TankestrømPage({
               const isSelected = selectedIds.has(item.proposalId)
               const draft = draftByProposalId[item.proposalId]
 
+              const segments =
+                item.kind === 'event' ? flattenEmbeddedScheduleOrdered(item.event.metadata) : []
+              const isEmbeddedParent = segments.length > 0
+
               let title = ''
               let dateKey = ''
               let timeLabel = ''
@@ -289,34 +399,44 @@ export function TankestrømPage({
                     month: 'long',
                   })
                 : ''
-              const subLabel = [dateLabel, timeLabel].filter(Boolean).join(' · ')
+              const subLabel = isEmbeddedParent
+                ? formatArrangementDateRange(dateKey, segments)
+                : [dateLabel, timeLabel].filter(Boolean).join(' · ')
 
               return (
-                <button
-                  key={item.proposalId}
-                  type="button"
-                  onClick={() => toggleProposal(item.proposalId)}
-                  className="mb-2 flex w-[calc(100%-2rem)] items-center gap-3 rounded-md border-l-4 bg-white p-3 text-left mx-4 touch-manipulation active:bg-synkaCream/60"
-                  style={{ borderLeftColor: personColor }}
-                >
-                  {/* Checkbox circle */}
-                  <div
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition ${
-                      isSelected ? 'border-synkaPrimary bg-synkaPrimary' : 'border-synkaNavy/20'
-                    }`}
+                <div key={item.proposalId} className="mx-4 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleProposal(item.proposalId)}
+                    className="flex w-full items-center gap-3 rounded-md border-l-4 bg-white p-3 text-left touch-manipulation active:bg-synkaCream/60"
+                    style={{ borderLeftColor: personColor }}
                   >
-                    {isSelected && (
-                      <IconCheck size={10} color="white" aria-hidden />
-                    )}
-                  </div>
-                  {/* Text */}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-body-sm font-semibold text-synkaNavy">{title}</p>
-                    {subLabel && (
-                      <p className="text-caption text-synkaNavy/50">{subLabel}</p>
-                    )}
-                  </div>
-                </button>
+                    {/* Checkbox circle */}
+                    <div
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition ${
+                        isSelected ? 'border-synkaPrimary bg-synkaPrimary' : 'border-synkaNavy/20'
+                      }`}
+                    >
+                      {isSelected && (
+                        <IconCheck size={10} color="white" aria-hidden />
+                      )}
+                    </div>
+                    {/* Text */}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-body-sm font-semibold text-synkaNavy">{title}</p>
+                      {subLabel && (
+                        <p className="text-caption text-synkaNavy/50">{subLabel}</p>
+                      )}
+                    </div>
+                  </button>
+                  {isEmbeddedParent && (
+                    <EmbeddedScheduleDayBlocks
+                      parentItem={item as PortalEventProposal}
+                      segments={segments}
+                      originalImportText={analyzedImportTextSnapshot}
+                    />
+                  )}
+                </div>
               )
             })}
           </div>
@@ -335,7 +455,7 @@ export function TankestrømPage({
             {!saveLoading && <IconCheck size={16} aria-hidden />}
             {saveLoading
               ? 'Importerer…'
-              : `Legg til ${selectedCount} hendelse${selectedCount === 1 ? '' : 'r'}`}
+              : `Legg til ${promisedImportItemCount} hendelse${promisedImportItemCount === 1 ? '' : 'r'}`}
           </button>
         </div>
       )}
