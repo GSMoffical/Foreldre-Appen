@@ -24,7 +24,10 @@ import {
   embeddedScheduleChildTitleForReview,
   normalizeEmbeddedScheduleParentDisplayTitle,
 } from '../../lib/tankestromCupEmbeddedScheduleMerge'
-import { normalizeCalendarEventTitle } from '../../lib/tankestromTitleNormalization'
+import {
+  normalizeCalendarEventTitle,
+  normalizeSingleEventCalendarTitle,
+} from '../../lib/tankestromTitleNormalization'
 import { dedupeNearDuplicateCalendarProposals, semanticTitleCore } from '../../lib/tankestromImportDedupe'
 import {
   dedupeEmbeddedScheduleSegments,
@@ -2252,7 +2255,7 @@ export function buildEventDraftFromProposal(
           start: ev.start,
           end: ev.end,
         })
-      : normalizeCalendarEventTitle(ev.title, { start: ev.start, end: ev.end })
+      : normalizeSingleEventCalendarTitle(ev.title, { start: ev.start, end: ev.end })
   const isFlightImport = String(travelImportType ?? '').trim().toLowerCase() === 'flight'
   const shouldStripFlightEnd = isFlightImport && tankestromShouldStripSyntheticFlightEnd(travelImportType, meta)
   const draftEnd = shouldStripFlightEnd ? '' : ev.end
