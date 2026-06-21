@@ -4113,6 +4113,28 @@ export function useTankestromImport({
       }
     }
 
+    // events.person_id er NOT NULL: alle kalenderhendelser må ha en person. Tekstimport uten
+    // dokumentnavn gir ingen person (status «not_specified»), og embedded cup-dager arver da
+    // tom person fra forelder-utkastet. Bruk eneste barn (ev. eneste familiemedlem) som default
+    // – samme mønster som defaultChildPersonId – ellers blokker med en forståelig melding i
+    // stedet for å sende null person_id til databasen.
+    const soleImportPersonId = ((): string | null => {
+      const children = people.filter((p) => p.memberKind === 'child' && validPersonIds.has(p.id))
+      if (children.length === 1) return children[0]!.id
+      const all = people.filter((p) => validPersonIds.has(p.id))
+      if (children.length === 0 && all.length === 1) return all[0]!.id
+      return null
+    })()
+    const selectedEventLacksPerson = ids.some((id) => {
+      const d = draftByProposalId[id]
+      return d?.importKind === 'event' && normalizePersistedPersonId(d.event.personId) == null
+    })
+    if (selectedEventLacksPerson && !soleImportPersonId) {
+      return failEarly(
+        'Vi vet ikke hvem hendelsene gjelder. Åpne forslaget og velg barnet eller personen før du legger dem til.'
+      )
+    }
+
     const attemptStartedAt = nowIso()
     setLastImportAttempt({ status: 'running', id: importAttemptId, startedAt: attemptStartedAt })
     if (isTankestromConsoleDebugEnabled()) {
@@ -4206,9 +4228,15 @@ export function useTankestromImport({
 
       const persistCreateEvent = async (
         dateKey: string,
-        input: Omit<Event, 'id'>,
+        rawInput: Omit<Event, 'id'>,
         logProposalId: string
       ): Promise<TankestromPersistCreateResult> => {
+        // Eneste-barn/-person-default for hendelser som ellers ville fått null person_id
+        // (preflight har allerede blokkert tvetydige tilfeller med flere personer).
+        const input: Omit<Event, 'id'> =
+          rawInput.personId == null && soleImportPersonId
+            ? { ...rawInput, personId: soleImportPersonId }
+            : rawInput
         const metaRec =
           input.metadata && typeof input.metadata === 'object' && !Array.isArray(input.metadata)
             ? (input.metadata as Record<string, unknown>)
