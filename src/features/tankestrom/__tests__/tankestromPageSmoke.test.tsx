@@ -39,7 +39,7 @@ vi.mock('../../../lib/tankestromApi', async (importOriginal) => {
   }
 })
 
-import { analyzeTextWithTankestrom } from '../../../lib/tankestromApi'
+import { analyzeTextWithTankestrom, analyzeDocumentWithTankestrom } from '../../../lib/tankestromApi'
 
 function renderPage() {
   return render(
@@ -459,5 +459,42 @@ describe('TankestrømPage primærflyt-smoke', () => {
       const input = call[1] as { personId?: string | null }
       expect(input.personId).toBe('child-b')
     }
+  })
+
+  it('viser både opplasting og lim-inn-tekst', () => {
+    renderPage()
+    expect(screen.getByRole('button', { name: 'Last opp fil' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Eller lim inn tekst/i })).toBeTruthy()
+  })
+
+  it('filopplasting kaller dokument-analyse (ikke tekst) og ender i rich preview + viser filnavn', async () => {
+    const user = userEvent.setup()
+    vi.mocked(analyzeDocumentWithTankestrom).mockResolvedValueOnce(hostcupBundle)
+    renderPage()
+
+    const file = new File(['dummy'], 'cup.pdf', { type: 'application/pdf' })
+    await user.upload(screen.getByLabelText('Velg filer til analyse'), file)
+
+    // Riktig analyse-handler kalles for fil — ikke tekst-grenen.
+    await waitFor(() => expect(analyzeDocumentWithTankestrom).toHaveBeenCalledTimes(1))
+    expect(analyzeTextWithTankestrom).not.toHaveBeenCalled()
+
+    // Valgt fil vises med navn, og rich preview kommer opp.
+    expect(screen.getByText('cup.pdf')).toBeTruthy()
+    expect(await screen.findByText('Foreslåtte hendelser')).toBeTruthy()
+  })
+
+  it('viser forståelig feilmelding når filanalyse feiler (ikke rå feil)', async () => {
+    const user = userEvent.setup()
+    vi.mocked(analyzeDocumentWithTankestrom).mockRejectedValueOnce(new Error('Filtypen støttes ikke'))
+    renderPage()
+
+    // Støttet filtype (passerer input-accept), men selve analysen feiler.
+    const file = new File(['dummy'], 'cup.pdf', { type: 'application/pdf' })
+    await user.upload(screen.getByLabelText('Velg filer til analyse'), file)
+
+    await waitFor(() => expect(analyzeDocumentWithTankestrom).toHaveBeenCalled())
+    const alerts = await screen.findAllByRole('alert')
+    expect(alerts.some((a) => (a.textContent ?? '').trim().length > 0)).toBe(true)
   })
 })
