@@ -460,7 +460,7 @@ export type TankestromImportPersonContext = {
   selectedEventLacksPerson: boolean
   /** Brukeren MÅ velge person (flere kandidater + minst ett event uten person). */
   needsPersonChoice: boolean
-  /** Kandidater til personvelgeren (barn foretrekkes; ellers alle familiemedlemmer). */
+  /** Kandidater til personvelgeren: alle familiemedlemmer (barn + voksne/partner). */
   candidatePersons: Person[]
 }
 
@@ -486,7 +486,9 @@ export function computeTankestromImportPersonContext(
     const d = draftByProposalId[id]
     return d?.importKind === 'event' && normalizePersistedPersonId(d.event.personId) == null
   })
-  const candidatePersons = children.length > 0 ? children : all
+  // Vis alle familiemedlemmer i personvelgeren (barn + voksne/partner), ikke bare barn.
+  // `children`/`all` brukes fortsatt til auto-default (soleImportPersonId).
+  const candidatePersons = all
   return {
     soleImportPersonId,
     selectedEventLacksPerson,
@@ -3468,6 +3470,35 @@ export function useTankestromImport({
     [people, validPersonIds, selectedIds]
   )
 
+  /**
+   * Nullstill person på kalenderhendelses-utkast — brukes når bruker avvelger ALLE i
+   * personvelgeren. Da blir `selectedEventLacksPerson` sann igjen, så import-gaten blokkerer
+   * (rolig «velg hvem det gjelder»-melding) i stedet for å bruke forrige valg. Tasks røres ikke:
+   * gaten stopper hele importen når events mangler person, så ingen insert forsøkes uansett.
+   */
+  const clearReviewBulkPersonTargets = useCallback(
+    (scope: 'selected' | 'all_calendar') => {
+      setDraftByProposalId((prev) => {
+        const targetIds =
+          scope === 'all_calendar' ? Object.keys(prev) : [...selectedIds].filter((id) => prev[id])
+        const next = { ...prev }
+        let changed = false
+        for (const proposalId of targetIds) {
+          const cur = next[proposalId]
+          if (!cur || cur.importKind !== 'event') continue
+          if (!cur.event.personId && cur.event.participantPersonIds === undefined) continue
+          next[proposalId] = {
+            importKind: 'event',
+            event: { ...cur.event, personId: '', participantPersonIds: undefined },
+          }
+          changed = true
+        }
+        return changed ? next : prev
+      })
+    },
+    [selectedIds]
+  )
+
   const updateTaskDraft = useCallback((proposalId: string, patch: Partial<TankestromTaskDraft>) => {
     setDraftByProposalId((prev) => {
       const cur = prev[proposalId]
@@ -6337,6 +6368,7 @@ export function useTankestromImport({
     detachEmbeddedScheduleChild,
     updateEmbeddedScheduleSegment,
     applyReviewBulkPersonTargets,
+    clearReviewBulkPersonTargets,
     existingEventMatchesByProposalId,
     existingEventLinkByProposalId,
     setExistingEventImportLink,
