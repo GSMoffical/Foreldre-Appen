@@ -77,4 +77,32 @@ describe('TankestrømPage primærflyt-smoke', () => {
     expect(await screen.findByText('Foreslåtte hendelser')).toBeTruthy()
     expect(screen.getByRole('button', { name: /Legg til \d+ hendelse/i })).toBeTruthy()
   })
+
+  it('viser rik forhåndsvisning: hovedarrangement + dagsblokker med høydepunkter og foreløpig-markering', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'Høstcupen 2026 test')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    // Fredag: dagsblokk med tittel, høydepunkter og «husk / ta med».
+    const friday = await screen.findByTestId('tankestrom-day-2026-09-18')
+    expect(friday.textContent).toContain('Høstcupen – fredag')
+    expect(friday.textContent).toContain('17:30')
+    expect(friday.textContent).toContain('Oppmøte')
+    expect(friday.textContent).toMatch(/drikkeflaske/i)
+
+    expect(screen.getByTestId('tankestrom-day-2026-09-19').textContent).toContain('Høstcupen – lørdag')
+
+    // Søndag er tentativ → tydelig «Foreløpig»-markering.
+    const sunday = screen.getByTestId('tankestrom-day-2026-09-20')
+    expect(sunday.textContent).toContain('Høstcupen – søndag')
+    expect(sunday.textContent).toContain('Foreløpig')
+
+    // Import-knappen teller faktiske dagshendelser (fre + lør), ikke parent-kortet.
+    const importBtn = screen.getByRole('button', { name: /Legg til \d+ hendelse/i })
+    expect(importBtn.textContent).toContain('Legg til 2 hendelser')
+    expect(importBtn.textContent).not.toContain('Legg til 1 hendelse')
+  })
 })
