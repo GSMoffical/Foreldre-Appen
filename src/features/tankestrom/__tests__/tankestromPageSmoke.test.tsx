@@ -549,6 +549,8 @@ describe('TankestrømPage primærflyt-smoke', () => {
       notes: 'Ta med drikke. Vi møtes ved bommen.',
     })
 
+    // Tittel er kalendertrygg: relativt datoord («i morgen») er strippet, ikke i overskriften.
+    expect(screen.getByText('Samling ved Sognsvann')).toBeTruthy()
     // Tidspunkt vises i kort-sublabelen selv uten sluttid (ikke forveksle med tekstfeltet).
     expect(screen.getByText(/· 18:00/)).toBeTruthy()
     // Notat/beskrivelse vises.
@@ -570,12 +572,27 @@ describe('TankestrømPage primærflyt-smoke', () => {
     expect(screen.getByText(/drikkeflaske/)).toBeTruthy()
   })
 
+  it('enkelthendelse: «… i morgen kl 18» → tittel uten dato/tid, tid i tidsfeltet', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await analyzeSingleEvent(user, {
+      title: 'Samling ved Sognsvann i morgen kl 18',
+      end: '19:00',
+    })
+
+    // Tittel er ren; klokkeslett og «i morgen» ligger ikke i overskriften.
+    expect(screen.getByText('Samling ved Sognsvann')).toBeTruthy()
+    expect(screen.queryByText('Samling ved Sognsvann i morgen kl 18')).toBeNull()
+    // Tiden vises i kort-sublabelen.
+    expect(screen.getByText(/· 18:00/)).toBeTruthy()
+  })
+
   it('enkelthendelse uten ekstra detaljer: ren visning, ingen tomme seksjoner', async () => {
     const user = userEvent.setup()
     renderPage()
     await analyzeSingleEvent(user, { notes: '', location: '', end: '19:00', metadata: {} })
 
-    expect(screen.getByText('Samling ved Sognsvann i morgen')).toBeTruthy()
+    expect(screen.getByText('Samling ved Sognsvann')).toBeTruthy()
     expect(screen.queryByText('Sted:')).toBeNull()
     expect(screen.queryByText('Notater')).toBeNull()
     expect(screen.queryByText('Husk / ta med')).toBeNull()
@@ -595,6 +612,7 @@ describe('TankestrømPage primærflyt-smoke', () => {
     )
     // Komplett tidsrom her — manglende sluttid er ortogonalt og utenfor denne PR-en.
     await analyzeSingleEvent(user, {
+      title: 'Samling ved Sognsvann i morgen kl 18',
       end: '19:00',
       location: 'Sognsvann',
       notes: 'Ta med drikke. Vi møtes ved bommen.',
@@ -602,7 +620,9 @@ describe('TankestrømPage primærflyt-smoke', () => {
 
     await user.click(await screen.findByRole('button', { name: /Legg til \d+ hendelse/i }))
     await waitFor(() => expect(createEvent).toHaveBeenCalled())
-    const input = createEvent.mock.calls[0]![1] as { notes?: string; location?: string }
+    const input = createEvent.mock.calls[0]![1] as { title?: string; notes?: string; location?: string }
+    // Importert kalender-tittel = preview-tittel (kalendertrygg, uten dato/tid).
+    expect(input.title).toBe('Samling ved Sognsvann')
     expect(input.notes ?? '').toContain('Ta med drikke')
     expect(input.location).toBe('Sognsvann')
   })

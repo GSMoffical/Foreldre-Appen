@@ -9,6 +9,7 @@ import {
   normalizeEmbeddedScheduleParentDisplayTitle,
 } from '../../lib/tankestromCupEmbeddedScheduleMerge'
 import { tankestromConditionalBadgeLabelNb } from '../../lib/tankestromConditionalCopy'
+import { normalizeSingleEventCalendarTitle } from '../../lib/tankestromTitleNormalization'
 import { readTankestromScheduleDetailsFromMetadata } from '../../lib/tankestromScheduleDetails'
 import type { Event, Task, Person, EmbeddedScheduleSegment, EventMetadata } from '../../types'
 import type { PortalEventProposal } from './types'
@@ -534,7 +535,18 @@ export function TankestrømPage({
               let notes = ''
 
               if (item.kind === 'event') {
-                title = eventDraft?.title ?? item.event.title
+                // Draft-tittelen er allerede kalendertrygg. Uten draft (f.eks. enkelthendelse
+                // uten sluttid) normaliserer vi rå-tittelen for enkelthendelser her, slik at
+                // preview-tittelen er konsistent med import. Cup/embedded beholder rå-tittel
+                // (ukedagen er en meningsbærende etikett der).
+                title =
+                  eventDraft?.title ??
+                  (isEmbeddedParent
+                    ? item.event.title
+                    : normalizeSingleEventCalendarTitle(item.event.title, {
+                        start: item.event.start,
+                        end: item.event.end,
+                      }))
                 dateKey = eventDraft?.date ?? item.event.date
                 const start = eventDraft?.start ?? item.event.start
                 const end = eventDraft?.end ?? item.event.end
