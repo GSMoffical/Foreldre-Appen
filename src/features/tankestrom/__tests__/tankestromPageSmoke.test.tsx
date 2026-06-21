@@ -41,6 +41,38 @@ vi.mock('../../../lib/tankestromApi', async (importOriginal) => {
 
 import { analyzeTextWithTankestrom, analyzeDocumentWithTankestrom } from '../../../lib/tankestromApi'
 
+/** Enkelthendelse-bundle (ikke cup/embedded) for rich-single-event-tester. */
+function makeSingleEventBundle(event: Record<string, unknown>) {
+  return parsePortalImportProposalBundle({
+    schemaVersion: '1.0.0',
+    provenance: {
+      sourceSystem: 'tankestrom',
+      sourceType: 'e2e_fixture',
+      generatorVersion: 'test',
+      generatedAt: '2026-05-08T20:00:00.000Z',
+      importRunId: 'single-1',
+    },
+    items: [
+      {
+        proposalId: 'a1b2c3d4-1111-4abc-9def-000000000001',
+        kind: 'event',
+        sourceId: 'e2e',
+        originalSourceType: 'pasted_text',
+        confidence: 0.95,
+        event: {
+          date: '2026-09-10',
+          personId: '',
+          title: 'Samling ved Sognsvann i morgen',
+          start: '18:00',
+          end: '',
+          metadata: {},
+          ...event,
+        },
+      },
+    ],
+  })
+}
+
 function renderPage() {
   return render(
     <TankestrømPage
@@ -496,5 +528,82 @@ describe('TankestrømPage primærflyt-smoke', () => {
     await waitFor(() => expect(analyzeDocumentWithTankestrom).toHaveBeenCalled())
     const alerts = await screen.findAllByRole('alert')
     expect(alerts.some((a) => (a.textContent ?? '').trim().length > 0)).toBe(true)
+  })
+
+  async function analyzeSingleEvent(
+    user: ReturnType<typeof userEvent.setup>,
+    event: Record<string, unknown>
+  ) {
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(makeSingleEventBundle(event))
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'Samling i morgen 18:00')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+    await screen.findByText('Foreslåtte hendelser')
+  }
+
+  it('enkelthendelse: viser tidspunkt, notat/beskrivelse og sted når data finnes', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await analyzeSingleEvent(user, {
+      location: 'Sognsvann',
+      notes: 'Ta med drikke. Vi møtes ved bommen.',
+    })
+
+    // Tidspunkt vises i kort-sublabelen selv uten sluttid (ikke forveksle med tekstfeltet).
+    expect(screen.getByText(/· 18:00/)).toBeTruthy()
+    // Notat/beskrivelse vises.
+    expect(screen.getByText(/Ta med drikke\. Vi møtes ved bommen\./)).toBeTruthy()
+    // Sted vises.
+    const stedLabel = screen.getByText('Sted:')
+    expect(stedLabel.closest('p')?.textContent).toContain('Sognsvann')
+  })
+
+  it('enkelthendelse: viser ta-med-info fra metadata (bringItems)', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await analyzeSingleEvent(user, {
+      notes: '',
+      metadata: { bringItems: ['drikkeflaske', 'matpakke'] },
+    })
+
+    expect(screen.getByText('Husk / ta med')).toBeTruthy()
+    expect(screen.getByText(/drikkeflaske/)).toBeTruthy()
+  })
+
+  it('enkelthendelse uten ekstra detaljer: ren visning, ingen tomme seksjoner', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await analyzeSingleEvent(user, { notes: '', location: '', end: '19:00', metadata: {} })
+
+    expect(screen.getByText('Samling ved Sognsvann i morgen')).toBeTruthy()
+    expect(screen.queryByText('Sted:')).toBeNull()
+    expect(screen.queryByText('Notater')).toBeNull()
+    expect(screen.queryByText('Husk / ta med')).toBeNull()
+  })
+
+  it('enkelthendelse: import beholder notat/beskrivelse i createEvent-payload', async () => {
+    const user = userEvent.setup()
+    const createEvent = vi.fn().mockResolvedValue(undefined)
+    render(
+      <TankestrømPage
+        onBack={() => undefined}
+        people={people}
+        createEvent={createEvent}
+        createTask={vi.fn()}
+        onImportFinished={() => undefined}
+      />
+    )
+    // Komplett tidsrom her — manglende sluttid er ortogonalt og utenfor denne PR-en.
+    await analyzeSingleEvent(user, {
+      end: '19:00',
+      location: 'Sognsvann',
+      notes: 'Ta med drikke. Vi møtes ved bommen.',
+    })
+
+    await user.click(await screen.findByRole('button', { name: /Legg til \d+ hendelse/i }))
+    await waitFor(() => expect(createEvent).toHaveBeenCalled())
+    const input = createEvent.mock.calls[0]![1] as { notes?: string; location?: string }
+    expect(input.notes ?? '').toContain('Ta med drikke')
+    expect(input.location).toBe('Sognsvann')
   })
 })
