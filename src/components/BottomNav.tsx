@@ -19,7 +19,7 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  { id: 'kalender', label: 'I dag', Icon: IconCalendar },
+  { id: 'kalender', label: 'Kalender', Icon: IconCalendar },
   { id: 'tasks', label: 'Gjøremål', Icon: IconCheck },
   { id: 'familie', label: 'Familie', Icon: IconUsers },
   { id: 'mer', label: 'Mer', Icon: IconMenu2 },
