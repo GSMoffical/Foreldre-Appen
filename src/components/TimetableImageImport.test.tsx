@@ -14,91 +14,124 @@ afterEach(() => {
   analyzeMock.mockReset()
 })
 
-const schoolBundle = {
-  items: [
-    {
-      proposalId: 'p1',
-      kind: 'school_profile',
-      sourceId: 's',
-      originalSourceType: 'uploaded_file',
-      confidence: 0.9,
-      schoolProfile: {
-        gradeBand: '5-7',
-        weekdays: {
-          0: { useSimpleDay: true, schoolStart: '08:15', schoolEnd: '14:00' },
-          2: { useSimpleDay: true, schoolStart: '08:15', schoolEnd: '13:00' },
-        },
+function schoolBundle(weekdays: Record<number, { schoolStart: string; schoolEnd: string }>, gradeBand = '5-7') {
+  const wd: Record<number, unknown> = {}
+  for (const [k, v] of Object.entries(weekdays)) wd[Number(k)] = { useSimpleDay: true, ...v }
+  return {
+    items: [
+      {
+        proposalId: 'p1',
+        kind: 'school_profile',
+        sourceId: 's',
+        originalSourceType: 'uploaded_file',
+        confidence: 0.9,
+        schoolProfile: { gradeBand, weekdays: wd },
       },
-    },
-  ],
+    ],
+  }
 }
 
-function uploadImage(user: ReturnType<typeof userEvent.setup>) {
-  const file = new File(['img'], 'timeplan.png', { type: 'image/png' })
-  return user.upload(screen.getByLabelText('Bilde av timeplan'), file)
+function img(name: string) {
+  return new File(['img'], name, { type: 'image/png' })
+}
+
+function input() {
+  return screen.getByLabelText('Timeplanfiler') as HTMLInputElement
 }
 
 describe('TimetableImageImport', () => {
-  it('viser «Importer fra bilde»-knapp', () => {
+  it('nevner Tankestrøm og bilder/dokumenter, og har «Velg filer»-knapp', () => {
     render(<TimetableImageImport onApply={() => undefined} />)
-    expect(screen.getByRole('button', { name: /Importer fra bilde/ })).toBeTruthy()
+    expect(screen.getByText('Les timeplan med Tankestrøm')).toBeTruthy()
+    expect(screen.getByText(/bilder, PDF-er eller dokumenter/i)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Velg filer' })).toBeTruthy()
   })
 
-  it('viser forslagspanel etter analyse av valgt bilde', async () => {
-    analyzeMock.mockResolvedValueOnce(schoolBundle)
+  it('tillater flere filer (multiple) og godtar pdf/word i accept', () => {
+    render(<TimetableImageImport onApply={() => undefined} />)
+    expect(input().multiple).toBe(true)
+    const accept = input().getAttribute('accept') ?? ''
+    expect(accept).toMatch(/image\/\*/)
+    expect(accept).toMatch(/pdf/)
+    expect(accept).toMatch(/wordprocessingml|\.docx/)
+  })
+
+  it('analyserer flere filer og viser sammenslått forslag med antall filer', async () => {
+    analyzeMock
+      .mockResolvedValueOnce(schoolBundle({ 0: { schoolStart: '08:15', schoolEnd: '14:00' } }))
+      .mockResolvedValueOnce(schoolBundle({ 2: { schoolStart: '09:00', schoolEnd: '13:00' } }))
     const user = userEvent.setup()
     render(<TimetableImageImport onApply={() => undefined} />)
 
-    await uploadImage(user)
+    await user.upload(input(), [img('man.png'), img('ons.png')])
 
-    expect(await screen.findByText('Forslag fra bilde')).toBeTruthy()
+    expect(await screen.findByText('Forslag fra Tankestrøm')).toBeTruthy()
+    expect(screen.getByText('Analyserte 2 filer')).toBeTruthy()
     expect(screen.getByText('Mandag')).toBeTruthy()
-    expect(screen.getByText('08:15–14:00')).toBeTruthy()
     expect(screen.getByText('Onsdag')).toBeTruthy()
-    expect(analyzeMock).toHaveBeenCalledTimes(1)
+    expect(analyzeMock).toHaveBeenCalledTimes(2)
   })
 
-  it('«Bruk forslag» kaller onApply med timeplanprofilen (lagrer ikke selv)', async () => {
-    analyzeMock.mockResolvedValueOnce(schoolBundle)
+  it('viser konfliktadvarsel når to filer foreslår samme dag med ulik tid', async () => {
+    analyzeMock
+      .mockResolvedValueOnce(schoolBundle({ 0: { schoolStart: '08:15', schoolEnd: '14:00' } }))
+      .mockResolvedValueOnce(schoolBundle({ 0: { schoolStart: '09:00', schoolEnd: '13:00' } }))
+    const user = userEvent.setup()
+    render(<TimetableImageImport onApply={() => undefined} />)
+
+    await user.upload(input(), [img('a.png'), img('b.png')])
+
+    expect(await screen.findByText(/Ulike tider for Mandag/)).toBeTruthy()
+    // Beholder første tid.
+    expect(screen.getByText('08:15–14:00')).toBeTruthy()
+  })
+
+  it('én fil feiler, men forslag fra andre filer kan fortsatt brukes (med advarsel)', async () => {
+    analyzeMock
+      .mockRejectedValueOnce(new Error('Tidsavbrudd'))
+      .mockResolvedValueOnce(schoolBundle({ 1: { schoolStart: '08:15', schoolEnd: '14:00' } }))
     const onApply = vi.fn()
     const user = userEvent.setup()
     render(<TimetableImageImport onApply={onApply} />)
 
-    await uploadImage(user)
-    await screen.findByText('Forslag fra bilde')
-    await user.click(screen.getByRole('button', { name: 'Bruk forslag' }))
+    await user.upload(input(), [img('feil.png'), img('ok.png')])
 
+    expect(await screen.findByText('Forslag fra Tankestrøm')).toBeTruthy()
+    expect(screen.getByText(/Kunne ikke lese «feil\.png»/)).toBeTruthy()
+    expect(screen.getByText('Tirsdag')).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: 'Bruk forslag' }))
     expect(onApply).toHaveBeenCalledTimes(1)
     const profile = onApply.mock.calls[0]![0] as ChildSchoolProfile
-    expect(profile.gradeBand).toBe('5-7')
-    expect(profile.weekdays[0]).toEqual({ useSimpleDay: true, schoolStart: '08:15', schoolEnd: '14:00' })
-    // Panelet lukkes etter bruk; knappen for ny import er fortsatt der.
-    expect(screen.queryByText('Forslag fra bilde')).toBeNull()
-    expect(screen.getByRole('button', { name: /Importer fra bilde/ })).toBeTruthy()
+    expect(profile.weekdays[1]).toEqual({ useSimpleDay: true, schoolStart: '08:15', schoolEnd: '14:00' })
   })
 
-  it('viser feilmelding ved analysefeil og beholder manuell fallback (knappen)', async () => {
-    analyzeMock.mockRejectedValueOnce(new Error('Serveren svarte ikke'))
+  it('«Bruk forslag» oppdaterer state kun etter eksplisitt klikk', async () => {
+    analyzeMock.mockResolvedValueOnce(schoolBundle({ 0: { schoolStart: '08:15', schoolEnd: '14:00' } }))
+    const onApply = vi.fn()
     const user = userEvent.setup()
-    render(<TimetableImageImport onApply={() => undefined} />)
+    render(<TimetableImageImport onApply={onApply} />)
 
-    await uploadImage(user)
+    await user.upload(input(), [img('man.png')])
+    await screen.findByText('Forslag fra Tankestrøm')
+    // Ikke kalt før klikk.
+    expect(onApply).not.toHaveBeenCalled()
 
-    expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Serveren svarte ikke')
-    expect(screen.queryByText('Forslag fra bilde')).toBeNull()
-    expect(screen.getByRole('button', { name: /Importer fra bilde/ })).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Bruk forslag' }))
+    expect(onApply).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText('Forslag fra Tankestrøm')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Velg filer' })).toBeTruthy()
   })
 
-  it('viser hjelpsom feilmelding når bildet mangler timeplanstruktur', async () => {
+  it('viser feilmelding når ingen fil ga timeplan, og beholder knappen (manuell fallback)', async () => {
     analyzeMock.mockResolvedValueOnce({ items: [] })
     const user = userEvent.setup()
     render(<TimetableImageImport onApply={() => undefined} />)
 
-    await uploadImage(user)
+    await user.upload(input(), [img('blank.png')])
 
-    expect(await screen.findByRole('alert')).toHaveProperty(
-      'textContent',
-      'Fant ikke nok struktur til en timeplan i bildet. Du kan fortsatt fylle ut manuelt.'
-    )
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    expect(screen.queryByText('Forslag fra Tankestrøm')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Velg filer' })).toBeTruthy()
   })
 })

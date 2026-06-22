@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildTimetableSuggestionFromBundle } from '../timetableImageImport'
+import {
+  buildTimetableSuggestionFromBundle,
+  mergeTimetableSuggestions,
+  type TimetableSuggestion,
+} from '../timetableImageImport'
 import type { PortalImportProposalBundle, PortalProposalItem } from '../../features/tankestrom/types'
 import type { ChildSchoolProfile } from '../../types'
 
@@ -96,5 +100,56 @@ describe('buildTimetableSuggestionFromBundle', () => {
     expect(
       buildTimetableSuggestionFromBundle(bundleWith([schoolItem({ gradeBand: '1-4', weekdays: {} })]))
     ).toBeNull()
+  })
+})
+
+function suggestion(
+  weekdays: ChildSchoolProfile['weekdays'],
+  confidence: TimetableSuggestion['confidence'] = 'high',
+  warnings: string[] = [],
+  gradeBand: ChildSchoolProfile['gradeBand'] = '5-7'
+): TimetableSuggestion {
+  const out = buildTimetableSuggestionFromBundle(bundleWith([schoolItem({ gradeBand, weekdays })]))!
+  return { ...out, confidence, warnings: [...out.warnings, ...warnings] }
+}
+
+describe('mergeTimetableSuggestions', () => {
+  it('slår sammen ukedager fra flere forslag', () => {
+    const merged = mergeTimetableSuggestions([
+      suggestion({ 0: { useSimpleDay: true, schoolStart: '08:15', schoolEnd: '14:00' } }),
+      suggestion({ 2: { useSimpleDay: true, schoolStart: '09:00', schoolEnd: '13:00' } }),
+    ])
+    expect(merged.days.map((d) => d.weekday)).toEqual([0, 2])
+    expect(merged.profile.weekdays[2]).toEqual({ useSimpleDay: true, schoolStart: '09:00', schoolEnd: '13:00' })
+    expect(merged.warnings).toEqual([])
+  })
+
+  it('identisk dag i to filer gir ingen advarsel', () => {
+    const day = { 0: { useSimpleDay: true, schoolStart: '08:15', schoolEnd: '14:00' } }
+    const merged = mergeTimetableSuggestions([suggestion(day), suggestion(day)])
+    expect(merged.warnings).toEqual([])
+    expect(merged.days).toHaveLength(1)
+  })
+
+  it('konflikt på samme dag beholder første og legger til advarsel', () => {
+    const merged = mergeTimetableSuggestions([
+      suggestion({ 0: { useSimpleDay: true, schoolStart: '08:15', schoolEnd: '14:00' } }),
+      suggestion({ 0: { useSimpleDay: true, schoolStart: '09:00', schoolEnd: '13:30' } }),
+    ])
+    expect(merged.profile.weekdays[0]).toEqual({ useSimpleDay: true, schoolStart: '08:15', schoolEnd: '14:00' })
+    expect(merged.warnings.some((w) => /Ulike tider for Mandag/.test(w))).toBe(true)
+  })
+
+  it('confidence blir laveste blant forslagene', () => {
+    const merged = mergeTimetableSuggestions([
+      suggestion({ 0: { useSimpleDay: true, schoolStart: '08:15', schoolEnd: '14:00' } }, 'high'),
+      suggestion({ 1: { useSimpleDay: true, schoolStart: '08:15', schoolEnd: '14:00' } }, 'low'),
+    ])
+    expect(merged.confidence).toBe('low')
+  })
+
+  it('ett forslag returneres uendret', () => {
+    const only = suggestion({ 0: { useSimpleDay: true, schoolStart: '08:15', schoolEnd: '14:00' } }, 'medium')
+    expect(mergeTimetableSuggestions([only])).toBe(only)
   })
 })
