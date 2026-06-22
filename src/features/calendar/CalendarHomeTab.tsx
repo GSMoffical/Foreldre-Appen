@@ -18,6 +18,7 @@ import { usePermissions } from '../../hooks/usePermissions'
 import type { Event, Task, PersonId, TimelineLayoutItem, GapInfo } from '../../types'
 import type { WeekDayLayout } from '../../hooks/useScheduleState'
 import { STORAGE_KEYS } from '../../lib/constants'
+import { GettingStartedChecklist } from '../onboarding/GettingStartedChecklist'
 
 const FILTER_STORAGE_KEY = STORAGE_KEYS.FILTER_PERSON_IDS
 const FIRST_OPEN_KEY = STORAGE_KEYS.FIRST_OPEN
@@ -61,6 +62,12 @@ interface CalendarHomeTabProps {
   unspecifiedEvents: Event[]
   highlightedEventIds?: Set<string>
   onOpenMer?: () => void
+  userId: string
+  showGettingStarted: boolean
+  hasAddedEvent: boolean
+  hasAddedTask: boolean
+  hasInvitedPartner: boolean
+  onNavigateToMer: () => void
 }
 
 export function CalendarHomeTab({
@@ -95,6 +102,12 @@ export function CalendarHomeTab({
   unspecifiedEvents,
   highlightedEventIds,
   onOpenMer,
+  userId,
+  showGettingStarted,
+  hasAddedEvent,
+  hasAddedTask,
+  hasInvitedPartner,
+  onNavigateToMer,
 }: CalendarHomeTabProps) {
   const [showTodayPanel, setShowTodayPanel] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -344,6 +357,16 @@ export function CalendarHomeTab({
                 ×
               </button>
             </div>
+          )}
+
+          {showGettingStarted && (
+            <GettingStartedChecklist
+              userId={userId}
+              hasAddedEvent={hasAddedEvent}
+              hasAddedTask={hasAddedTask}
+              hasInvitedPartner={hasInvitedPartner}
+              onNavigateToMer={onNavigateToMer}
+            />
           )}
 
           {/* ROW 4 — date label + Dag/Uke toggle */}

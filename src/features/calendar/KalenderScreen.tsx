@@ -9,23 +9,23 @@ const MonthView = lazy(() =>
   import('../../components/MonthView').then((m) => ({ default: m.MonthView }))
 )
 
-type Zoom = 'dag' | 'uke' | 'maned'
+type Zoom = 'dag' | 'maned'
 
 const ZOOM_STORAGE_KEY = 'synka:kalender-zoom'
 
 const ZOOMS: { id: Zoom; label: string }[] = [
   { id: 'dag', label: 'Dag' },
-  { id: 'uke', label: 'Uke' },
   { id: 'maned', label: 'Måned' },
 ]
 
-/** Reads the persisted zoom, defaulting to 'uke'. Mirrors the try/catch localStorage pattern used elsewhere. */
+/** Reads the persisted zoom, defaulting to 'dag'. The retired 'uke' value maps to 'dag'. */
 function readStoredZoom(): Zoom {
   try {
     const stored = localStorage.getItem(ZOOM_STORAGE_KEY)
-    if (stored === 'dag' || stored === 'uke' || stored === 'maned') return stored
+    if (stored === 'dag' || stored === 'maned') return stored
+    if (stored === 'uke') return 'dag'
   } catch {}
-  return 'uke'
+  return 'dag'
 }
 
 /**

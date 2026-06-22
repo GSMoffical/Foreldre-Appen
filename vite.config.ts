@@ -16,6 +16,7 @@ const gitSha =
   'unknown'
 
 export default defineConfig({
+  base: './',
   plugins: [react()],
   build: {
     rollupOptions: {

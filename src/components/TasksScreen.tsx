@@ -536,7 +536,7 @@ export function TasksScreen({
             <img src="/synka-mark.svg" className="mb-4 h-16 w-16 opacity-40" alt="" />
             <h3 className="text-body font-semibold text-zinc-700">Ingen gjøremål denne uken</h3>
             <p className="mt-1.5 text-body-sm leading-relaxed text-zinc-400">
-              Legg til noe du trenger å huske på.
+              Kjøp melk, ring legen, send skjema — alt uten fast klokkeslett.
             </p>
             <button type="button" onClick={openAddTask} className={`mt-5 ${btnPrimaryPill}`}>
               + Nytt gjøremål

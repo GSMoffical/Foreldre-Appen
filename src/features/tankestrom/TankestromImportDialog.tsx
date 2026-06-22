@@ -103,6 +103,8 @@ import { SchoolProfileFields } from '../../components/SchoolProfileFields'
 import { logEvent } from '../../lib/appLogger'
 import { formatTimeRange } from '../../lib/time'
 import { TANKESTROM_FLIGHT_MISSING_END_LABEL } from '../../lib/tankestromFlightImportEnd'
+import { isNative } from '../../lib/capacitor'
+import { capturePhotoAsFile } from '../../lib/nativeCamera'
 import {
   buildPerDaySourceTextForValidation,
   buildTankestromScheduleDescriptionFallback,
@@ -2949,6 +2951,24 @@ export function TankestromImportDialog({
                       PDF, bilder og Word-dokumenter
                     </p>
                   </div>
+
+                  {isNative() ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const f = await capturePhotoAsFile()
+                        if (f) addFilesFromList([f])
+                      }}
+                      disabled={analyzeLoading}
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-synkaPrimary/40 bg-synkaCream/30 px-3 py-2.5 text-body-sm font-semibold text-synkaNavy transition hover:bg-synkaCream/45 active:bg-synkaCream/55 touch-manipulation disabled:opacity-50"
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
+                      </svg>
+                      Ta bilde
+                    </button>
+                  ) : null}
 
                   {pendingFiles.length > 0 ? (
                     <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto overscroll-y-contain" aria-label="Valgte filer">

@@ -27,13 +27,23 @@
     "verify:hostinger": "powershell -ExecutionPolicy Bypass -File ./scripts/verify-hostinger.ps1"
   },
   "dependencies": {
+    "@capacitor/camera": "^7.0.1",
+    "@capacitor/cli": "^7.0.1",
+    "@capacitor/core": "^7.0.1",
+    "@capacitor/filesystem": "^7.0.1",
+    "@capacitor/haptics": "^7.0.1",
+    "@capacitor/ios": "^7.0.1",
+    "@capacitor/push-notifications": "^7.0.1",
+    "@capacitor/splash-screen": "^7.0.1",
+    "@capacitor/status-bar": "^7.0.1",
     "@sentry/react": "^10.57.0",
     "@supabase/supabase-js": "^2.101.1",
     "@tabler/icons-react": "^3.44.0",
     "date-holidays": "^3.26.11",
     "framer-motion": "^11.11.17",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
