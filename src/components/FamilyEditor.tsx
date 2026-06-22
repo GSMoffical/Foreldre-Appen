@@ -1,6 +1,14 @@
 import { useState } from 'react'
 import { inputBase, btnPrimary, btnSecondary, btnRowAction, cardInset } from '../lib/ui'
-import type { ChildSchoolProfile, MemberKind, ParentWorkProfile, Person } from '../types'
+import type {
+  ChildSchoolProfile,
+  MemberKind,
+  ParentWorkProfile,
+  Person,
+  RelevanceProfile,
+} from '../types'
+import { normalizeRelevanceProfile } from '../lib/relevanceProfile'
+import { RelevanceProfileFields } from './RelevanceProfileFields'
 import { useFamily } from '../context/FamilyContext'
 import { usePermissions } from '../hooks/usePermissions'
 import { useAuth } from '../context/AuthContext'
@@ -42,6 +50,7 @@ interface PersonFormProps {
     memberKind: MemberKind
     school?: ChildSchoolProfile
     work?: ParentWorkProfile
+    relevanceProfile?: RelevanceProfile
   }) => void | Promise<void>
   onCancel: () => void
   title: string
@@ -62,6 +71,9 @@ function PersonForm({
   const [memberKind, setMemberKind] = useState<MemberKind>(initial?.memberKind ?? 'child')
   const [school, setSchool] = useState<ChildSchoolProfile>(initial?.school ?? defaultChildSchool())
   const [work, setWork] = useState<ParentWorkProfile | undefined>(initial?.work)
+  const [relevanceProfile, setRelevanceProfile] = useState<RelevanceProfile | undefined>(
+    initial?.relevanceProfile
+  )
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -83,6 +95,8 @@ function PersonForm({
           memberKind,
           school: memberKind === 'child' ? school : undefined,
           work: memberKind === 'parent' ? work : undefined,
+          relevanceProfile:
+            memberKind === 'child' ? normalizeRelevanceProfile(relevanceProfile) : undefined,
         })
       )
       onCancel()
@@ -175,10 +189,13 @@ function PersonForm({
       </div>
 
       {memberKind === 'child' && (
-        <SchoolProfileFields
-          value={school}
-          onChange={setSchool}
-        />
+        <>
+          <SchoolProfileFields
+            value={school}
+            onChange={setSchool}
+          />
+          <RelevanceProfileFields value={relevanceProfile} onChange={setRelevanceProfile} />
+        </>
       )}
 
       {memberKind === 'parent' && (
@@ -311,6 +328,7 @@ export function FamilyEditor({ onPersonRemoved }: FamilyEditorProps) {
                 colorAccent: data.colorAccent,
                 school: data.school,
                 work: data.work,
+                relevanceProfile: data.relevanceProfile,
               })
               setEditingId(null)
             }}
