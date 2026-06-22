@@ -29,6 +29,7 @@ import { INPUT_LIMITS } from '../lib/inputLimits'
 import { SectionDots } from './SectionDots'
 import { SchoolProfileFields } from './SchoolProfileFields'
 import { RelevanceProfileFields } from './RelevanceProfileFields'
+import { TimetableImageImport } from './TimetableImageImport'
 
 /** 13 brand-friendly color pairs (mirrors COLOR_PRESETS in FamilyEditor.tsx). */
 const COLOR_PRESETS: { tint: string; accent: string }[] = [
@@ -945,6 +946,13 @@ function StepSchool({
       >
         <IconCheck size={14} aria-hidden /> Standard skoleuke 08:15–14:00
       </button>
+
+      {/* Forslag fra bilde — fyller inn ukedagene under ved bekreftelse. Manuell redigering beholdes. */}
+      <TimetableImageImport
+        onApply={(profile) =>
+          onSchoolChange({ ...school, gradeBand: profile.gradeBand, weekdays: profile.weekdays })
+        }
+      />
 
       {!showAdvanced && (
         <div>
