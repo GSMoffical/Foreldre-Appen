@@ -693,9 +693,9 @@ describe('TankestrømPage primærflyt-smoke', () => {
     expect(screen.getByText(/· 18:00/)).toBeTruthy()
     // Notat/beskrivelse vises.
     expect(screen.getByText(/Ta med drikke\. Vi møtes ved bommen\./)).toBeTruthy()
-    // Sted vises.
-    const stedLabel = screen.getByText('Sted:')
-    expect(stedLabel.closest('p')?.textContent).toContain('Sognsvann')
+    // Sted vises som egen seksjon (label «Sted» + verdi).
+    expect(screen.getByText('Sted')).toBeTruthy()
+    expect(screen.getByText('Sognsvann')).toBeTruthy()
   })
 
   it('enkelthendelse: viser ta-med-info fra metadata (bringItems)', async () => {
@@ -708,6 +708,29 @@ describe('TankestrømPage primærflyt-smoke', () => {
 
     expect(screen.getByText('Husk / ta med')).toBeTruthy()
     expect(screen.getByText(/drikkeflaske/)).toBeTruthy()
+  })
+
+  it('enkelthendelse: møtested, gruppekode og praktisk info vises som egne seksjoner (ikke rå wrapper)', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await analyzeSingleEvent(user, {
+      title: 'Tur til Sognsvann',
+      date: '2026-06-22',
+      start: '',
+      end: '',
+      notes:
+        'Viktig for hele perioden: Møtested: kiosken nedenfor parkeringsplassen på Sognsvann; NYT-TK-2STC',
+    })
+
+    expect(screen.getByText('Tur til Sognsvann')).toBeTruthy()
+    // Møtested vises tydelig som egen seksjon.
+    expect(screen.getByText('Møtested')).toBeTruthy()
+    expect(screen.getByText('kiosken nedenfor parkeringsplassen på Sognsvann')).toBeTruthy()
+    // Gruppe-/klassekode vises som «Gjelder», ikke blandet inn i møtested-linja.
+    expect(screen.getByText('Gjelder')).toBeTruthy()
+    expect(screen.getByText('NYT-TK-2STC')).toBeTruthy()
+    // Den tekniske wrapper-frasen vises ikke ordrett for én enkelthendelse.
+    expect(screen.queryByText(/Viktig for hele perioden/)).toBeNull()
   })
 
   it('enkelthendelse: «… i morgen kl 18» → tittel uten dato/tid, tid i tidsfeltet', async () => {
@@ -731,7 +754,8 @@ describe('TankestrømPage primærflyt-smoke', () => {
     await analyzeSingleEvent(user, { notes: '', location: '', end: '19:00', metadata: {} })
 
     expect(screen.getByText('Samling ved Sognsvann')).toBeTruthy()
-    expect(screen.queryByText('Sted:')).toBeNull()
+    expect(screen.queryByText('Sted')).toBeNull()
+    expect(screen.queryByText('Møtested')).toBeNull()
     expect(screen.queryByText('Notater')).toBeNull()
     expect(screen.queryByText('Husk / ta med')).toBeNull()
   })
