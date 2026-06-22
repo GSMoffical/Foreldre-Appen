@@ -9,6 +9,7 @@ import {
   normalizeEmbeddedScheduleParentDisplayTitle,
 } from '../../lib/tankestromCupEmbeddedScheduleMerge'
 import { tankestromConditionalBadgeLabelNb } from '../../lib/tankestromConditionalCopy'
+import { taskIntentBadgeClassName, taskIntentLabelNb } from '../../lib/taskIntent'
 import { normalizeSingleEventCalendarTitle } from '../../lib/tankestromTitleNormalization'
 import { readTankestromScheduleDetailsFromMetadata } from '../../lib/tankestromScheduleDetails'
 import type { Event, Task, Person, EmbeddedScheduleSegment, EventMetadata } from '../../types'
@@ -633,6 +634,9 @@ export function TankestrømPage({
               const title = taskDraft?.title ?? item.task.title
               const dateKey = taskDraft?.date ?? item.task.date
               const dueTime = taskDraft?.dueTime ?? item.task.dueTime
+              // Skille må gjøre / valgfritt (can_help). Draften har alltid en intent;
+              // fall tilbake til proposal-verdi, ev. «må gjøre» som trygg default.
+              const taskIntent = taskDraft?.taskIntent ?? item.task.taskIntent ?? 'must_do'
               const personId = taskDraft?.childPersonId ?? item.task.childPersonId
               const personColor = people.find((p) => p.id === personId)?.colorAccent ?? '#94a3b8'
               const dateLabel = dateKey
@@ -659,7 +663,16 @@ export function TankestrømPage({
                     {isSelected && <IconCheck size={10} color="white" aria-hidden />}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-body-sm font-semibold text-synkaNavy">{title}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-body-sm font-semibold text-synkaNavy">{title}</p>
+                      <span
+                        className={`shrink-0 inline-flex rounded-pill border px-1.5 py-px text-[10px] font-semibold ${taskIntentBadgeClassName(
+                          taskIntent
+                        )}`}
+                      >
+                        {taskIntentLabelNb(taskIntent)}
+                      </span>
+                    </div>
                     {subLabel && <p className="text-caption text-synkaNavy/50">{subLabel}</p>}
                   </div>
                 </button>
