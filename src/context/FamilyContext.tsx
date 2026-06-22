@@ -3,7 +3,6 @@ import type { Person } from '../types'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from './AuthContext'
 import { useEffectiveUserId } from './EffectiveUserIdContext'
-import { PEOPLE as DEFAULT_PEOPLE } from '../data/mockSchedule'
 import {
   updateFamilyMember,
   addFamilyMember,
@@ -12,6 +11,13 @@ import {
 import { fetchProfile } from '../lib/profileApi'
 import { formatFamilyLoadError, formatFamilySeedError } from '../lib/supabaseErrors'
 import { useMobileRefreshTriggers, useRealtimeRefresh } from '../features/sync/useRefreshTriggers'
+
+/**
+ * New families start empty — no default/mock members are seeded.
+ * Replaces the former `PEOPLE` import from the deleted `data/mockSchedule`
+ * (which was already an empty array, so this is behaviorally identical).
+ */
+const DEFAULT_PEOPLE: Person[] = []
 
 interface FamilyContextValue {
   people: Person[]
