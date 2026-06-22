@@ -145,7 +145,7 @@ describe('FamilieScreen — relevansprofil', () => {
     expect(updates.relevanceProfile?.activities?.map((a) => a.name)).toEqual(['Speider'])
   })
 
-  it('viser «Importer fra bilde» og beholder manuell timeplan i barnets timeplansteg', async () => {
+  it('viser Tankestrøm-filimport og beholder manuell timeplan i barnets timeplansteg', async () => {
     const user = userEvent.setup()
     render(<FamilieScreen onBack={() => undefined} />)
 
@@ -154,8 +154,9 @@ describe('FamilieScreen — relevansprofil', () => {
     await user.click(screen.getByRole('button', { name: 'Neste' }))
     await user.click(screen.getByRole('button', { name: 'Neste' }))
 
-    // Bildeimport tilgjengelig …
-    expect(screen.getByRole('button', { name: /Importer fra bilde/ })).toBeTruthy()
+    // Filimport (Tankestrøm) tilgjengelig …
+    expect(screen.getByText('Les timeplan med Tankestrøm')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Velg filer' })).toBeTruthy()
     // … og manuell redigering er fortsatt der (standard-uke + ukedager).
     expect(screen.getByRole('button', { name: /Standard skoleuke/ })).toBeTruthy()
     expect(screen.getByText('Uke (man–fre)')).toBeTruthy()
