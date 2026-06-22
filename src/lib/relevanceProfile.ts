@@ -27,10 +27,13 @@ function cleanAliases(aliases: string[] | undefined): string[] {
   const seen = new Set<string>()
   const out: string[] = []
   for (const raw of aliases) {
-    const a = (raw ?? '').trim()
-    if (!a || seen.has(a.toLowerCase())) continue
-    seen.add(a.toLowerCase())
-    out.push(a)
+    // Tål kommaseparerte verdier i ett element (UI lagrer aliaser som kommaseparert tekst).
+    for (const piece of (raw ?? '').split(',')) {
+      const a = piece.trim()
+      if (!a || seen.has(a.toLowerCase())) continue
+      seen.add(a.toLowerCase())
+      out.push(a)
+    }
   }
   return out
 }

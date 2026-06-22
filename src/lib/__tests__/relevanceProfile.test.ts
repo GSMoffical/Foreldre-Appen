@@ -39,4 +39,28 @@ describe('normalizeRelevanceProfile', () => {
       { type: 'fotball', name: 'Lørenskog', groupName: 'Nydalen J2015' },
     ])
   })
+
+  it('normaliserer aktivitets-aliaser (komma-split, trim, dedup case-insensitivt)', () => {
+    const out = normalizeRelevanceProfile({
+      activities: [{ name: 'Kor', aliases: ['kor, barnekor', 'KOR', ' sang ', ''] }],
+    })
+    expect(out?.activities).toEqual([{ name: 'Kor', aliases: ['kor', 'barnekor', 'sang'] }])
+  })
+
+  it('returnerer undefined når kun tomme aktiviteter finnes', () => {
+    expect(
+      normalizeRelevanceProfile({ activities: [{ name: '' }, { name: '  ', type: 'kor' }] })
+    ).toBeUndefined()
+  })
+
+  it('beholder skole og aktiviteter sammen', () => {
+    const out = normalizeRelevanceProfile({
+      school: { classCode: '2STC' },
+      activities: [{ name: 'Speider', groupName: 'Speidergruppa' }],
+    })
+    expect(out).toEqual({
+      school: { classCode: '2STC' },
+      activities: [{ name: 'Speider', groupName: 'Speidergruppa' }],
+    })
+  })
 })
