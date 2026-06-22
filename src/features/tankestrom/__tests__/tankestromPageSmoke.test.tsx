@@ -199,6 +199,87 @@ describe('TankestrømPage primærflyt-smoke', () => {
     expect(screen.getByText('Betal turneringsavgift')).toBeTruthy()
   })
 
+  it('må-gjøre-gjøremål: viser «Må gjøre»-merke og frist (Spond med klokkeslett)', async () => {
+    const taskBundle = parsePortalImportProposalBundle({
+      schemaVersion: '1.0.0',
+      provenance: {
+        sourceSystem: 'tankestrom',
+        sourceType: 'e2e_fixture',
+        generatorVersion: 'test',
+        generatedAt: '2026-05-08T20:00:00.000Z',
+        importRunId: 'task-mustdo',
+      },
+      items: [
+        {
+          proposalId: 'c1e2c3d4-5678-4abc-9def-0123456789ab',
+          kind: 'task',
+          sourceId: 'e2e',
+          originalSourceType: 'pasted_text',
+          confidence: 0.95,
+          task: {
+            title: 'Svar i Spond',
+            date: '2026-09-08',
+            dueTime: '20:00',
+            taskIntent: 'must_do',
+          },
+        },
+      ],
+    })
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(taskBundle)
+
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'Svar i Spond innen tirsdag kl. 20:00')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    expect(await screen.findByText('Foreslåtte gjøremål')).toBeTruthy()
+    expect(screen.getByText('Svar i Spond')).toBeTruthy()
+    expect(screen.getByText('Må gjøre')).toBeTruthy()
+    // Frist/dueTime vises i sublabelen.
+    expect(screen.getByText(/· 20:00/)).toBeTruthy()
+  })
+
+  it('valgfritt gjøremål: viser «Valgfritt»-merke (can_help)', async () => {
+    const taskBundle = parsePortalImportProposalBundle({
+      schemaVersion: '1.0.0',
+      provenance: {
+        sourceSystem: 'tankestrom',
+        sourceType: 'e2e_fixture',
+        generatorVersion: 'test',
+        generatedAt: '2026-05-08T20:00:00.000Z',
+        importRunId: 'task-canhelp',
+      },
+      items: [
+        {
+          proposalId: 'd1e2c3d4-5678-4abc-9def-0123456789ab',
+          kind: 'task',
+          sourceId: 'e2e',
+          originalSourceType: 'pasted_text',
+          confidence: 0.95,
+          task: {
+            title: 'Ta med frukt',
+            date: '2026-09-08',
+            taskIntent: 'can_help',
+          },
+        },
+      ],
+    })
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(taskBundle)
+
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'Kan noen ta med frukt?')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    expect(await screen.findByText('Foreslåtte gjøremål')).toBeTruthy()
+    expect(screen.getByText('Ta med frukt')).toBeTruthy()
+    expect(screen.getByText('Valgfritt')).toBeTruthy()
+  })
+
   it('gir embedded cup-dager gyldig person_id ved import (eneste barn som default)', async () => {
     const user = userEvent.setup()
     const createEvent = vi.fn().mockResolvedValue(undefined)
