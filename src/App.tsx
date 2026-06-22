@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { Outlet, useNavigate } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { MobileFrame } from './components/MobileFrame'
 import { BottomNav } from './components/BottomNav'
+import { AddActionSheet } from './components/AddActionSheet'
 import { TasksScreen } from './components/TasksScreen'
 import { useScheduleState } from './hooks/useScheduleState'
 import { useAutoFillWeek } from './hooks/useAutoFillWeek'
@@ -74,7 +75,6 @@ export interface AppOutletContext {
 export function AppLayout() {
   useTimeOfDaySurface()
   const navigate = useNavigate()
-  const location = useLocation()
   const { isOnline } = useNetworkStatus()
   const reducedMotion = useReducedMotion() ?? false
   const { user } = useAuth()
@@ -386,6 +386,7 @@ export function AppLayout() {
     }
   }, [])
 
+  const [addActionOpen, setAddActionOpen] = useState(false)
   const [tankestromImportOpen, setTankestromImportOpen] = useState(false)
   const openTankestromImport = useCallback((source: 'settings' | 'toast') => {
     addTankestromSentryBreadcrumb('tankestrom_import_opened', { source })
@@ -695,18 +696,17 @@ export function AppLayout() {
             onDismissPartnerBanner={() => setPartnerBannerDismissed(true)}
           />
           <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-hidden">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={location.pathname.split('/')[1] || 'kalender'}
-                initial={reducedMotion ? false : { opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={reducedMotion ? { opacity: 1 } : { opacity: 0, y: -4 }}
-                transition={{ duration: 0.15, ease: 'easeOut' }}
-                className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden"
-              >
-                <Outlet context={outletContext} />
-              </motion.div>
-            </AnimatePresence>
+            {/*
+              Routed screens render directly via <Outlet> — no AnimatePresence wrapper.
+              A previous `<AnimatePresence mode="wait">` keyed on the location stalled in a
+              data router: <Outlet> content is driven by the live router location (it can't be
+              frozen to the exiting element), so the wait-state machine desynced and left the
+              entering screen stuck at its `initial` opacity:0 — a blank-but-error-free screen
+              until reload. Screens keep their own internal animations.
+            */}
+            <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden">
+              <Outlet context={outletContext} />
+            </div>
           </div>
 
           {notifyToast && (
@@ -791,9 +791,11 @@ export function AppLayout() {
 
           <BottomNav
             logisticsNotifyCount={inboxUnreadCount}
+            onAddAction={() => setAddActionOpen(true)}
             onSelect={(tab) => {
               logEvent('tab_switched', { tab })
               if (tab === 'kalender') setShowListView(false)
+              navigate(`/${tab}`)
             }}
           />
         </div>
@@ -845,6 +847,12 @@ export function AppLayout() {
         taskController={taskController}
         selectedTaskId={selectedTaskId}
         setSelectedTaskId={setSelectedTaskId}
+      />
+      <AddActionSheet
+        open={addActionOpen}
+        onClose={() => setAddActionOpen(false)}
+        onAddEvent={() => openAddEvent(null)}
+        onImportSchool={() => openTankestromImport('settings')}
       />
     </AppShell>
   )
