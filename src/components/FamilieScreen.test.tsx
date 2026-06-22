@@ -54,6 +54,10 @@ vi.mock('../lib/inviteApi', () => ({
   buildInviteUrl: () => '',
   getOrCreateInviteForTarget: vi.fn(async () => null),
 }))
+// Bildeanalyse-klienten (brukt av TimetableImageImport i timeplansteget) — ikke kalt i disse testene.
+vi.mock('../lib/tankestromApi', () => ({
+  analyzeDocumentWithTankestrom: vi.fn(async () => ({ items: [] })),
+}))
 
 // Gjør framer-motion synkron i test: ingen animasjoner, AnimatePresence = passthrough.
 vi.mock('framer-motion', async () => {
@@ -139,5 +143,21 @@ describe('FamilieScreen — relevansprofil', () => {
     const updates = call![1] as { relevanceProfile?: NonNullable<Person['relevanceProfile']> }
     expect(updates.relevanceProfile?.school?.classCode).toBe('3STA')
     expect(updates.relevanceProfile?.activities?.map((a) => a.name)).toEqual(['Speider'])
+  })
+
+  it('viser «Importer fra bilde» og beholder manuell timeplan i barnets timeplansteg', async () => {
+    const user = userEvent.setup()
+    render(<FamilieScreen onBack={() => undefined} />)
+
+    // Rediger Emma → Steg 1 (Grunninfo) → Steg 2 (Relevans) → Steg 3 (Timeplan).
+    await user.click(screen.getAllByRole('button', { name: 'Rediger' })[0]!)
+    await user.click(screen.getByRole('button', { name: 'Neste' }))
+    await user.click(screen.getByRole('button', { name: 'Neste' }))
+
+    // Bildeimport tilgjengelig …
+    expect(screen.getByRole('button', { name: /Importer fra bilde/ })).toBeTruthy()
+    // … og manuell redigering er fortsatt der (standard-uke + ukedager).
+    expect(screen.getByRole('button', { name: /Standard skoleuke/ })).toBeTruthy()
+    expect(screen.getByText('Uke (man–fre)')).toBeTruthy()
   })
 })
