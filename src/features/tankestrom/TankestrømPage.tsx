@@ -233,6 +233,9 @@ export function TankestrømPage({
     importPersonContext,
     applyReviewBulkPersonTargets,
     clearReviewBulkPersonTargets,
+    visibleSecondaryImportCandidates,
+    promoteSecondaryImportCandidate,
+    dismissSecondaryImportCandidate,
   } = useTankestromImport({
     open: true,
     people,
@@ -676,6 +679,61 @@ export function TankestrømPage({
                     {subLabel && <p className="text-caption text-synkaNavy/50">{subLabel}</p>}
                   </div>
                 </button>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Sekundærsone: tasks/hendelser med lavere sikkerhet rutes hit av
+            primaryCalendarProposalItems. Uten denne seksjonen var de usynlige i siden.
+            Promote = eksplisitt brukerhandling → flyttes til hovedlisten (ingen auto-import). */}
+        {visibleSecondaryImportCandidates.length > 0 && (
+          <div className="mt-5">
+            <div className="mb-2 flex items-center gap-2 px-4">
+              <SectionDots size="sm" />
+              <span className="text-caption font-semibold text-synkaNavy">Kanskje også relevant</span>
+              <span className="rounded-pill bg-synkaNavy/10 px-2 text-caption text-synkaNavy/70">
+                {visibleSecondaryImportCandidates.length}
+              </span>
+            </div>
+            <p className="mb-3 px-4 text-caption text-synkaNavy/50">
+              Mulige ekstra funn med lavere sikkerhet. Legg dem til som gjøremål eller hendelse hvis de er
+              relevante.
+            </p>
+            {visibleSecondaryImportCandidates.map((c) => {
+              const kindHint = c.suggestedKind === 'task' ? 'Gjøremål' : 'Hendelse'
+              return (
+                <div
+                  key={c.candidateId}
+                  className="mx-4 mb-2 rounded-md border border-dashed border-synkaNavy/20 bg-white px-3 py-2.5"
+                >
+                  <p className="text-body-sm font-semibold text-synkaNavy">{c.title}</p>
+                  {c.summary && <p className="mt-0.5 text-caption text-synkaNavy/50">{c.summary}</p>}
+                  <p className="mt-0.5 text-caption text-synkaNavy/40">Forslag: {kindHint}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => promoteSecondaryImportCandidate(c, 'task')}
+                      className="rounded-md border border-synkaNavy/15 bg-synkaCream/40 px-2.5 py-1.5 text-caption font-semibold text-synkaNavy touch-manipulation active:bg-synkaCream"
+                    >
+                      Gjør til gjøremål
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => promoteSecondaryImportCandidate(c, 'event')}
+                      className="rounded-md border border-synkaNavy/15 bg-synkaCream/40 px-2.5 py-1.5 text-caption font-semibold text-synkaNavy touch-manipulation active:bg-synkaCream"
+                    >
+                      Gjør til hendelse
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => dismissSecondaryImportCandidate(c, 'ignore')}
+                      className="rounded-md px-2.5 py-1.5 text-caption font-semibold text-synkaNavy/50 touch-manipulation active:bg-synkaCream/60"
+                    >
+                      Ignorer
+                    </button>
+                  </div>
+                </div>
               )
             })}
           </div>
