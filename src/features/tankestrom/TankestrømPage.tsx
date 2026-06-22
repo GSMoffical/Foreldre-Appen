@@ -12,6 +12,7 @@ import { tankestromConditionalBadgeLabelNb } from '../../lib/tankestromCondition
 import { taskIntentBadgeClassName, taskIntentLabelNb } from '../../lib/taskIntent'
 import { normalizeSingleEventCalendarTitle } from '../../lib/tankestromTitleNormalization'
 import { readTankestromScheduleDetailsFromMetadata } from '../../lib/tankestromScheduleDetails'
+import { parseSingleEventNoteSections } from '../../lib/tankestromSingleEventNoteSections'
 import type { Event, Task, Person, EmbeddedScheduleSegment, EventMetadata } from '../../types'
 import type { PortalEventProposal } from './types'
 import {
@@ -126,6 +127,37 @@ function EmbeddedScheduleDayBlocks({
  * normalisering (`readTankestromScheduleDetailsFromMetadata`) og delte `TankestromScheduleDetails`
  * som dagblokkene. Viser ingen tomme seksjoner og finner ikke opp data som ikke finnes.
  */
+/** Én detaljseksjon i enkelthendelse-previewen — samme stil som de delte dagblokkene. */
+function SingleEventDetailSection({
+  label,
+  text,
+  items,
+}: {
+  label: string
+  text?: string
+  items?: string[]
+}) {
+  return (
+    <div>
+      <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[10px]">
+        {label}
+      </p>
+      {text != null && (
+        <p className="mt-1 break-words text-caption leading-snug text-zinc-800">{text}</p>
+      )}
+      {items && items.length > 0 && (
+        <ul className="mt-1.5 list-disc space-y-1 pl-4 text-caption leading-snug text-zinc-800 sm:text-caption">
+          {items.map((n, i) => (
+            <li key={`${n}-${i}`} className="break-words pl-0.5">
+              {n}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function SingleEventDetails({
   metadata,
   title,
@@ -141,32 +173,51 @@ function SingleEventDetails({
   const freeNotes = notes.trim()
   const noteKey = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim()
   const metaNoteKeys = new Set(meta.notes.map(noteKey))
-  const mergedNotes =
+  const allNotes =
     freeNotes && !metaNoteKeys.has(noteKey(freeNotes)) ? [...meta.notes, freeNotes] : meta.notes
-  const hasDetails =
-    meta.highlights.length > 0 ||
-    mergedNotes.length > 0 ||
-    meta.bringItems.length > 0 ||
-    meta.timeWindowSummaries.length > 0
+  // Lett UI-parsing: trekk møtested/gruppekode/praktisk info ut av fritekst-notatene slik at
+  // de ikke havner som én rå linje under «Notater». Ren presentasjon (rører ikke draft/persist).
+  const sections = parseSingleEventNoteSections(allNotes)
+
   const loc = location.trim()
-  if (!loc && !hasDetails) return null
+  // Eksplisitt location-felt vinner som «Sted»; ellers vis møtested parset fra notatene.
+  const placeLabel = loc ? 'Sted' : sections.meetingPlace ? 'Møtested' : ''
+  const placeValue = loc || sections.meetingPlace || ''
+
+  const hasHighlightData =
+    meta.highlights.length > 0 || meta.timeWindowSummaries.length > 0 || meta.bringItems.length > 0
+  const hasAnything =
+    !!placeValue ||
+    hasHighlightData ||
+    sections.practical.length > 0 ||
+    sections.appliesTo.length > 0 ||
+    sections.notes.length > 0
+  if (!hasAnything) return null
+
   return (
-    <div className="mt-1.5 space-y-1.5 rounded-md border border-synkaNavy/10 bg-white px-3 py-2">
-      {loc && (
-        <p className="text-caption text-synkaNavy/60">
-          <span className="font-medium text-synkaNavy/80">Sted:</span> {loc}
-        </p>
-      )}
-      {hasDetails && (
+    <div className="mt-1.5 space-y-2 rounded-md border border-synkaNavy/10 bg-white px-3 py-2">
+      {/* Høydepunkter/tidspunkter + Husk-ta-med fra metadata — delt komponent, uendret.
+          Notater rendres separat under, slik at møtested/praktisk/gjelder kan komme imellom. */}
+      {hasHighlightData && (
         <TankestromScheduleDetails
           compact
           useNormalizedInput
           highlights={meta.highlights}
-          notes={mergedNotes}
+          notes={[]}
           bringItems={meta.bringItems}
           precomputedTimeWindowSummaries={meta.timeWindowSummaries}
           titleContext={[title]}
         />
+      )}
+      {placeValue && <SingleEventDetailSection label={placeLabel} text={placeValue} />}
+      {sections.practical.length > 0 && (
+        <SingleEventDetailSection label="Praktisk info" items={sections.practical} />
+      )}
+      {sections.appliesTo.length > 0 && (
+        <SingleEventDetailSection label="Gjelder" text={sections.appliesTo.join(', ')} />
+      )}
+      {sections.notes.length > 0 && (
+        <SingleEventDetailSection label="Notater" items={sections.notes} />
       )}
     </div>
   )
