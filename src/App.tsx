@@ -4,6 +4,7 @@ import { Outlet, useNavigate } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { MobileFrame } from './components/MobileFrame'
 import { BottomNav } from './components/BottomNav'
+import { AddActionSheet } from './components/AddActionSheet'
 import { TasksScreen } from './components/TasksScreen'
 import { useScheduleState } from './hooks/useScheduleState'
 import { useAutoFillWeek } from './hooks/useAutoFillWeek'
@@ -385,6 +386,7 @@ export function AppLayout() {
     }
   }, [])
 
+  const [addActionOpen, setAddActionOpen] = useState(false)
   const [tankestromImportOpen, setTankestromImportOpen] = useState(false)
   const openTankestromImport = useCallback((source: 'settings' | 'toast') => {
     addTankestromSentryBreadcrumb('tankestrom_import_opened', { source })
@@ -789,6 +791,7 @@ export function AppLayout() {
 
           <BottomNav
             logisticsNotifyCount={inboxUnreadCount}
+            onAddAction={() => setAddActionOpen(true)}
             onSelect={(tab) => {
               logEvent('tab_switched', { tab })
               if (tab === 'kalender') setShowListView(false)
@@ -844,6 +847,12 @@ export function AppLayout() {
         taskController={taskController}
         selectedTaskId={selectedTaskId}
         setSelectedTaskId={setSelectedTaskId}
+      />
+      <AddActionSheet
+        open={addActionOpen}
+        onClose={() => setAddActionOpen(false)}
+        onAddEvent={() => openAddEvent(null)}
+        onImportSchool={() => openTankestromImport('settings')}
       />
     </AppShell>
   )
