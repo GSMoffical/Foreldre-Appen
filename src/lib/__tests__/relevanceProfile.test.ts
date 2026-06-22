@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeRelevanceProfile } from '../relevanceProfile'
+import { normalizeRelevanceProfile, summarizeRelevanceProfile } from '../relevanceProfile'
 
 describe('normalizeRelevanceProfile', () => {
   it('returnerer undefined for tom/utelatt input', () => {
@@ -62,5 +62,32 @@ describe('normalizeRelevanceProfile', () => {
       school: { classCode: '2STC' },
       activities: [{ name: 'Speider', groupName: 'Speidergruppa' }],
     })
+  })
+})
+
+describe('summarizeRelevanceProfile', () => {
+  it('returnerer null for tom/utelatt profil', () => {
+    expect(summarizeRelevanceProfile(undefined)).toBeNull()
+    expect(summarizeRelevanceProfile({})).toBeNull()
+    expect(summarizeRelevanceProfile({ school: { name: '   ' } })).toBeNull()
+  })
+
+  it('oppsummerer klasse, skole og aktiviteter', () => {
+    expect(
+      summarizeRelevanceProfile({
+        school: { classCode: '2STC', name: 'Nydalen skole' },
+        activities: [{ name: 'Kor' }, { name: 'Fotball' }],
+      })
+    ).toBe('Klasse: 2STC · Skole: Nydalen skole · Aktiviteter: Kor, Fotball')
+  })
+
+  it('faller tilbake til trinn når klassekode mangler', () => {
+    expect(summarizeRelevanceProfile({ school: { grade: 'VG2' } })).toBe('Trinn: VG2')
+  })
+
+  it('oppsummerer kun aktiviteter når skole mangler', () => {
+    expect(summarizeRelevanceProfile({ activities: [{ name: 'Speider' }] })).toBe(
+      'Aktiviteter: Speider'
+    )
   })
 })

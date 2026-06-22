@@ -15,6 +15,7 @@ import type {
   MemberKind,
   ParentWorkProfile,
   Person,
+  RelevanceProfile,
   WeekdayMonFri,
 } from '../types'
 import { useAuth } from '../context/AuthContext'
@@ -22,10 +23,12 @@ import { useFamily } from '../context/FamilyContext'
 import { usePermissions } from '../hooks/usePermissions'
 import { useEffectiveUserId } from '../context/EffectiveUserIdContext'
 import { buildInviteUrl, getOrCreateInviteForTarget } from '../lib/inviteApi'
+import { normalizeRelevanceProfile, summarizeRelevanceProfile } from '../lib/relevanceProfile'
 import { inputBase, typSectionCap } from '../lib/ui'
 import { INPUT_LIMITS } from '../lib/inputLimits'
 import { SectionDots } from './SectionDots'
 import { SchoolProfileFields } from './SchoolProfileFields'
+import { RelevanceProfileFields } from './RelevanceProfileFields'
 
 /** 13 brand-friendly color pairs (mirrors COLOR_PRESETS in FamilyEditor.tsx). */
 const COLOR_PRESETS: { tint: string; accent: string }[] = [
@@ -198,6 +201,12 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
                             >
                               {p.memberKind === 'parent' ? 'Forelder' : p.memberKind === 'guest' ? 'Gjest' : 'Barn'}
                             </span>
+                            {p.memberKind === 'child' && (
+                              <p className="mt-1 truncate text-caption text-synkaNavy/55">
+                                {summarizeRelevanceProfile(p.relevanceProfile) ??
+                                  'Relevansprofil ikke satt opp'}
+                              </p>
+                            )}
                           </div>
                           {canEditFamilyMember(p.id) && (
                             <button
@@ -334,6 +343,9 @@ function PersonWizard({
   const [memberKind, setMemberKind] = useState<MemberKind>(initial?.memberKind ?? 'parent')
   const [school, setSchool] = useState<ChildSchoolProfile>(initial?.school ?? emptyChildSchool())
   const [work, setWork] = useState<ParentWorkProfile | undefined>(initial?.work)
+  const [relevanceProfile, setRelevanceProfile] = useState<RelevanceProfile | undefined>(
+    initial?.relevanceProfile
+  )
 
   const [step, setStep] = useState<1 | 2 | 3>(startStep)
   const [direction, setDirection] = useState(1)
@@ -350,7 +362,14 @@ function PersonWizard({
   const [inviteLoading, setInviteLoading] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  const totalSteps = memberKind === 'parent' ? 3 : memberKind === 'guest' ? 1 : 2
+  // Barn får et eget «Relevans»-steg (skole/klasse/trinn/aktiviteter) mellom Grunninfo og Timeplan.
+  const stepLabels: string[] =
+    memberKind === 'parent'
+      ? ['Grunninfo', 'Timeplan', 'Invitasjon']
+      : memberKind === 'child'
+        ? ['Grunninfo', 'Relevans', 'Timeplan']
+        : ['Grunninfo']
+  const totalSteps = stepLabels.length
   const isLastStep = step >= totalSteps
   const heading =
     mode === 'edit' ? `Rediger ${initial?.name || 'medlem'}` : 'Legg til person'
@@ -363,6 +382,9 @@ function PersonWizard({
       memberKind,
       school: memberKind === 'child' ? school : undefined,
       work: memberKind === 'parent' ? work : undefined,
+      // Normaliseres her (rå form-state → ryddig verdi); kun barn har relevansprofil.
+      relevanceProfile:
+        memberKind === 'child' ? normalizeRelevanceProfile(relevanceProfile) : undefined,
     }
   }
 
@@ -376,6 +398,7 @@ function PersonWizard({
         colorAccent: payload.colorAccent,
         school: payload.school,
         work: payload.work,
+        relevanceProfile: payload.relevanceProfile,
       })
       return initial.id
     }
@@ -386,6 +409,7 @@ function PersonWizard({
         colorAccent: payload.colorAccent,
         school: payload.school,
         work: payload.work,
+        relevanceProfile: payload.relevanceProfile,
       })
       return savedPersonId
     }
@@ -412,17 +436,11 @@ function PersonWizard({
     if (step === 1 && !validateName()) return
     setSaving(true)
     try {
-      if (step === 1) {
-        goTo(2)
-      } else if (step === 2) {
-        if (memberKind === 'parent') {
-          // Persist now so step 3's invite can target the real row.
-          await persistPerson()
-          goTo(3)
-        } else {
-          await finalize()
-        }
+      // Forelder: lagre før det siste (invitasjons)steget, så invitasjonen kan peke på raden.
+      if (memberKind === 'parent' && step + 1 === totalSteps) {
+        await persistPerson()
       }
+      goTo((step + 1) as 1 | 2 | 3)
     } catch {
       // Persist errors surface on finalize; keep the wizard usable.
     } finally {
@@ -579,7 +597,7 @@ function PersonWizard({
       {/* Step progress indicator */}
       <div className="shrink-0 px-5 pt-4 pb-2">
         <p className="mb-2 text-caption text-synkaNavy/50">
-          Steg {step} av {totalSteps} — {(['Grunninfo', 'Timeplan', 'Invitasjon'] as const)[step - 1]}
+          Steg {step} av {totalSteps} — {stepLabels[step - 1] ?? ''}
         </p>
         <div className="flex gap-1.5">
           {Array.from({ length: totalSteps }, (_, i) => {
@@ -635,6 +653,10 @@ function PersonWizard({
             )}
 
             {step === 2 && memberKind === 'child' && (
+              <StepRelevance value={relevanceProfile} onChange={setRelevanceProfile} />
+            )}
+
+            {step === 3 && memberKind === 'child' && (
               <StepSchool
                 school={school}
                 onSchoolChange={setSchool}
@@ -829,6 +851,28 @@ function KindTile({ active, disabled, onClick, icon, label, sub }: KindTileProps
       <span className="text-body font-semibold text-synkaNavy">{label}</span>
       <span className="text-label leading-tight text-synkaNavy/55">{sub}</span>
     </button>
+  )
+}
+
+// ── Step 2 (child): Relevansprofil ────────────────────────────────────────────
+
+interface StepRelevanceProps {
+  value: RelevanceProfile | undefined
+  onChange: (next: RelevanceProfile | undefined) => void
+}
+
+function StepRelevance({ value, onChange }: StepRelevanceProps) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-display font-bold text-synkaNavy">Skole og aktiviteter</h2>
+        <p className="mt-1 text-body-sm text-synkaNavy/55">
+          Skole, klasse, trinn og fritidsaktiviteter for barnet. Lagres for senere relevansmatching.
+          Sendes ikke til Tankestrømmen ennå.
+        </p>
+      </div>
+      <RelevanceProfileFields value={value} onChange={onChange} />
+    </div>
   )
 }
 
