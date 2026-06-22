@@ -280,6 +280,63 @@ describe('TankestrømPage primærflyt-smoke', () => {
     expect(screen.getByText('Valgfritt')).toBeTruthy()
   })
 
+  it('sekundært gjøremål (middels sikkerhet) er synlig i siden og kan legges til', async () => {
+    const bundle = parsePortalImportProposalBundle({
+      schemaVersion: '1.0.0',
+      provenance: {
+        sourceSystem: 'tankestrom',
+        sourceType: 'pasted_text',
+        generatorVersion: 'test',
+        generatedAt: '2026-05-08T20:00:00.000Z',
+        importRunId: 'task-secondary',
+      },
+      items: [
+        {
+          proposalId: 'e1e2c3d4-5678-4abc-9def-0123456789ab',
+          kind: 'event',
+          sourceId: 'e2e',
+          originalSourceType: 'pasted_text',
+          confidence: 0.95,
+          event: { title: 'Lørdagscup', date: '2026-06-13', start: '09:20', end: '10:50' },
+        },
+        {
+          // Middels konfidens [0.37, 0.56) → rutes til sekundærsonen.
+          proposalId: 'f1e2c3d4-5678-4abc-9def-0123456789ab',
+          kind: 'task',
+          sourceId: 'e2e',
+          originalSourceType: 'pasted_text',
+          confidence: 0.45,
+          task: {
+            title: 'Vi trenger noen som kan ta med frukt',
+            date: '2026-06-13',
+            taskIntent: 'can_help',
+          },
+        },
+      ],
+    })
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(bundle)
+
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'Lørdagscup. Kan noen ta med frukt?')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    // Det sekundære gjøremålet er SYNLIG (ikke usynlig), i egen «Kanskje også relevant»-seksjon.
+    expect(await screen.findByText('Kanskje også relevant')).toBeTruthy()
+    expect(screen.getByText('Vi trenger noen som kan ta med frukt')).toBeTruthy()
+    // Event vises fortsatt som hendelse.
+    expect(screen.getByText('Lørdagscup')).toBeTruthy()
+    // Ikke i hovedlista for gjøremål ennå (krever bekreftelse, ingen auto-import).
+    expect(screen.queryByText('Foreslåtte gjøremål')).toBeNull()
+
+    // «Gjør til gjøremål» → flyttes til hovedlista med «Valgfritt»-merke.
+    await user.click(screen.getByRole('button', { name: 'Gjør til gjøremål' }))
+    expect(await screen.findByText('Foreslåtte gjøremål')).toBeTruthy()
+    expect(screen.getByText('Valgfritt')).toBeTruthy()
+  })
+
   it('gir embedded cup-dager gyldig person_id ved import (eneste barn som default)', async () => {
     const user = userEvent.setup()
     const createEvent = vi.fn().mockResolvedValue(undefined)
