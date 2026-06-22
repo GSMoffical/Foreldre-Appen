@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { IconArrowLeft, IconUpload, IconCheck } from '@tabler/icons-react'
 import { SectionDots } from '../../components/SectionDots'
 import { TankestromScheduleDetails } from '../../components/TankestromScheduleDetails'
@@ -13,6 +13,11 @@ import { taskIntentBadgeClassName, taskIntentLabelNb } from '../../lib/taskInten
 import { normalizeSingleEventCalendarTitle } from '../../lib/tankestromTitleNormalization'
 import { readTankestromScheduleDetailsFromMetadata } from '../../lib/tankestromScheduleDetails'
 import { parseSingleEventNoteSections } from '../../lib/tankestromSingleEventNoteSections'
+import {
+  findCalendarUpdateCandidates,
+  type ExistingCalendarItem,
+} from '../../lib/tankestromCalendarUpdateCandidates'
+import { CalendarUpdateCandidates } from './CalendarUpdateCandidates'
 import type { Event, Task, Person, EmbeddedScheduleSegment, EventMetadata } from '../../types'
 import type { PortalEventProposal } from './types'
 import {
@@ -357,6 +362,28 @@ export function TankestrømPage({
   const eventDisplayItems = displayItems.filter((item) => item.kind === 'event')
   const taskDisplayItems = displayItems.filter((item) => item.kind === 'task')
 
+  // Eksisterende kalenderhendelser (kun forgrunn, fra cache) for read-only kandidat-hint.
+  // Endrer ingenting — viser bare «kan være oppdatering til eksisterende».
+  const existingCalendarItems = useMemo<ExistingCalendarItem[]>(() => {
+    const rows = getAnchoredForegroundEventsForMatching?.() ?? []
+    return rows.map(({ event, anchorDate }) => {
+      const meta =
+        event.metadata && typeof event.metadata === 'object' && !Array.isArray(event.metadata)
+          ? (event.metadata as Record<string, unknown>)
+          : undefined
+      return {
+        id: event.id,
+        title: event.title,
+        date: anchorDate,
+        endDate: typeof meta?.endDate === 'string' ? meta.endDate : undefined,
+        personId: event.personId,
+        location: event.location,
+        stableKey:
+          typeof meta?.arrangementStableKey === 'string' ? meta.arrangementStableKey : undefined,
+      }
+    })
+  }, [getAnchoredForegroundEventsForMatching])
+
   const selectedCount = displayItems.filter((item) => selectedIds.has(item.proposalId)).length
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -613,6 +640,32 @@ export function TankestrømPage({
                 notes = eventDraft?.notes ?? item.event.notes ?? ''
               }
 
+              // Read-only hint: kan dette forslaget være en oppdatering til en eksisterende hendelse?
+              const meta =
+                item.kind === 'event' &&
+                item.event.metadata &&
+                typeof item.event.metadata === 'object' &&
+                !Array.isArray(item.event.metadata)
+                  ? (item.event.metadata as Record<string, unknown>)
+                  : undefined
+              const updateCandidates =
+                item.kind === 'event'
+                  ? findCalendarUpdateCandidates(
+                      {
+                        title: item.event.title,
+                        date: dateKey || item.event.date,
+                        endDate: typeof meta?.endDate === 'string' ? meta.endDate : undefined,
+                        personId: eventDraft?.personId ?? item.event.personId,
+                        location: location || undefined,
+                        stableKey:
+                          typeof meta?.arrangementStableKey === 'string'
+                            ? meta.arrangementStableKey
+                            : undefined,
+                      },
+                      existingCalendarItems
+                    )
+                  : []
+
               const dateLabel = dateKey
                 ? new Date(`${dateKey}T12:00:00`).toLocaleDateString('nb-NO', {
                     weekday: 'short',
@@ -664,6 +717,7 @@ export function TankestrømPage({
                       notes={notes}
                     />
                   )}
+                  <CalendarUpdateCandidates candidates={updateCandidates} />
                 </div>
               )
             })}
