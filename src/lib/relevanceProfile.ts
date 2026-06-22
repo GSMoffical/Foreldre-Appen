@@ -54,6 +54,24 @@ function normalizeSchool(
   return Object.keys(out).length > 0 ? out : undefined
 }
 
+/**
+ * Kort oppsummering av en relevansprofil for visning i familieoversikten (f.eks.
+ * «Klasse: 2STC · Aktiviteter: Kor, Fotball»). Returnerer `null` når profilen er tom,
+ * slik at UI kan vise en tomtilstand i stedet.
+ */
+export function summarizeRelevanceProfile(profile: RelevanceProfile | undefined): string | null {
+  const norm = normalizeRelevanceProfile(profile)
+  if (!norm) return null
+  const parts: string[] = []
+  if (norm.school?.classCode) parts.push(`Klasse: ${norm.school.classCode}`)
+  else if (norm.school?.grade) parts.push(`Trinn: ${norm.school.grade}`)
+  if (norm.school?.name) parts.push(`Skole: ${norm.school.name}`)
+  if (norm.activities && norm.activities.length > 0) {
+    parts.push(`Aktiviteter: ${norm.activities.map((a) => a.name).join(', ')}`)
+  }
+  return parts.length > 0 ? parts.join(' · ') : null
+}
+
 function normalizeActivity(
   activity: RelevanceProfileActivity | undefined
 ): RelevanceProfileActivity | null {
