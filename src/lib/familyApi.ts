@@ -1,7 +1,18 @@
-import type { ChildSchoolProfile, MemberKind, ParentWorkProfile, Person } from '../types'
+import type {
+  ChildSchoolProfile,
+  MemberKind,
+  ParentWorkProfile,
+  Person,
+  RelevanceProfile,
+} from '../types'
 import { supabase } from './supabaseClient'
 
-type ProfileRow = { school?: ChildSchoolProfile; work?: ParentWorkProfile }
+type ProfileRow = {
+  school?: ChildSchoolProfile
+  work?: ParentWorkProfile
+  /** Barn: minimal relevansprofil (skole/klasse/trinn/aktiviteter) for senere Tankestrøm-kontekst. */
+  relevance?: RelevanceProfile
+}
 
 function mapRowToPerson(row: {
   id: string
@@ -22,6 +33,7 @@ function mapRowToPerson(row: {
     memberKind,
     school: memberKind === 'child' ? profile.school : undefined,
     work: memberKind === 'parent' ? profile.work : undefined,
+    relevanceProfile: memberKind === 'child' ? profile.relevance : undefined,
     linkedAuthUserId: row.linked_auth_user_id ?? undefined,
   }
 }

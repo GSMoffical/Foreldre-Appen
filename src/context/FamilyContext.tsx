@@ -21,12 +21,18 @@ interface FamilyContextValue {
   error: string | null
   updatePerson: (
     id: string,
-    updates: Partial<Pick<Person, 'name' | 'colorTint' | 'colorAccent' | 'memberKind' | 'school' | 'work'>>
+    updates: Partial<
+      Pick<
+        Person,
+        'name' | 'colorTint' | 'colorAccent' | 'memberKind' | 'school' | 'work' | 'relevanceProfile'
+      >
+    >
   ) => Promise<void>
   addPerson: (
     person: Pick<Person, 'name' | 'colorTint' | 'colorAccent' | 'memberKind'> & {
       school?: Person['school']
       work?: Person['work']
+      relevanceProfile?: Person['relevanceProfile']
     }
   ) => Promise<Person | null>
   removePerson: (id: string) => Promise<void>
@@ -167,7 +173,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           color_tint: string
           color_accent: string
           member_kind?: string | null
-          profile?: { school?: Person['school']; work?: Person['work'] } | null
+          profile?: {
+            school?: Person['school']
+            work?: Person['work']
+            relevance?: Person['relevanceProfile']
+          } | null
           linked_auth_user_id?: string | null
         }) => {
           const memberKind = row.member_kind === 'parent' ? 'parent' : 'child'
@@ -180,6 +190,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
             memberKind,
             school: memberKind === 'child' ? pr.school : undefined,
             work: memberKind === 'parent' ? pr.work : undefined,
+            relevanceProfile: memberKind === 'child' ? pr.relevance : undefined,
             linkedAuthUserId: row.linked_auth_user_id ?? undefined,
           }
         }
@@ -243,7 +254,12 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const updatePerson = useCallback(
     async (
       id: string,
-      updates: Partial<Pick<Person, 'name' | 'colorTint' | 'colorAccent' | 'memberKind' | 'school' | 'work'>>
+      updates: Partial<
+        Pick<
+          Person,
+          'name' | 'colorTint' | 'colorAccent' | 'memberKind' | 'school' | 'work' | 'relevanceProfile'
+        >
+      >
     ) => {
       if (!effectiveUserId) throw new Error('Must be signed in to edit family')
       if (isLinked) {
@@ -259,12 +275,18 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
             ...updates,
             school: updates.school !== undefined ? updates.school : next.school,
             work: updates.work !== undefined ? updates.work : next.work,
+            relevanceProfile:
+              updates.relevanceProfile !== undefined
+                ? updates.relevanceProfile
+                : next.relevanceProfile,
           }
         : undefined
+      // Hele `profile`-jsonb overskrives ved update, så relevansprofilen må alltid være med
+      // (ellers nulles den når man redigerer navn/skole). Relevans er kun for barn.
       const profilePayload =
         merged &&
         (merged.memberKind === 'child'
-          ? { school: merged.school }
+          ? { school: merged.school, relevance: merged.relevanceProfile }
           : { work: merged.work })
 
       const ok = await updateFamilyMember(effectiveUserId, id, {
@@ -283,6 +305,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
                 ...updates,
                 school: updates.school !== undefined ? updates.school : p.school,
                 work: updates.work !== undefined ? updates.work : p.work,
+                relevanceProfile:
+                  updates.relevanceProfile !== undefined ? updates.relevanceProfile : p.relevanceProfile,
               }
             : p
         )
@@ -296,6 +320,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       person: Pick<Person, 'name' | 'colorTint' | 'colorAccent' | 'memberKind'> & {
         school?: Person['school']
         work?: Person['work']
+        relevanceProfile?: Person['relevanceProfile']
       }
     ): Promise<Person | null> => {
       if (!effectiveUserId) throw new Error('Must be signed in to add family member')
@@ -303,8 +328,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       const id = `p-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
       const sortOrder = people.length
       const profile =
-        person.memberKind === 'child' && person.school
-          ? { school: person.school }
+        person.memberKind === 'child'
+          ? { school: person.school, relevance: person.relevanceProfile }
           : person.memberKind === 'parent' && person.work
             ? { work: person.work }
             : {}

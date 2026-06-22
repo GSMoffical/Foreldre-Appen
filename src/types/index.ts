@@ -90,6 +90,41 @@ export interface ParentWorkProfile {
 
 export type MemberKind = 'parent' | 'child' | 'guest'
 
+/**
+ * Minimal relevansprofil per barn — fritekst-kontekst (skole, klasse, aktiviteter) som SENERE
+ * skal kunne sendes til Tankestrømmen for å forstå hva som gjelder hvert barn (f.eks. filtrere
+ * dokumenter på klasse `2STC` eller koble en kor-melding til riktig barn).
+ *
+ * Lagres i `family_members.profile.relevance` (jsonb) — ingen migrasjon. Brukes IKKE av analyse
+ * eller personmatch ennå; ren lagring/redigering i denne fasen.
+ */
+export interface RelevanceProfileSchool {
+  /** Skolenavn, f.eks. «Nydalen skole». */
+  name?: string;
+  /** Klassekode, f.eks. «2STC». */
+  classCode?: string;
+  /** Trinn, f.eks. «VG2» / «8. trinn». */
+  grade?: string;
+  /** Navnevarianter brukt i dokumenter (for senere matching). */
+  aliases?: string[];
+}
+
+export interface RelevanceProfileActivity {
+  /** Fritype, f.eks. «fotball», «kor». */
+  type?: string;
+  /** Aktivitetsnavn (påkrevd når aktiviteten finnes). */
+  name: string;
+  /** Gruppe-/lagnavn, f.eks. «Nydalen J2015». */
+  groupName?: string;
+  /** Navnevarianter brukt i dokumenter (for senere matching). */
+  aliases?: string[];
+}
+
+export interface RelevanceProfile {
+  school?: RelevanceProfileSchool;
+  activities?: RelevanceProfileActivity[];
+}
+
 export interface Person {
   id: PersonId;
   name: string;
@@ -102,6 +137,11 @@ export interface Person {
   /** Child: school hours/subjects; parent: work hours */
   school?: ChildSchoolProfile;
   work?: ParentWorkProfile;
+  /**
+   * Barn: minimal relevansprofil (skole/klasse/trinn/aktiviteter) for senere Tankestrøm-kontekst.
+   * Additivt og valgfritt — eksisterende personer/flyt påvirkes ikke.
+   */
+  relevanceProfile?: RelevanceProfile;
   /** Invited parent: auth user id that owns this row (mom’s «dad» profile). */
   linkedAuthUserId?: string;
 }
