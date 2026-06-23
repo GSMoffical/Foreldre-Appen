@@ -6,28 +6,47 @@ import {
 } from '../../lib/tankestromCalendarUpdateDiff'
 
 /**
- * Liten, ikke-forstyrrende seksjon i import-preview som viser at et forslag KAN være en oppdatering
- * til en eksisterende kalenderhendelse. Oppdaterer ingenting:
- *  - «Vis eksisterende» åpner den eksisterende hendelsen (hvis `onOpenExisting` er gitt),
- *  - «Se mulige endringer» viser en read-only diff (beregner ingen patch, lagrer ingenting),
- *  - «Importer som ny» avviser bare hintet (forslaget importeres som nytt, slik det allerede gjør).
+ * Liten seksjon i import-preview som viser at et forslag KAN være en oppdatering til en eksisterende
+ * kalenderhendelse.
+ *  - «Vis eksisterende» åpner den eksisterende hendelsen (hvis `onOpenExisting` er gitt).
+ *  - «Se mulige endringer» viser en read-only diff (beregner ingen patch, lagrer ingenting).
+ *  - Når forslaget er i UPDATE-modus (sterk/middels kandidat), er det ekskludert fra standard
+ *    «Legg til»-importen som standard. «Importer som ny likevel» re-inkluderer det eksplisitt
+ *    (gjør det eligible for ny-import) — den OPPRETTER ikke noe selv. Ingen kalenderdata endres her.
  */
 export function CalendarUpdateCandidates({
   candidates,
   onOpenExisting,
   diffByCandidateId,
+  proposalId,
+  isUpdateMode = false,
+  isImportingAsNew = false,
+  onImportAsNew,
 }: {
   candidates: CalendarUpdateCandidate[]
   /** Åpner den eksisterende kalenderhendelsen. Utelates hvis appen ikke kan åpne den trygt. */
   onOpenExisting?: (eventId: string) => void
   /** Read-only diff per kandidat (kandidatens id → diff). Tomme/manglende differ skjules. */
   diffByCandidateId?: Record<string, CalendarUpdateDiff>
+  /** Importforslagets id (for «Importer som ny likevel»). */
+  proposalId?: string
+  /** True når forslaget behandles som mulig oppdatering (ekskludert fra standardimport). */
+  isUpdateMode?: boolean
+  /** True når forslaget nå er eksplisitt valgt for ny-import (eligible / telt). */
+  isImportingAsNew?: boolean
+  /** Re-inkluderer/ekskluderer forslaget for ny-import (toggle). Endrer ingen kalenderdata. */
+  onImportAsNew?: (proposalId: string) => void
 }) {
   const [dismissed, setDismissed] = useState(false)
   if (candidates.length === 0 || dismissed) return null
+
+  const canImportAsNew = isUpdateMode && !!proposalId && !!onImportAsNew
+
   return (
     <div className="mt-1.5 rounded-md border border-amber-200/80 bg-amber-50/60 px-3 py-2">
-      <p className="text-caption font-semibold text-amber-900">Kan være oppdatering til eksisterende:</p>
+      <p className="text-caption font-semibold text-amber-900">
+        {isUpdateMode ? 'Dette ser ut som en oppdatering til:' : 'Kan være oppdatering til eksisterende:'}
+      </p>
       <ul className="mt-1 space-y-1.5">
         {candidates.map((c) => (
           <CandidateRow
@@ -38,14 +57,28 @@ export function CalendarUpdateCandidates({
           />
         ))}
       </ul>
+
       <div className="mt-2">
-        <button
-          type="button"
-          onClick={() => setDismissed(true)}
-          className="rounded-pill border border-amber-300 bg-white px-3 py-1 text-caption font-semibold text-amber-900 transition hover:bg-amber-100/60"
-        >
-          Importer som ny
-        </button>
+        {canImportAsNew ? (
+          isImportingAsNew ? (
+            <div className="space-y-1">
+              <p className="text-caption text-amber-900/70">
+                Importeres som ny hendelse (i tillegg til den eksisterende).
+              </p>
+              <button type="button" onClick={() => onImportAsNew!(proposalId!)} className={SMALL_BTN}>
+                Angre – ikke importer som ny
+              </button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => onImportAsNew!(proposalId!)} className={SMALL_BTN}>
+              Importer som ny likevel
+            </button>
+          )
+        ) : (
+          <button type="button" onClick={() => setDismissed(true)} className={SMALL_BTN}>
+            Skjul hint
+          </button>
+        )}
       </div>
     </div>
   )
@@ -87,13 +120,7 @@ function CandidateRow({
   )
 }
 
-function DiffSection({
-  title,
-  lines,
-}: {
-  title: string
-  lines: string[]
-}) {
+function DiffSection({ title, lines }: { title: string; lines: string[] }) {
   if (lines.length === 0) return null
   return (
     <div className="mt-1.5">

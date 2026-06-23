@@ -15,6 +15,7 @@ import { readTankestromScheduleDetailsFromMetadata } from '../../lib/tankestromS
 import { parseSingleEventNoteSections } from '../../lib/tankestromSingleEventNoteSections'
 import {
   findCalendarUpdateCandidates,
+  type CalendarUpdateCandidate,
   type ExistingCalendarItem,
 } from '../../lib/tankestromCalendarUpdateCandidates'
 import {
@@ -385,6 +386,8 @@ export function TankestrømPage({
       return {
         id: event.id,
         title: event.title,
+        coreTitle:
+          typeof meta?.arrangementCoreTitle === 'string' ? meta.arrangementCoreTitle : undefined,
         date: anchorDate,
         endDate: typeof meta?.endDate === 'string' ? meta.endDate : undefined,
         personId: event.personId,
@@ -400,6 +403,65 @@ export function TankestrømPage({
     for (const row of existingRows) map.set(row.event.id, row)
     return map
   }, [existingRows])
+
+  // Kandidater per event-forslag (løftet ut av rad-render: én kilde for både hint og update-modus).
+  const candidatesByProposalId = useMemo(() => {
+    const map = new Map<string, CalendarUpdateCandidate[]>()
+    for (const item of eventDisplayItems) {
+      if (item.kind !== 'event') continue
+      const draft = draftByProposalId[item.proposalId]
+      const eventDraft = draft?.importKind === 'event' ? draft.event : null
+      const meta =
+        item.event.metadata && typeof item.event.metadata === 'object' && !Array.isArray(item.event.metadata)
+          ? (item.event.metadata as Record<string, unknown>)
+          : undefined
+      const dateKey = eventDraft?.date ?? item.event.date
+      const location = eventDraft?.location ?? item.event.location ?? ''
+      const cands = findCalendarUpdateCandidates(
+        {
+          title: item.event.title,
+          date: dateKey || item.event.date,
+          endDate: typeof meta?.endDate === 'string' ? meta.endDate : undefined,
+          personId: eventDraft?.personId ?? item.event.personId,
+          location: location || undefined,
+          stableKey:
+            typeof meta?.arrangementStableKey === 'string' ? meta.arrangementStableKey : undefined,
+        },
+        existingCalendarItems
+      )
+      if (cands.length > 0) map.set(item.proposalId, cands)
+    }
+    return map
+  }, [eventDisplayItems, draftByProposalId, existingCalendarItems])
+
+  // Forslag som behandles som mulig OPPDATERING (sterk/middels kandidat) → ekskluderes fra
+  // standardimporten som standard, slik at vi ikke lager duplikat uten eksplisitt valg.
+  const updateModeProposalIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const [pid, cands] of candidatesByProposalId) {
+      if (cands.some((c) => c.confidence === 'high' || c.confidence === 'medium')) ids.add(pid)
+    }
+    return ids
+  }, [candidatesByProposalId])
+
+  // Auto-deselect update-modus-forslag ÉN gang per analyse (bruker toggleProposal som håndterer
+  // parent→child-kaskade for cup). «Importer som ny likevel» (= toggleProposal) re-inkluderer; vi
+  // re-deselecter aldri et forslag brukeren har valgt på nytt.
+  const autoDeselectedRef = useRef<{ runKey: string; ids: Set<string> }>({ runKey: '', ids: new Set() })
+  useEffect(() => {
+    if (!bundle) return
+    const runKey = bundle.provenance?.importRunId ?? ''
+    if (autoDeselectedRef.current.runKey !== runKey) {
+      autoDeselectedRef.current = { runKey, ids: new Set() }
+    }
+    const handled = autoDeselectedRef.current.ids
+    for (const pid of updateModeProposalIds) {
+      if (!handled.has(pid) && selectedIds.has(pid)) {
+        handled.add(pid)
+        toggleProposal(pid)
+      }
+    }
+  }, [bundle, updateModeProposalIds, selectedIds, toggleProposal])
 
   const selectedCount = displayItems.filter((item) => selectedIds.has(item.proposalId)).length
 
@@ -657,31 +719,10 @@ export function TankestrømPage({
                 notes = eventDraft?.notes ?? item.event.notes ?? ''
               }
 
-              // Read-only hint: kan dette forslaget være en oppdatering til en eksisterende hendelse?
-              const meta =
-                item.kind === 'event' &&
-                item.event.metadata &&
-                typeof item.event.metadata === 'object' &&
-                !Array.isArray(item.event.metadata)
-                  ? (item.event.metadata as Record<string, unknown>)
-                  : undefined
+              // Read-only hint: kan dette forslaget være en oppdatering? (Beregnet i memo over.)
               const updateCandidates =
-                item.kind === 'event'
-                  ? findCalendarUpdateCandidates(
-                      {
-                        title: item.event.title,
-                        date: dateKey || item.event.date,
-                        endDate: typeof meta?.endDate === 'string' ? meta.endDate : undefined,
-                        personId: eventDraft?.personId ?? item.event.personId,
-                        location: location || undefined,
-                        stableKey:
-                          typeof meta?.arrangementStableKey === 'string'
-                            ? meta.arrangementStableKey
-                            : undefined,
-                      },
-                      existingCalendarItems
-                    )
-                  : []
+                item.kind === 'event' ? candidatesByProposalId.get(item.proposalId) ?? [] : []
+              const isUpdateMode = updateModeProposalIds.has(item.proposalId)
 
               // Read-only diff per kandidat (forslag vs. riktig eksisterende hendelse).
               const diffByCandidateId: Record<string, CalendarUpdateDiff> = {}
@@ -766,6 +807,10 @@ export function TankestrømPage({
                     candidates={updateCandidates}
                     onOpenExisting={onOpenExistingEvent}
                     diffByCandidateId={diffByCandidateId}
+                    proposalId={item.proposalId}
+                    isUpdateMode={isUpdateMode}
+                    isImportingAsNew={selectedIds.has(item.proposalId)}
+                    onImportAsNew={toggleProposal}
                   />
                 </div>
               )
@@ -903,6 +948,12 @@ export function TankestrømPage({
               className="mb-2 whitespace-pre-line text-caption font-medium text-rose-600"
             >
               {importError}
+            </p>
+          )}
+          {promisedImportItemCount === 0 && updateModeProposalIds.size > 0 && (
+            <p className="mb-2 rounded-md border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-caption text-amber-900">
+              Dette ser ut som en oppdatering til en eksisterende hendelse. Å oppdatere eksisterende
+              kommer i neste steg.
             </p>
           )}
           <button

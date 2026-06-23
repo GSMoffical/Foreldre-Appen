@@ -85,4 +85,24 @@ describe('findCalendarUpdateCandidates', () => {
     }))
     expect(findCalendarUpdateCandidates({ title: 'Vårcuppen', date: '2026-04-12' }, many)).toHaveLength(3)
   })
+
+  it('viser kanonisk arrangementnavn (coreTitle) for visning, men matcher fortsatt på title', () => {
+    const messy: ExistingCalendarItem = {
+      id: 'e-cup',
+      title: 'Oppdatert info om Vårcupen 2026',
+      coreTitle: 'Vårcupen 2026',
+      date: '2026-06-12',
+      endDate: '2026-06-14',
+    }
+    const out = findCalendarUpdateCandidates({ title: 'Vårcupen 2026', date: '2026-06-12' }, [messy])
+    expect(out).toHaveLength(1)
+    expect(out[0]!.title).toBe('Vårcupen 2026')
+  })
+
+  it('faller tilbake til title når coreTitle mangler/er tom', () => {
+    const out = findCalendarUpdateCandidates({ title: 'Vårcuppen', date: '2026-04-12' }, [
+      { ...varcuppen, coreTitle: '   ' },
+    ])
+    expect(out[0]!.title).toBe('Vårcuppen')
+  })
 })
