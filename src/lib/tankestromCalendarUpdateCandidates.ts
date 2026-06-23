@@ -34,6 +34,10 @@ export type CalendarUpdateConfidence = 'low' | 'medium' | 'high'
 export type CalendarUpdateCandidate = {
   id: string
   title: string
+  /** Kanonisk arrangementnavn (eksisterende eventets coreTitle), for gruppering/visning. */
+  coreTitle?: string
+  /** Stabil arrangementnøkkel fra eksisterende event, for gruppering på tvers av dager. */
+  stableKey?: string
   date?: string
   endDate?: string
   /** Ferdig formatert norsk dato/datoområde, f.eks. «12.–13. april». */
@@ -131,7 +135,7 @@ function parseYmd(d?: string): { y: number; m: number; d: number } | null {
   return { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) }
 }
 
-function formatDateRangeNb(date?: string, endDate?: string): string | undefined {
+export function formatDateRangeNb(date?: string, endDate?: string): string | undefined {
   const s = parseYmd(date)
   if (!s) return undefined
   const e = parseYmd(endDate)
@@ -191,6 +195,8 @@ export function findCalendarUpdateCandidates(
       id: e.id,
       // Vis kanonisk arrangementnavn når det finnes (matching bruker fortsatt e.title).
       title: (e.coreTitle && e.coreTitle.trim()) || e.title,
+      coreTitle: e.coreTitle?.trim() || undefined,
+      stableKey: e.stableKey,
       date: e.date,
       endDate: e.endDate,
       dateLabel: formatDateRangeNb(e.date, e.endDate),
