@@ -640,6 +640,14 @@ function App() {
                     deleteEvent={deleteEvent}
                     updatePerson={updatePerson}
                     onImportFinished={openTankestromToast}
+                    onOpenExistingEvent={(eventId) => {
+                      // Åpne den eksisterende hendelsen i detalj-arket (globalt montert overlay).
+                      // Samme kilde kandidaten ble matchet mot, så id-en er løsbar.
+                      const match = getAnchoredForegroundEventsForMatching().find(
+                        (r) => r.event.id === eventId
+                      )
+                      if (match) setSelectedEvent({ event: match.event, date: match.anchorDate })
+                    }}
                   />
                 </Suspense>
               </div>
