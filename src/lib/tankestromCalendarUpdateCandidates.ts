@@ -20,6 +20,8 @@ export type CalendarMatchQuery = {
 export type ExistingCalendarItem = {
   id: string
   title: string
+  /** Kanonisk arrangementnavn (metadata.arrangementCoreTitle). Foretrekkes for VISNING. */
+  coreTitle?: string
   date?: string
   endDate?: string
   personId?: string | null
@@ -187,7 +189,8 @@ export function findCalendarUpdateCandidates(
 
     scored.push({
       id: e.id,
-      title: e.title,
+      // Vis kanonisk arrangementnavn når det finnes (matching bruker fortsatt e.title).
+      title: (e.coreTitle && e.coreTitle.trim()) || e.title,
       date: e.date,
       endDate: e.endDate,
       dateLabel: formatDateRangeNb(e.date, e.endDate),

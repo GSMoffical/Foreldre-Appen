@@ -727,9 +727,46 @@ describe('TankestrømPage primærflyt-smoke', () => {
 
     await analyzeSingleEvent(user, { title: 'Vårcuppen', end: '10:00' })
 
-    expect(screen.getByText('Kan være oppdatering til eksisterende:')).toBeTruthy()
+    expect(screen.getByText('Dette ser ut som en oppdatering til:')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Vis eksisterende' }))
     expect(onOpenExistingEvent).toHaveBeenCalledWith('cal-1')
+  })
+
+  it('oppdateringskandidat: telles ikke som ny import før «Importer som ny likevel»', async () => {
+    const user = userEvent.setup()
+    const existing = [
+      {
+        event: {
+          id: 'cal-1',
+          personId: null,
+          title: 'Vårcuppen',
+          start: '09:00',
+          end: '10:00',
+          metadata: {},
+        },
+        anchorDate: '2026-09-10',
+      },
+    ]
+    render(
+      <TankestrømPage
+        onBack={() => undefined}
+        people={people}
+        createEvent={vi.fn()}
+        createTask={vi.fn()}
+        getAnchoredForegroundEventsForMatching={() => existing}
+      />
+    )
+
+    await analyzeSingleEvent(user, { title: 'Vårcuppen', end: '10:00' })
+
+    // Behandles som mulig oppdatering → ekskludert fra standardimport (ikke telt).
+    expect(await screen.findByText(/Å oppdatere eksisterende kommer i neste steg/)).toBeTruthy()
+    expect(screen.getByText('Dette ser ut som en oppdatering til:')).toBeTruthy()
+    expect(screen.queryByText(/Legg til 1 hendelse/)).toBeNull()
+
+    // Eksplisitt «Importer som ny likevel» → eligible igjen, telles på nytt.
+    await user.click(screen.getByRole('button', { name: 'Importer som ny likevel' }))
+    expect(await screen.findByText(/Legg til 1 hendelse/)).toBeTruthy()
   })
 
   it('enkelthendelse: viser ta-med-info fra metadata (bringItems)', async () => {

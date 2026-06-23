@@ -35,11 +35,48 @@ describe('CalendarUpdateCandidates', () => {
     expect(screen.queryByText('Kan være oppdatering til eksisterende:')).toBeNull()
   })
 
-  it('«Importer som ny» skjuler hintet (oppdaterer ingenting)', async () => {
+  it('uten update-modus heter knappen «Skjul hint» og skjuler hintet (oppdaterer ingenting)', async () => {
     const user = userEvent.setup()
     render(<CalendarUpdateCandidates candidates={[candidate]} />)
-    await user.click(screen.getByRole('button', { name: 'Importer som ny' }))
+    expect(screen.queryByRole('button', { name: /Importer som ny/ })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Skjul hint' }))
     expect(screen.queryByText('Kan være oppdatering til eksisterende:')).toBeNull()
+  })
+
+  it('update-modus: viser «Dette ser ut som en oppdatering til:» og «Importer som ny likevel»', async () => {
+    const user = userEvent.setup()
+    const onImportAsNew = vi.fn()
+    render(
+      <CalendarUpdateCandidates
+        candidates={[candidate]}
+        proposalId="p-1"
+        isUpdateMode
+        isImportingAsNew={false}
+        onImportAsNew={onImportAsNew}
+      />
+    )
+    expect(screen.getByText('Dette ser ut som en oppdatering til:')).toBeTruthy()
+    expect(screen.getByText('Vårcuppen')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Importer som ny likevel' }))
+    expect(onImportAsNew).toHaveBeenCalledWith('p-1')
+  })
+
+  it('update-modus etter valg: viser «Angre – ikke importer som ny» og note', async () => {
+    const user = userEvent.setup()
+    const onImportAsNew = vi.fn()
+    render(
+      <CalendarUpdateCandidates
+        candidates={[candidate]}
+        proposalId="p-1"
+        isUpdateMode
+        isImportingAsNew
+        onImportAsNew={onImportAsNew}
+      />
+    )
+    expect(screen.getByText(/Importeres som ny hendelse/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Importer som ny likevel' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Angre – ikke importer som ny' }))
+    expect(onImportAsNew).toHaveBeenCalledWith('p-1')
   })
 
   it('viser «Vis eksisterende» og kaller onOpenExisting med riktig event-id', async () => {
@@ -68,8 +105,8 @@ describe('CalendarUpdateCandidates', () => {
     render(<CalendarUpdateCandidates candidates={[candidate]} />)
     expect(screen.getByText('Kan være oppdatering til eksisterende:')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Vis eksisterende' })).toBeNull()
-    // «Importer som ny» finnes fortsatt.
-    expect(screen.getByRole('button', { name: 'Importer som ny' })).toBeTruthy()
+    // «Skjul hint» finnes fortsatt (ikke-update-modus).
+    expect(screen.getByRole('button', { name: 'Skjul hint' })).toBeTruthy()
   })
 
   const diff: CalendarUpdateDiff = {
@@ -105,7 +142,7 @@ describe('CalendarUpdateCandidates', () => {
     expect(screen.getByText('Kan være oppdatering til eksisterende:')).toBeTruthy()
   })
 
-  it('beholder «Vis eksisterende» og «Importer som ny» sammen med diff', async () => {
+  it('beholder «Vis eksisterende» og «Se mulige endringer» i update-modus', async () => {
     const user = userEvent.setup()
     const onOpenExisting = vi.fn()
     render(
@@ -113,11 +150,16 @@ describe('CalendarUpdateCandidates', () => {
         candidates={[candidate]}
         onOpenExisting={onOpenExisting}
         diffByCandidateId={{ 'e-cup': diff }}
+        proposalId="p-1"
+        isUpdateMode
+        onImportAsNew={vi.fn()}
       />
     )
     await user.click(screen.getByRole('button', { name: 'Vis eksisterende' }))
     expect(onOpenExisting).toHaveBeenCalledWith('e-cup')
-    await user.click(screen.getByRole('button', { name: 'Importer som ny' }))
-    expect(screen.queryByText('Kan være oppdatering til eksisterende:')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Se mulige endringer' }))
+    expect(screen.getByText('Mulige endringer')).toBeTruthy()
+    // Update-modus → «Importer som ny likevel», ikke «Skjul hint».
+    expect(screen.getByRole('button', { name: 'Importer som ny likevel' })).toBeTruthy()
   })
 })
