@@ -17,6 +17,11 @@ import {
   findCalendarUpdateCandidates,
   type ExistingCalendarItem,
 } from '../../lib/tankestromCalendarUpdateCandidates'
+import {
+  buildCalendarUpdateDiff,
+  calendarUpdateDiffIsEmpty,
+  type CalendarUpdateDiff,
+} from '../../lib/tankestromCalendarUpdateDiff'
 import { CalendarUpdateCandidates } from './CalendarUpdateCandidates'
 import type { Event, Task, Person, EmbeddedScheduleSegment, EventMetadata } from '../../types'
 import type { PortalEventProposal } from './types'
@@ -365,11 +370,14 @@ export function TankestrømPage({
   const eventDisplayItems = displayItems.filter((item) => item.kind === 'event')
   const taskDisplayItems = displayItems.filter((item) => item.kind === 'task')
 
-  // Eksisterende kalenderhendelser (kun forgrunn, fra cache) for read-only kandidat-hint.
+  // Eksisterende kalenderhendelser (kun forgrunn, fra cache) for read-only kandidat-hint + diff.
   // Endrer ingenting — viser bare «kan være oppdatering til eksisterende».
+  const existingRows = useMemo(
+    () => getAnchoredForegroundEventsForMatching?.() ?? [],
+    [getAnchoredForegroundEventsForMatching]
+  )
   const existingCalendarItems = useMemo<ExistingCalendarItem[]>(() => {
-    const rows = getAnchoredForegroundEventsForMatching?.() ?? []
-    return rows.map(({ event, anchorDate }) => {
+    return existingRows.map(({ event, anchorDate }) => {
       const meta =
         event.metadata && typeof event.metadata === 'object' && !Array.isArray(event.metadata)
           ? (event.metadata as Record<string, unknown>)
@@ -385,7 +393,13 @@ export function TankestrømPage({
           typeof meta?.arrangementStableKey === 'string' ? meta.arrangementStableKey : undefined,
       }
     })
-  }, [getAnchoredForegroundEventsForMatching])
+  }, [existingRows])
+  // Full eksisterende hendelse per id (for å bygge read-only diff mot riktig kandidat).
+  const existingEventById = useMemo(() => {
+    const map = new Map<string, { event: Event; anchorDate: string }>()
+    for (const row of existingRows) map.set(row.event.id, row)
+    return map
+  }, [existingRows])
 
   const selectedCount = displayItems.filter((item) => selectedIds.has(item.proposalId)).length
 
@@ -669,6 +683,34 @@ export function TankestrømPage({
                     )
                   : []
 
+              // Read-only diff per kandidat (forslag vs. riktig eksisterende hendelse).
+              const diffByCandidateId: Record<string, CalendarUpdateDiff> = {}
+              if (item.kind === 'event') {
+                for (const candidate of updateCandidates) {
+                  const row = existingEventById.get(candidate.id)
+                  if (!row) continue
+                  const d = buildCalendarUpdateDiff({
+                    proposalEvent: {
+                      title: item.event.title,
+                      date: dateKey || item.event.date,
+                      start: eventDraft?.start ?? item.event.start,
+                      end: eventDraft?.end ?? item.event.end,
+                      location: location || undefined,
+                      notes: notes || undefined,
+                    },
+                    existingEvent: {
+                      title: row.event.title,
+                      date: row.anchorDate,
+                      start: row.event.start,
+                      end: row.event.end,
+                      location: row.event.location,
+                      notes: row.event.notes,
+                    },
+                  })
+                  if (!calendarUpdateDiffIsEmpty(d)) diffByCandidateId[candidate.id] = d
+                }
+              }
+
               const dateLabel = dateKey
                 ? new Date(`${dateKey}T12:00:00`).toLocaleDateString('nb-NO', {
                     weekday: 'short',
@@ -723,6 +765,7 @@ export function TankestrømPage({
                   <CalendarUpdateCandidates
                     candidates={updateCandidates}
                     onOpenExisting={onOpenExistingEvent}
+                    diffByCandidateId={diffByCandidateId}
                   />
                 </div>
               )
