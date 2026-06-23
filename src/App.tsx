@@ -691,7 +691,7 @@ export function AppLayout() {
             showPartnerBanner={showPartnerBanner}
             onPartnerBannerAction={() => {
               setPartnerBannerDismissed(true)
-              navigate('/mer')
+              navigate('/familie')
             }}
             onDismissPartnerBanner={() => setPartnerBannerDismissed(true)}
           />

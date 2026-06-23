@@ -9,6 +9,7 @@ import {
   IconMoodKid,
   IconPlus,
   IconUser,
+  IconUserPlus,
 } from '@tabler/icons-react'
 import type {
   ChildSchoolProfile,
@@ -22,10 +23,18 @@ import { useFamily } from '../context/FamilyContext'
 import { usePermissions } from '../hooks/usePermissions'
 import { useEffectiveUserId } from '../context/EffectiveUserIdContext'
 import { buildInviteUrl, getOrCreateInviteForTarget } from '../lib/inviteApi'
+import { GRADE_BAND_LABELS } from '../data/norwegianSubjects'
+import { formatTime } from '../lib/time'
+import {
+  getCurrentWeekOverlayCount,
+  getCurrentWeekOverlayDays,
+} from '../lib/schoolWeekOverlayBadge'
 import { inputBase, typSectionCap } from '../lib/ui'
 import { INPUT_LIMITS } from '../lib/inputLimits'
 import { SectionDots } from './SectionDots'
 import { SchoolProfileFields } from './SchoolProfileFields'
+import { PersonDetail } from './PersonDetail'
+import { TankestromWeekBadge } from './TankestromWeekBadge'
 
 /** 13 brand-friendly color pairs (mirrors COLOR_PRESETS in FamilyEditor.tsx). */
 const COLOR_PRESETS: { tint: string; accent: string }[] = [
@@ -59,6 +68,36 @@ const WORK_DEFAULT_END = '17:00'
 
 const emptyChildSchool = (): ChildSchoolProfile => ({ gradeBand: '1-4', weekdays: {} })
 
+function roleLabel(kind: MemberKind): string {
+  return kind === 'parent' ? 'Forelder' : kind === 'guest' ? 'Gjest' : 'Barn'
+}
+
+function roleChipClass(kind: MemberKind): string {
+  return kind === 'parent'
+    ? 'bg-synkaTeal/15 text-synkaPrimary'
+    : kind === 'guest'
+      ? 'bg-zinc-100 text-zinc-500'
+      : 'bg-synkaYellow/25 text-synkaNavy/70'
+}
+
+/** Compact one-line summary shown under the name in the member list. */
+function summaryHint(p: Person): string {
+  if (p.memberKind === 'guest') return 'Ser kalenderen'
+  if (p.memberKind === 'child') {
+    if (!p.school) return 'Skolerute ikke satt'
+    // Drop the parenthetical («… (barneskole)») so the row stays scannable.
+    return GRADE_BAND_LABELS[p.school.gradeBand].replace(/\s*\(.*\)$/, '')
+  }
+  const weekdays = p.work?.weekdays
+  const entries = weekdays ? Object.values(weekdays).filter(Boolean) : []
+  if (entries.length === 0) return 'Arbeidstid ikke satt'
+  const first = entries[0]!
+  const uniform = entries.every((e) => e!.start === first.start && e!.end === first.end)
+  return uniform
+    ? `Jobb ${formatTime(first.start)}–${formatTime(first.end)}`
+    : `Arbeidstid · ${entries.length} dager`
+}
+
 interface FamilieScreenProps {
   onBack: () => void
 }
@@ -80,13 +119,24 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
   const [wizardMode, setWizardMode] = useState<WizardMode>('add')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [startStep, setStartStep] = useState<1 | 2 | 3>(1)
+  const [forcedKind, setForcedKind] = useState<MemberKind | null>(null)
   const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null)
-  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
+  const [detailId, setDetailId] = useState<string | null>(null)
 
   function openAdd() {
     setWizardMode('add')
     setEditingId(null)
     setStartStep(1)
+    setForcedKind(null)
+    setWizardOpen(true)
+  }
+
+  /** «Inviter partner» — reuses the add wizard locked to a parent so the flow ends at the invite step. */
+  function openInvitePartner() {
+    setWizardMode('add')
+    setEditingId(null)
+    setStartStep(1)
+    setForcedKind('parent')
     setWizardOpen(true)
   }
 
@@ -94,6 +144,7 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
     setWizardMode('edit')
     setEditingId(person.id)
     setStartStep(step)
+    setForcedKind(null)
     setWizardOpen(true)
   }
 
@@ -105,7 +156,13 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
     }
   }
 
+  async function handleRemovePerson(id: string) {
+    await removePerson(id).catch(() => {})
+    setDetailId((cur) => (cur === id ? null : cur))
+  }
+
   const editingPerson = editingId ? people.find((p) => p.id === editingId) ?? null : null
+  const detailPerson = detailId ? people.find((p) => p.id === detailId) ?? null : null
 
   return (
     <div className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-synkaCream">
@@ -153,14 +210,9 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
             <>
               <ul className="pb-2">
                 {people.map((p) => {
-                  const isParent = p.memberKind === 'parent'
-                  const isSelf = selfFamilyMemberId != null && p.id === selfFamilyMemberId
-                  const canInvite =
-                    canManageFamilyMembers && isParent && !p.linkedAuthUserId && !isSelf
-                  const isCurrentUserRow = user != null && (
-                    p.id === `self-${user.id}` ||
-                    (p.linkedAuthUserId != null && p.linkedAuthUserId === user.id)
-                  )
+                  const isLinkedParent = p.memberKind === 'parent' && !!p.linkedAuthUserId
+                  const overlayCount =
+                    p.memberKind === 'child' ? getCurrentWeekOverlayCount(p) : 0
                   return (
                     <li key={p.id}>
                       <motion.div
@@ -169,9 +221,13 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
                         }
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ type: 'spring', stiffness: 420, damping: 28 }}
-                        className="mx-4 mb-3 rounded-md bg-white p-4 shadow-soft"
+                        className="mx-4 mb-3"
                       >
-                        <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setDetailId(p.id)}
+                          className="flex w-full items-center gap-3 rounded-md bg-white p-4 text-left shadow-soft transition hover:bg-white/70 active:scale-[0.99] touch-manipulation"
+                        >
                           <span
                             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-body font-bold"
                             style={{
@@ -187,67 +243,31 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
                             <p className="truncate text-body font-semibold text-synkaNavy">
                               {p.name}
                             </p>
-                            <span
-                              className={`mt-0.5 inline-block rounded-pill px-2 py-0.5 text-caption font-semibold uppercase tracking-wide ${
-                                p.memberKind === 'parent'
-                                  ? 'bg-synkaTeal/15 text-synkaPrimary'
-                                  : p.memberKind === 'guest'
-                                    ? 'bg-zinc-100 text-zinc-500'
-                                    : 'bg-synkaYellow/25 text-synkaNavy/70'
-                              }`}
-                            >
-                              {p.memberKind === 'parent' ? 'Forelder' : p.memberKind === 'guest' ? 'Gjest' : 'Barn'}
-                            </span>
-                          </div>
-                          {canEditFamilyMember(p.id) && (
-                            <button
-                              type="button"
-                              onClick={() => openEdit(p)}
-                              className="shrink-0 rounded-lg px-2 py-1 text-body-sm font-medium text-synkaPrimary transition hover:bg-synkaPrimary/8 active:opacity-70"
-                            >
-                              Rediger
-                            </button>
-                          )}
-                        </div>
-
-                        {canInvite && (
-                          <button
-                            type="button"
-                            onClick={() => openEdit(p, 3)}
-                            className="mt-3 inline-flex items-center gap-1.5 rounded-pill bg-synkaTeal/15 px-3 py-1.5 text-label font-semibold text-synkaPrimary transition hover:bg-synkaTeal/25 active:opacity-70"
-                          >
-                            <IconUser size={13} aria-hidden /> Inviter til appen
-                          </button>
-                        )}
-                        {canManageFamilyMembers && !isCurrentUserRow && (
-                          confirmRemoveId === p.id ? (
-                            <div className="mt-3 flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2">
-                              <p className="flex-1 text-label font-medium text-red-700">Er du sikker?</p>
-                              <button
-                                type="button"
-                                onClick={() => { void removePerson(p.id).catch(() => {}); setConfirmRemoveId(null) }}
-                                className="rounded-pill bg-red-600 px-3 py-1 text-caption font-semibold text-white active:opacity-70 touch-manipulation"
+                            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                              <span
+                                className={`inline-block rounded-pill px-2 py-0.5 text-caption font-semibold uppercase tracking-wide ${roleChipClass(p.memberKind)}`}
                               >
-                                Fjern
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setConfirmRemoveId(null)}
-                                className="rounded-pill border border-red-200 bg-white px-3 py-1 text-caption font-semibold text-red-600 active:opacity-70 touch-manipulation"
-                              >
-                                Avbryt
-                              </button>
+                                {roleLabel(p.memberKind)}
+                              </span>
+                              {isLinkedParent && (
+                                <span className="inline-block rounded-pill bg-synkaPrimary/10 px-2 py-0.5 text-caption font-semibold text-synkaPrimary">
+                                  I appen
+                                </span>
+                              )}
                             </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => setConfirmRemoveId(p.id)}
-                              className="mt-3 inline-flex items-center gap-1.5 rounded-pill border border-red-200 bg-red-50 px-3 py-1.5 text-label font-semibold text-red-600 transition hover:bg-red-100 active:opacity-70 touch-manipulation"
-                            >
-                              Fjern
-                            </button>
-                          )
-                        )}
+                            <p className="mt-1 truncate text-body-sm text-synkaNavy/55">
+                              {summaryHint(p)}
+                            </p>
+                            {overlayCount > 0 && (
+                              <TankestromWeekBadge count={overlayCount} className="mt-1.5" />
+                            )}
+                          </div>
+                          <IconChevronRight
+                            size={18}
+                            className="shrink-0 text-synkaNavy/30"
+                            aria-hidden
+                          />
+                        </button>
                       </motion.div>
                     </li>
                   )
@@ -261,7 +281,14 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
               )}
 
               {canManageFamilyMembers && (
-                <div className="px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] pt-1">
+                <div className="space-y-2 px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] pt-1">
+                  <button
+                    type="button"
+                    onClick={openInvitePartner}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-pill border-2 border-synkaPrimary py-3 text-body font-semibold text-synkaPrimary transition hover:bg-synkaPrimary/8 active:opacity-70"
+                  >
+                    <IconUserPlus size={16} aria-hidden /> Inviter partner
+                  </button>
                   <button
                     type="button"
                     onClick={openAdd}
@@ -276,7 +303,46 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
         </div>
       </div>
 
-      {/* MODE 2 — Add/Edit wizard */}
+      {/* MODE 2 — Person detail (read-only drill-down) */}
+      <AnimatePresence>
+        {detailPerson && (
+          <motion.div
+            key="detail"
+            initial={reducedMotion ? false : { x: '100%' }}
+            animate={{ x: 0 }}
+            exit={reducedMotion ? { x: 0 } : { x: '100%' }}
+            transition={reducedMotion ? { duration: 0 } : { type: 'tween', ease: [0.22, 1, 0.36, 1], duration: 0.32 }}
+            className="absolute inset-0 z-20 flex flex-col bg-synkaCream"
+          >
+            <PersonDetail
+              person={detailPerson}
+              overlayDays={getCurrentWeekOverlayDays(detailPerson)}
+              canEdit={canEditFamilyMember(detailPerson.id)}
+              canInvite={
+                canManageFamilyMembers &&
+                detailPerson.memberKind === 'parent' &&
+                !detailPerson.linkedAuthUserId &&
+                !(selfFamilyMemberId != null && detailPerson.id === selfFamilyMemberId)
+              }
+              canRemove={
+                canManageFamilyMembers &&
+                !(
+                  user != null &&
+                  (detailPerson.id === `self-${user.id}` ||
+                    (detailPerson.linkedAuthUserId != null &&
+                      detailPerson.linkedAuthUserId === user.id))
+                )
+              }
+              onBack={() => setDetailId(null)}
+              onEdit={() => openEdit(detailPerson)}
+              onInvite={() => openEdit(detailPerson, 3)}
+              onRemove={() => void handleRemovePerson(detailPerson.id)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* MODE 3 — Add/Edit wizard (sits above the detail panel when launched from it) */}
       <AnimatePresence>
         {wizardOpen && (
           <motion.div
@@ -285,12 +351,13 @@ export function FamilieScreen({ onBack }: FamilieScreenProps) {
             animate={{ x: 0 }}
             exit={reducedMotion ? { x: 0 } : { x: '100%' }}
             transition={reducedMotion ? { duration: 0 } : { type: 'tween', ease: [0.22, 1, 0.36, 1], duration: 0.32 }}
-            className="absolute inset-0 z-20 flex flex-col bg-synkaCream"
+            className="absolute inset-0 z-30 flex flex-col bg-synkaCream"
           >
             <PersonWizard
               mode={wizardMode}
               initial={editingPerson ?? undefined}
               startStep={startStep}
+              forcedKind={forcedKind}
               effectiveUserId={effectiveUserId}
               onAddPerson={addPerson}
               onUpdatePerson={updatePerson}
@@ -310,6 +377,8 @@ interface PersonWizardProps {
   mode: WizardMode
   initial?: Person
   startStep: 1 | 2 | 3
+  /** When set (add mode), locks the member kind — used by «Inviter partner» to force a parent. */
+  forcedKind?: MemberKind | null
   effectiveUserId: string | null
   onAddPerson: ReturnType<typeof useFamily>['addPerson']
   onUpdatePerson: ReturnType<typeof useFamily>['updatePerson']
@@ -321,6 +390,7 @@ function PersonWizard({
   mode,
   initial,
   startStep,
+  forcedKind,
   effectiveUserId,
   onAddPerson,
   onUpdatePerson,
@@ -331,7 +401,9 @@ function PersonWizard({
   const [name, setName] = useState(initial?.name ?? '')
   const [colorTint, setColorTint] = useState(initial?.colorTint ?? COLOR_PRESETS[0].tint)
   const [colorAccent, setColorAccent] = useState(initial?.colorAccent ?? COLOR_PRESETS[0].accent)
-  const [memberKind, setMemberKind] = useState<MemberKind>(initial?.memberKind ?? 'parent')
+  const [memberKind, setMemberKind] = useState<MemberKind>(
+    initial?.memberKind ?? forcedKind ?? 'parent'
+  )
   const [school, setSchool] = useState<ChildSchoolProfile>(initial?.school ?? emptyChildSchool())
   const [work, setWork] = useState<ParentWorkProfile | undefined>(initial?.work)
 
@@ -353,7 +425,11 @@ function PersonWizard({
   const totalSteps = memberKind === 'parent' ? 3 : memberKind === 'guest' ? 1 : 2
   const isLastStep = step >= totalSteps
   const heading =
-    mode === 'edit' ? `Rediger ${initial?.name || 'medlem'}` : 'Legg til person'
+    mode === 'edit'
+      ? `Rediger ${initial?.name || 'medlem'}`
+      : forcedKind === 'parent'
+        ? 'Inviter partner'
+        : 'Legg til person'
 
   function collectPayload() {
     return {
@@ -619,7 +695,7 @@ function PersonWizard({
               <StepBasics
                 memberKind={memberKind}
                 onMemberKind={(k) => setMemberKind(k)}
-                allowKindChange={mode === 'add'}
+                allowKindChange={mode === 'add' && !forcedKind}
                 name={name}
                 onName={(v) => {
                   setName(v)
