@@ -19,9 +19,6 @@ const HjelpScreen = lazy(() =>
 const SettingsScreen = lazy(() =>
   import('./components/SettingsScreen').then((m) => ({ default: m.SettingsScreen }))
 )
-const TankestrømPage = lazy(() =>
-  import('./features/tankestrom/TankestrømPage').then((m) => ({ default: m.TankestrømPage }))
-)
 
 function useAppOutletContext() {
   return useOutletContext<AppOutletContext>()
@@ -110,17 +107,6 @@ function SettingsRoute() {
   )
 }
 
-function TankestromRoute() {
-  const ctx = useAppOutletContext()
-  return (
-    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
-      <Suspense fallback={null}>
-        <TankestrømPage {...ctx.tankestrom} />
-      </Suspense>
-    </div>
-  )
-}
-
 function HjelpRoute() {
   const ctx = useAppOutletContext()
   return (
@@ -148,7 +134,6 @@ export const router = createHashRouter([
             children: [
               { index: true, element: <MerRoute /> },
               { path: 'innstillinger', element: <SettingsRoute /> },
-              { path: 'tankestrom', element: <TankestromRoute /> },
               { path: 'hjelp', element: <HjelpRoute /> },
             ],
           },

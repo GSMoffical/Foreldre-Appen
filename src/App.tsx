@@ -38,7 +38,6 @@ import { DebugOverlay } from './components/DebugOverlay'
 import { OnboardingTour } from './components/OnboardingTour'
 import { loadOnboarding, saveOnboarding } from './lib/onboarding'
 import type { TankestromImportSuccess } from './features/tankestrom/useTankestromImport'
-import type { TankestrømPageProps } from './features/tankestrom/TankestrømPage'
 
 const TankestromImportDialog = lazy(() =>
   import('./features/tankestrom/TankestromImportDialog').then((m) => ({
@@ -67,7 +66,6 @@ export interface AppOutletContext {
   }
   tasks: Parameters<typeof TasksScreen>[0]
   settings: { onClearAllEvents?: () => Promise<void>; onRestartOnboarding?: () => void }
-  tankestrom: TankestrømPageProps
   familieOnBack: () => void
   hjelpOnBack: () => void
 }
@@ -614,18 +612,6 @@ export function AppLayout() {
         navigate('/kalender')
         setShowListView(false)
       },
-    },
-    tankestrom: {
-      onBack: () => navigate('/mer'),
-      people,
-      createEvent: controller.createEvent,
-      createTask: taskController.createTask,
-      editEvent: controller.editEvent,
-      getAnchoredForegroundEventsForMatching,
-      prefetchEventsForDateRange,
-      deleteEvent,
-      updatePerson,
-      onImportFinished: openTankestromToast,
     },
     familieOnBack: () => navigate('/kalender'),
     hjelpOnBack: () => navigate('/mer'),

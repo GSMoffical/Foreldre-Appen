@@ -29,7 +29,6 @@ export default defineConfig({
           'vendor-date': ['date-holidays'],
           'feature-tankestrom': [
             './src/features/tankestrom/useTankestromImport.ts',
-            './src/features/tankestrom/TankestrømPage.tsx',
             './src/features/tankestrom/TankestromImportDialog.tsx',
           ],
         },
