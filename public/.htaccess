@@ -1,1 +1,60 @@
+# ---------------------------------------------------------------------------
+# Synka — Apache config for Hostinger (served from the deploy root / public_html).
+#
+# Vite copies public/.htaccess verbatim into dist/, so this file ships to the
+# server root alongside index.html and is read by Apache as .htaccess.
+#
+# This REPLACES the old public/_headers file (Netlify/Cloudflare-Pages format),
+# which Apache/Hostinger silently ignores — so before this, NONE of the intended
+# security headers actually reached the browser. See SECURITY-HEADERS-REPORT.md.
+# ---------------------------------------------------------------------------
+
 AddDefaultCharset UTF-8
+
+# --- Security response headers (mod_headers) -------------------------------
+<IfModule mod_headers.c>
+  # Clickjacking protection for older UAs (CSP frame-ancestors covers modern ones).
+  Header always set X-Frame-Options "DENY"
+
+  # Block MIME-type sniffing.
+  Header always set X-Content-Type-Options "nosniff"
+
+  # Leak only the origin (not the full path/query) on cross-origin navigations.
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+  # Disable powerful browser features the web build does not use.
+  # (Native camera/photo capture runs in the Capacitor shell, not this web build.)
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+
+  # Force HTTPS for one year. Hostinger serves the site over TLS.
+  # NOTE: added here (was not in _headers). Left without includeSubDomains/preload
+  # deliberately — add those only once every subdomain is confirmed HTTPS-only.
+  Header always set Strict-Transport-Security "max-age=31536000"
+
+  # Content-Security-Policy — restricted to the origins the app actually uses at runtime:
+  #   script-src 'self'              : only same-origin Vite chunks; the built index.html
+  #                                    has NO inline <script>, and no bundled dep uses
+  #                                    eval/new Function, so neither 'unsafe-inline' nor
+  #                                    'unsafe-eval' is needed in script-src.
+  #   style-src  'unsafe-inline'     : framer-motion injects inline element styles.
+  #   style/font fonts.googleapis.com + fonts.gstatic.com : Google Fonts (Inter), see index.html.
+  #   connect *.supabase.co + wss:// : Supabase REST/auth + realtime websockets.
+  #   connect *.ingest.de.sentry.io  : Sentry (EU region) error ingest.
+  #   connect *.vercel.app           : Tankestrøm AI analysis endpoint (VITE_TANKESTROM_ANALYZE_URL,
+  #                                    a per-branch Vercel deployment — wildcard is required).
+  #   img-src data: blob:            : inline SVG / data-URI / blob image previews.
+  #   object-src/frame-src 'none'    : app embeds no plugins or iframes.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.de.sentry.io https://*.vercel.app; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+</IfModule>
+
+# --- SPA routing fallback --------------------------------------------------
+# The app uses hash routing (createHashRouter), so deep links live after '#' and
+# resolve client-side — a server rewrite is not strictly required. This block is
+# a safety net: serve index.html for any request that is not an existing file or
+# directory, so a stray non-hash path returns the app instead of an Apache 404.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^ index.html [L]
+</IfModule>
