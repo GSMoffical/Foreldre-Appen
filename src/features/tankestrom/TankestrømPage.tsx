@@ -9,7 +9,7 @@ import {
   normalizeEmbeddedScheduleParentDisplayTitle,
 } from '../../lib/tankestromCupEmbeddedScheduleMerge'
 import { tankestromConditionalBadgeLabelNb } from '../../lib/tankestromConditionalCopy'
-import { taskIntentBadgeClassName, taskIntentLabelNb } from '../../lib/taskIntent'
+import { taskIntentLabelNb } from '../../lib/taskIntent'
 import { normalizeSingleEventCalendarTitle } from '../../lib/tankestromTitleNormalization'
 import { readTankestromScheduleDetailsFromMetadata } from '../../lib/tankestromScheduleDetails'
 import { parseSingleEventNoteSections } from '../../lib/tankestromSingleEventNoteSections'
@@ -283,6 +283,7 @@ export function TankestrømPage({
     selectedIds,
     toggleProposal,
     draftByProposalId,
+    updateTaskDraft,
     analyzeLoading,
     saveLoading,
     approveSelected,
@@ -850,34 +851,49 @@ export function TankestrømPage({
                 : ''
               const subLabel = [dateLabel, dueTime].filter(Boolean).join(' · ')
               return (
-                <button
-                  key={item.proposalId}
-                  type="button"
-                  onClick={() => toggleProposal(item.proposalId)}
-                  className="mb-2 flex w-[calc(100%-2rem)] items-center gap-3 rounded-md border-l-4 bg-white p-3 text-left mx-4 touch-manipulation active:bg-synkaCream/60"
-                  style={{ borderLeftColor: personColor }}
-                >
-                  <div
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition ${
-                      isSelected ? 'border-synkaPrimary bg-synkaPrimary' : 'border-synkaNavy/20'
-                    }`}
+                <div key={item.proposalId} className="mx-4 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleProposal(item.proposalId)}
+                    className="flex w-full items-center gap-3 rounded-md border-l-4 bg-white p-3 text-left touch-manipulation active:bg-synkaCream/60"
+                    style={{ borderLeftColor: personColor }}
                   >
-                    {isSelected && <IconCheck size={10} color="white" aria-hidden />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-body-sm font-semibold text-synkaNavy">{title}</p>
-                      <span
-                        className={`shrink-0 inline-flex rounded-pill border px-1.5 py-px text-[10px] font-semibold ${taskIntentBadgeClassName(
-                          taskIntent
-                        )}`}
-                      >
-                        {taskIntentLabelNb(taskIntent)}
-                      </span>
+                    <div
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition ${
+                        isSelected ? 'border-synkaPrimary bg-synkaPrimary' : 'border-synkaNavy/20'
+                      }`}
+                    >
+                      {isSelected && <IconCheck size={10} color="white" aria-hidden />}
                     </div>
-                    {subLabel && <p className="text-caption text-synkaNavy/50">{subLabel}</p>}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-body-sm font-semibold text-synkaNavy">{title}</p>
+                      {subLabel && <p className="text-caption text-synkaNavy/50">{subLabel}</p>}
+                    </div>
+                  </button>
+                  {/* Må gjøres / Valgfritt — overstyrer Tankestrømmens forslag før import.
+                      Egen knapperad utenfor selection-knappen (ikke nestet button). */}
+                  <div className="mt-1 flex items-center gap-1.5 pl-3">
+                    <span className="text-[10px] font-medium text-synkaNavy/45">Gjøremål:</span>
+                    {(['must_do', 'can_help'] as const).map((intent) => {
+                      const active = taskIntent === intent
+                      return (
+                        <button
+                          key={intent}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => updateTaskDraft(item.proposalId, { taskIntent: intent })}
+                          className={`rounded-pill border px-2 py-px text-[10px] font-semibold transition ${
+                            active
+                              ? 'border-synkaNavy bg-synkaNavy text-white'
+                              : 'border-synkaNavy/20 bg-white text-synkaNavy/60 hover:border-synkaNavy/40'
+                          }`}
+                        >
+                          {taskIntentLabelNb(intent)}
+                        </button>
+                      )
+                    })}
                   </div>
-                </button>
+                </div>
               )
             })}
           </div>

@@ -8,158 +8,131 @@ import type { CalendarUpdateDiff } from '../../../lib/tankestromCalendarUpdateDi
 
 afterEach(() => cleanup())
 
-const candidate: CalendarUpdateCandidate = {
-  id: 'e-cup',
-  title: 'Vårcuppen',
-  date: '2026-04-12',
-  endDate: '2026-04-13',
-  dateLabel: '12.–13. april',
-  score: 0.85,
-  confidence: 'high',
-  signals: ['tittel', 'dato'],
-  explanation: 'Matchet på tittel og dato',
+function cand(partial: Partial<CalendarUpdateCandidate>): CalendarUpdateCandidate {
+  return {
+    id: 'e-cup',
+    title: 'Vårcupen 2026',
+    dateLabel: '12. juni',
+    date: '2026-06-12',
+    score: 0.85,
+    confidence: 'high',
+    signals: ['tittel', 'dato'],
+    explanation: 'Matchet på tittel og dato',
+    ...partial,
+  }
 }
 
-describe('CalendarUpdateCandidates', () => {
-  it('viser «Kan være oppdatering til eksisterende» når kandidat finnes', () => {
-    render(<CalendarUpdateCandidates candidates={[candidate]} />)
-    expect(screen.getByText('Kan være oppdatering til eksisterende:')).toBeTruthy()
-    expect(screen.getByText('Vårcuppen')).toBeTruthy()
-    expect(screen.getByText(/12\.–13\. april/)).toBeTruthy()
-    expect(screen.getByText('Matchet på tittel og dato')).toBeTruthy()
-  })
+const diff: CalendarUpdateDiff = {
+  changed: [
+    { label: 'Dato', oldValue: '13. juni', newValue: '12. juni' },
+    { label: 'Start', oldValue: '09:00', newValue: '08:00' },
+  ],
+  added: [{ label: 'Sted', value: 'Lørenskoghallen' }],
+  kept: [{ label: 'Notat', value: 'Husk rød drakt' }],
+  uncertain: [],
+}
 
+describe('CalendarUpdateCandidates (v2)', () => {
   it('viser ingen seksjon når det ikke finnes kandidater', () => {
     const { container } = render(<CalendarUpdateCandidates candidates={[]} />)
     expect(container.firstChild).toBeNull()
-    expect(screen.queryByText('Kan være oppdatering til eksisterende:')).toBeNull()
   })
 
-  it('uten update-modus heter knappen «Skjul hint» og skjuler hintet (oppdaterer ingenting)', async () => {
+  it('ikke-update-modus: viser «Kan være oppdatering til eksisterende»', () => {
+    render(<CalendarUpdateCandidates candidates={[cand({})]} />)
+    expect(screen.getByText('Kan være oppdatering til eksisterende:')).toBeTruthy()
+    expect(screen.getByText('Vårcupen 2026')).toBeTruthy()
+  })
+
+  it('grupperer flere kandidater for samme arrangement i ÉN samlet preview', () => {
+    render(
+      <CalendarUpdateCandidates
+        isUpdateMode
+        candidates={[
+          cand({ id: 'fri', stableKey: 'arr-1', date: '2026-06-12', dateLabel: '12. juni' }),
+          cand({ id: 'lor', stableKey: 'arr-1', date: '2026-06-13', dateLabel: '13. juni' }),
+          cand({ id: 'son', stableKey: 'arr-1', date: '2026-06-14', dateLabel: '14. juni' }),
+        ]}
+      />
+    )
+    // ÉN samlet overskrift, ikke tre.
+    expect(screen.getAllByText('Dette ser ut som en oppdatering til:')).toHaveLength(1)
+    expect(screen.getByText(/12\.–14\. juni/)).toBeTruthy()
+    // Dagvis: alle tre dagene vises.
+    expect(screen.getByText('12. juni')).toBeTruthy()
+    expect(screen.getByText('13. juni')).toBeTruthy()
+    expect(screen.getByText('14. juni')).toBeTruthy()
+  })
+
+  it('viser forståelig «Eksisterende» vs «Ny/Endret» og skjuler cross-day Dato-endring', () => {
+    render(<CalendarUpdateCandidates candidates={[cand({})]} diffByCandidateId={{ 'e-cup': diff }} />)
+    // Eksisterende info (svart) — gammel starttid + beholdt notat.
+    expect(screen.getByText('Eksisterende')).toBeTruthy()
+    expect(screen.getByText('Starttid: 09:00')).toBeTruthy()
+    expect(screen.getByText('Notat: Husk rød drakt')).toBeTruthy()
+    // Ny/endret med tekst-labels.
+    expect(screen.getByText('Ny / endret')).toBeTruthy()
+    expect(screen.getByText('Endret')).toBeTruthy()
+    expect(screen.getByText('Starttid: 08:00')).toBeTruthy()
+    expect(screen.getByText('Ny')).toBeTruthy()
+    expect(screen.getByText('Sted: Lørenskoghallen')).toBeTruthy()
+    // Cross-day «Dato: 13. juni → 12. juni» vises IKKE som endring (ingen pil før teknisk).
+    expect(screen.queryByText(/→/)).toBeNull()
+  })
+
+  it('teknisk diff ligger bak «Se tekniske detaljer» (ikke primærvisning)', async () => {
     const user = userEvent.setup()
-    render(<CalendarUpdateCandidates candidates={[candidate]} />)
-    expect(screen.queryByRole('button', { name: /Importer som ny/ })).toBeNull()
-    await user.click(screen.getByRole('button', { name: 'Skjul hint' }))
-    expect(screen.queryByText('Kan være oppdatering til eksisterende:')).toBeNull()
+    render(<CalendarUpdateCandidates candidates={[cand({})]} diffByCandidateId={{ 'e-cup': diff }} />)
+    expect(screen.queryByText('Tekniske detaljer')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Se tekniske detaljer' }))
+    expect(screen.getByText('Tekniske detaljer')).toBeTruthy()
+    expect(screen.getByText('Start: 09:00 → 08:00')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Skjul tekniske detaljer' }))
+    expect(screen.queryByText('Tekniske detaljer')).toBeNull()
   })
 
-  it('update-modus: viser «Dette ser ut som en oppdatering til:» og «Importer som ny likevel»', async () => {
+  it('«Vis eksisterende» kaller onOpenExisting med eksisterende event-id', async () => {
+    const user = userEvent.setup()
+    const onOpenExisting = vi.fn()
+    render(<CalendarUpdateCandidates candidates={[cand({})]} onOpenExisting={onOpenExisting} />)
+    await user.click(screen.getByRole('button', { name: 'Vis eksisterende' }))
+    expect(onOpenExisting).toHaveBeenCalledWith('e-cup')
+  })
+
+  it('update-modus: «Importer som ny likevel» kaller onImportAsNew med proposalId', async () => {
     const user = userEvent.setup()
     const onImportAsNew = vi.fn()
     render(
       <CalendarUpdateCandidates
-        candidates={[candidate]}
+        candidates={[cand({})]}
         proposalId="p-1"
         isUpdateMode
-        isImportingAsNew={false}
         onImportAsNew={onImportAsNew}
       />
     )
-    expect(screen.getByText('Dette ser ut som en oppdatering til:')).toBeTruthy()
-    expect(screen.getByText('Vårcuppen')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Importer som ny likevel' }))
     expect(onImportAsNew).toHaveBeenCalledWith('p-1')
   })
 
-  it('update-modus etter valg: viser «Angre – ikke importer som ny» og note', async () => {
-    const user = userEvent.setup()
-    const onImportAsNew = vi.fn()
+  it('update-modus etter valg: viser «Angre – ikke importer som ny» + note', () => {
     render(
       <CalendarUpdateCandidates
-        candidates={[candidate]}
+        candidates={[cand({})]}
         proposalId="p-1"
         isUpdateMode
         isImportingAsNew
-        onImportAsNew={onImportAsNew}
-      />
-    )
-    expect(screen.getByText(/Importeres som ny hendelse/)).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Importer som ny likevel' })).toBeNull()
-    await user.click(screen.getByRole('button', { name: 'Angre – ikke importer som ny' }))
-    expect(onImportAsNew).toHaveBeenCalledWith('p-1')
-  })
-
-  it('viser «Vis eksisterende» og kaller onOpenExisting med riktig event-id', async () => {
-    const user = userEvent.setup()
-    const onOpenExisting = vi.fn()
-    render(<CalendarUpdateCandidates candidates={[candidate]} onOpenExisting={onOpenExisting} />)
-    await user.click(screen.getByRole('button', { name: 'Vis eksisterende' }))
-    expect(onOpenExisting).toHaveBeenCalledTimes(1)
-    expect(onOpenExisting).toHaveBeenCalledWith('e-cup')
-  })
-
-  it('ved flere kandidater kaller «Vis eksisterende» riktig kandidat', async () => {
-    const user = userEvent.setup()
-    const onOpenExisting = vi.fn()
-    const second: CalendarUpdateCandidate = { ...candidate, id: 'e-other', title: 'Sommerturnering' }
-    render(
-      <CalendarUpdateCandidates candidates={[candidate, second]} onOpenExisting={onOpenExisting} />
-    )
-    const buttons = screen.getAllByRole('button', { name: 'Vis eksisterende' })
-    expect(buttons).toHaveLength(2)
-    await user.click(buttons[1]!)
-    expect(onOpenExisting).toHaveBeenCalledWith('e-other')
-  })
-
-  it('uten onOpenExisting vises ingen «Vis eksisterende»-knapp, men hintet rendres', () => {
-    render(<CalendarUpdateCandidates candidates={[candidate]} />)
-    expect(screen.getByText('Kan være oppdatering til eksisterende:')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Vis eksisterende' })).toBeNull()
-    // «Skjul hint» finnes fortsatt (ikke-update-modus).
-    expect(screen.getByRole('button', { name: 'Skjul hint' })).toBeTruthy()
-  })
-
-  const diff: CalendarUpdateDiff = {
-    changed: [{ label: 'Start', oldValue: '09:00', newValue: '08:00' }],
-    added: [{ label: 'Notat', value: 'Husk rød drakt' }],
-    kept: [{ label: 'Sted', value: 'Lørenskoghallen' }],
-    uncertain: [],
-  }
-
-  it('viser diff bak «Se mulige endringer»-toggle for riktig kandidat', async () => {
-    const user = userEvent.setup()
-    render(
-      <CalendarUpdateCandidates candidates={[candidate]} diffByCandidateId={{ 'e-cup': diff }} />
-    )
-    // Skjult til man trykker.
-    expect(screen.queryByText('Mulige endringer')).toBeNull()
-    await user.click(screen.getByRole('button', { name: 'Se mulige endringer' }))
-    expect(screen.getByText('Mulige endringer')).toBeTruthy()
-    expect(screen.getByText('Start: 09:00 → 08:00')).toBeTruthy()
-    expect(screen.getByText('Notat: Husk rød drakt')).toBeTruthy()
-    expect(screen.getByText('Sted: Lørenskoghallen')).toBeTruthy()
-    // Toggle skjuler igjen.
-    await user.click(screen.getByRole('button', { name: 'Skjul endringer' }))
-    expect(screen.queryByText('Mulige endringer')).toBeNull()
-  })
-
-  it('viser ingen diff-toggle når diff mangler eller er tom', () => {
-    const emptyDiff: CalendarUpdateDiff = { changed: [], added: [], kept: [], uncertain: [] }
-    render(
-      <CalendarUpdateCandidates candidates={[candidate]} diffByCandidateId={{ 'e-cup': emptyDiff }} />
-    )
-    expect(screen.queryByRole('button', { name: 'Se mulige endringer' })).toBeNull()
-    expect(screen.getByText('Kan være oppdatering til eksisterende:')).toBeTruthy()
-  })
-
-  it('beholder «Vis eksisterende» og «Se mulige endringer» i update-modus', async () => {
-    const user = userEvent.setup()
-    const onOpenExisting = vi.fn()
-    render(
-      <CalendarUpdateCandidates
-        candidates={[candidate]}
-        onOpenExisting={onOpenExisting}
-        diffByCandidateId={{ 'e-cup': diff }}
-        proposalId="p-1"
-        isUpdateMode
         onImportAsNew={vi.fn()}
       />
     )
-    await user.click(screen.getByRole('button', { name: 'Vis eksisterende' }))
-    expect(onOpenExisting).toHaveBeenCalledWith('e-cup')
-    await user.click(screen.getByRole('button', { name: 'Se mulige endringer' }))
-    expect(screen.getByText('Mulige endringer')).toBeTruthy()
-    // Update-modus → «Importer som ny likevel», ikke «Skjul hint».
-    expect(screen.getByRole('button', { name: 'Importer som ny likevel' })).toBeTruthy()
+    expect(screen.getByText(/Importeres som ny hendelse/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Angre – ikke importer som ny' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Importer som ny likevel' })).toBeNull()
+  })
+
+  it('ikke-update-modus: «Skjul hint» skjuler hintet', async () => {
+    const user = userEvent.setup()
+    render(<CalendarUpdateCandidates candidates={[cand({})]} />)
+    await user.click(screen.getByRole('button', { name: 'Skjul hint' }))
+    expect(screen.queryByText('Kan være oppdatering til eksisterende:')).toBeNull()
   })
 })

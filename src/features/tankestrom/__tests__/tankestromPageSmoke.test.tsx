@@ -241,6 +241,85 @@ describe('TankestrømPage primærflyt-smoke', () => {
     expect(screen.getByText(/· 20:00/)).toBeTruthy()
   })
 
+  it('gjøremål: kan toggle mellom «Må gjøre» og «Valgfritt» før import', async () => {
+    const taskBundle = parsePortalImportProposalBundle({
+      schemaVersion: '1.0.0',
+      provenance: {
+        sourceSystem: 'tankestrom',
+        sourceType: 'e2e_fixture',
+        generatorVersion: 'test',
+        generatedAt: '2026-05-08T20:00:00.000Z',
+        importRunId: 'task-toggle',
+      },
+      items: [
+        {
+          proposalId: 'd2e2c3d4-5678-4abc-9def-0123456789ab',
+          kind: 'task',
+          sourceId: 'e2e',
+          originalSourceType: 'pasted_text',
+          confidence: 0.95,
+          task: { title: 'Kjøp drakt', date: '2026-09-08', taskIntent: 'must_do' },
+        },
+      ],
+    })
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(taskBundle)
+
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'Kjøp drakt')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+    await screen.findByText('Foreslåtte gjøremål')
+
+    expect(screen.getByRole('button', { name: 'Må gjøre' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Valgfritt' }).getAttribute('aria-pressed')).toBe('false')
+
+    await user.click(screen.getByRole('button', { name: 'Valgfritt' }))
+    expect(screen.getByRole('button', { name: 'Valgfritt' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Må gjøre' }).getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('gjøremål: valgt intent (Valgfritt) brukes når task importeres', async () => {
+    const createTask = vi.fn().mockResolvedValue(undefined)
+    const taskBundle = parsePortalImportProposalBundle({
+      schemaVersion: '1.0.0',
+      provenance: {
+        sourceSystem: 'tankestrom',
+        sourceType: 'e2e_fixture',
+        generatorVersion: 'test',
+        generatedAt: '2026-05-08T20:00:00.000Z',
+        importRunId: 'task-intent-import',
+      },
+      items: [
+        {
+          proposalId: 'd3e2c3d4-5678-4abc-9def-0123456789ab',
+          kind: 'task',
+          sourceId: 'e2e',
+          originalSourceType: 'pasted_text',
+          confidence: 0.95,
+          task: { title: 'Kjøp drakt', date: '2026-09-08', childPersonId: 'person-a', taskIntent: 'must_do' },
+        },
+      ],
+    })
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(taskBundle)
+
+    const user = userEvent.setup()
+    render(
+      <TankestrømPage onBack={() => undefined} people={people} createEvent={vi.fn()} createTask={createTask} />
+    )
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'Kjøp drakt')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+    await screen.findByText('Foreslåtte gjøremål')
+
+    await user.click(screen.getByRole('button', { name: 'Valgfritt' }))
+    await user.click(await screen.findByRole('button', { name: /Legg til \d+ hendelse/i }))
+
+    await waitFor(() => expect(createTask).toHaveBeenCalled())
+    const arg = createTask.mock.calls[0]![0] as { taskIntent?: string }
+    expect(arg.taskIntent).toBe('can_help')
+  })
+
   it('valgfritt gjøremål: viser «Valgfritt»-merke (can_help)', async () => {
     const taskBundle = parsePortalImportProposalBundle({
       schemaVersion: '1.0.0',
