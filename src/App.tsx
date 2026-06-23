@@ -44,6 +44,11 @@ const TankestromImportDialog = lazy(() =>
     default: m.TankestromImportDialog,
   }))
 )
+const DeviceCalendarImportDialog = lazy(() =>
+  import('./components/DeviceCalendarImportDialog').then((m) => ({
+    default: m.DeviceCalendarImportDialog,
+  }))
+)
 const OnboardingFlow = lazy(() =>
   import('./features/onboarding/OnboardingFlow').then(m => ({ default: m.OnboardingFlow }))
 )
@@ -386,6 +391,7 @@ export function AppLayout() {
 
   const [addActionOpen, setAddActionOpen] = useState(false)
   const [tankestromImportOpen, setTankestromImportOpen] = useState(false)
+  const [calendarImportOpen, setCalendarImportOpen] = useState(false)
   const openTankestromImport = useCallback((source: 'settings' | 'toast') => {
     addTankestromSentryBreadcrumb('tankestrom_import_opened', { source })
     setTankestromImportOpen(true)
@@ -804,6 +810,15 @@ export function AppLayout() {
           onImportFinished={openTankestromToast}
         />
       </Suspense>
+      <Suspense fallback={null}>
+        <DeviceCalendarImportDialog
+          open={calendarImportOpen}
+          onClose={() => setCalendarImportOpen(false)}
+          createEvent={controller.createEvent}
+          loadEventsInRange={prefetchEventsForDateRange}
+          defaultPersonId={mePersonId}
+        />
+      </Suspense>
       <CalendarOverlays
         selectedEvent={selectedEvent}
         setSelectedEvent={setSelectedEvent}
@@ -839,6 +854,7 @@ export function AppLayout() {
         onClose={() => setAddActionOpen(false)}
         onAddEvent={() => openAddEvent(null)}
         onImportSchool={() => openTankestromImport('settings')}
+        onImportCalendar={() => setCalendarImportOpen(true)}
       />
     </AppShell>
   )

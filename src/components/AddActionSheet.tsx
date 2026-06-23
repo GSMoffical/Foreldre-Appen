@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { IconCalendarPlus, IconSparkles, IconChevronRight } from '@tabler/icons-react'
+import { IconCalendarPlus, IconCalendarDown, IconSparkles, IconChevronRight } from '@tabler/icons-react'
 import type { Icon } from '@tabler/icons-react'
 import { springDialog } from '../lib/motion'
 import { sheetHandle, sheetHandleBar, sheetTitle } from '../lib/ui'
@@ -10,6 +10,7 @@ interface AddActionSheetProps {
   onClose: () => void
   onAddEvent: () => void
   onImportSchool: () => void
+  onImportCalendar: () => void
 }
 
 interface ActionRow {
@@ -21,7 +22,7 @@ interface ActionRow {
   hero?: boolean
 }
 
-export function AddActionSheet({ open, onClose, onAddEvent, onImportSchool }: AddActionSheetProps) {
+export function AddActionSheet({ open, onClose, onAddEvent, onImportSchool, onImportCalendar }: AddActionSheetProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
@@ -62,6 +63,12 @@ export function AddActionSheet({ open, onClose, onAddEvent, onImportSchool }: Ad
       subtitle: 'Hent timeplan fra bilde eller tekst',
       onClick: onImportSchool,
       hero: true,
+    },
+    {
+      Icon: IconCalendarDown,
+      title: 'Importer fra kalender',
+      subtitle: 'Hent avtaler fra telefonens kalender',
+      onClick: onImportCalendar,
     },
   ]
 

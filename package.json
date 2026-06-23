@@ -36,6 +36,7 @@
     "@capacitor/push-notifications": "^7.0.1",
     "@capacitor/splash-screen": "^7.0.1",
     "@capacitor/status-bar": "^7.0.1",
+    "@ebarooni/capacitor-calendar": "^7.2.0",
     "@sentry/react": "^10.57.0",
     "@supabase/supabase-js": "^2.101.1",
     "@tabler/icons-react": "^3.44.0",

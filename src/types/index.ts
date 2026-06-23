@@ -268,8 +268,38 @@ export interface EventMetadata {
    *  Backwards compatible: if absent, the app falls back to `event.personId`.
    */
   participants?: PersonId[];
-  /** Optional machine-readable source for integrations (e.g. 'ai', 'template', 'import'). */
+  /** Optional machine-readable source for integrations (e.g. 'ai', 'template', 'import', 'device-calendar'). */
   sourceId?: string;
+  /**
+   * «Koble til kalender» (device-calendar import): source marker + dedupe key.
+   * Present on events imported from the phone's native calendar. `deviceEventId`
+   * is the stable id of the source event on the device and is the key used to
+   * skip already-imported events on re-import (see {@link file://src/lib/deviceCalendarImport.ts}).
+   */
+  deviceCalendar?: {
+    /** Stable id of the source event on the device calendar. */
+    deviceEventId: string;
+    /**
+     * Start instant (epoch ms) of the *specific occurrence*. A recurring series shares one
+     * `deviceEventId` across all of its occurrences, so the dedupe key is
+     * `deviceEventId@occurrenceStart` — see `deviceEventDedupeKey` in
+     * {@link file://src/lib/deviceCalendarImport.ts}.
+     */
+    occurrenceStart?: number;
+    /** Id of the device calendar the event came from (may be null on some platforms). */
+    deviceCalendarId?: string | null;
+    /** Human-readable title of the device calendar at import time. */
+    calendarTitle?: string | null;
+    /** ISO timestamp of when the event was imported. */
+    importedAt?: string;
+    /**
+     * For a multi-day *timed* source event clamped to its start day (Synka events are
+     * single-day): the true end day (YYYY-MM-DD) and clock (HH:mm), kept for reference
+     * only — not used for rendering.
+     */
+    truncatedEndDate?: string;
+    truncatedEndTime?: string;
+  };
   /** Generated school/work blocks sit behind normal activities */
   calendarLayer?: 'foreground' | 'background';
   backgroundKind?: 'school' | 'work';
