@@ -698,6 +698,40 @@ describe('TankestrømPage primærflyt-smoke', () => {
     expect(screen.getByText('Sognsvann')).toBeTruthy()
   })
 
+  it('oppdateringskandidat: «Vis eksisterende» kaller onOpenExistingEvent med riktig id', async () => {
+    const user = userEvent.setup()
+    const onOpenExistingEvent = vi.fn()
+    const existing = [
+      {
+        event: {
+          id: 'cal-1',
+          personId: null,
+          title: 'Vårcuppen',
+          start: '09:00',
+          end: '10:00',
+          metadata: {},
+        },
+        anchorDate: '2026-09-10',
+      },
+    ]
+    render(
+      <TankestrømPage
+        onBack={() => undefined}
+        people={people}
+        createEvent={vi.fn()}
+        createTask={vi.fn()}
+        getAnchoredForegroundEventsForMatching={() => existing}
+        onOpenExistingEvent={onOpenExistingEvent}
+      />
+    )
+
+    await analyzeSingleEvent(user, { title: 'Vårcuppen', end: '10:00' })
+
+    expect(screen.getByText('Kan være oppdatering til eksisterende:')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Vis eksisterende' }))
+    expect(onOpenExistingEvent).toHaveBeenCalledWith('cal-1')
+  })
+
   it('enkelthendelse: viser ta-med-info fra metadata (bringItems)', async () => {
     const user = userEvent.setup()
     renderPage()

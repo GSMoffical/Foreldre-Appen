@@ -249,6 +249,8 @@ interface TankestrømPageProps {
     partial: boolean
     failureMessage?: string
   }) => void
+  /** Åpner en eksisterende kalenderhendelse (for «Vis eksisterende» på oppdateringskandidater). */
+  onOpenExistingEvent?: (eventId: string) => void
 }
 
 export function TankestrømPage({
@@ -262,6 +264,7 @@ export function TankestrømPage({
   deleteEvent,
   updatePerson,
   onImportFinished,
+  onOpenExistingEvent,
 }: TankestrømPageProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -717,7 +720,10 @@ export function TankestrømPage({
                       notes={notes}
                     />
                   )}
-                  <CalendarUpdateCandidates candidates={updateCandidates} />
+                  <CalendarUpdateCandidates
+                    candidates={updateCandidates}
+                    onOpenExisting={onOpenExistingEvent}
+                  />
                 </div>
               )
             })}

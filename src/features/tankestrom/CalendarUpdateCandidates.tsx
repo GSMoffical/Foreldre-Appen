@@ -3,10 +3,18 @@ import type { CalendarUpdateCandidate } from '../../lib/tankestromCalendarUpdate
 
 /**
  * Liten, ikke-forstyrrende seksjon i import-preview som viser at et forslag KAN være en oppdatering
- * til en eksisterende kalenderhendelse. Oppdaterer ingenting — «Importer som ny» avviser bare hintet
- * (forslaget importeres som nytt, slik det allerede gjør).
+ * til en eksisterende kalenderhendelse. Oppdaterer ingenting:
+ *  - «Vis eksisterende» åpner den eksisterende hendelsen (hvis `onOpenExisting` er gitt),
+ *  - «Importer som ny» avviser bare hintet (forslaget importeres som nytt, slik det allerede gjør).
  */
-export function CalendarUpdateCandidates({ candidates }: { candidates: CalendarUpdateCandidate[] }) {
+export function CalendarUpdateCandidates({
+  candidates,
+  onOpenExisting,
+}: {
+  candidates: CalendarUpdateCandidate[]
+  /** Åpner den eksisterende kalenderhendelsen. Utelates hvis appen ikke kan åpne den trygt. */
+  onOpenExisting?: (eventId: string) => void
+}) {
   const [dismissed, setDismissed] = useState(false)
   if (candidates.length === 0 || dismissed) return null
   return (
@@ -18,6 +26,15 @@ export function CalendarUpdateCandidates({ candidates }: { candidates: CalendarU
             <span className="font-medium">{c.title}</span>
             {c.dateLabel ? <span className="text-amber-900/70"> — {c.dateLabel}</span> : null}
             <span className="block text-amber-900/60">{c.explanation}</span>
+            {onOpenExisting && (
+              <button
+                type="button"
+                onClick={() => onOpenExisting(c.id)}
+                className="mt-1 rounded-pill border border-amber-300 bg-white px-3 py-1 text-caption font-semibold text-amber-900 transition hover:bg-amber-100/60"
+              >
+                Vis eksisterende
+              </button>
+            )}
           </li>
         ))}
       </ul>
