@@ -241,6 +241,119 @@ describe('TankestrømPage primærflyt-smoke', () => {
     expect(screen.getByText(/· 20:00/)).toBeTruthy()
   })
 
+  // ── Tomtilstand når analyse er ferdig uten brukbare forslag ──────────────────
+  // Realistisk «stille» tilfelle: API-svar passerer parser med forslag, men frontend-normalisering/
+  // dedupe reduserer til 0 brukbare items før setBundle. Parseren avviser tomme bundles, så her
+  // bygges et rå (post-normalisert tomt) bundle direkte — slik hook-en faktisk kan motta det.
+  function emptyBundle(runId: string): Awaited<ReturnType<typeof analyzeTextWithTankestrom>> {
+    return {
+      schemaVersion: '1.0.0',
+      provenance: {
+        sourceSystem: 'tankestrom',
+        sourceType: 'pasted_text',
+        generatorVersion: 'test',
+        generatedAt: '2026-05-08T20:00:00.000Z',
+        importRunId: runId,
+      },
+      items: [],
+    } as unknown as Awaited<ReturnType<typeof analyzeTextWithTankestrom>>
+  }
+
+  async function analyzeText(user: ReturnType<typeof userEvent.setup>, text: string) {
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), text)
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+  }
+
+  it('tomtilstand: vises ikke før analyse er forsøkt', () => {
+    renderPage()
+    expect(screen.queryByText(/Vi fant ingen kalenderhendelser eller gjøremål/)).toBeNull()
+  })
+
+  it('tomtilstand: vises når analyse er ferdig med 0 forslag (tekst)', async () => {
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(emptyBundle('empty-text'))
+    const user = userEvent.setup()
+    renderPage()
+    await analyzeText(user, 'bare litt løs tekst uten hendelse')
+
+    expect(await screen.findByText(/Vi fant ingen kalenderhendelser eller gjøremål/)).toBeTruthy()
+    // Tekst-variant av tipsene (ikke bilde).
+    expect(screen.getByText(/Lim inn mer av meldingen/)).toBeTruthy()
+    expect(screen.queryByText('Tips for bilder:')).toBeNull()
+    // Bruker kan fortsatt prøve igjen (opplasting fremdeles tilgjengelig).
+    expect(screen.getByText('Last opp dokument eller bilde')).toBeTruthy()
+  })
+
+  it('tomtilstand: vises ikke mens analyse pågår', async () => {
+    let resolveAnalyze!: (b: ReturnType<typeof emptyBundle>) => void
+    vi.mocked(analyzeTextWithTankestrom).mockReturnValueOnce(
+      new Promise((res) => {
+        resolveAnalyze = res
+      })
+    )
+    const user = userEvent.setup()
+    renderPage()
+    await analyzeText(user, 'noe tekst')
+
+    // Mens analyse pågår: ingen tomtilstand (bundle ikke satt ennå).
+    expect(screen.getAllByText('Analyserer…').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Vi fant ingen kalenderhendelser eller gjøremål/)).toBeNull()
+
+    // Når ferdig med 0 forslag → tomtilstand.
+    resolveAnalyze(emptyBundle('empty-after-loading'))
+    expect(await screen.findByText(/Vi fant ingen kalenderhendelser eller gjøremål/)).toBeTruthy()
+  })
+
+  it('tomtilstand: vises ikke når det finnes event-forslag', async () => {
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(makeSingleEventBundle({ title: 'Tur', end: '10:00' }))
+    const user = userEvent.setup()
+    renderPage()
+    await analyzeText(user, 'Tur i morgen')
+
+    expect(await screen.findByText('Foreslåtte hendelser')).toBeTruthy()
+    expect(screen.queryByText(/Vi fant ingen kalenderhendelser eller gjøremål/)).toBeNull()
+  })
+
+  it('tomtilstand: vises ikke når det finnes task-forslag', async () => {
+    const taskBundle = parsePortalImportProposalBundle({
+      schemaVersion: '1.0.0',
+      provenance: {
+        sourceSystem: 'tankestrom',
+        sourceType: 'pasted_text',
+        generatorVersion: 'test',
+        generatedAt: '2026-05-08T20:00:00.000Z',
+        importRunId: 'task-nonempty',
+      },
+      items: [
+        {
+          proposalId: 'f1e2c3d4-5678-4abc-9def-0123456789ab',
+          kind: 'task',
+          sourceId: 'e2e',
+          originalSourceType: 'pasted_text',
+          confidence: 0.95,
+          task: { title: 'Betal avgift', date: '2026-09-08' },
+        },
+      ],
+    })
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(taskBundle)
+    const user = userEvent.setup()
+    renderPage()
+    await analyzeText(user, 'Betal avgift')
+
+    expect(await screen.findByText('Foreslåtte gjøremål')).toBeTruthy()
+    expect(screen.queryByText(/Vi fant ingen kalenderhendelser eller gjøremål/)).toBeNull()
+  })
+
+  it('tomtilstand: API-feil vises foran tomtilstand', async () => {
+    vi.mocked(analyzeTextWithTankestrom).mockRejectedValueOnce(new Error('Serveren svarte ikke'))
+    const user = userEvent.setup()
+    renderPage()
+    await analyzeText(user, 'noe tekst')
+
+    expect(await screen.findByText('Serveren svarte ikke')).toBeTruthy()
+    expect(screen.queryByText(/Vi fant ingen kalenderhendelser eller gjøremål/)).toBeNull()
+  })
+
   it('gjøremål: kan toggle mellom «Må gjøre» og «Valgfritt» før import', async () => {
     const taskBundle = parsePortalImportProposalBundle({
       schemaVersion: '1.0.0',

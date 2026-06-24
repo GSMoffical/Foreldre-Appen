@@ -234,6 +234,55 @@ function SingleEventDetails({
   )
 }
 
+/**
+ * Tomtilstand når analysen er ferdig, men ingen brukbare forslag finnes. Forklarer hva som kan ha
+ * skjedd og hva brukeren kan prøve — i stedet for en stille «ingenting skjedde». Endrer ingen data.
+ */
+function EmptyAnalysisState({ isFileInput }: { isFileInput: boolean }) {
+  return (
+    <div
+      role="status"
+      className="mx-4 mt-5 rounded-md border border-synkaNavy/10 bg-white p-4"
+    >
+      <p className="text-body-sm font-semibold text-synkaNavy">
+        Vi fant ingen kalenderhendelser eller gjøremål {isFileInput ? 'i bildet' : 'i teksten'}.
+      </p>
+      <p className="mt-1.5 text-caption leading-snug text-synkaNavy/60">
+        {isFileInput
+          ? 'Dette kan skje hvis bildet er uklart, inneholder lite tekst, eller hvis informasjonen ikke ligner en kalenderhendelse ennå.'
+          : 'Dette kan skje hvis teksten inneholder lite konkret informasjon, eller hvis den ikke ligner en kalenderhendelse ennå.'}
+      </p>
+      <p className="mt-3 text-caption font-semibold text-synkaNavy/80">Prøv ett av disse:</p>
+      <ul className="mt-1 list-disc space-y-1 pl-4 text-caption text-synkaNavy/70">
+        {isFileInput ? (
+          <>
+            <li>Last opp et tydeligere bilde</li>
+            <li>Beskjær bildet rundt selve teksten</li>
+            <li>Lim inn teksten manuelt</li>
+            <li>Prøv med PDF eller originalfil hvis du har den</li>
+          </>
+        ) : (
+          <>
+            <li>Sjekk at teksten har dato/tid eller en tydelig hendelse</li>
+            <li>Lim inn mer av meldingen</li>
+            <li>Prøv med et bilde eller PDF hvis du har det</li>
+          </>
+        )}
+      </ul>
+      {isFileInput && (
+        <>
+          <p className="mt-3 text-caption font-semibold text-synkaNavy/80">Tips for bilder:</p>
+          <ul className="mt-1 list-disc space-y-1 pl-4 text-caption text-synkaNavy/70">
+            <li>Sørg for at teksten er skarp og rett vei</li>
+            <li>Ta med hele meldingen eller tabellen</li>
+            <li>Unngå for små skjermbilder</li>
+          </ul>
+        </>
+      )}
+    </div>
+  )
+}
+
 interface TankestrømPageProps {
   onBack: () => void
   people: Person[]
@@ -371,6 +420,18 @@ export function TankestrømPage({
   // Hold gjøremål adskilt fra kalenderhendelser/dagsblokker (egen «Foreslåtte gjøremål»-seksjon).
   const eventDisplayItems = displayItems.filter((item) => item.kind === 'event')
   const taskDisplayItems = displayItems.filter((item) => item.kind === 'task')
+
+  // Tomtilstand: analyse ferdig (bundle satt, ikke i gang, ingen feil), men ingenting brukbart å vise.
+  // Skoleprofil/uke-overlay regnes som brukbart resultat (vises ikke som «fant ingenting»).
+  const hasSchoolResult =
+    !!bundle && (!!bundle.schoolWeekOverlayProposal || bundle.items.some((i) => i.kind === 'school_profile'))
+  const hasUsableResult =
+    eventDisplayItems.length > 0 ||
+    taskDisplayItems.length > 0 ||
+    visibleSecondaryImportCandidates.length > 0 ||
+    hasSchoolResult
+  const showEmptyAnalysisState =
+    !!bundle && !analyzeLoading && !error && !importError && !hasUsableResult
 
   // Eksisterende kalenderhendelser (kun forgrunn, fra cache) for read-only kandidat-hint + diff.
   // Endrer ingenting — viser bare «kan være oppdatering til eksisterende».
@@ -953,6 +1014,8 @@ export function TankestrømPage({
             })}
           </div>
         )}
+
+        {showEmptyAnalysisState && <EmptyAnalysisState isFileInput={inputMode === 'file'} />}
       </div>
 
       {/* Sticky footer — only shows when proposals exist */}
