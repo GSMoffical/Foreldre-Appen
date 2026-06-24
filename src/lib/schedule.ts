@@ -225,6 +225,33 @@ export function isToday(date: string): boolean {
 export const CALENDAR_SLUTTID_IKKE_OPPGITT_NB = 'Sluttid ikke oppgitt'
 export const CALENDAR_STARTTID_IKKE_OPPGITT_NB = 'Starttid ikke oppgitt'
 
+/**
+ * Estimerings-/parser-fraser som IKKE skal vises som synlig kalendertekst (de hører hjemme i
+ * import-previewen). Holdes som et lite sett her; selve metadataen beholdes uendret på hendelsen.
+ */
+const ESTIMATION_TIME_LABELS = new Set(
+  [
+    CALENDAR_SLUTTID_IKKE_OPPGITT_NB,
+    CALENDAR_STARTTID_IKKE_OPPGITT_NB,
+    'Sluttid estimert',
+    'Sluttid er beregnet',
+  ].map((s) => s.toLowerCase())
+)
+
+export function isEstimationTimeLabel(label?: string | null): boolean {
+  return !!label && ESTIMATION_TIME_LABELS.has(label.trim().toLowerCase())
+}
+
+/**
+ * Tidslabel for tids-uspesifiserte hendelser (date_only / «uspesifisert»-liste): bruk et meningsfullt
+ * `displayTimeLabel` hvis det finnes, men ALDRI estimeringsspråk — fall tilbake til «Tid ikke avklart».
+ */
+export function calendarUnspecifiedTimeLabel(metadata: Event['metadata']): string {
+  const dl = metadata?.displayTimeLabel?.trim()
+  if (dl && !isEstimationTimeLabel(dl)) return dl
+  return 'Tid ikke avklart'
+}
+
 /** Én rad per `id` (f.eks. etter import som ved en feil la inn duplikater i cache). */
 export function dedupeTimelineEventsById(events: Event[]): Event[] {
   const seen = new Set<string>()
@@ -267,23 +294,29 @@ export function formatCalendarEventTimeLabel(event: Pick<Event, 'start' | 'end' 
   if (twLabel) return twLabel
 
   if (precision === 'date_only') {
-    return (m?.displayTimeLabel && m.displayTimeLabel.trim()) || 'Tid ikke avklart'
+    return calendarUnspecifiedTimeLabel(m)
   }
 
+  // Ren starttid — kalenderen viser ikke «Sluttid ikke oppgitt»/estimeringsspråk.
   if (precision === 'start_only') {
-    const rest = (m?.displayTimeLabel && m.displayTimeLabel.trim()) || CALENDAR_SLUTTID_IKKE_OPPGITT_NB
-    return `${formatTime(event.start)} · ${rest}`
+    return formatTime(event.start)
   }
 
   if (precision === 'end_only') {
-    return `Innen ${formatTime(event.end)} · ${
-      (m?.displayTimeLabel && m.displayTimeLabel.trim()) || CALENDAR_STARTTID_IKKE_OPPGITT_NB
-    }`
+    return `Innen ${formatTime(event.end)}`
   }
 
-  if (endSrc === 'missing_or_unreadable' || endSrc === 'layout_only' || endSrc === 'fallback_duration') {
-    const rest = (m?.displayTimeLabel && m.displayTimeLabel.trim()) || CALENDAR_SLUTTID_IKKE_OPPGITT_NB
-    return `${formatTime(event.start)} · ${rest}`
+  // Estimert/syntetisk sluttid (kun teknisk fallback for layout) → vis ren starttid, ikke et
+  // intervall som ser ut som sikker kalenderfakta. Metadataen beholdes for import-preview/detalj.
+  const endIsEstimatedOrSynthetic =
+    m?.inferredEndTime === true ||
+    m?.layoutEndOnly === true ||
+    endSrc === 'missing_or_unreadable' ||
+    endSrc === 'layout_only' ||
+    endSrc === 'fallback_duration' ||
+    endSrc === 'frontend_canonical_fallback'
+  if (endIsEstimatedOrSynthetic) {
+    return formatTime(event.start)
   }
 
   return formatTimeRange(event.start, event.end)

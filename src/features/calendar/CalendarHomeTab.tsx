@@ -8,6 +8,7 @@ import { CalendarDayNote } from '../../components/CalendarDayNote'
 import { ScheduleLoadingSkeleton } from '../../components/ScheduleLoadingSkeleton'
 import { EmptyState } from '../../components/EmptyState'
 import { WeeklyList } from '../../components/WeeklyList'
+import { calendarUnspecifiedTimeLabel } from '../../lib/schedule'
 import { TimelineContainer } from '../../components/TimelineContainer'
 import { AllDayRow } from '../../components/AllDayRow'
 import { springSnappy } from '../../lib/motion'
@@ -515,7 +516,7 @@ export function CalendarHomeTab({
                     }}
                   >
                     <span className="font-medium text-zinc-500">
-                      {(event.metadata?.displayTimeLabel as string | undefined) ?? 'Tid ikke avklart'}
+                      {calendarUnspecifiedTimeLabel(event.metadata)}
                     </span>
                     <span className="mx-1 text-zinc-400">·</span>
                     <span className="font-medium">{event.title}</span>
