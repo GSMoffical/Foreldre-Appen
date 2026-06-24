@@ -9,7 +9,7 @@ import {
   tankestromConditionalAccessibleHintNb,
   tankestromConditionalBadgeLabelNb,
 } from '../lib/tankestromConditionalCopy'
-import { formatCalendarEventTimeLabel } from '../lib/schedule'
+import { calendarUnspecifiedTimeLabel, formatCalendarEventTimeLabel } from '../lib/schedule'
 import { formatTime, formatTimeRange, durationMinutes } from '../lib/time'
 import { useFamily } from '../context/FamilyContext'
 import { getParticipantPeople } from '../lib/eventParticipants'
@@ -271,7 +271,7 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
             </p>
           ) : isDateOnly ? (
             <p className="mt-2 text-body font-medium text-synkaNavy/70">
-              {(event.metadata?.displayTimeLabel as string | undefined) ?? 'Tid ikke avklart'}
+              {calendarUnspecifiedTimeLabel(event.metadata)}
             </p>
           ) : (
             <>

@@ -5,6 +5,8 @@ import {
   formatGapLabel,
   buildDaySummary,
   formatCalendarEventTimeLabel,
+  calendarUnspecifiedTimeLabel,
+  isEstimationTimeLabel,
   dedupeTimelineEventsById,
 } from '../schedule'
 import type { Event } from '../../types'
@@ -60,7 +62,7 @@ describe('calculateVisibleEvents', () => {
     expect(result).toHaveLength(1)
   })
 
-  it('formatCalendarEventTimeLabel: start_only viser eksplisitt manglende slutt', () => {
+  it('formatCalendarEventTimeLabel: start_only viser ren starttid (ingen estimeringsspråk)', () => {
     const ev: Event = {
       id: 'x',
       personId: 'emma',
@@ -74,7 +76,86 @@ describe('calculateVisibleEvents', () => {
         layoutEndOnly: true,
       },
     }
-    expect(formatCalendarEventTimeLabel(ev)).toBe('08:35 · Sluttid ikke oppgitt')
+    const label = formatCalendarEventTimeLabel(ev)
+    expect(label).toBe('08:35')
+    expect(label).not.toMatch(/sluttid|estimert|oppgitt/i)
+    // Metadata beholdes uendret (for import-preview/detalj).
+    expect(ev.metadata?.displayTimeLabel).toBe('Sluttid ikke oppgitt')
+    expect(ev.metadata?.timePrecision).toBe('start_only')
+  })
+
+  it('formatCalendarEventTimeLabel: «Sluttid estimert» vises ikke som kalendertekst', () => {
+    const ev: Event = {
+      id: 'cup',
+      personId: 'emma',
+      title: 'Vårcupen',
+      start: '08:35',
+      end: '09:50',
+      metadata: {
+        timePrecision: 'start_only',
+        displayTimeLabel: 'Sluttid estimert',
+        endTimeSource: 'frontend_canonical_fallback',
+        inferredEndTime: true,
+      },
+    }
+    expect(formatCalendarEventTimeLabel(ev)).toBe('08:35')
+  })
+
+  it('formatCalendarEventTimeLabel: estimert/syntetisk sluttid (uten precision) viser ren starttid', () => {
+    const ev: Event = {
+      id: 'y',
+      personId: 'emma',
+      title: 'Kamp',
+      start: '08:35',
+      end: '09:50',
+      metadata: { endTimeSource: 'fallback_duration', inferredEndTime: true, layoutEndOnly: true },
+    }
+    expect(formatCalendarEventTimeLabel(ev)).toBe('08:35')
+  })
+
+  it('formatCalendarEventTimeLabel: eksplisitt start og slutt viser vanlig intervall', () => {
+    const ev: Event = {
+      id: 'z',
+      personId: 'emma',
+      title: 'Trening',
+      start: '08:35',
+      end: '09:30',
+      metadata: {},
+    }
+    expect(formatCalendarEventTimeLabel(ev)).toBe('08:35 – 09:30')
+  })
+
+  it('formatCalendarEventTimeLabel: end_only viser «Innen …» uten «Starttid ikke oppgitt»', () => {
+    const ev: Event = {
+      id: 'e',
+      personId: 'emma',
+      title: 'Frist',
+      start: '00:00',
+      end: '10:00',
+      metadata: { timePrecision: 'end_only' },
+    }
+    expect(formatCalendarEventTimeLabel(ev)).toBe('Innen 10:00')
+  })
+
+  it('formatCalendarEventTimeLabel: date_only viser «Tid ikke avklart», ikke estimeringsspråk', () => {
+    const ev: Event = {
+      id: 'd',
+      personId: 'emma',
+      title: 'Tur',
+      start: '00:00',
+      end: '23:59',
+      metadata: { timePrecision: 'date_only', displayTimeLabel: 'Sluttid ikke oppgitt' },
+    }
+    expect(formatCalendarEventTimeLabel(ev)).toBe('Tid ikke avklart')
+  })
+
+  it('calendarUnspecifiedTimeLabel + isEstimationTimeLabel: filtrerer estimeringsspråk', () => {
+    expect(isEstimationTimeLabel('Sluttid estimert')).toBe(true)
+    expect(isEstimationTimeLabel('Sluttid ikke oppgitt')).toBe(true)
+    expect(isEstimationTimeLabel('Hele dagen')).toBe(false)
+    expect(calendarUnspecifiedTimeLabel({ displayTimeLabel: 'Sluttid estimert' })).toBe('Tid ikke avklart')
+    expect(calendarUnspecifiedTimeLabel({ displayTimeLabel: 'Hele dagen' })).toBe('Hele dagen')
+    expect(calendarUnspecifiedTimeLabel(undefined)).toBe('Tid ikke avklart')
   })
 
   it('formatCalendarEventTimeLabel: timeWindow overstyrer fast startvisning', () => {
