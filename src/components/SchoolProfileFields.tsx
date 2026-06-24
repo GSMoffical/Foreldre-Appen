@@ -736,6 +736,24 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
                           className="w-full rounded-md border border-zinc-200 px-3 py-2 text-body-sm outline-none focus:border-zinc-400"
                         />
                       ) : null}
+                      <div className="mt-1.5 flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          value={L.room ?? ''}
+                          onChange={(e) => updateLesson(wd, i, { room: e.target.value.trim() || undefined })}
+                          placeholder="Rom"
+                          aria-label="Rom"
+                          className="min-w-0 flex-1 rounded border border-zinc-200 bg-white px-2 py-1.5 text-caption outline-none focus:border-zinc-400"
+                        />
+                        <input
+                          type="text"
+                          value={L.teacher ?? ''}
+                          onChange={(e) => updateLesson(wd, i, { teacher: e.target.value.trim() || undefined })}
+                          placeholder="Lærer"
+                          aria-label="Lærer"
+                          className="min-w-0 flex-1 rounded border border-zinc-200 bg-white px-2 py-1.5 text-caption outline-none focus:border-zinc-400"
+                        />
+                      </div>
                       {i < (plan?.lessons?.length ?? 0) - 1 && (
                         <div className="flex items-center gap-1">
                           <span className="text-caption text-zinc-500">Pause:</span>

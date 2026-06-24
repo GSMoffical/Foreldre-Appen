@@ -471,6 +471,16 @@ export function BackgroundDetailSheet({
                       <p className="text-body-sm font-semibold text-zinc-900">{r.label}</p>
                       <p className="text-caption text-zinc-500">{formatTimeRange(r.start, r.end)}</p>
                     </div>
+                    {r.lesson && (r.lesson.room || r.lesson.teacher) ? (
+                      <p className="mt-0.5 text-caption text-zinc-500">
+                        {[
+                          r.lesson.room ? `Rom ${r.lesson.room}` : null,
+                          r.lesson.teacher ? `Lærer ${r.lesson.teacher}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
+                    ) : null}
                     {rowItems.length > 0 ? (
                       <ul className="mt-2 space-y-1.5">
                         {rowItems.map(({ event: sev, ctx }) => (

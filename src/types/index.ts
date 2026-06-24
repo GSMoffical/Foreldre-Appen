@@ -23,6 +23,10 @@ export interface SchoolLessonSlot {
   lessonSubcategory?: string
   start: string
   end: string
+  /** Klasserom/lokale når kjent (f.eks. «203», «Gymsal»). */
+  room?: string
+  /** Lærer når kjent (navn eller initialer). */
+  teacher?: string
 }
 
 export interface ChildSchoolDayPlan {

@@ -89,9 +89,20 @@ function parseLessonSlot(raw: unknown, idx: number, wdLabel: string): SchoolLess
     asOptionalString(raw.subcategory) ??
     asOptionalString(raw.track) ??
     asOptionalString(raw.selectedTrack)
+  const roomRaw =
+    asOptionalString(raw.room) ??
+    asOptionalString(raw.classroom) ??
+    asOptionalString(raw.rom)
+  const teacherRaw =
+    asOptionalString(raw.teacher) ??
+    asOptionalString(raw.teacherName) ??
+    asOptionalString(raw.lærer) ??
+    asOptionalString(raw.instructor)
   const out: SchoolLessonSlot = { subjectKey, start, end }
   if (customLabel !== undefined) out.customLabel = customLabel
   if (subRaw !== undefined && subRaw.trim()) out.lessonSubcategory = subRaw.trim()
+  if (roomRaw !== undefined) out.room = roomRaw
+  if (teacherRaw !== undefined) out.teacher = teacherRaw
   return out
 }
 
