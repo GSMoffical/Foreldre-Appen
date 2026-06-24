@@ -992,9 +992,12 @@ function parseSecondaryCandidatesField(data: Record<string, unknown>): PortalSec
   return out.length > 0 ? out.slice(0, 12) : undefined
 }
 
+/** Minimal relevanskontekst som kan sendes til analyse (Oppgave 6; utvides av 7/8). */
+export type AnalyzeRelevanceContext = { classCode?: string }
+
 type AnalyzePayload =
-  | { kind: 'file'; file: File }
-  | { kind: 'text'; text: string }
+  | { kind: 'file'; file: File; relevanceContext?: AnalyzeRelevanceContext }
+  | { kind: 'text'; text: string; relevanceContext?: AnalyzeRelevanceContext }
 
 /**
  * Bygger brukervennlig feilmelding fra Tankestrøm-analyse (HTTP-feil eller payload.ok === false).
@@ -1084,13 +1087,18 @@ async function analyzeWithTankestrom(analyzePayload: AnalyzePayload): Promise<Po
 
   let body: BodyInit
   const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
+  const classCode = analyzePayload.relevanceContext?.classCode?.trim()
+  const relevanceContext = classCode ? { classCode } : undefined
   if (analyzePayload.kind === 'file') {
     const form = new FormData()
     form.append('file', analyzePayload.file)
+    if (relevanceContext) form.append('relevanceContext', JSON.stringify(relevanceContext))
     body = form
   } else {
     headers['Content-Type'] = 'application/json'
-    body = JSON.stringify({ text: analyzePayload.text })
+    body = JSON.stringify(
+      relevanceContext ? { text: analyzePayload.text, relevanceContext } : { text: analyzePayload.text }
+    )
   }
 
   const analyzeUrl = url
@@ -1248,17 +1256,23 @@ export function mergePortalImportProposalBundles(bundles: PortalImportProposalBu
  * Laster opp fil til analyse-backend og returnerer typet forslagspakke.
  * Krever VITE_TANKESTROM_ANALYZE_URL og innlogget Supabase-session.
  */
-export async function analyzeDocumentWithTankestrom(file: File): Promise<PortalImportProposalBundle | TankestromV2RawResult> {
+export async function analyzeDocumentWithTankestrom(
+  file: File,
+  relevanceContext?: AnalyzeRelevanceContext
+): Promise<PortalImportProposalBundle | TankestromV2RawResult> {
   if (file.size > MAX_FILE_SIZE_BYTES) {
     throw new Error(
       `Filen "${file.name}" er for stor (${(file.size / 1024 / 1024).toFixed(1)} MB). Maksimal filstørrelse er 20 MB.`
     )
   }
-  return analyzeWithTankestrom({ kind: 'file', file })
+  return analyzeWithTankestrom({ kind: 'file', file, relevanceContext })
 }
 
 /** Analyse av ren tekst (MVP) med samme backend-endepunkt og svarformat. */
-export async function analyzeTextWithTankestrom(text: string): Promise<PortalImportProposalBundle | TankestromV2RawResult> {
+export async function analyzeTextWithTankestrom(
+  text: string,
+  relevanceContext?: AnalyzeRelevanceContext
+): Promise<PortalImportProposalBundle | TankestromV2RawResult> {
   const normalized = text.trim()
   if (!normalized) throw new Error('Skriv inn tekst før du analyserer.')
   if (normalized.length > MAX_TEXT_LENGTH) {
@@ -1266,5 +1280,5 @@ export async function analyzeTextWithTankestrom(text: string): Promise<PortalImp
       `Teksten er for lang (${normalized.length.toLocaleString('nb-NO')} tegn). Maksimalt ${MAX_TEXT_LENGTH.toLocaleString('nb-NO')} tegn er tillatt.`
     )
   }
-  return analyzeWithTankestrom({ kind: 'text', text: normalized })
+  return analyzeWithTankestrom({ kind: 'text', text: normalized, relevanceContext })
 }
