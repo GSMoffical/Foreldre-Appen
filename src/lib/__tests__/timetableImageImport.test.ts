@@ -50,30 +50,32 @@ describe('buildTimetableSuggestionFromBundle', () => {
     expect(out!.warnings).toEqual([])
   })
 
-  it('forenkler detaljert timeplan (lessons) til tidligste start / seneste slutt med advarsel', () => {
+  it('bevarer detaljert timeplan (lessons) og avleder dag-spenn for visning', () => {
+    const lessons = [
+      { subjectKey: 'mat', start: '09:00', end: '09:45' },
+      { subjectKey: 'nor', start: '08:30', end: '09:15' },
+      { subjectKey: 'eng', start: '10:00', end: '11:30' },
+    ]
     const out = buildTimetableSuggestionFromBundle(
       bundleWith([
         schoolItem(
           {
             gradeBand: '8-10',
-            weekdays: {
-              1: {
-                useSimpleDay: false,
-                lessons: [
-                  { subjectKey: 'mat', start: '09:00', end: '09:45' },
-                  { subjectKey: 'nor', start: '08:30', end: '09:15' },
-                  { subjectKey: 'eng', start: '10:00', end: '11:30' },
-                ],
-              },
-            },
+            weekdays: { 1: { useSimpleDay: false, lessons } },
           },
           0.5
         ),
       ])
     )
-    expect(out!.days).toEqual([{ weekday: 1, label: 'Tirsdag', startTime: '08:30', endTime: '11:30' }])
+    // Fag/timer bevares uavkortet i profilen som lagres.
+    expect(out!.profile.weekdays[1]).toEqual({ useSimpleDay: false, lessons })
+    // Forhåndsvisningen viser dag-spennet (tidligste start / seneste slutt) + antall fag.
+    expect(out!.days).toEqual([
+      { weekday: 1, label: 'Tirsdag', startTime: '08:30', endTime: '11:30', lessonCount: 3 },
+    ])
     expect(out!.confidence).toBe('medium')
-    expect(out!.warnings).toContain('Detaljert timeplan ble forenklet til start- og sluttid.')
+    // Ingen «forenklet»-advarsel lenger — fag kastes ikke.
+    expect(out!.warnings).toEqual([])
   })
 
   it('advarer når en dag mangler tydelig tid', () => {
@@ -151,5 +153,22 @@ describe('mergeTimetableSuggestions', () => {
   it('ett forslag returneres uendret', () => {
     const only = suggestion({ 0: { useSimpleDay: true, schoolStart: '08:15', schoolEnd: '14:00' } }, 'medium')
     expect(mergeTimetableSuggestions([only])).toBe(only)
+  })
+
+  it('bevarer lessons gjennom merge av flere forslag', () => {
+    const monLessons = [
+      { subjectKey: 'nor', start: '08:30', end: '09:15' },
+      { subjectKey: 'mat', start: '09:30', end: '10:15' },
+    ]
+    const merged = mergeTimetableSuggestions([
+      suggestion({ 0: { useSimpleDay: false, lessons: monLessons } }),
+      suggestion({ 1: { useSimpleDay: true, schoolStart: '08:15', schoolEnd: '13:00' } }),
+    ])
+    expect(merged.profile.weekdays[0]).toEqual({ useSimpleDay: false, lessons: monLessons })
+    expect(merged.days).toEqual([
+      { weekday: 0, label: 'Mandag', startTime: '08:30', endTime: '10:15', lessonCount: 2 },
+      { weekday: 1, label: 'Tirsdag', startTime: '08:15', endTime: '13:00' },
+    ])
+    expect(merged.warnings).toEqual([])
   })
 })

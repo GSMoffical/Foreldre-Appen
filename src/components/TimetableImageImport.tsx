@@ -125,6 +125,7 @@ export function TimetableImageImport({ onApply }: TimetableImageImportProps) {
                 <span className="font-medium">{d.label}</span>
                 <span className="tabular-nums text-synkaNavy/70">
                   {d.startTime && d.endTime ? `${d.startTime}–${d.endTime}` : 'Ukjent tid'}
+                  {d.lessonCount ? ` · ${d.lessonCount} fag` : ''}
                 </span>
               </li>
             ))}
