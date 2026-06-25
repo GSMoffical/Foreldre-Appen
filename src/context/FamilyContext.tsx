@@ -8,6 +8,7 @@ import {
   updateFamilyMember,
   addFamilyMember,
   deleteFamilyMemberAndEvents,
+  normalizeMemberKind,
 } from '../lib/familyApi'
 import { fetchProfile } from '../lib/profileApi'
 import { formatFamilyLoadError, formatFamilySeedError } from '../lib/supabaseErrors'
@@ -180,7 +181,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           } | null
           linked_auth_user_id?: string | null
         }) => {
-          const memberKind = row.member_kind === 'parent' ? 'parent' : 'child'
+          const memberKind = normalizeMemberKind(row.member_kind)
           const pr = row.profile ?? {}
           return {
             id: row.id,

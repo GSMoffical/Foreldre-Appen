@@ -14,6 +14,16 @@ type ProfileRow = {
   relevance?: RelevanceProfile
 }
 
+/**
+ * Mapper en rå `member_kind`-verdi fra `family_members` trofast til `MemberKind`.
+ * Bevarer `'guest'` i stedet for å kollapse alt som ikke er `'parent'` til `'child'`, slik
+ * at gjester/med-foreldre ikke feilaktig telles som barn. Ukjent/`null` (kan ikke skje pga.
+ * NOT NULL + CHECK i DB) faller trygt til `'guest'` — aldri `'child'`.
+ */
+export function normalizeMemberKind(raw: string | null | undefined): MemberKind {
+  return raw === 'parent' || raw === 'child' || raw === 'guest' ? raw : 'guest'
+}
+
 function mapRowToPerson(row: {
   id: string
   name: string
@@ -23,7 +33,7 @@ function mapRowToPerson(row: {
   profile?: ProfileRow | null
   linked_auth_user_id?: string | null
 }): Person {
-  const memberKind: MemberKind = row.member_kind === 'parent' ? 'parent' : 'child'
+  const memberKind: MemberKind = normalizeMemberKind(row.member_kind)
   const profile = (row.profile ?? {}) as ProfileRow
   return {
     id: row.id,
