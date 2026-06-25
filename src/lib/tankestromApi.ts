@@ -124,9 +124,18 @@ function parseDayPlan(raw: unknown, wdLabel: string): ChildSchoolDayPlan {
  */
 export function parseChildSchoolProfile(raw: unknown, ctx: string): ChildSchoolProfile {
   if (!isRecord(raw)) throw new Error(`Ugyldig svar: ${ctx} må være et objekt`)
-  const gradeBand = asString(raw.gradeBand, `${ctx}.gradeBand`) as NorwegianGradeBand
-  if (!NORWEGIAN_GRADE_BANDS.has(gradeBand)) {
-    throw new Error(`Ugyldig svar: ${ctx}.gradeBand må være 1-4, 5-7, 8-10, vg1, vg2 eller vg3`)
+  // Server-kontrakten tillater gradeBand: null (modellen kjente ikke trinn). Behold timeplanen og
+  // bruk 8-10 som standard i stedet for å forkaste hele svaret (#1-fiks); brukeren kan justere trinn
+  // i editoren.
+  const rawGrade = asOptionalString(raw.gradeBand)
+  const gradeBand: NorwegianGradeBand =
+    rawGrade && NORWEGIAN_GRADE_BANDS.has(rawGrade as NorwegianGradeBand)
+      ? (rawGrade as NorwegianGradeBand)
+      : '8-10'
+  if (gradeBand !== rawGrade && import.meta.env.DEV) {
+    console.warn(
+      `[tankestrom] ${ctx}.gradeBand mangler/ugyldig (${rawGrade ?? 'null'}) — bruker 8-10 som standard. Sjekk trinn.`
+    )
   }
   const weekdays: Partial<Record<WeekdayMonFri, ChildSchoolDayPlan>> = {}
   if (raw.weekdays !== undefined && raw.weekdays !== null) {
