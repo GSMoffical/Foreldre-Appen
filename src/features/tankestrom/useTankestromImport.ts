@@ -3617,6 +3617,13 @@ export function useTankestromImport({
     setAnalyzeWarning(null)
     setAnalyzeLoading(true)
     try {
+      // Oppgave 6: send eneste barnets klasse som kontekst — akkurat nok til riktig ukeplan-tittel.
+      const childMembers = people.filter((p) => p.memberKind === 'child')
+      const soleChildClassCode =
+        childMembers.length === 1
+          ? childMembers[0]!.relevanceProfile?.school?.classCode?.trim()
+          : undefined
+      const relevanceContext = soleChildClassCode ? { classCode: soleChildClassCode } : undefined
       addTankestromSentryBreadcrumb(
         'tankestrom_analysis_started',
         inputMode === 'file'
@@ -3624,7 +3631,7 @@ export function useTankestromImport({
           : { inputMode, textCharCount: textInput.trim().length }
       )
       if (inputMode === 'text') {
-        const b = await analyzeTextWithTankestrom(textInput) as PortalImportProposalBundle
+        const b = await analyzeTextWithTankestrom(textInput, relevanceContext) as PortalImportProposalBundle
         if (isSchoolProfileBundle(b)) {
           setImportPipelineAnalyzeSnapshot(null)
           setBundle(b)
@@ -3738,7 +3745,7 @@ export function useTankestromImport({
       for (const pf of queue) {
         patchPendingFile(pf.id, { status: 'analyzing', statusDetail: undefined })
         try {
-          const b = await analyzeDocumentWithTankestrom(pf.file) as PortalImportProposalBundle
+          const b = await analyzeDocumentWithTankestrom(pf.file, relevanceContext) as PortalImportProposalBundle
           if (!hasAnalyzeContent(b)) {
             patchPendingFile(pf.id, {
               status: 'error',

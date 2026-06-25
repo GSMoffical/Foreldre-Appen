@@ -89,9 +89,20 @@ function parseLessonSlot(raw: unknown, idx: number, wdLabel: string): SchoolLess
     asOptionalString(raw.subcategory) ??
     asOptionalString(raw.track) ??
     asOptionalString(raw.selectedTrack)
+  const roomRaw =
+    asOptionalString(raw.room) ??
+    asOptionalString(raw.classroom) ??
+    asOptionalString(raw.rom)
+  const teacherRaw =
+    asOptionalString(raw.teacher) ??
+    asOptionalString(raw.teacherName) ??
+    asOptionalString(raw.lærer) ??
+    asOptionalString(raw.instructor)
   const out: SchoolLessonSlot = { subjectKey, start, end }
   if (customLabel !== undefined) out.customLabel = customLabel
   if (subRaw !== undefined && subRaw.trim()) out.lessonSubcategory = subRaw.trim()
+  if (roomRaw !== undefined) out.room = roomRaw
+  if (teacherRaw !== undefined) out.teacher = teacherRaw
   return out
 }
 
@@ -124,9 +135,18 @@ function parseDayPlan(raw: unknown, wdLabel: string): ChildSchoolDayPlan {
  */
 export function parseChildSchoolProfile(raw: unknown, ctx: string): ChildSchoolProfile {
   if (!isRecord(raw)) throw new Error(`Ugyldig svar: ${ctx} må være et objekt`)
-  const gradeBand = asString(raw.gradeBand, `${ctx}.gradeBand`) as NorwegianGradeBand
-  if (!NORWEGIAN_GRADE_BANDS.has(gradeBand)) {
-    throw new Error(`Ugyldig svar: ${ctx}.gradeBand må være 1-4, 5-7, 8-10, vg1, vg2 eller vg3`)
+  // Server-kontrakten tillater gradeBand: null (modellen kjente ikke trinn). Behold timeplanen og
+  // bruk 8-10 som standard i stedet for å forkaste hele svaret (#1-fiks); brukeren kan justere trinn
+  // i editoren.
+  const rawGrade = asOptionalString(raw.gradeBand)
+  const gradeBand: NorwegianGradeBand =
+    rawGrade && NORWEGIAN_GRADE_BANDS.has(rawGrade as NorwegianGradeBand)
+      ? (rawGrade as NorwegianGradeBand)
+      : '8-10'
+  if (gradeBand !== rawGrade && import.meta.env.DEV) {
+    console.warn(
+      `[tankestrom] ${ctx}.gradeBand mangler/ugyldig (${rawGrade ?? 'null'}) — bruker 8-10 som standard. Sjekk trinn.`
+    )
   }
   const weekdays: Partial<Record<WeekdayMonFri, ChildSchoolDayPlan>> = {}
   if (raw.weekdays !== undefined && raw.weekdays !== null) {
@@ -992,9 +1012,12 @@ function parseSecondaryCandidatesField(data: Record<string, unknown>): PortalSec
   return out.length > 0 ? out.slice(0, 12) : undefined
 }
 
+/** Minimal relevanskontekst som kan sendes til analyse (Oppgave 6; utvides av 7/8). */
+export type AnalyzeRelevanceContext = { classCode?: string }
+
 type AnalyzePayload =
-  | { kind: 'file'; file: File }
-  | { kind: 'text'; text: string }
+  | { kind: 'file'; file: File; relevanceContext?: AnalyzeRelevanceContext }
+  | { kind: 'text'; text: string; relevanceContext?: AnalyzeRelevanceContext }
 
 /**
  * Bygger brukervennlig feilmelding fra Tankestrøm-analyse (HTTP-feil eller payload.ok === false).
@@ -1084,13 +1107,18 @@ async function analyzeWithTankestrom(analyzePayload: AnalyzePayload): Promise<Po
 
   let body: BodyInit
   const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
+  const classCode = analyzePayload.relevanceContext?.classCode?.trim()
+  const relevanceContext = classCode ? { classCode } : undefined
   if (analyzePayload.kind === 'file') {
     const form = new FormData()
     form.append('file', analyzePayload.file)
+    if (relevanceContext) form.append('relevanceContext', JSON.stringify(relevanceContext))
     body = form
   } else {
     headers['Content-Type'] = 'application/json'
-    body = JSON.stringify({ text: analyzePayload.text })
+    body = JSON.stringify(
+      relevanceContext ? { text: analyzePayload.text, relevanceContext } : { text: analyzePayload.text }
+    )
   }
 
   const analyzeUrl = url
@@ -1248,17 +1276,23 @@ export function mergePortalImportProposalBundles(bundles: PortalImportProposalBu
  * Laster opp fil til analyse-backend og returnerer typet forslagspakke.
  * Krever VITE_TANKESTROM_ANALYZE_URL og innlogget Supabase-session.
  */
-export async function analyzeDocumentWithTankestrom(file: File): Promise<PortalImportProposalBundle | TankestromV2RawResult> {
+export async function analyzeDocumentWithTankestrom(
+  file: File,
+  relevanceContext?: AnalyzeRelevanceContext
+): Promise<PortalImportProposalBundle | TankestromV2RawResult> {
   if (file.size > MAX_FILE_SIZE_BYTES) {
     throw new Error(
       `Filen "${file.name}" er for stor (${(file.size / 1024 / 1024).toFixed(1)} MB). Maksimal filstørrelse er 20 MB.`
     )
   }
-  return analyzeWithTankestrom({ kind: 'file', file })
+  return analyzeWithTankestrom({ kind: 'file', file, relevanceContext })
 }
 
 /** Analyse av ren tekst (MVP) med samme backend-endepunkt og svarformat. */
-export async function analyzeTextWithTankestrom(text: string): Promise<PortalImportProposalBundle | TankestromV2RawResult> {
+export async function analyzeTextWithTankestrom(
+  text: string,
+  relevanceContext?: AnalyzeRelevanceContext
+): Promise<PortalImportProposalBundle | TankestromV2RawResult> {
   const normalized = text.trim()
   if (!normalized) throw new Error('Skriv inn tekst før du analyserer.')
   if (normalized.length > MAX_TEXT_LENGTH) {
@@ -1266,5 +1300,5 @@ export async function analyzeTextWithTankestrom(text: string): Promise<PortalImp
       `Teksten er for lang (${normalized.length.toLocaleString('nb-NO')} tegn). Maksimalt ${MAX_TEXT_LENGTH.toLocaleString('nb-NO')} tegn er tillatt.`
     )
   }
-  return analyzeWithTankestrom({ kind: 'text', text: normalized })
+  return analyzeWithTankestrom({ kind: 'text', text: normalized, relevanceContext })
 }

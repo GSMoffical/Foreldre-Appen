@@ -11,6 +11,8 @@ export type TimetableSuggestionDay = {
   label: string
   startTime?: string
   endTime?: string
+  /** Antall fag/timer når dagen har detaljert timeplan (vises i forhåndsvisningen). */
+  lessonCount?: number
 }
 
 export type TimetableSuggestion = {
@@ -32,16 +34,17 @@ const WEEKDAY_LABELS: Record<WeekdayMonFri, string> = {
 const WEEKDAYS: WeekdayMonFri[] = [0, 1, 2, 3, 4]
 
 /**
- * Forenkler en dag til start/slutt. Detaljerte timeplaner (lessons) reduseres til tidligste start
- * og seneste slutt — vi importerer ikke fag/rom/lærer i denne versjonen.
+ * Dag-spennet brukt i forhåndsvisningen: avledet fra lessons (tidligste start / seneste slutt)
+ * når dagen har detaljert timeplan, ellers fra schoolStart/schoolEnd. Endrer ikke selve planen —
+ * fag/timer bevares uavkortet i profilen som lagres.
  */
-function simplifyDay(plan: ChildSchoolDayPlan): { start?: string; end?: string; simplified: boolean } {
-  if (plan.useSimpleDay || !plan.lessons || plan.lessons.length === 0) {
-    return { start: plan.schoolStart, end: plan.schoolEnd, simplified: false }
+function dayDisplayRange(plan: ChildSchoolDayPlan): { start?: string; end?: string } {
+  if (!plan.useSimpleDay && plan.lessons && plan.lessons.length > 0) {
+    const starts = plan.lessons.map((l) => l.start).filter((s): s is string => !!s).sort()
+    const ends = plan.lessons.map((l) => l.end).filter((s): s is string => !!s).sort()
+    return { start: starts[0], end: ends[ends.length - 1] }
   }
-  const starts = plan.lessons.map((l) => l.start).filter((s): s is string => !!s).sort()
-  const ends = plan.lessons.map((l) => l.end).filter((s): s is string => !!s).sort()
-  return { start: starts[0], end: ends[ends.length - 1], simplified: true }
+  return { start: plan.schoolStart, end: plan.schoolEnd }
 }
 
 function confidenceLabel(value: number): TimetableImportConfidence {
@@ -67,24 +70,29 @@ export function buildTimetableSuggestionFromBundle(
 
   const weekdays: ChildSchoolProfile['weekdays'] = {}
   const days: TimetableSuggestionDay[] = []
-  let anySimplified = false
   let anyMissingTime = false
 
   for (const wd of WEEKDAYS) {
     const plan = source.weekdays[wd]
     if (!plan) continue
-    const { start, end, simplified } = simplifyDay(plan)
-    if (simplified) anySimplified = true
+    const hasLessons = !plan.useSimpleDay && !!plan.lessons?.length
+    const { start, end } = dayDisplayRange(plan)
     if (!start || !end) anyMissingTime = true
-    weekdays[wd] = { useSimpleDay: true, schoolStart: start, schoolEnd: end }
-    days.push({ weekday: wd, label: WEEKDAY_LABELS[wd], startTime: start, endTime: end })
+    if (hasLessons) {
+      // Bevar fag/timer — detaljvisningen for «Skole»-blokken viser dem som egne fag-rader.
+      weekdays[wd] = { useSimpleDay: false, lessons: [...plan.lessons!] }
+    } else {
+      weekdays[wd] = { useSimpleDay: true, schoolStart: start, schoolEnd: end }
+    }
+    const day: TimetableSuggestionDay = { weekday: wd, label: WEEKDAY_LABELS[wd], startTime: start, endTime: end }
+    if (hasLessons) day.lessonCount = plan.lessons!.length
+    days.push(day)
   }
 
   // Ingen tolkbare skoledager → ikke nok struktur.
   if (days.length === 0) return null
 
   const warnings: string[] = []
-  if (anySimplified) warnings.push('Detaljert timeplan ble forenklet til start- og sluttid.')
   if (anyMissingTime) warnings.push('Noen dager mangler tydelig start-/sluttid — sjekk dem manuelt.')
 
   return {
@@ -99,7 +107,8 @@ const CONFIDENCE_RANK: Record<TimetableImportConfidence, number> = { low: 0, med
 const CONFIDENCE_BY_RANK: TimetableImportConfidence[] = ['low', 'medium', 'high']
 
 function dayTimeLabel(plan: ChildSchoolDayPlan): string {
-  return plan.schoolStart && plan.schoolEnd ? `${plan.schoolStart}–${plan.schoolEnd}` : 'ukjent tid'
+  const { start, end } = dayDisplayRange(plan)
+  return start && end ? `${start}–${end}` : 'ukjent tid'
 }
 
 /**
@@ -135,20 +144,25 @@ export function mergeTimetableSuggestions(suggestions: TimetableSuggestion[]): T
       const existing = weekdays[wd]
       if (!existing) {
         weekdays[wd] = plan
-      } else if (existing.schoolStart !== plan.schoolStart || existing.schoolEnd !== plan.schoolEnd) {
-        pushWarning(
-          `Ulike tider for ${WEEKDAY_LABELS[wd]} i flere filer — beholdt ${dayTimeLabel(existing)}.`
-        )
+      } else {
+        const a = dayDisplayRange(existing)
+        const b = dayDisplayRange(plan)
+        if (a.start !== b.start || a.end !== b.end) {
+          pushWarning(
+            `Ulike tider for ${WEEKDAY_LABELS[wd]} i flere filer — beholdt ${dayTimeLabel(existing)}.`
+          )
+        }
       }
     }
   }
 
-  const days: TimetableSuggestionDay[] = WEEKDAYS.filter((wd) => weekdays[wd]).map((wd) => ({
-    weekday: wd,
-    label: WEEKDAY_LABELS[wd],
-    startTime: weekdays[wd]!.schoolStart,
-    endTime: weekdays[wd]!.schoolEnd,
-  }))
+  const days: TimetableSuggestionDay[] = WEEKDAYS.filter((wd) => weekdays[wd]).map((wd) => {
+    const plan = weekdays[wd]!
+    const { start, end } = dayDisplayRange(plan)
+    const day: TimetableSuggestionDay = { weekday: wd, label: WEEKDAY_LABELS[wd], startTime: start, endTime: end }
+    if (!plan.useSimpleDay && plan.lessons?.length) day.lessonCount = plan.lessons.length
+    return day
+  })
 
   return { profile: { gradeBand, weekdays }, days, confidence: CONFIDENCE_BY_RANK[minRank]!, warnings }
 }

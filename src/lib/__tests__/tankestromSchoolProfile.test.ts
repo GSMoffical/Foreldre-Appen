@@ -74,6 +74,54 @@ describe('parseChildSchoolProfile', () => {
     expect(p.weekdays[0]?.lessons?.[0]?.customLabel).toBe('Norsk utenom')
   })
 
+  it('parser rom og lærer (med aliaser) per time, og utelater dem når de mangler', () => {
+    const p = parseChildSchoolProfile(
+      {
+        gradeBand: '8-10',
+        weekdays: {
+          0: {
+            useSimpleDay: false,
+            lessons: [
+              { subjectKey: 'norsk', start: '08:15', end: '09:00', room: '203', teacher: 'T. Larsen' },
+              { subjectKey: 'engelsk', start: '09:15', end: '10:00', classroom: 'B12', teacherName: 'A. Berg' },
+              { subjectKey: 'naturfag', start: '10:15', end: '11:00' },
+            ],
+          },
+        },
+      },
+      'test'
+    )
+    const lessons = p.weekdays[0]?.lessons
+    expect(lessons?.[0]?.room).toBe('203')
+    expect(lessons?.[0]?.teacher).toBe('T. Larsen')
+    // aliaser classroom/teacherName
+    expect(lessons?.[1]?.room).toBe('B12')
+    expect(lessons?.[1]?.teacher).toBe('A. Berg')
+    // utelates når fraværende
+    expect(lessons?.[2]?.room).toBeUndefined()
+    expect(lessons?.[2]?.teacher).toBeUndefined()
+  })
+
+  it('parser lessonSubcategory (oppløst spor) fra track-alias for valgfag/språk', () => {
+    const p = parseChildSchoolProfile(
+      {
+        gradeBand: 'vg2',
+        weekdays: {
+          0: {
+            useSimpleDay: false,
+            lessons: [
+              { subjectKey: 'fremmedspråk', start: '08:15', end: '09:00', lessonSubcategory: 'Tysk' },
+              { subjectKey: 'valgfag', start: '09:15', end: '10:00', track: 'Programmering' },
+            ],
+          },
+        },
+      },
+      'test'
+    )
+    expect(p.weekdays[0]?.lessons?.[0]?.lessonSubcategory).toBe('Tysk')
+    expect(p.weekdays[0]?.lessons?.[1]?.lessonSubcategory).toBe('Programmering')
+  })
+
   it('bevarer ukjente subjectKey som ikke har alias (f.eks. k_og_h)', () => {
     const p = parseChildSchoolProfile(
       {
@@ -94,10 +142,28 @@ describe('parseChildSchoolProfile', () => {
     expect(p.weekdays[4]?.lessons?.[1]?.subjectKey).toBe('utv')
   })
 
-  it('avviser ugyldig gradeBand', () => {
-    expect(() =>
-      parseChildSchoolProfile({ gradeBand: 'vg99', weekdays: {} }, 'x')
-    ).toThrow(/gradeBand/)
+  it('tolererer ugyldig/manglende gradeBand → default 8-10 (beholder timeplanen, #1-fiks)', () => {
+    // Ugyldig (f.eks. uoversatt klassekode) eller null → 8-10, kaster ikke.
+    expect(parseChildSchoolProfile({ gradeBand: '2STC', weekdays: {} }, 'x').gradeBand).toBe('8-10')
+    expect(parseChildSchoolProfile({ gradeBand: 'vg99', weekdays: {} }, 'x').gradeBand).toBe('8-10')
+    expect(parseChildSchoolProfile({ gradeBand: null, weekdays: {} }, 'x').gradeBand).toBe('8-10')
+    expect(parseChildSchoolProfile({ weekdays: {} }, 'x').gradeBand).toBe('8-10')
+    // Gyldig band beholdes.
+    expect(parseChildSchoolProfile({ gradeBand: 'vg2', weekdays: {} }, 'x').gradeBand).toBe('vg2')
+  })
+
+  it('beholder lessons selv når gradeBand defaultes', () => {
+    const p = parseChildSchoolProfile(
+      {
+        gradeBand: null,
+        weekdays: {
+          0: { useSimpleDay: false, lessons: [{ subjectKey: 'norsk', start: '08:15', end: '09:00' }] },
+        },
+      },
+      'x'
+    )
+    expect(p.gradeBand).toBe('8-10')
+    expect(p.weekdays[0]?.lessons).toHaveLength(1)
   })
 
   it('avviser ukedag utenfor 0–4', () => {
