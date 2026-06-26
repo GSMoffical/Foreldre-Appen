@@ -31,6 +31,11 @@ import { deriveEmbeddedParentReviewSummary } from '../../lib/tankestromEmbeddedP
 import { deriveSchoolWeekSpecialSummary } from '../../lib/schoolWeekOverlayReviewSpecialSummary'
 import { semanticTitleCore } from '../../lib/tankestromImportDedupe'
 import {
+  ClassHighlightedText,
+  collapseNotesForDisplay,
+  shouldHighlightClasses,
+} from './classHighlight'
+import {
   embeddedScheduleChildReviewListTimeClock,
   presentEmbeddedChildNotesForReview,
   presentationHasRenderableContent,
@@ -195,15 +200,7 @@ function confidenceBadgeCompactStyle(confidence: number): { label: string; class
 }
 
 function notesPreviewSnippet(notes: string, maxChars = 140): string {
-  let raw = notes.replace(/\r\n/g, '\n').trim()
-  if (!raw) return ''
-  let lines = raw.split('\n').map((l) => l.trim()).filter(Boolean)
-  lines = lines.filter((l) => !/^Match debug:/i.test(l))
-  if (lines.length > 0 && /^fra:\s*/i.test(lines[0] ?? '')) {
-    lines = lines.slice(1)
-  }
-  raw = lines.join('\n').trim()
-  const t = raw.replace(/\s+/g, ' ').trim()
+  const t = collapseNotesForDisplay(notes)
   if (!t) return ''
   if (t.length <= maxChars) return t
   return `${t.slice(0, Math.max(0, maxChars - 1))}…`
@@ -941,6 +938,8 @@ type SchoolWeekOverlayReviewCardProps = {
   resolvedLanguageTrack?: string
   resolvedValgfagTrack?: string
   baseSchoolProfile?: ChildSchoolProfile
+  /** Barnets klasse (relevansprofil) — uthever egen klasse i blandede linjer. */
+  childClassCode?: string
   onChange?: (next: PortalSchoolWeekOverlayProposal) => void
 }
 
@@ -949,6 +948,7 @@ function SchoolWeekOverlayReviewCard({
   resolvedLanguageTrack,
   resolvedValgfagTrack,
   baseSchoolProfile,
+  childClassCode,
   onChange,
 }: SchoolWeekOverlayReviewCardProps) {
   const [editingDay, setEditingDay] = useState<number | null>(null)
@@ -1084,7 +1084,9 @@ function SchoolWeekOverlayReviewCard({
       {weeklyShown.length > 0 ? (
         <ul className="mt-2 list-disc space-y-0.5 pl-4 text-caption text-indigo-950">
           {weeklyShown.map((line, idx) => (
-            <li key={`${line}-${idx}`}>{line}</li>
+            <li key={`${line}-${idx}`}>
+              <ClassHighlightedText text={line} fallback={line} childClassCode={childClassCode} />
+            </li>
           ))}
         </ul>
       ) : null}
@@ -2607,6 +2609,18 @@ export function TankestromImportDialog({
     [people, schoolProfileChildId]
   )
 
+  // Uthev barnets egen klasse i blandede linjer: én aktiv classCode for hele dialogen
+  // (overlay-barnet → ellers eneste barn → ellers ingen = no-op).
+  const activeChildClassCode = useMemo(() => {
+    const fromOverlay = people
+      .find((p) => p.id === schoolProfileChildId)
+      ?.relevanceProfile?.school?.classCode?.trim()
+    if (fromOverlay) return fromOverlay
+    if (childrenList.length === 1)
+      return childrenList[0]!.relevanceProfile?.school?.classCode?.trim() || undefined
+    return undefined
+  }, [people, schoolProfileChildId, childrenList])
+
   const tasksDefaultedToGlobalChild = useMemo(() => {
     if (!schoolProfileChildId.trim()) return 0
     let n = 0
@@ -3031,6 +3045,7 @@ export function TankestromImportDialog({
                     resolvedLanguageTrack={overlayReviewLanguageTrack}
                     resolvedValgfagTrack={overlayReviewValgfagTrack}
                     baseSchoolProfile={overlayPreviewSchoolBase}
+                    childClassCode={activeChildClassCode}
                   />
                   <div>
                     <label htmlFor="ts-overlay-child" className="text-caption font-medium text-zinc-700">
@@ -3319,6 +3334,7 @@ export function TankestromImportDialog({
                   resolvedValgfagTrack={overlayReviewValgfagTrack}
                   baseSchoolProfile={overlayPreviewSchoolBase}
                   onChange={setSchoolWeekOverlayProposalDraft}
+                  childClassCode={activeChildClassCode}
                 />
               ) : null}
               {schoolWeekOverlayProposal && calendarProposalItems.length > 0 ? (
@@ -4934,8 +4950,18 @@ export function TankestromImportDialog({
                             </div>
                           ) : null}
                           {!editorOpen && notesPrev ? (
-                            <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-zinc-500 sm:text-caption">
-                              {notesPrev}
+                            <p
+                              className={`mt-0.5 text-[10px] leading-snug text-zinc-500 sm:text-caption${
+                                shouldHighlightClasses(notesForPreview, activeChildClassCode)
+                                  ? ''
+                                  : ' line-clamp-2'
+                              }`}
+                            >
+                              <ClassHighlightedText
+                                text={notesForPreview}
+                                fallback={notesPrev}
+                                childClassCode={activeChildClassCode}
+                              />
                             </p>
                           ) : null}
                           <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
