@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { IconArrowLeft, IconUpload, IconCheck } from '@tabler/icons-react'
 import { SectionDots } from '../../components/SectionDots'
 import { TankestromScheduleDetails } from '../../components/TankestromScheduleDetails'
+import { UploadFileList } from '../../components/UploadFileList'
 import { btnPrimaryPill } from '../../lib/ui'
 import { flattenEmbeddedScheduleOrdered } from '../../lib/embeddedSchedule'
 import {
@@ -403,17 +404,6 @@ export function TankestrømPage({
     }
   }, [inputMode, analyzeLoading, bundle, runAnalyze, textInput])
 
-  // Auto-trigger analysis when files are added
-  const prevPendingFilesLengthRef = useRef(0)
-  useEffect(() => {
-    const prev = prevPendingFilesLengthRef.current
-    prevPendingFilesLengthRef.current = pendingFiles.length
-    if (pendingFiles.length > prev && !analyzeLoading && !bundle) {
-      logEvent('tankestrom_analyze_started', { mode: 'file', fileCount: pendingFiles.length })
-      void runAnalyze()
-    }
-  }, [pendingFiles, analyzeLoading, bundle, runAnalyze])
-
   const displayItems = primaryCalendarProposalItems.filter(
     (item) => item.kind === 'event' || item.kind === 'task'
   )
@@ -625,38 +615,17 @@ export function TankestrømPage({
           </p>
         )}
 
-        {/* Valgte filer med navn + status */}
-        {pendingFiles.length > 0 && (
-          <ul className="mx-4 mt-2 space-y-1.5">
-            {pendingFiles.map((pf) => (
-              <li
-                key={pf.id}
-                className="flex items-center gap-2 rounded-md border border-synkaNavy/10 bg-white px-3 py-2"
-              >
-                <span className="min-w-0 flex-1 truncate text-body-sm text-synkaNavy">{pf.file.name}</span>
-                <span className="shrink-0 text-caption text-synkaNavy/50">
-                  {pf.status === 'analyzing'
-                    ? 'Analyserer…'
-                    : pf.status === 'done'
-                      ? 'Ferdig'
-                      : pf.status === 'error'
-                        ? pf.statusDetail || 'Feil'
-                        : 'Klar'}
-                </span>
-                {!analyzeLoading && (
-                  <button
-                    type="button"
-                    onClick={() => removePendingFile(pf.id)}
-                    aria-label={`Fjern ${pf.file.name}`}
-                    className="shrink-0 rounded-md px-1.5 text-synkaNavy/40 transition hover:bg-synkaNavy/8 hover:text-synkaNavy/70"
-                  >
-                    ×
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* Valgte filer: miniatyr + navn + status + ×, og manuell «Analyser»-knapp */}
+        <UploadFileList
+          className="mx-4 mt-2"
+          files={pendingFiles}
+          onRemove={removePendingFile}
+          onAnalyze={() => {
+            logEvent('tankestrom_analyze_started', { mode: 'file', fileCount: pendingFiles.length })
+            void runAnalyze()
+          }}
+          analyzing={analyzeLoading}
+        />
 
         {/* Paste text section */}
         <div className="mx-4 mt-3">

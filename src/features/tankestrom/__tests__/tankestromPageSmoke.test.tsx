@@ -837,6 +837,9 @@ describe('TankestrømPage primærflyt-smoke', () => {
     const file = new File(['dummy'], 'cup.pdf', { type: 'application/pdf' })
     await user.upload(screen.getByLabelText('Velg filer til analyse'), file)
 
+    // Analyse starter ikke automatisk lenger — trykk «Analyser».
+    await user.click(screen.getByRole('button', { name: 'Analyser' }))
+
     // Riktig analyse-handler kalles for fil — ikke tekst-grenen.
     await waitFor(() => expect(analyzeDocumentWithTankestrom).toHaveBeenCalledTimes(1))
     expect(analyzeTextWithTankestrom).not.toHaveBeenCalled()
@@ -854,6 +857,8 @@ describe('TankestrømPage primærflyt-smoke', () => {
     // Støttet filtype (passerer input-accept), men selve analysen feiler.
     const file = new File(['dummy'], 'cup.pdf', { type: 'application/pdf' })
     await user.upload(screen.getByLabelText('Velg filer til analyse'), file)
+
+    await user.click(screen.getByRole('button', { name: 'Analyser' }))
 
     await waitFor(() => expect(analyzeDocumentWithTankestrom).toHaveBeenCalled())
     const alerts = await screen.findAllByRole('alert')
