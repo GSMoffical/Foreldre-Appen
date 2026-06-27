@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { collapseNotesForDisplay, segmentByClass, shouldHighlightClasses } from '../classHighlight'
+import {
+  collapseNotesForDisplay,
+  deriveActiveChildClassCode,
+  segmentByClass,
+  shouldHighlightClasses,
+} from '../classHighlight'
 
 describe('segmentByClass', () => {
   it('uthever egen klasse og merker de andre i en blandet linje', () => {
@@ -49,5 +54,47 @@ describe('collapseNotesForDisplay', () => {
     expect(collapseNotesForDisplay('fra: noe\nLinje  1\n\nMatch debug: x\nLinje 2')).toBe(
       'Linje 1 Linje 2',
     )
+  })
+})
+
+describe('deriveActiveChildClassCode', () => {
+  const p = (id: string, classCode?: string) => ({ id, classCode })
+
+  it('nøyaktig én valgt med classCode → den klassen', () => {
+    expect(deriveActiveChildClassCode([p('trym'), p('stellan', '2STC')], new Set(['stellan']))).toBe(
+      '2STC',
+    )
+  })
+
+  it('flere valgte med ulike klasser → undefined (gjetter ikke)', () => {
+    expect(
+      deriveActiveChildClassCode([p('a', '2STC'), p('b', '1IMA')], new Set(['a', 'b'])),
+    ).toBeUndefined()
+  })
+
+  it('flere valgte med SAMME klasse → den (distinkt)', () => {
+    expect(deriveActiveChildClassCode([p('a', '2STC'), p('b', '2STC')], new Set(['a', 'b']))).toBe(
+      '2STC',
+    )
+  })
+
+  it('ingen valgt + nøyaktig ett barn med classCode → fallback til den', () => {
+    expect(deriveActiveChildClassCode([p('trym'), p('stellan', '2STC')], new Set())).toBe('2STC')
+  })
+
+  it('valgt forelder uten classCode → fallback til familiens ene classCode', () => {
+    expect(deriveActiveChildClassCode([p('trym'), p('stellan', '2STC')], new Set(['trym']))).toBe(
+      '2STC',
+    )
+  })
+
+  it('ingen valgt + flere personer med classCode → undefined til man velger', () => {
+    expect(deriveActiveChildClassCode([p('a', '2STC'), p('b', '1IMA')], new Set())).toBeUndefined()
+  })
+
+  it('ingen classCode noe sted → undefined', () => {
+    expect(
+      deriveActiveChildClassCode([p('trym'), p('stellan')], new Set(['stellan'])),
+    ).toBeUndefined()
   })
 })
