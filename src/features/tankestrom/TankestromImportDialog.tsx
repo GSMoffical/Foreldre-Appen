@@ -35,6 +35,7 @@ import {
   collapseNotesForDisplay,
   shouldHighlightClasses,
 } from './classHighlight'
+import { UploadFileList } from '../../components/UploadFileList'
 import {
   embeddedScheduleChildReviewListTimeClock,
   presentEmbeddedChildNotesForReview,
@@ -85,7 +86,6 @@ import {
   draftHasStartWithoutKnownEnd,
   getTankestromAnalyzePickBlockedReason,
   tankestromAnalyzePickBlockedMessageNb,
-  type TankestromPendingFile,
   type TankestromImportSuccess,
 } from './useTankestromImport'
 import {
@@ -2181,36 +2181,6 @@ function shouldOfferSourceExpand(full: string | null, preview: string | null): b
 const TANKESTROM_FILE_ACCEPT =
   'image/*,.pdf,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
-function pendingFileStatusLabel(p: TankestromPendingFile): string {
-  switch (p.status) {
-    case 'ready':
-      return 'Klar'
-    case 'analyzing':
-      return 'Behandler…'
-    case 'done':
-      return 'Ferdig'
-    case 'error':
-      return p.statusDetail?.trim() ? p.statusDetail : 'Kunne ikke analysere filen.'
-    default:
-      return ''
-  }
-}
-
-function pendingFileStatusClass(p: TankestromPendingFile): string {
-  switch (p.status) {
-    case 'ready':
-      return 'border-zinc-200 bg-zinc-50 text-zinc-600'
-    case 'analyzing':
-      return 'border-synkaPrimary/40 bg-synkaCream/30 text-synkaNavy'
-    case 'done':
-      return 'border-emerald-200 bg-emerald-50 text-emerald-900'
-    case 'error':
-      return 'border-rose-200 bg-rose-50 text-rose-900'
-    default:
-      return 'border-zinc-200 bg-zinc-50 text-zinc-600'
-  }
-}
-
 function reminderLabel(reminderMinutes: number | undefined): string {
   if (reminderMinutes == null) return 'Ingen'
   if (reminderMinutes < 60) return `${reminderMinutes} min før`
@@ -2984,39 +2954,14 @@ export function TankestromImportDialog({
                     </p>
                   </div>
 
-                  {pendingFiles.length > 0 ? (
-                    <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto overscroll-y-contain" aria-label="Valgte filer">
-                      {pendingFiles.map((p) => (
-                        <li
-                          key={p.id}
-                          className={`flex items-start gap-2 rounded-lg border px-2.5 py-2 text-left text-caption ${pendingFileStatusClass(p)}`}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate font-medium" title={p.file.name}>
-                              {p.file.name}
-                            </p>
-                            <p className="mt-0.5 whitespace-pre-wrap break-words text-caption opacity-90">
-                              {pendingFileStatusLabel(p)}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            className="shrink-0 rounded-md p-1.5 text-current opacity-70 hover:bg-black/5 hover:opacity-100 disabled:pointer-events-none disabled:opacity-40"
-                            aria-label={`Fjern ${p.file.name}`}
-                            disabled={analyzeLoading}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              removePendingFile(p.id)
-                            }}
-                          >
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
+                  <UploadFileList
+                    className="mt-3"
+                    files={pendingFiles}
+                    onRemove={removePendingFile}
+                    onAnalyze={() => {}}
+                    analyzing={analyzeLoading}
+                    showAnalyzeButton={false}
+                  />
                 </div>
               ) : (
                 <div className={`${cardSection} p-3`}>

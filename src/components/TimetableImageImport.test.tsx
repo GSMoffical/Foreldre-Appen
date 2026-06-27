@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ChildSchoolProfile } from '../types'
@@ -8,6 +8,12 @@ const { analyzeMock } = vi.hoisted(() => ({ analyzeMock: vi.fn() }))
 vi.mock('../lib/tankestromApi', () => ({ analyzeDocumentWithTankestrom: analyzeMock }))
 
 import { TimetableImageImport } from './TimetableImageImport'
+
+beforeEach(() => {
+  // UploadFileList lager objectURL-miniatyrer for bilde-chips; gjør det deterministisk.
+  ;(URL as unknown as { createObjectURL: unknown }).createObjectURL = vi.fn(() => 'blob:mock')
+  ;(URL as unknown as { revokeObjectURL: unknown }).revokeObjectURL = vi.fn()
+})
 
 afterEach(() => {
   cleanup()
@@ -39,6 +45,12 @@ function input() {
   return screen.getByLabelText('Timeplanfiler') as HTMLInputElement
 }
 
+/** Velg filer (staging) og trykk «Analyser» — analysen er ikke lenger automatisk. */
+async function selectAndAnalyze(user: ReturnType<typeof userEvent.setup>, files: File[]) {
+  await user.upload(input(), files)
+  await user.click(screen.getByRole('button', { name: 'Analyser' }))
+}
+
 describe('TimetableImageImport', () => {
   it('nevner Tankestrøm og bilder/dokumenter, og har «Velg filer»-knapp', () => {
     render(<TimetableImageImport onApply={() => undefined} />)
@@ -56,6 +68,33 @@ describe('TimetableImageImport', () => {
     expect(accept).toMatch(/wordprocessingml|\.docx/)
   })
 
+  it('å velge filer legger dem i lista UTEN å analysere (manuell «Analyser»)', async () => {
+    const user = userEvent.setup()
+    render(<TimetableImageImport onApply={() => undefined} />)
+
+    await user.upload(input(), [img('man.png')])
+
+    expect(screen.getByText('man.png')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Analyser' })).toBeTruthy()
+    expect(analyzeMock).not.toHaveBeenCalled()
+    expect(screen.queryByText('Forslag fra Tankestrøm')).toBeNull()
+  })
+
+  it('× fjerner en valgt fil før analyse (uten å analysere)', async () => {
+    const user = userEvent.setup()
+    render(<TimetableImageImport onApply={() => undefined} />)
+
+    await user.upload(input(), [img('man.png'), img('ons.png')])
+    expect(screen.getByText('man.png')).toBeTruthy()
+    expect(screen.getByText('ons.png')).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: 'Fjern man.png' }))
+
+    expect(screen.queryByText('man.png')).toBeNull()
+    expect(screen.getByText('ons.png')).toBeTruthy()
+    expect(analyzeMock).not.toHaveBeenCalled()
+  })
+
   it('analyserer flere filer og viser sammenslått forslag med antall filer', async () => {
     analyzeMock
       .mockResolvedValueOnce(schoolBundle({ 0: { schoolStart: '08:15', schoolEnd: '14:00' } }))
@@ -63,7 +102,7 @@ describe('TimetableImageImport', () => {
     const user = userEvent.setup()
     render(<TimetableImageImport onApply={() => undefined} />)
 
-    await user.upload(input(), [img('man.png'), img('ons.png')])
+    await selectAndAnalyze(user, [img('man.png'), img('ons.png')])
 
     expect(await screen.findByText('Forslag fra Tankestrøm')).toBeTruthy()
     expect(screen.getByText('Analyserte 2 filer')).toBeTruthy()
@@ -79,7 +118,7 @@ describe('TimetableImageImport', () => {
     const user = userEvent.setup()
     render(<TimetableImageImport onApply={() => undefined} />)
 
-    await user.upload(input(), [img('a.png'), img('b.png')])
+    await selectAndAnalyze(user, [img('a.png'), img('b.png')])
 
     expect(await screen.findByText(/Ulike tider for Mandag/)).toBeTruthy()
     // Beholder første tid.
@@ -94,7 +133,7 @@ describe('TimetableImageImport', () => {
     const user = userEvent.setup()
     render(<TimetableImageImport onApply={onApply} />)
 
-    await user.upload(input(), [img('feil.png'), img('ok.png')])
+    await selectAndAnalyze(user, [img('feil.png'), img('ok.png')])
 
     expect(await screen.findByText('Forslag fra Tankestrøm')).toBeTruthy()
     expect(screen.getByText(/Kunne ikke lese «feil\.png»/)).toBeTruthy()
@@ -112,7 +151,7 @@ describe('TimetableImageImport', () => {
     const user = userEvent.setup()
     render(<TimetableImageImport onApply={onApply} />)
 
-    await user.upload(input(), [img('man.png')])
+    await selectAndAnalyze(user, [img('man.png')])
     await screen.findByText('Forslag fra Tankestrøm')
     // Ikke kalt før klikk.
     expect(onApply).not.toHaveBeenCalled()
@@ -128,7 +167,7 @@ describe('TimetableImageImport', () => {
     const user = userEvent.setup()
     render(<TimetableImageImport onApply={() => undefined} />)
 
-    await user.upload(input(), [img('blank.png')])
+    await selectAndAnalyze(user, [img('blank.png')])
 
     expect(await screen.findByRole('alert')).toBeTruthy()
     expect(screen.queryByText('Forslag fra Tankestrøm')).toBeNull()

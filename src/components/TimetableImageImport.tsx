@@ -8,6 +8,7 @@ import {
   mergeTimetableSuggestions,
   type TimetableSuggestion,
 } from '../lib/timetableImageImport'
+import { UploadFileList, type UploadFileChip } from './UploadFileList'
 
 interface TimetableImageImportProps {
   /** Kalles når brukeren bekrefter «Bruk forslag». Erstatter IKKE state automatisk. */
@@ -24,51 +25,82 @@ function isBundle(x: unknown): x is PortalImportProposalBundle {
 
 /**
  * Foreslå timeplan fra ett eller flere bilder/dokumenter via eksisterende Tankestrøm-analyse.
- * Resultatet er et FORSLAG som brukeren må bekrefte — ingenting lagres, og manuell redigering beholdes.
+ * Filene legges først i en oversikt (miniatyr + navn + ×) — analysen starter IKKE automatisk, men
+ * når brukeren trykker «Analyser». Resultatet er et FORSLAG som må bekreftes; ingenting lagres, og
+ * manuell redigering beholdes.
  */
 export function TimetableImageImport({ onApply }: TimetableImageImportProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const idCounter = useRef(0)
+  const [pendingFiles, setPendingFiles] = useState<UploadFileChip[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [suggestion, setSuggestion] = useState<TimetableSuggestion | null>(null)
   const [analyzedCount, setAnalyzedCount] = useState(0)
 
-  async function handleFiles(fileList: FileList | null) {
+  /** Legg valgte filer i lista — analyser IKKE (det skjer på «Analyser»-knappen). */
+  function addFiles(fileList: FileList | null) {
     const files = fileList ? Array.from(fileList) : []
     if (files.length === 0) return
+    setError(null)
+    setPendingFiles((prev) => [
+      ...prev,
+      ...files.map((file) => ({ id: `tt-${idCounter.current++}`, file, status: 'ready' as const })),
+    ])
+    if (inputRef.current) inputRef.current.value = ''
+  }
+
+  function removeFile(id: string) {
+    if (loading) return
+    setPendingFiles((prev) => prev.filter((p) => p.id !== id))
+    setError(null)
+  }
+
+  function patchFile(id: string, patch: Partial<Pick<UploadFileChip, 'status' | 'statusDetail'>>) {
+    setPendingFiles((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)))
+  }
+
+  /** Analyser ALLE valgte filer og slå sammen til ett forslag. Tømmer ikke lista (kan re-analyseres). */
+  async function analyze() {
+    if (pendingFiles.length === 0 || loading) return
     setLoading(true)
     setError(null)
     setSuggestion(null)
-    setAnalyzedCount(0)
+    setPendingFiles((prev) =>
+      prev.map((p) => ({ ...p, status: 'analyzing' as const, statusDetail: undefined }))
+    )
 
     const suggestions: TimetableSuggestion[] = []
     const fileWarnings: string[] = []
-    for (const file of files) {
+    for (const pf of pendingFiles) {
       try {
-        const result = await analyzeDocumentWithTankestrom(file)
+        const result = await analyzeDocumentWithTankestrom(pf.file)
         const next = isBundle(result) ? buildTimetableSuggestionFromBundle(result) : null
-        if (next) suggestions.push(next)
-        else fileWarnings.push(`Fant ingen timeplan i «${file.name}».`)
+        if (next) {
+          suggestions.push(next)
+          patchFile(pf.id, { status: 'done' })
+        } else {
+          fileWarnings.push(`Fant ingen timeplan i «${pf.file.name}».`)
+          patchFile(pf.id, { status: 'error', statusDetail: 'Ingen timeplan funnet' })
+        }
       } catch (e) {
         fileWarnings.push(
-          `Kunne ikke lese «${file.name}»${e instanceof Error ? `: ${e.message}` : ''}.`
+          `Kunne ikke lese «${pf.file.name}»${e instanceof Error ? `: ${e.message}` : ''}.`
         )
+        patchFile(pf.id, { status: 'error', statusDetail: e instanceof Error ? e.message : 'Feil' })
       }
     }
 
-    setAnalyzedCount(files.length)
+    setAnalyzedCount(pendingFiles.length)
     if (suggestions.length === 0) {
       // Ingen fil ga forslag — behold manuell redigering.
-      setError(
-        fileWarnings[0] ?? 'Fant ingen timeplan i filene. Du kan fortsatt fylle ut manuelt.'
-      )
+      setError(fileWarnings[0] ?? 'Fant ingen timeplan i filene. Du kan fortsatt fylle ut manuelt.')
     } else {
       const merged = mergeTimetableSuggestions(suggestions)
       // Per-fil-advarsler (feilede filer) først, så merge-/forenklingsadvarsler.
       setSuggestion({ ...merged, warnings: [...fileWarnings, ...merged.warnings] })
     }
     setLoading(false)
-    if (inputRef.current) inputRef.current.value = ''
   }
 
   return (
@@ -88,7 +120,7 @@ export function TimetableImageImport({ onApply }: TimetableImageImportProps) {
         multiple
         className="hidden"
         aria-label="Timeplanfiler"
-        onChange={(e) => void handleFiles(e.target.files)}
+        onChange={(e) => addFiles(e.target.files)}
       />
       <button
         type="button"
@@ -97,8 +129,15 @@ export function TimetableImageImport({ onApply }: TimetableImageImportProps) {
         className="inline-flex items-center gap-2 rounded-pill border border-synkaNavy/15 bg-white px-3.5 py-2 text-body-sm font-semibold text-synkaNavy transition hover:bg-synkaNavy/5 disabled:opacity-60"
       >
         <IconUpload size={14} aria-hidden />
-        {loading ? 'Leser filer…' : 'Velg filer'}
+        Velg filer
       </button>
+
+      <UploadFileList
+        files={pendingFiles}
+        onRemove={removeFile}
+        onAnalyze={() => void analyze()}
+        analyzing={loading}
+      />
 
       {error && (
         <p role="alert" className="text-caption text-synkaCoral">
@@ -136,6 +175,8 @@ export function TimetableImageImport({ onApply }: TimetableImageImportProps) {
               onClick={() => {
                 onApply(suggestion.profile)
                 setSuggestion(null)
+                setPendingFiles([])
+                setAnalyzedCount(0)
               }}
               className="rounded-pill bg-synkaPrimary px-4 py-2 text-body-sm font-semibold text-white transition hover:brightness-95"
             >
