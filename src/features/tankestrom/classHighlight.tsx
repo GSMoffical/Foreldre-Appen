@@ -77,6 +77,29 @@ export function shouldHighlightClasses(text: string, childClassCode: string | un
 }
 
 /**
+ * Velg ÉN classCode å uthev for, fra valgte personer («Hvem gjelder dette?») med fallback til
+ * familien. Nøkles på classCode-TILSTEDEVÆRELSE (ikke member_kind) — kun barn har skole-classCode,
+ * så «nøyaktig én med classCode» er robust mot member_kind-feilklassifisering.
+ *
+ * - Nøyaktig én distinkt classCode blant valgte → den.
+ * - Flere distinkte blant valgte → undefined (gjetter ikke blant flere klasser).
+ * - Ingen blant valgte → fallback: nøyaktig én distinkt classCode i hele familien → den, ellers undefined.
+ */
+export function deriveActiveChildClassCode(
+  people: Array<{ id: string; classCode?: string }>,
+  selectedIds: ReadonlySet<string>,
+): string | undefined {
+  const distinct = (list: Array<{ classCode?: string }>): string[] => [
+    ...new Set(list.map((p) => p.classCode?.trim()).filter((c): c is string => !!c)),
+  ]
+  const selected = distinct(people.filter((p) => selectedIds.has(p.id)))
+  if (selected.length === 1) return selected[0]
+  if (selected.length > 1) return undefined
+  const all = distinct(people)
+  return all.length === 1 ? all[0] : undefined
+}
+
+/**
  * Rendrer notat-/oppsummerings-tekst med barnets egen klasse uthevet (fet) og andre klasser dempet.
  * No-op — rendrer `fallback` uendret — når barnets classCode mangler eller linja ikke har klassekoder,
  * slik at ikke-skole-forslag ser identiske ut som før.

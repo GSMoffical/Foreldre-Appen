@@ -25,6 +25,7 @@ import {
   type CalendarUpdateDiff,
 } from '../../lib/tankestromCalendarUpdateDiff'
 import { CalendarUpdateCandidates } from './CalendarUpdateCandidates'
+import { ClassHighlightedText, deriveActiveChildClassCode } from './classHighlight'
 import type { Event, Task, Person, EmbeddedScheduleSegment, EventMetadata } from '../../types'
 import type { PortalEventProposal } from './types'
 import {
@@ -64,10 +65,12 @@ function EmbeddedScheduleDayBlocks({
   parentItem,
   segments,
   originalImportText,
+  childClassCode,
 }: {
   parentItem: PortalEventProposal
   segments: EmbeddedScheduleSegment[]
   originalImportText: string
+  childClassCode?: string
 }) {
   if (segments.length === 0) return null
   const cardTitleRaw = parentItem.event.title.trim() || 'Uten tittel'
@@ -123,6 +126,7 @@ function EmbeddedScheduleDayBlocks({
                   precomputedTimeWindowSummaries={details.timeWindowSummaries}
                   titleContext={[displayTitle, cardTitleRaw]}
                   highlightsTestId={`tankestrom-day-highlights-${segment.date}`}
+                  childClassCode={childClassCode}
                 />
               </div>
             )}
@@ -144,10 +148,12 @@ function SingleEventDetailSection({
   label,
   text,
   items,
+  childClassCode,
 }: {
   label: string
   text?: string
   items?: string[]
+  childClassCode?: string
 }) {
   return (
     <div>
@@ -155,13 +161,15 @@ function SingleEventDetailSection({
         {label}
       </p>
       {text != null && (
-        <p className="mt-1 break-words text-caption leading-snug text-zinc-800">{text}</p>
+        <p className="mt-1 break-words text-caption leading-snug text-zinc-800">
+          <ClassHighlightedText text={text} fallback={text} childClassCode={childClassCode} />
+        </p>
       )}
       {items && items.length > 0 && (
         <ul className="mt-1.5 list-disc space-y-1 pl-4 text-caption leading-snug text-zinc-800 sm:text-caption">
           {items.map((n, i) => (
             <li key={`${n}-${i}`} className="break-words pl-0.5">
-              {n}
+              <ClassHighlightedText text={n} fallback={n} childClassCode={childClassCode} />
             </li>
           ))}
         </ul>
@@ -175,11 +183,13 @@ function SingleEventDetails({
   title,
   location,
   notes,
+  childClassCode,
 }: {
   metadata: EventMetadata | undefined
   title: string
   location: string
   notes: string
+  childClassCode?: string
 }) {
   const meta = readTankestromScheduleDetailsFromMetadata(metadata, [title])
   const freeNotes = notes.trim()
@@ -219,17 +229,28 @@ function SingleEventDetails({
           bringItems={meta.bringItems}
           precomputedTimeWindowSummaries={meta.timeWindowSummaries}
           titleContext={[title]}
+          childClassCode={childClassCode}
         />
       )}
-      {placeValue && <SingleEventDetailSection label={placeLabel} text={placeValue} />}
+      {placeValue && (
+        <SingleEventDetailSection label={placeLabel} text={placeValue} childClassCode={childClassCode} />
+      )}
       {sections.practical.length > 0 && (
-        <SingleEventDetailSection label="Praktisk info" items={sections.practical} />
+        <SingleEventDetailSection
+          label="Praktisk info"
+          items={sections.practical}
+          childClassCode={childClassCode}
+        />
       )}
       {sections.appliesTo.length > 0 && (
-        <SingleEventDetailSection label="Gjelder" text={sections.appliesTo.join(', ')} />
+        <SingleEventDetailSection
+          label="Gjelder"
+          text={sections.appliesTo.join(', ')}
+          childClassCode={childClassCode}
+        />
       )}
       {sections.notes.length > 0 && (
-        <SingleEventDetailSection label="Notater" items={sections.notes} />
+        <SingleEventDetailSection label="Notater" items={sections.notes} childClassCode={childClassCode} />
       )}
     </div>
   )
@@ -410,6 +431,17 @@ export function TankestrømPage({
   // Hold gjøremål adskilt fra kalenderhendelser/dagsblokker (egen «Foreslåtte gjøremål»-seksjon).
   const eventDisplayItems = displayItems.filter((item) => item.kind === 'event')
   const taskDisplayItems = displayItems.filter((item) => item.kind === 'task')
+
+  // Uthev barnets egen klasse i blandede linjer: classCode fra valgt person («Hvem gjelder dette?»)
+  // med fallback til familiens ene classCode. Nøkles på classCode, ikke member_kind (robust).
+  const activeChildClassCode = useMemo(
+    () =>
+      deriveActiveChildClassCode(
+        people.map((p) => ({ id: p.id, classCode: p.relevanceProfile?.school?.classCode })),
+        chosenPersonIds,
+      ),
+    [people, chosenPersonIds],
+  )
 
   // Tomtilstand: analyse ferdig (bundle satt, ikke i gang, ingen feil), men ingenting brukbart å vise.
   // Skoleprofil/uke-overlay regnes som brukbart resultat (vises ikke som «fant ingenting»).
@@ -825,6 +857,7 @@ export function TankestrømPage({
                       parentItem={item as PortalEventProposal}
                       segments={segments}
                       originalImportText={analyzedImportTextSnapshot}
+                      childClassCode={activeChildClassCode}
                     />
                   ) : (
                     <SingleEventDetails
@@ -832,6 +865,7 @@ export function TankestrømPage({
                       title={title}
                       location={location}
                       notes={notes}
+                      childClassCode={activeChildClassCode}
                     />
                   )}
                   <CalendarUpdateCandidates

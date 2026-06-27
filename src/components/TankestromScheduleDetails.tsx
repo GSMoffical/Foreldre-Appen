@@ -3,6 +3,7 @@ import {
   normalizeTankestromScheduleDetails,
   type NormalizedTankestromScheduleDetails,
 } from '../lib/tankestromScheduleDetails'
+import { ClassHighlightedText } from '../features/tankestrom/classHighlight'
 
 type TankestromScheduleDetailsProps = {
   highlights: TankestromScheduleHighlight[]
@@ -23,6 +24,8 @@ type TankestromScheduleDetailsProps = {
   highlightsTestId?: string
   /** E2E: stabil selector for notatlisten under detaljer. */
   notesTestId?: string
+  /** Barnets klasse (relevansprofil) — uthever egen klasse i blandede linjer. Default: ingen utheving. */
+  childClassCode?: string
 }
 
 function normalizedDetailsFromProps(
@@ -53,6 +56,7 @@ export function TankestromScheduleDetails({
   useNormalizedInput = false,
   highlightsTestId,
   notesTestId,
+  childClassCode,
 }: TankestromScheduleDetailsProps) {
   const normalized = useNormalizedInput
     ? normalizedDetailsFromProps(highlights, notes, bringItems, precomputedTimeWindowSummaries ?? [])
@@ -89,7 +93,9 @@ export function TankestromScheduleDetails({
                       </span>
                     ) : null}
                   </span>
-                  <span className="min-w-0 font-medium text-zinc-800">{s.label}</span>
+                  <span className="min-w-0 font-medium text-zinc-800">
+                    <ClassHighlightedText text={s.label} fallback={s.label} childClassCode={childClassCode} />
+                  </span>
                 </span>
               </li>
             ))}
@@ -99,7 +105,9 @@ export function TankestromScheduleDetails({
                   <span className="inline-flex shrink-0 rounded-md bg-orange-50 px-2 py-0.5 text-caption font-bold tabular-nums text-orange-900 ring-1 ring-orange-200/90 sm:text-caption">
                     {h.time}
                   </span>
-                  <span className="min-w-0 font-medium text-zinc-800">{h.label}</span>
+                  <span className="min-w-0 font-medium text-zinc-800">
+                    <ClassHighlightedText text={h.label} fallback={h.label} childClassCode={childClassCode} />
+                  </span>
                 </span>
               </li>
             ))}
@@ -124,7 +132,7 @@ export function TankestromScheduleDetails({
           <ul className="mt-1.5 list-disc space-y-1 pl-4 text-caption leading-snug text-zinc-800 sm:text-caption">
             {normalized.notes.map((n, i) => (
               <li key={`${n}-${i}`} className="break-words pl-0.5">
-                {n}
+                <ClassHighlightedText text={n} fallback={n} childClassCode={childClassCode} />
               </li>
             ))}
           </ul>
