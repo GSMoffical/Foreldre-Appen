@@ -15,6 +15,7 @@ import {
   subjectDisplayPartsForKey,
   subjectLabelForKey,
 } from '../data/norwegianSubjects'
+import { addLessonToProfile, removeLessonFromProfile, updateLessonInProfile } from '../lib/schoolLessons'
 
 const WD_LABELS: Record<WeekdayMonFri, string> = {
   0: 'Mandag',
@@ -281,25 +282,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
   }
 
   function addLesson(wd: WeekdayMonFri) {
-    const cur = value.weekdays[wd]
-    const existing = cur?.lessons ?? []
-    const previous = existing[existing.length - 1]
-    const start = previous?.end ?? (cur?.schoolStart ?? gates.start)
-    const lessons: SchoolLessonSlot[] = [
-      ...existing,
-      {
-        subjectKey: subjects[0]?.key ?? 'norsk',
-        start,
-        end: minutesToTime(parseTimeToMinutes(start) + defaultLessonMinutes),
-      },
-    ]
-    onChange({
-      ...value,
-      weekdays: {
-        ...value.weekdays,
-        [wd]: { useSimpleDay: false, lessons },
-      },
-    })
+    onChange(addLessonToProfile(value, wd))
   }
 
   function firstSubcategoryForSubject(subjectKey: string): string | undefined {
@@ -346,7 +329,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
 
   function updateLesson(wd: WeekdayMonFri, index: number, patch: Partial<SchoolLessonSlot>) {
     const cur = value.weekdays[wd]
-    const lessons = (cur?.lessons ?? []).map((L) => ({ ...L }))
+    const lessons = cur?.lessons ?? []
     if (!lessons[index]) return
     if (debugSchoolImport && 'lessonSubcategory' in patch) {
       const L = lessons[index]!
@@ -365,27 +348,11 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
         displaySecondaryLabel: display.secondary,
       })
     }
-    lessons[index] = { ...lessons[index], ...patch }
-    // Keep flow fast: when an end time is chosen, suggest next start from it.
-    if (patch.end && lessons[index + 1]) {
-      lessons[index + 1] = { ...lessons[index + 1], start: patch.end }
-    }
-    onChange({
-      ...value,
-      weekdays: { ...value.weekdays, [wd]: { useSimpleDay: false, lessons } },
-    })
+    onChange(updateLessonInProfile(value, wd, index, patch))
   }
 
   function removeLesson(wd: WeekdayMonFri, index: number) {
-    const cur = value.weekdays[wd]
-    const lessons = (cur?.lessons ?? []).filter((_, i) => i !== index)
-    onChange({
-      ...value,
-      weekdays: {
-        ...value.weekdays,
-        [wd]: { useSimpleDay: false, lessons: lessons.length ? lessons : undefined },
-      },
-    })
+    onChange(removeLessonFromProfile(value, wd, index))
   }
 
   function addBreakAfterLesson(wd: WeekdayMonFri, index: number, breakMinutes: number) {

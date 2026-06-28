@@ -37,6 +37,28 @@ function schoolBundle(weekdays: Record<number, { schoolStart: string; schoolEnd:
   }
 }
 
+function lessonBundle(
+  weekdayLessons: Record<number, Array<{ subjectKey: string; start: string; end: string }>>,
+  gradeBand = '5-7'
+) {
+  const wd: Record<number, unknown> = {}
+  for (const [k, lessons] of Object.entries(weekdayLessons)) {
+    wd[Number(k)] = { useSimpleDay: false, lessons }
+  }
+  return {
+    items: [
+      {
+        proposalId: 'p1',
+        kind: 'school_profile',
+        sourceId: 's',
+        originalSourceType: 'uploaded_file',
+        confidence: 0.9,
+        schoolProfile: { gradeBand, weekdays: wd },
+      },
+    ],
+  }
+}
+
 function img(name: string) {
   return new File(['img'], name, { type: 'image/png' })
 }
@@ -121,8 +143,9 @@ describe('TimetableImageImport', () => {
     await selectAndAnalyze(user, [img('a.png'), img('b.png')])
 
     expect(await screen.findByText(/Ulike tider for Mandag/)).toBeTruthy()
-    // Beholder første tid.
-    expect(screen.getByText('08:15–14:00')).toBeTruthy()
+    // Beholder første tid — les input-verdiene fra forslags-editoren.
+    expect((screen.getByLabelText('Start Mandag') as HTMLInputElement).value).toBe('08:15')
+    expect((screen.getByLabelText('Slutt Mandag') as HTMLInputElement).value).toBe('14:00')
   })
 
   it('én fil feiler, men forslag fra andre filer kan fortsatt brukes (med advarsel)', async () => {
@@ -172,5 +195,40 @@ describe('TimetableImageImport', () => {
     expect(await screen.findByRole('alert')).toBeTruthy()
     expect(screen.queryByText('Forslag fra Tankestrøm')).toBeNull()
     expect(screen.getByRole('button', { name: 'Velg filer' })).toBeTruthy()
+  })
+
+  it('viser fagene i forslaget og lar dem redigeres før «Bruk forslag» (sender redigert profil)', async () => {
+    analyzeMock.mockResolvedValueOnce(
+      lessonBundle({
+        0: [
+          { subjectKey: 'matematikk', start: '08:15', end: '09:00' },
+          { subjectKey: 'norsk', start: '09:15', end: '10:00' },
+        ],
+      })
+    )
+    const onApply = vi.fn()
+    const user = userEvent.setup()
+    render(<TimetableImageImport onApply={onApply} />)
+
+    await selectAndAnalyze(user, [img('man.png')])
+    await screen.findByText('Forslag fra Tankestrøm')
+
+    // Fagene vises (ikke bare antall): fag-velgerne står på de funne fagene.
+    const fag1 = screen.getByLabelText('Fag Mandag time 1') as HTMLSelectElement
+    const fag2 = screen.getByLabelText('Fag Mandag time 2') as HTMLSelectElement
+    expect(fag1.value).toBe('matematikk')
+    expect(fag2.value).toBe('norsk')
+
+    // Rett fag 1: Matematikk → Engelsk.
+    await user.selectOptions(fag1, 'engelsk')
+
+    await user.click(screen.getByRole('button', { name: 'Bruk forslag' }))
+
+    expect(onApply).toHaveBeenCalledTimes(1)
+    const profile = onApply.mock.calls[0]![0] as ChildSchoolProfile
+    // Den REDIGERTE profilen sendes (ikke originalen): fag 1 = engelsk, fag 2 uendret, tider beholdt.
+    expect(profile.weekdays[0]!.lessons![0]!.subjectKey).toBe('engelsk')
+    expect(profile.weekdays[0]!.lessons![1]!.subjectKey).toBe('norsk')
+    expect(profile.weekdays[0]!.lessons![0]!.start).toBe('08:15')
   })
 })

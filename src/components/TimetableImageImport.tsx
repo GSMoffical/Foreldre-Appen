@@ -9,6 +9,7 @@ import {
   type TimetableSuggestion,
 } from '../lib/timetableImageImport'
 import { UploadFileList, type UploadFileChip } from './UploadFileList'
+import { TimetableSuggestionLessons } from './TimetableSuggestionLessons'
 
 interface TimetableImageImportProps {
   /** Kalles når brukeren bekrefter «Bruk forslag». Erstatter IKKE state automatisk. */
@@ -36,6 +37,8 @@ export function TimetableImageImport({ onApply }: TimetableImageImportProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [suggestion, setSuggestion] = useState<TimetableSuggestion | null>(null)
+  // Lokal, redigerbar kopi av forslagets profil — endres i panelet og sendes til onApply (ikke originalen).
+  const [draftProfile, setDraftProfile] = useState<ChildSchoolProfile | null>(null)
   const [analyzedCount, setAnalyzedCount] = useState(0)
 
   /** Legg valgte filer i lista — analyser IKKE (det skjer på «Analyser»-knappen). */
@@ -66,6 +69,7 @@ export function TimetableImageImport({ onApply }: TimetableImageImportProps) {
     setLoading(true)
     setError(null)
     setSuggestion(null)
+    setDraftProfile(null)
     setPendingFiles((prev) =>
       prev.map((p) => ({ ...p, status: 'analyzing' as const, statusDetail: undefined }))
     )
@@ -99,6 +103,7 @@ export function TimetableImageImport({ onApply }: TimetableImageImportProps) {
       const merged = mergeTimetableSuggestions(suggestions)
       // Per-fil-advarsler (feilede filer) først, så merge-/forenklingsadvarsler.
       setSuggestion({ ...merged, warnings: [...fileWarnings, ...merged.warnings] })
+      setDraftProfile(merged.profile)
     }
     setLoading(false)
   }
@@ -158,23 +163,18 @@ export function TimetableImageImport({ onApply }: TimetableImageImportProps) {
               ))}
             </ul>
           )}
-          <ul className="mt-2 space-y-1">
-            {suggestion.days.map((d) => (
-              <li key={d.weekday} className="flex justify-between text-body-sm text-synkaNavy">
-                <span className="font-medium">{d.label}</span>
-                <span className="tabular-nums text-synkaNavy/70">
-                  {d.startTime && d.endTime ? `${d.startTime}–${d.endTime}` : 'Ukjent tid'}
-                  {d.lessonCount ? ` · ${d.lessonCount} fag` : ''}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {draftProfile && (
+            <div className="mt-2">
+              <TimetableSuggestionLessons profile={draftProfile} onChange={setDraftProfile} />
+            </div>
+          )}
           <div className="mt-3 flex gap-2">
             <button
               type="button"
               onClick={() => {
-                onApply(suggestion.profile)
+                onApply(draftProfile ?? suggestion.profile)
                 setSuggestion(null)
+                setDraftProfile(null)
                 setPendingFiles([])
                 setAnalyzedCount(0)
               }}
@@ -184,7 +184,10 @@ export function TimetableImageImport({ onApply }: TimetableImageImportProps) {
             </button>
             <button
               type="button"
-              onClick={() => setSuggestion(null)}
+              onClick={() => {
+                setSuggestion(null)
+                setDraftProfile(null)
+              }}
               className="rounded-pill border border-synkaNavy/15 bg-white px-4 py-2 text-body-sm font-semibold text-synkaNavy transition hover:bg-synkaNavy/5"
             >
               Avbryt
