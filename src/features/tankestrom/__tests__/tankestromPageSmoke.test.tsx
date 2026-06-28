@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { parsePortalImportProposalBundle } from '../../../lib/tankestromApi'
 import { TankestrømPage } from '../TankestrømPage'
+import type { Person } from '../../../types'
 
 /**
  * Kjørbar smoke for dagens primærflyt (Mer → Tankestrøm → TankestrømPage).
@@ -230,6 +231,69 @@ describe('TankestrømPage primærflyt-smoke', () => {
 
     expect(await screen.findByText('Foreslåtte hendelser')).toBeTruthy()
     expect(screen.queryByText(/Dette ser ut som en timeplan/i)).toBeNull()
+  })
+
+  it('oppgave 9 (ett barn): sender classCode + schoolProfile (timeplan, uten weekOverlays) i relevanceContext', async () => {
+    const oneChild: Person[] = [
+      {
+        id: 'person-a',
+        name: 'Test',
+        memberKind: 'child',
+        colorTint: 'bg-slate-200',
+        colorAccent: 'border-slate-400',
+        relevanceProfile: { school: { classCode: '2STC' } },
+        school: {
+          gradeBand: '5-7',
+          weekdays: { 0: { useSimpleDay: true, schoolStart: '08:15', schoolEnd: '14:00' } },
+          weekOverlays: [],
+        },
+      },
+    ]
+    const user = userEvent.setup()
+    render(<TankestrømPage onBack={() => undefined} people={oneChild} createEvent={vi.fn()} createTask={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'Høstcupen 2026 test')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    await waitFor(() => expect(analyzeTextWithTankestrom).toHaveBeenCalledTimes(1))
+    const rc = vi.mocked(analyzeTextWithTankestrom).mock.calls[0]![1]
+    expect(rc?.classCode).toBe('2STC')
+    expect(rc?.schoolProfile?.gradeBand).toBe('5-7')
+    expect(rc?.schoolProfile?.weekdays[0]).toEqual({ useSimpleDay: true, schoolStart: '08:15', schoolEnd: '14:00' })
+    // weekOverlays droppes for å holde payloaden liten — kun gradeBand + weekdays sendes.
+    expect(rc?.schoolProfile).toBeDefined()
+    expect(Object.keys(rc!.schoolProfile!).sort()).toEqual(['gradeBand', 'weekdays'])
+  })
+
+  it('oppgave 9 (to barn): sender INGEN relevanceContext (sole-child-only, uendret)', async () => {
+    const twoChildren: Person[] = [
+      {
+        id: 'child-a',
+        name: 'Ada',
+        memberKind: 'child',
+        colorTint: 'bg-slate-200',
+        colorAccent: 'border-slate-400',
+        relevanceProfile: { school: { classCode: '2STC' } },
+        school: { gradeBand: '5-7', weekdays: {} },
+      },
+      {
+        id: 'child-b',
+        name: 'Bo',
+        memberKind: 'child',
+        colorTint: 'bg-slate-200',
+        colorAccent: 'border-slate-400',
+      },
+    ]
+    const user = userEvent.setup()
+    render(<TankestrømPage onBack={() => undefined} people={twoChildren} createEvent={vi.fn()} createTask={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'Høstcupen 2026 test')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    await waitFor(() => expect(analyzeTextWithTankestrom).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(analyzeTextWithTankestrom).mock.calls[0]![1]).toBeUndefined()
   })
 
   it('viser rik forhåndsvisning: hovedarrangement + dagsblokker med høydepunkter og foreløpig-markering', async () => {
