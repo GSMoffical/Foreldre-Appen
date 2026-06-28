@@ -73,6 +73,42 @@ function makeSingleEventBundle(event: Record<string, unknown>) {
   })
 }
 
+/** Skole-uke som SEPARATE dag-hendelser (riktig sti) med server-satt schoolContext + schoolDayOverride. */
+function makeSchoolWeekBundle() {
+  const day = (id: string, date: string, overrideKind: string, start = '', end = '') => ({
+    proposalId: id,
+    kind: 'event',
+    sourceId: 'e2e',
+    originalSourceType: 'pasted_text',
+    confidence: 0.9,
+    event: {
+      date,
+      personId: '',
+      title: 'Ukeplan for eksamen og avslutning',
+      start,
+      end,
+      metadata: {
+        schoolContext: { itemType: 'general' },
+        schoolDayOverride: { overrideKind, reason: 'detalj' },
+      },
+    },
+  })
+  return {
+    schemaVersion: '1.0.0',
+    provenance: {
+      sourceSystem: 'tankestrom',
+      sourceType: 'e2e_fixture',
+      generatorVersion: 'test',
+      generatedAt: '2026-05-08T20:00:00.000Z',
+      importRunId: 'school-1',
+    },
+    items: [
+      day('aaaa1111-1111-4abc-9def-000000000001', '2026-06-15', 'exam_day', '09:00', '14:00'),
+      day('aaaa1111-1111-4abc-9def-000000000002', '2026-06-17', 'free_day'),
+    ],
+  } as unknown as Awaited<ReturnType<typeof analyzeTextWithTankestrom>>
+}
+
 function renderPage() {
   return render(
     <TankestrømPage
@@ -108,6 +144,23 @@ describe('TankestrømPage primærflyt-smoke', () => {
 
     expect(await screen.findByText('Foreslåtte hendelser')).toBeTruthy()
     expect(screen.getByRole('button', { name: /Legg til \d+ hendelse/i })).toBeTruthy()
+  })
+
+  it('skole-uke (separate hendelser): dag-kort viser per-dag-overskrift + uke-tittel som gruppe-header én gang', async () => {
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(makeSchoolWeekBundle())
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'skoleuke til analyse')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    await screen.findByText('Foreslåtte hendelser')
+    // Per-dag-overskrift fra overrideKind (ikke gjentatt dokument-tittel):
+    expect(screen.getByText('Eksamen')).toBeTruthy()
+    expect(screen.getByText('Fri')).toBeTruthy()
+    // Uke-tittelen vises som gruppe-header ÉN gang (ikke per kort):
+    expect(screen.getAllByText('Ukeplan for eksamen og avslutning')).toHaveLength(1)
   })
 
   it('viser rik forhåndsvisning: hovedarrangement + dagsblokker med høydepunkter og foreløpig-markering', async () => {

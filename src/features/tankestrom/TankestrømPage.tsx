@@ -26,6 +26,7 @@ import {
 } from '../../lib/tankestromCalendarUpdateDiff'
 import { CalendarUpdateCandidates } from './CalendarUpdateCandidates'
 import { ClassHighlightedText, deriveActiveChildClassCode } from './classHighlight'
+import { deriveSchoolDayHeading, isSchoolDayEvent } from '../../lib/schoolDayHeading'
 import type { Event, Task, Person, EmbeddedScheduleSegment, EventMetadata } from '../../types'
 import type { PortalEventProposal } from './types'
 import {
@@ -432,6 +433,15 @@ export function TankestrømPage({
   const eventDisplayItems = displayItems.filter((item) => item.kind === 'event')
   const taskDisplayItems = displayItems.filter((item) => item.kind === 'task')
 
+  // Skole-uke: de fem dagene er separate hendelser uten et samlende forelder-kort. Vis dokument-/
+  // uke-tittelen ÉN gang som gruppe-header over skole-dag-kortene (i stedet for å gjenta den på hvert).
+  const schoolWeekHeading = (() => {
+    const first = eventDisplayItems.find(
+      (it) => it.kind === 'event' && isSchoolDayEvent(it.event.metadata as EventMetadata | undefined),
+    )
+    return first && first.kind === 'event' ? first.event.title.trim() : ''
+  })()
+
   // Uthev barnets egen klasse i blandede linjer: classCode fra valgt person («Hvem gjelder dette?»)
   // med fallback til familiens ene classCode. Nøkles på classCode, ikke member_kind (robust).
   const activeChildClassCode = useMemo(
@@ -741,6 +751,10 @@ export function TankestrømPage({
               </span>
             </div>
 
+            {schoolWeekHeading && (
+              <p className="mb-2 px-4 text-body-sm font-semibold text-synkaNavy">{schoolWeekHeading}</p>
+            )}
+
             {/* Proposal cards */}
             {eventDisplayItems.map((item) => {
               const isSelected = selectedIds.has(item.proposalId)
@@ -781,6 +795,14 @@ export function TankestrømPage({
                 location = eventDraft?.location ?? item.event.location ?? ''
                 notes = eventDraft?.notes ?? item.event.notes ?? ''
               }
+
+              // Skole-dag: vis serverens per-dag-klassifisering («Eksamen», «Fri» …) i stedet for
+              // den gjentatte dokument-tittelen. undefined → faller tilbake til `title` (sjelden).
+              const schoolDayHeading =
+                item.kind === 'event' &&
+                isSchoolDayEvent(item.event.metadata as EventMetadata | undefined)
+                  ? deriveSchoolDayHeading(item.event.metadata as EventMetadata | undefined)
+                  : undefined
 
               // Read-only hint: kan dette forslaget være en oppdatering? (Beregnet i memo over.)
               const updateCandidates =
@@ -846,7 +868,9 @@ export function TankestrømPage({
                     </div>
                     {/* Text */}
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-body-sm font-semibold text-synkaNavy">{title}</p>
+                      <p className="truncate text-body-sm font-semibold text-synkaNavy">
+                        {schoolDayHeading ?? title}
+                      </p>
                       {subLabel && (
                         <p className="text-caption text-synkaNavy/50">{subLabel}</p>
                       )}
