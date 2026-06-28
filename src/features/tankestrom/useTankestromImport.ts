@@ -2496,7 +2496,7 @@ export function buildDraftsFromItems(
   return drafts
 }
 
-function isSchoolProfileBundle(bundle: PortalImportProposalBundle): boolean {
+export function isSchoolProfileBundle(bundle: PortalImportProposalBundle): boolean {
   return bundle.items.length > 0 && bundle.items.every((i) => i.kind === 'school_profile')
 }
 

@@ -32,6 +32,7 @@ import type { PortalEventProposal } from './types'
 import {
   useTankestromImport,
   buildEmbeddedChildCanonicalPreviewForReview,
+  isSchoolProfileBundle,
   makeEmbeddedChildProposalId,
   type TankestromImportSuccess,
   type TankestromEditEventFn,
@@ -261,6 +262,32 @@ function SingleEventDetails({
  * Tomtilstand når analysen er ferdig, men ingen brukbare forslag finnes. Forklarer hva som kan ha
  * skjedd og hva brukeren kan prøve — i stedet for en stille «ingenting skjedde». Endrer ingen data.
  */
+/**
+ * Vises på hovedsiden når et opplastet dokument er en TIMEPLAN (school_profile) i stedet for hendelser.
+ * Timeplaner hører til barnet (relevansprofilen) — vi henviser dit i stedet for en blank flate, og lar
+ * brukeren hoppe til Familie-oversikten (der barnet velges). Ingen barn-velger på hovedsiden.
+ */
+function SchoolProfileRedirectNotice({ onNavigateFamilie }: { onNavigateFamilie?: () => void }) {
+  return (
+    <div role="status" className="mx-4 mt-5 rounded-md border border-synkaNavy/10 bg-white p-4">
+      <p className="text-body-sm font-semibold text-synkaNavy">Dette ser ut som en timeplan.</p>
+      <p className="mt-1.5 text-caption leading-snug text-synkaNavy/60">
+        Timeplaner legges på barnet, ikke i kalenderen her. Gå til Familie, velg barnet, og åpne Rediger
+        barn → Timeplan — last opp timeplanen der.
+      </p>
+      {onNavigateFamilie ? (
+        <button
+          type="button"
+          onClick={onNavigateFamilie}
+          className="mt-3 inline-flex items-center gap-2 rounded-pill bg-synkaPrimary px-4 py-2 text-body-sm font-semibold text-white transition hover:brightness-95"
+        >
+          Gå til Familie
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 function EmptyAnalysisState({ isFileInput }: { isFileInput: boolean }) {
   return (
     <div
@@ -329,6 +356,8 @@ interface TankestrømPageProps {
   }) => void
   /** Åpner en eksisterende kalenderhendelse (for «Vis eksisterende» på oppdateringskandidater). */
   onOpenExistingEvent?: (eventId: string) => void
+  /** Naviger til Familie-oversikten (brukt når et opplastet dokument er en timeplan, ikke hendelser). */
+  onNavigateFamilie?: () => void
 }
 
 export function TankestrømPage({
@@ -343,6 +372,7 @@ export function TankestrømPage({
   updatePerson,
   onImportFinished,
   onOpenExistingEvent,
+  onNavigateFamilie,
 }: TankestrømPageProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -464,6 +494,10 @@ export function TankestrømPage({
     hasSchoolResult
   const showEmptyAnalysisState =
     !!bundle && !analyzeLoading && !error && !importError && !hasUsableResult
+  // Timeplan (school_profile) hører til relevansprofilen per barn, ikke hovedsidens hendelsesflate.
+  // Vis en tydelig henvisning i stedet for blank. Overlay/ukeplan (Del A) ekskluderes av predikatet
+  // (items er da hendelser eller tomme), så den meldingen kan aldri trigge på en ukeplan.
+  const isSchoolProfileResult = !!bundle && isSchoolProfileBundle(bundle)
 
   // Eksisterende kalenderhendelser (kun forgrunn, fra cache) for read-only kandidat-hint + diff.
   // Endrer ingenting — viser bare «kan være oppdatering til eksisterende».
@@ -1043,6 +1077,7 @@ export function TankestrømPage({
         )}
 
         {showEmptyAnalysisState && <EmptyAnalysisState isFileInput={inputMode === 'file'} />}
+        {isSchoolProfileResult && <SchoolProfileRedirectNotice onNavigateFamilie={onNavigateFamilie} />}
       </div>
 
       {/* Sticky footer — only shows when proposals exist */}
