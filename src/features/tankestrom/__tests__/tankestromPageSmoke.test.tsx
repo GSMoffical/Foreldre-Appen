@@ -109,6 +109,35 @@ function makeSchoolWeekBundle() {
   } as unknown as Awaited<ReturnType<typeof analyzeTextWithTankestrom>>
 }
 
+/** Ren timeplan (school_profile) — slik runAnalyze klassifiserer en gjentakende ukeplan per barn. */
+function makeSchoolProfileBundle() {
+  return parsePortalImportProposalBundle({
+    schemaVersion: '1.0.0',
+    provenance: {
+      sourceSystem: 'tankestrom',
+      sourceType: 'pasted_text',
+      generatorVersion: 'test',
+      generatedAt: '2026-05-08T20:00:00.000Z',
+      importRunId: 'school-profile-1',
+    },
+    items: [
+      {
+        proposalId: 'bbbb2222-2222-4abc-9def-000000000001',
+        kind: 'school_profile',
+        sourceId: 'e2e',
+        originalSourceType: 'school_timetable',
+        confidence: 0.9,
+        schoolProfile: {
+          gradeBand: '5-7',
+          weekdays: {
+            0: { useSimpleDay: false, lessons: [{ subjectKey: 'matematikk', start: '08:15', end: '09:00' }] },
+          },
+        },
+      },
+    ],
+  })
+}
+
 function renderPage() {
   return render(
     <TankestrømPage
@@ -161,6 +190,46 @@ describe('TankestrømPage primærflyt-smoke', () => {
     expect(screen.getByText('Fri')).toBeTruthy()
     // Uke-tittelen vises som gruppe-header ÉN gang (ikke per kort):
     expect(screen.getAllByText('Ukeplan for eksamen og avslutning')).toHaveLength(1)
+  })
+
+  it('timeplan (school_profile): viser «legg på barnet»-melding med snarvei, ikke blank og ikke hendelser', async () => {
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(makeSchoolProfileBundle())
+    const onNavigateFamilie = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <TankestrømPage
+        onBack={() => undefined}
+        people={people}
+        createEvent={vi.fn()}
+        createTask={vi.fn()}
+        onNavigateFamilie={onNavigateFamilie}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'timeplan til analyse')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    expect(await screen.findByText(/Dette ser ut som en timeplan/i)).toBeTruthy()
+    // Ikke hendelser, ikke tomtilstand.
+    expect(screen.queryByText('Foreslåtte hendelser')).toBeNull()
+    expect(screen.queryByText(/Vi fant ingen kalenderhendelser eller gjøremål/)).toBeNull()
+    // Snarvei navigerer til Familie (der barnet velges) — ingen barn-velger på hovedsiden.
+    await user.click(screen.getByRole('button', { name: /Gå til Familie/i }))
+    expect(onNavigateFamilie).toHaveBeenCalledTimes(1)
+  })
+
+  it('Del A beskyttet: ukeplan/skole-uke trigger IKKE timeplan-meldingen (vises som hendelser)', async () => {
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(makeSchoolWeekBundle())
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'skoleuke til analyse')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    expect(await screen.findByText('Foreslåtte hendelser')).toBeTruthy()
+    expect(screen.queryByText(/Dette ser ut som en timeplan/i)).toBeNull()
   })
 
   it('viser rik forhåndsvisning: hovedarrangement + dagsblokker med høydepunkter og foreløpig-markering', async () => {

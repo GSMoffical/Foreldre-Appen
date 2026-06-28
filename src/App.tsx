@@ -631,6 +631,7 @@ function App() {
                 <Suspense fallback={null}>
                   <TankestrømPage
                     onBack={() => setMerSubScreen(null)}
+                    onNavigateFamilie={() => setMerSubScreen('familie')}
                     people={people}
                     createEvent={controller.createEvent}
                     createTask={taskController.createTask}
