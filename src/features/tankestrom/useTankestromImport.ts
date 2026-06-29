@@ -71,6 +71,7 @@ import {
   analyzeTextWithTankestrom,
   mergePortalImportProposalBundles,
   portalEventProposalIsArrangementDeadlineMisclassification,
+  type AnalyzeRelevanceContext,
 } from '../../lib/tankestromApi'
 import { detectLessonConflicts } from '../../lib/schoolProfileConflicts'
 import { normalizeTaskIntent, suggestTaskIntentFromTitleAndNotes } from '../../lib/taskIntent'
@@ -3617,13 +3618,22 @@ export function useTankestromImport({
     setAnalyzeWarning(null)
     setAnalyzeLoading(true)
     try {
-      // Oppgave 6: send eneste barnets klasse som kontekst — akkurat nok til riktig ukeplan-tittel.
+      // Oppgave 6: send eneste barnets klasse som kontekst. Oppgave 9 steg 1: send OGSÅ barnets
+      // lagrede timeplan (person.school). KUN ved ett barn — 0/2+ barn sender ingenting (som før).
+      // weekOverlays droppes for å holde payloaden liten (ingen størrelses-grense på relevanceContext).
       const childMembers = people.filter((p) => p.memberKind === 'child')
-      const soleChildClassCode =
-        childMembers.length === 1
-          ? childMembers[0]!.relevanceProfile?.school?.classCode?.trim()
+      const soleChild = childMembers.length === 1 ? childMembers[0]! : undefined
+      const soleChildClassCode = soleChild?.relevanceProfile?.school?.classCode?.trim()
+      const soleChildSchoolProfile = soleChild?.school
+        ? { gradeBand: soleChild.school.gradeBand, weekdays: soleChild.school.weekdays }
+        : undefined
+      const relevanceContext: AnalyzeRelevanceContext | undefined =
+        soleChildClassCode || soleChildSchoolProfile
+          ? {
+              ...(soleChildClassCode ? { classCode: soleChildClassCode } : {}),
+              ...(soleChildSchoolProfile ? { schoolProfile: soleChildSchoolProfile } : {}),
+            }
           : undefined
-      const relevanceContext = soleChildClassCode ? { classCode: soleChildClassCode } : undefined
       addTankestromSentryBreadcrumb(
         'tankestrom_analysis_started',
         inputMode === 'file'

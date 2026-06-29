@@ -1012,12 +1012,33 @@ function parseSecondaryCandidatesField(data: Record<string, unknown>): PortalSec
   return out.length > 0 ? out.slice(0, 12) : undefined
 }
 
-/** Minimal relevanskontekst som kan sendes til analyse (Oppgave 6; utvides av 7/8). */
-export type AnalyzeRelevanceContext = { classCode?: string }
+/**
+ * Relevanskontekst sendt til analyse. Oppgave 6: `classCode`. Oppgave 9 steg 1: `schoolProfile`
+ * (barnets lagrede timeplan, person.school) — kun ved ett barn, satt i runAnalyze.
+ */
+export type AnalyzeRelevanceContext = { classCode?: string; schoolProfile?: ChildSchoolProfile }
 
 type AnalyzePayload =
   | { kind: 'file'; file: File; relevanceContext?: AnalyzeRelevanceContext }
   | { kind: 'text'; text: string; relevanceContext?: AnalyzeRelevanceContext }
+
+/**
+ * Bygger det UTGÅENDE relevanceContext-objektet fra det innkommende: trimmer `classCode` og bærer
+ * `schoolProfile` videre. Tidligere ble alt annet enn classCode forkastet her (chokepunktet), så et
+ * nytt felt ble droppet stille. Returnerer `undefined` når ingenting er satt, slik at feltet utelates
+ * fra FormData/JSON-body.
+ */
+export function buildOutgoingRelevanceContext(
+  ctx: AnalyzeRelevanceContext | undefined
+): AnalyzeRelevanceContext | undefined {
+  const classCode = ctx?.classCode?.trim()
+  const schoolProfile = ctx?.schoolProfile
+  if (!classCode && !schoolProfile) return undefined
+  return {
+    ...(classCode ? { classCode } : {}),
+    ...(schoolProfile ? { schoolProfile } : {}),
+  }
+}
 
 /**
  * Bygger brukervennlig feilmelding fra Tankestrøm-analyse (HTTP-feil eller payload.ok === false).
@@ -1107,8 +1128,7 @@ async function analyzeWithTankestrom(analyzePayload: AnalyzePayload): Promise<Po
 
   let body: BodyInit
   const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
-  const classCode = analyzePayload.relevanceContext?.classCode?.trim()
-  const relevanceContext = classCode ? { classCode } : undefined
+  const relevanceContext = buildOutgoingRelevanceContext(analyzePayload.relevanceContext)
   if (analyzePayload.kind === 'file') {
     const form = new FormData()
     form.append('file', analyzePayload.file)
