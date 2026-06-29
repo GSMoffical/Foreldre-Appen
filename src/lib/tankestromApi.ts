@@ -1016,7 +1016,15 @@ function parseSecondaryCandidatesField(data: Record<string, unknown>): PortalSec
  * Relevanskontekst sendt til analyse. Oppgave 6: `classCode`. Oppgave 9 steg 1: `schoolProfile`
  * (barnets lagrede timeplan, person.school) — kun ved ett barn, satt i runAnalyze.
  */
-export type AnalyzeRelevanceContext = { classCode?: string; schoolProfile?: ChildSchoolProfile }
+export type AnalyzeRelevanceContext = {
+  classCode?: string
+  schoolProfile?: ChildSchoolProfile
+  /**
+   * Oppgave 9 Vei 1: alle barns profiler. Serveren velger ETT barn per dokument og stempler
+   * personId + personMatchStatus per forslag. Sendes ved siden av topnivå classCode/schoolProfile.
+   */
+  children?: { personId: string; classCode?: string; schoolProfile?: ChildSchoolProfile }[]
+}
 
 type AnalyzePayload =
   | { kind: 'file'; file: File; relevanceContext?: AnalyzeRelevanceContext }
@@ -1024,7 +1032,7 @@ type AnalyzePayload =
 
 /**
  * Bygger det UTGÅENDE relevanceContext-objektet fra det innkommende: trimmer `classCode` og bærer
- * `schoolProfile` videre. Tidligere ble alt annet enn classCode forkastet her (chokepunktet), så et
+ * `schoolProfile` + `children` videre. Tidligere ble alt annet enn classCode forkastet her (chokepunktet), så et
  * nytt felt ble droppet stille. Returnerer `undefined` når ingenting er satt, slik at feltet utelates
  * fra FormData/JSON-body.
  */
@@ -1033,10 +1041,13 @@ export function buildOutgoingRelevanceContext(
 ): AnalyzeRelevanceContext | undefined {
   const classCode = ctx?.classCode?.trim()
   const schoolProfile = ctx?.schoolProfile
-  if (!classCode && !schoolProfile) return undefined
+  const children = ctx?.children?.length ? ctx.children : undefined
+  // ⚠️ Guarden MÅ også slippe gjennom children-only (2+ barn uten topnivå-classCode), ellers droppes lista.
+  if (!classCode && !schoolProfile && !children) return undefined
   return {
     ...(classCode ? { classCode } : {}),
     ...(schoolProfile ? { schoolProfile } : {}),
+    ...(children ? { children } : {}),
   }
 }
 

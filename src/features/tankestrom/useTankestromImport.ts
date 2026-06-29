@@ -2220,17 +2220,28 @@ export function buildEventDraftFromProposal(
     pid = validPersonIds.has(ev.personId) ? ev.personId : defaultPersonId
     personMatchStatus = pid ? 'matched' : undefined
   } else {
-    const trimmedApiPid = ev.personId.trim()
-    if (trimmedApiPid && validPersonIds.has(trimmedApiPid)) {
-      pid = trimmedApiPid
-      personMatchStatus = 'matched'
+    // Vei 1 lag 3: serveren er AUTORITATIV på barn-valg når den UTTALER seg (personMatchStatus
+    // 'matched'/'child_unresolved'). Ellers (serveren tier) beholdes lokal navne-matching UENDRET.
+    const serverStatus = typeof meta.personMatchStatus === 'string' ? meta.personMatchStatus : undefined
+    if (serverStatus === 'matched' || serverStatus === 'child_unresolved') {
+      const trimmedApiPid = ev.personId.trim()
+      // matched: bruk serverens personId (defensivt validert mot familien). child_unresolved: blank pid
+      // → velger forblir tom og import-gaten blokkerer til bruker velger.
+      pid = serverStatus === 'matched' && trimmedApiPid && validPersonIds.has(trimmedApiPid) ? trimmedApiPid : ''
+      personMatchStatus = serverStatus
     } else {
-      const resolution = resolvePersonForImport(p, people)
-      pid =
-        resolution.personId != null && validPersonIds.has(resolution.personId) ? resolution.personId : ''
-      personMatchStatus = resolution.status
-      if (resolution.status === 'unmatched_document_name') {
-        documentExtractedPersonName = resolution.extractedName
+      const trimmedApiPid = ev.personId.trim()
+      if (trimmedApiPid && validPersonIds.has(trimmedApiPid)) {
+        pid = trimmedApiPid
+        personMatchStatus = 'matched'
+      } else {
+        const resolution = resolvePersonForImport(p, people)
+        pid =
+          resolution.personId != null && validPersonIds.has(resolution.personId) ? resolution.personId : ''
+        personMatchStatus = resolution.status
+        if (resolution.status === 'unmatched_document_name') {
+          documentExtractedPersonName = resolution.extractedName
+        }
       }
     }
   }
@@ -3622,16 +3633,27 @@ export function useTankestromImport({
       // lagrede timeplan (person.school). KUN ved ett barn — 0/2+ barn sender ingenting (som før).
       // weekOverlays droppes for å holde payloaden liten (ingen størrelses-grense på relevanceContext).
       const childMembers = people.filter((p) => p.memberKind === 'child')
+      // Vei 1 lag 3: send ALLE barns profiler. Serveren velger ETT barn per dokument og stempler
+      // personId/personMatchStatus per forslag. Topnivå classCode/schoolProfile beholdes bevisst for
+      // ett-barns-back-compat (den gamle, beviste, ubetingede stien) — IKKE ryddet nå.
+      const children = childMembers.map((c) => ({
+        personId: c.id,
+        ...(c.relevanceProfile?.school?.classCode?.trim()
+          ? { classCode: c.relevanceProfile.school.classCode.trim() }
+          : {}),
+        ...(c.school ? { schoolProfile: { gradeBand: c.school.gradeBand, weekdays: c.school.weekdays } } : {}),
+      }))
       const soleChild = childMembers.length === 1 ? childMembers[0]! : undefined
       const soleChildClassCode = soleChild?.relevanceProfile?.school?.classCode?.trim()
       const soleChildSchoolProfile = soleChild?.school
         ? { gradeBand: soleChild.school.gradeBand, weekdays: soleChild.school.weekdays }
         : undefined
       const relevanceContext: AnalyzeRelevanceContext | undefined =
-        soleChildClassCode || soleChildSchoolProfile
+        soleChildClassCode || soleChildSchoolProfile || children.length
           ? {
               ...(soleChildClassCode ? { classCode: soleChildClassCode } : {}),
               ...(soleChildSchoolProfile ? { schoolProfile: soleChildSchoolProfile } : {}),
+              ...(children.length ? { children } : {}),
             }
           : undefined
       addTankestromSentryBreadcrumb(
