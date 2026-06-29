@@ -129,7 +129,12 @@ export interface PortalImportProposalBundle {
 }
 
 /** Lokalt redigerbart utkast per forslag før import (speiler det brukeren kan endre i UI). */
-export type TankestromPersonMatchStatus = 'not_specified' | 'unmatched_document_name' | 'matched'
+export type TankestromPersonMatchStatus =
+  | 'not_specified'
+  | 'unmatched_document_name'
+  | 'matched'
+  // Vei 1 lag 3: serveren vet at dette er en skole-/ukeplan men er usikker på hvilket barn → bruker velger.
+  | 'child_unresolved'
 
 export interface TankestromEventDraft {
   title: string

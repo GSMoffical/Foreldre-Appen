@@ -42,6 +42,29 @@ describe('buildOutgoingRelevanceContext', () => {
       schoolProfile: SCHOOL,
     })
   })
+
+  it('BÆRER children-lista videre', () => {
+    const children = [{ personId: 'c1', classCode: '2STC', schoolProfile: SCHOOL }]
+    expect(buildOutgoingRelevanceContext({ children })).toEqual({ children })
+  })
+
+  it('children-only overlever guarden (ingen classCode/schoolProfile) — chokepunkt-regresjonen', () => {
+    const children = [{ personId: 'c1' }, { personId: 'c2', classCode: '8B' }]
+    expect(buildOutgoingRelevanceContext({ children })).toEqual({ children })
+  })
+
+  it('tom children-liste teller ikke (returnerer undefined når alt er tomt)', () => {
+    expect(buildOutgoingRelevanceContext({ children: [] })).toBeUndefined()
+  })
+
+  it('bærer classCode + schoolProfile + children samtidig', () => {
+    const children = [{ personId: 'c1', schoolProfile: SCHOOL }]
+    expect(buildOutgoingRelevanceContext({ classCode: '2STC', schoolProfile: SCHOOL, children })).toEqual({
+      classCode: '2STC',
+      schoolProfile: SCHOOL,
+      children,
+    })
+  })
 })
 
 describe('analyze* sender schoolProfile på wire-en', () => {

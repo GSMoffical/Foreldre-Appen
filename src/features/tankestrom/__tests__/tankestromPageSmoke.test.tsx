@@ -264,9 +264,13 @@ describe('TankestrømPage primærflyt-smoke', () => {
     // weekOverlays droppes for å holde payloaden liten — kun gradeBand + weekdays sendes.
     expect(rc?.schoolProfile).toBeDefined()
     expect(Object.keys(rc!.schoolProfile!).sort()).toEqual(['gradeBand', 'weekdays'])
+    // Vei 1 lag 3: children-lista sendes OGSÅ (additivt) — ett barn = én entry; topnivå beholdt.
+    expect(rc?.children).toHaveLength(1)
+    expect(rc?.children?.[0]?.personId).toBe('person-a')
+    expect(rc?.children?.[0]?.classCode).toBe('2STC')
   })
 
-  it('oppgave 9 (to barn): sender INGEN relevanceContext (sole-child-only, uendret)', async () => {
+  it('Vei 1 lag 3 (to barn): sender children-lista med alle barn (FORVENTET kontraktendring — var INGEN før)', async () => {
     const twoChildren: Person[] = [
       {
         id: 'child-a',
@@ -293,7 +297,58 @@ describe('TankestrømPage primærflyt-smoke', () => {
     await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
 
     await waitFor(() => expect(analyzeTextWithTankestrom).toHaveBeenCalledTimes(1))
-    expect(vi.mocked(analyzeTextWithTankestrom).mock.calls[0]![1]).toBeUndefined()
+    const rc = vi.mocked(analyzeTextWithTankestrom).mock.calls[0]![1]
+    // FORVENTET KONTRAKTENDRING (Vei 1 lag 3): 2 barn sender nå children-lista (var undefined før).
+    expect(rc?.children).toHaveLength(2)
+    expect(rc?.children?.map((c) => c.personId).sort()).toEqual(['child-a', 'child-b'])
+    expect(rc?.children?.find((c) => c.personId === 'child-a')?.classCode).toBe('2STC')
+    expect(rc?.children?.find((c) => c.personId === 'child-a')?.schoolProfile?.gradeBand).toBe('5-7')
+    // Topnivå er undefined for 2 barn (kun ett-barn-tilfellet fyller topnivå — bevisst beholdt).
+    expect(rc?.classCode).toBeUndefined()
+    expect(rc?.schoolProfile).toBeUndefined()
+  })
+
+  it('Vei 1 lag 3 (seed): server-matched personId forhåndsutfyller velgeren OG holder den synlig', async () => {
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(
+      makeSingleEventBundle({ personId: 'child-a', end: '19:00' })
+    )
+    const twoChildren: Person[] = [
+      { id: 'child-a', name: 'Ada', memberKind: 'child', colorTint: 'bg-slate-200', colorAccent: 'border-slate-400' },
+      { id: 'child-b', name: 'Bo', memberKind: 'child', colorTint: 'bg-slate-200', colorAccent: 'border-slate-400' },
+    ]
+    const user = userEvent.setup()
+    render(<TankestrømPage onBack={() => undefined} people={twoChildren} createEvent={vi.fn()} createTask={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'noe tekst')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    // Velgeren holdes synlig (chosenPersonIds.size>0-armen) selv om eventet er matchet:
+    expect(await screen.findByText('Hvem gjelder dette?')).toBeTruthy()
+    // Ada (matchet av serveren) er forhåndsvalgt, Bo er ikke:
+    expect(screen.getByRole('button', { name: 'Ada' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Bo' }).getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('Vei 1 lag 3 (child_unresolved): server-usikker → velger vises tom (ingen pill forhåndsvalgt)', async () => {
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(
+      makeSingleEventBundle({ personMatchStatus: 'child_unresolved', end: '19:00' })
+    )
+    const twoChildren: Person[] = [
+      { id: 'child-a', name: 'Ada', memberKind: 'child', colorTint: 'bg-slate-200', colorAccent: 'border-slate-400' },
+      { id: 'child-b', name: 'Bo', memberKind: 'child', colorTint: 'bg-slate-200', colorAccent: 'border-slate-400' },
+    ]
+    const user = userEvent.setup()
+    render(<TankestrømPage onBack={() => undefined} people={twoChildren} createEvent={vi.fn()} createTask={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'noe tekst')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    // Eventet mangler person (serveren var usikker) → velgeren vises, men ingen pill er forhåndsvalgt:
+    expect(await screen.findByText('Hvem gjelder dette?')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Ada' }).getAttribute('aria-pressed')).toBe('false')
+    expect(screen.getByRole('button', { name: 'Bo' }).getAttribute('aria-pressed')).toBe('false')
   })
 
   it('viser rik forhåndsvisning: hovedarrangement + dagsblokker med høydepunkter og foreløpig-markering', async () => {

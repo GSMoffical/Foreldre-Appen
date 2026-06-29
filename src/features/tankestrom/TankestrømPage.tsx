@@ -419,6 +419,8 @@ export function TankestrømPage({
   const [showTextSection, setShowTextSection] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [chosenPersonIds, setChosenPersonIds] = useState<Set<string>>(() => new Set())
+  // Engangs-seed av velgeren per analyse (se effekt under) — hindrer overskriving av brukerens senere valg.
+  const seededRunRef = useRef<string | null>(null)
   const textAnalyzePendingRef = useRef(false)
 
   // Multi-select: gjenbruker dialogens bulk-personlogikk. Valgte personer settes på ALLE
@@ -434,6 +436,29 @@ export function TankestrømPage({
     // forrige valg selv om UI viser «ingen valgt»). Da blokkerer import-gaten på nytt.
     else clearReviewBulkPersonTargets('all_calendar')
   }
+
+  // Vei 1 lag 3: forhåndsutfyll «Hvem gjelder dette?»-velgeren fra serverens barn-valg. Når serveren
+  // matcher (personMatchStatus 'matched') seedes de distinkte personId-ene inn i chosenPersonIds. Dette
+  // BÅDE fyller pillene OG holder velgeren synlig (via chosenPersonIds.size>0-armen i render-gaten), fordi
+  // en server-match gjør selectedEventLacksPerson false. Engangs per analyse (seededRunRef) så brukerens
+  // senere valg ikke overskrives. child_unresolved → blank personId → ikke seedet → velger forblir tom.
+  // INVARIANT: den globale velgeren hviler på serverens ETT-barn-per-dokument-garanti — om forslagene
+  // noensinne bar ULIKE personId-er, ville den globale velgeren flate dem ut. Vi bygger ingen egen sjekk her.
+  useEffect(() => {
+    const runId = bundle?.provenance.importRunId
+    if (!bundle || !runId || seededRunRef.current === runId) return
+    const draftIds = Object.keys(draftByProposalId)
+    if (draftIds.length === 0) return // vent til utkastene er bygget for denne analysen
+    const matched = new Set<string>()
+    for (const id of draftIds) {
+      const d = draftByProposalId[id]!
+      if (d.importKind === 'event' && d.event.personMatchStatus === 'matched' && d.event.personId.trim()) {
+        matched.add(d.event.personId.trim())
+      }
+    }
+    seededRunRef.current = runId
+    if (matched.size > 0) setChosenPersonIds(matched)
+  }, [bundle, draftByProposalId])
 
   const handleAnalyzeText = () => {
     if (!textInput.trim() || analyzeLoading || bundle) return
