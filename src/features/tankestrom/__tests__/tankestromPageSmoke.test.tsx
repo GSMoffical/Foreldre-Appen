@@ -150,6 +150,69 @@ function renderPage() {
   )
 }
 
+/** A-plan-bundle: overlay (classLabel «10B») + én task — for Fiks 1 (overlay-lagring). */
+function makeOverlayBundle() {
+  return {
+    schemaVersion: '1.0.0',
+    provenance: {
+      sourceSystem: 'tankestrom',
+      sourceType: 'e2e_fixture',
+      generatorVersion: 'test',
+      generatedAt: '2026-05-08T20:00:00.000Z',
+      importRunId: 'overlay-1',
+    },
+    items: [
+      {
+        proposalId: 'a1b2c3d4-3333-4abc-9def-000000000001',
+        kind: 'task',
+        sourceId: 'e2e',
+        originalSourceType: 'pasted_text',
+        confidence: 0.9,
+        task: { date: '2026-03-25', title: 'Tysk prøve' },
+      },
+    ],
+    schoolWeekOverlayProposal: {
+      proposalId: 'overlay-1',
+      kind: 'school_week_overlay',
+      schemaVersion: '1.0.0',
+      confidence: 0.9,
+      originalSourceType: 'pasted_text',
+      weeklySummary: ['Uke 13'],
+      classLabel: '10B',
+      dailyActions: {
+        2: {
+          action: 'enrich_existing_school_block',
+          reason: 'r',
+          summary: 's',
+          subjectUpdates: [{ subjectKey: 'matematikk' }],
+        },
+      },
+    },
+  } as unknown as Awaited<ReturnType<typeof analyzeTextWithTankestrom>>
+}
+
+// Flerbarns: Stellan (2STC) er childIds[0], Ida (10B) matcher overlayens classLabel.
+const stellanOgIda: Person[] = [
+  {
+    id: 'stellan',
+    name: 'Stellan',
+    memberKind: 'child',
+    colorTint: 'bg-slate-200',
+    colorAccent: 'border-slate-400',
+    school: { gradeBand: 'vg2', weekdays: {} },
+    relevanceProfile: { school: { classCode: '2STC' } },
+  },
+  {
+    id: 'ida',
+    name: 'Ida',
+    memberKind: 'child',
+    colorTint: 'bg-slate-200',
+    colorAccent: 'border-slate-400',
+    school: { gradeBand: '8-10', weekdays: {} },
+    relevanceProfile: { school: { classCode: '10B' } },
+  },
+]
+
 describe('TankestrømPage primærflyt-smoke', () => {
   beforeEach(() => {
     vi.mocked(analyzeTextWithTankestrom).mockResolvedValue(hostcupBundle)
@@ -158,6 +221,66 @@ describe('TankestrømPage primærflyt-smoke', () => {
   afterEach(() => {
     cleanup()
     vi.clearAllMocks()
+  })
+
+  it('Fiks 1: import lagrer uke-overlay på classLabel-matchet barn (Ida 10B), ikke childIds[0] (Stellan)', async () => {
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(makeOverlayBundle())
+    const updatePerson = vi.fn().mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    render(
+      <TankestrømPage
+        onBack={() => undefined}
+        people={stellanOgIda}
+        createEvent={vi.fn()}
+        createTask={vi.fn().mockResolvedValue(undefined)}
+        updatePerson={updatePerson}
+        onImportFinished={() => undefined}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'A-plan uke 13')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    const importBtn = await screen.findByRole('button', { name: /Legg til \d+ hendelse/i })
+    await user.click(importBtn)
+
+    await waitFor(() => expect(updatePerson).toHaveBeenCalled())
+    // Overlayen lagres — og på RIKTIG barn (classLabel «10B» → Ida), ikke blindt childIds[0] (Stellan).
+    const overlayCall = updatePerson.mock.calls.find((c) => c[1]?.school?.weekOverlays)
+    expect(overlayCall).toBeTruthy()
+    expect(overlayCall![0]).toBe('ida')
+    expect(overlayCall![1].school.weekOverlays).toHaveLength(1)
+  })
+
+  it('Fiks 1 ikke-regresjon: dokument uten overlay → ingen overlay-lagring (updatePerson ikke kalt)', async () => {
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(
+      makeSingleEventBundle({ personId: 'person-a', end: '19:00' })
+    )
+    const updatePerson = vi.fn().mockResolvedValue(undefined)
+    const createEvent = vi.fn().mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    render(
+      <TankestrømPage
+        onBack={() => undefined}
+        people={people}
+        createEvent={createEvent}
+        createTask={vi.fn()}
+        updatePerson={updatePerson}
+        onImportFinished={() => undefined}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'vanlig dokument')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    const importBtn = await screen.findByRole('button', { name: /Legg til \d+ hendelse/i })
+    await user.click(importBtn)
+
+    await waitFor(() => expect(createEvent).toHaveBeenCalled())
+    // Ingen overlay i bundlen → ingen skoleprofil-skriving (approveSelected uendret).
+    expect(updatePerson).not.toHaveBeenCalled()
   })
 
   it('lim inn tekst → Analyser tekst → viser forslag og import-CTA', async () => {
