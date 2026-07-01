@@ -253,6 +253,44 @@ describe('TankestrømPage primærflyt-smoke', () => {
     expect(overlayCall![1].school.weekOverlays).toHaveLength(1)
   })
 
+  it('Preview: viser fag-plassert overlay-preview når bundlen har en uke-overlay', async () => {
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(makeOverlayBundle())
+    const user = userEvent.setup()
+    render(
+      <TankestrømPage
+        onBack={() => undefined}
+        people={stellanOgIda}
+        createEvent={vi.fn()}
+        createTask={vi.fn()}
+        updatePerson={vi.fn()}
+        onImportFinished={() => undefined}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'A-plan uke 13')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    expect(await screen.findByText('Slik blir skole-uken')).toBeTruthy()
+  })
+
+  it('Preview: skjules for vanlig dokument uten overlay', async () => {
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(
+      makeSingleEventBundle({ personId: 'person-a', end: '19:00' })
+    )
+    const user = userEvent.setup()
+    render(
+      <TankestrømPage onBack={() => undefined} people={people} createEvent={vi.fn()} createTask={vi.fn()} />
+    )
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'vanlig dokument')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    await screen.findByText('Foreslåtte hendelser')
+    expect(screen.queryByText('Slik blir skole-uken')).toBeNull()
+  })
+
   it('Fiks 1 ikke-regresjon: dokument uten overlay → ingen overlay-lagring (updatePerson ikke kalt)', async () => {
     vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(
       makeSingleEventBundle({ personId: 'person-a', end: '19:00' })

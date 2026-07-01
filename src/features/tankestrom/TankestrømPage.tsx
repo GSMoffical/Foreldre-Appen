@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { IconArrowLeft, IconUpload, IconCheck } from '@tabler/icons-react'
 import { SectionDots } from '../../components/SectionDots'
+import { OverlayImportPreview } from './OverlayImportPreview'
 import { TankestromScheduleDetails } from '../../components/TankestromScheduleDetails'
 import { UploadFileList } from '../../components/UploadFileList'
 import { btnPrimaryPill } from '../../lib/ui'
@@ -390,6 +391,7 @@ export function TankestrømPage({
     saveLoading,
     approveSelected,
     saveSchoolWeekOverlayThenCalendarSelection,
+    schoolProfileChildId,
     canApproveSelection,
     runAnalyze,
     bundle,
@@ -810,6 +812,14 @@ export function TankestrømPage({
               </div>
             </div>
           )}
+
+        {/* Fag-plassert overlay-preview (før import) — samme visning som kalenderens skole-blokk. */}
+        {bundle?.schoolWeekOverlayProposal ? (
+          <OverlayImportPreview
+            overlay={bundle.schoolWeekOverlayProposal}
+            child={people.find((p) => p.id === schoolProfileChildId)}
+          />
+        ) : null}
 
         {/* Proposals section */}
         {eventDisplayItems.length > 0 && (

@@ -15,7 +15,6 @@ import { springDialog } from '../lib/motion'
 import { sheetPanel, sheetHandle, sheetDetailBody, typSectionCap, btnRowAction } from '../lib/ui'
 import { useFamily } from '../context/FamilyContext'
 import { dateKeyToWeekdayMon0 } from '../lib/weekday'
-import { subjectLabelForKey } from '../data/norwegianSubjects'
 import { formatTimeRange, parseTime } from '../lib/time'
 import { getEventParticipantIds } from '../lib/schedule'
 import { COPY } from '../lib/norwegianCopy'
@@ -33,6 +32,13 @@ import {
   overlaySubjectUpdatesUnmatchedByLessons,
   overlayUpdatesForLesson,
 } from '../lib/schoolWeekOverlayLessonMatch'
+import {
+  OVERLAY_SECTION_KEYS,
+  OVERLAY_SECTION_LABELS,
+  buildSchoolRowsForPlan,
+  sectionsForReadOnly,
+  type OverlaySectionKey,
+} from '../lib/schoolOverlayDisplay'
 
 interface BackgroundDetailSheetProps {
   event: Event | null
@@ -60,31 +66,8 @@ interface SchoolItemEntry {
   ctx: SchoolContext
 }
 
-type OverlaySectionKey =
-  | 'iTimen'
-  | 'lekse'
-  | 'huskTaMed'
-  | 'proveVurdering'
-  | 'ressurser'
-  | 'ekstraBeskjed'
-
-const OVERLAY_SECTION_LABELS: Record<OverlaySectionKey, string> = {
-  iTimen: 'I timen',
-  lekse: 'Lekse',
-  huskTaMed: 'Husk / ta med',
-  proveVurdering: 'Prøve / vurdering',
-  ressurser: 'Ressurser',
-  ekstraBeskjed: 'Ekstra beskjed',
-}
-
-const OVERLAY_SECTION_KEYS: OverlaySectionKey[] = [
-  'iTimen',
-  'lekse',
-  'huskTaMed',
-  'proveVurdering',
-  'ressurser',
-  'ekstraBeskjed',
-]
+// OverlaySectionKey + OVERLAY_SECTION_LABELS/_KEYS er flyttet til ../lib/schoolOverlayDisplay
+// (delt med import-previewen). Importert øverst.
 
 function normalizeOverlayDayAction(event: Event): SchoolWeekOverlayDayAction | null {
   const raw = event.metadata?.schoolWeekOverlayDay
@@ -159,16 +142,7 @@ function sectionKeysMissing(sections: Partial<Record<OverlaySectionKey, string>>
   return OVERLAY_SECTION_KEYS.filter((k) => !shown.has(k))
 }
 
-function sectionsForReadOnly(
-  sections: Record<string, string[]> | undefined
-): Array<{ key: OverlaySectionKey; lines: string[] }> {
-  const out: Array<{ key: OverlaySectionKey; lines: string[] }> = []
-  for (const key of OVERLAY_SECTION_KEYS) {
-    const lines = (sections?.[key] ?? []).filter((line) => line.trim().length > 0)
-    if (lines.length > 0) out.push({ key, lines })
-  }
-  return out
-}
+// sectionsForReadOnly er flyttet til ../lib/schoolOverlayDisplay (delt med import-previewen). Importert øverst.
 
 function updateOverlaySectionsOnPerson(
   person: Person,
@@ -249,17 +223,8 @@ function getSchoolDayPlan(person: Person, dateKey: string): ChildSchoolDayPlan |
 function buildSchoolRows(person: Person, dateKey: string): TimeRowWithLesson[] {
   const school = person.school
   if (!school) return []
-  const plan = getSchoolDayPlan(person, dateKey)
-  if (!plan?.lessons?.length || plan.useSimpleDay) {
-    return [{ start: plan?.schoolStart ?? '08:15', end: plan?.schoolEnd ?? '14:30', label: 'Skole' }]
-  }
-  const lessons = [...plan.lessons].sort((a, b) => a.start.localeCompare(b.start))
-  return lessons.map((L) => ({
-    start: L.start,
-    end: L.end,
-    label: subjectLabelForKey(school.gradeBand, L.subjectKey, L.customLabel, L.lessonSubcategory),
-    lesson: L,
-  }))
+  // Deler rad-byggingen med import-previewen via buildSchoolRowsForPlan (ren refaktor, samme oppførsel).
+  return buildSchoolRowsForPlan(school.gradeBand, getSchoolDayPlan(person, dateKey))
 }
 
 /**
