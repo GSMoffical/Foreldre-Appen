@@ -389,6 +389,7 @@ export function TankestrømPage({
     analyzeLoading,
     saveLoading,
     approveSelected,
+    saveSchoolWeekOverlayThenCalendarSelection,
     canApproveSelection,
     runAnalyze,
     bundle,
@@ -627,13 +628,25 @@ export function TankestrømPage({
   const handleApprove = async () => {
     if (saveLoading) return
     setImportError(null)
-    const result = await approveSelected()
+    // Fiks 1a: når analysen ga en uke-overlay, lagre den OGSÅ (speiler dialogens :5701).
+    // Wrapperen lagrer overlayen og kaller deretter approveSelected for forslagene, og
+    // returnerer samme TankestromImportResult-form. Ingen overlay → uendret (approveSelected).
+    const hasOverlay = !!bundle?.schoolWeekOverlayProposal
+    const result = await (hasOverlay
+      ? saveSchoolWeekOverlayThenCalendarSelection()
+      : approveSelected())
     if (result.ok && result.success) {
       onImportFinished?.({
         success: result.success,
         partial: result.partial,
         failureMessage: result.failureMessage,
       })
+      onBack()
+      return
+    }
+    // Kant: overlay lagret UTEN valgte kalender-items → wrapperen gir { ok:true } uten
+    // success. Behandle som suksess (speiler dialogens :2522-2524), ikke feil.
+    if (result.ok && hasOverlay) {
       onBack()
       return
     }

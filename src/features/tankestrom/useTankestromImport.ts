@@ -2684,6 +2684,30 @@ export interface UseTankestromImportOptions {
   ) => Promise<void>
 }
 
+/**
+ * Fiks 1b: velg hvilket barn en uke-overlay skal lagres på. Serverens `classLabel`
+ * (f.eks. «10B») matches mot barnets `relevanceProfile.school.classCode` (samme
+ * klassekode-matching som Vei 1 brukte server-side). Fallback til første barn hvis
+ * ingen match — samme oppførsel som før for enkeltbarn-familier.
+ */
+function resolveOverlayChildId(
+  overlay: { classLabel?: string } | null | undefined,
+  people: Person[],
+  childIds: string[]
+): string {
+  if (!overlay) return ''
+  const label = overlay.classLabel?.trim().toUpperCase()
+  if (label) {
+    const matched = people.find(
+      (p) =>
+        p.memberKind === 'child' &&
+        (p.relevanceProfile?.school?.classCode ?? '').trim().toUpperCase() === label
+    )
+    if (matched) return matched.id
+  }
+  return childIds[0] ?? ''
+}
+
 export function useTankestromImport({
   open,
   people,
@@ -3700,7 +3724,8 @@ export function useTankestromImport({
         setSecondaryDismissedCandidateIds(new Set())
         setSecondaryPromotedProposalIds(new Set())
         const childIds = people.filter((p) => p.memberKind === 'child').map((p) => p.id)
-        const importChildId = b.schoolWeekOverlayProposal ? childIds[0] ?? '' : ''
+        // Fiks 1b: løs overlayens barn fra classLabel→classCode (ikke blindt childIds[0]).
+        const importChildId = resolveOverlayChildId(b.schoolWeekOverlayProposal, people, childIds)
         setSchoolProfileChildId(importChildId)
         const defaultPersonId = people[0]?.id ?? ''
         const sourceHint = humanImportSourceLabelForBundle(b)
@@ -3875,7 +3900,8 @@ export function useTankestromImport({
       setSecondaryDismissedCandidateIds(new Set())
       setSecondaryPromotedProposalIds(new Set())
       const childIds = people.filter((p) => p.memberKind === 'child').map((p) => p.id)
-      const importChildId = merged.schoolWeekOverlayProposal ? childIds[0] ?? '' : ''
+      // Fiks 1b: løs overlayens barn fra classLabel→classCode (ikke blindt childIds[0]).
+      const importChildId = resolveOverlayChildId(merged.schoolWeekOverlayProposal, people, childIds)
       setSchoolProfileChildId(importChildId)
       const defaultPersonId = people[0]?.id ?? ''
       const sourceHint = humanImportSourceLabelForBundle(merged)

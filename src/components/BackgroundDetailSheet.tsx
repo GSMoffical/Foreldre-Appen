@@ -29,6 +29,10 @@ import {
   schoolItemTypeChipClass,
   schoolItemTypeLabel,
 } from '../lib/schoolContext'
+import {
+  overlaySubjectUpdatesUnmatchedByLessons,
+  overlayUpdatesForLesson,
+} from '../lib/schoolWeekOverlayLessonMatch'
 
 interface BackgroundDetailSheetProps {
   event: Event | null
@@ -125,33 +129,8 @@ function normalizeOverlayMeta(event: Event): { overlayId: string; weekYear: numb
   }
 }
 
-function overlayUpdatesForLesson(
-  lesson: SchoolLessonSlot | undefined,
-  updates: SchoolWeekOverlaySubjectUpdate[]
-): Array<{ update: SchoolWeekOverlaySubjectUpdate; updateIndex: number }> {
-  if (!lesson) return []
-  const lessonCustom = (lesson.customLabel ?? lesson.lessonSubcategory ?? '')
-    .trim()
-    .toLocaleLowerCase('nb-NO')
-  return updates
-    .map((u, idx) => ({ update: u, updateIndex: idx }))
-    .filter(({ update: u }) => {
-      if (u.subjectKey !== lesson.subjectKey) return false
-      const custom = (u.customLabel ?? '').trim().toLocaleLowerCase('nb-NO')
-      if (!custom || !lessonCustom) return true
-      return custom === lessonCustom
-    })
-}
-
-function overlaySubjectUpdatesUnmatchedByLessons(
-  updates: SchoolWeekOverlaySubjectUpdate[],
-  lessons: SchoolLessonSlot[]
-): SchoolWeekOverlaySubjectUpdate[] {
-  if (lessons.length === 0) return updates
-  return updates.filter(
-    (u) => !lessons.some((L) => overlayUpdatesForLesson(L, [u]).length > 0)
-  )
-}
+// overlayUpdatesForLesson + overlaySubjectUpdatesUnmatchedByLessons er flyttet til
+// ../lib/schoolWeekOverlayLessonMatch (Fiks 2: subjectKey-normalisering, testbar rent).
 
 function normalizeSectionsForEdit(
   sections: Record<string, string[]> | undefined
@@ -793,13 +772,32 @@ export function BackgroundDetailSheet({
               <div className="mt-4">
                 <p className={typSectionCap}>Uke-overlay (ikke koblet til spesifikk time)</p>
                 <ul className="mt-2 space-y-1.5">
-                  {weekOverlayUnplacedUpdates.map((u, idx) => (
-                    <li key={`${u.subjectKey}-${idx}`} className="rounded-md border border-indigo-200 bg-indigo-50/70 px-2.5 py-1.5">
-                      <p className="text-caption font-semibold text-indigo-950">
-                        {u.customLabel ? `${u.customLabel} (${u.subjectKey})` : u.subjectKey}
-                      </p>
-                    </li>
-                  ))}
+                  {weekOverlayUnplacedUpdates.map((u, idx) => {
+                    // Fiks 2b: vis også seksjons-innholdet (lekse/beskjed osv.), ikke bare fag-etiketten,
+                    // så 'other'-innhold og umatchede fag ikke forsvinner stille i fallback-seksjonen.
+                    const readOnlySections = sectionsForReadOnly(u.sections)
+                    return (
+                      <li key={`${u.subjectKey}-${idx}`} className="rounded-md border border-indigo-200 bg-indigo-50/70 px-2.5 py-1.5">
+                        <p className="text-caption font-semibold text-indigo-950">
+                          {u.customLabel ? `${u.customLabel} (${u.subjectKey})` : u.subjectKey}
+                        </p>
+                        {readOnlySections.length > 0 ? (
+                          <ul className="mt-1 space-y-1">
+                            {readOnlySections.map(({ key, lines }) => (
+                              <li key={key}>
+                                <p className="font-medium text-indigo-900">{OVERLAY_SECTION_LABELS[key]}</p>
+                                <ul className="list-disc pl-4 text-indigo-900">
+                                  {lines.map((line, i) => (
+                                    <li key={i}>{line}</li>
+                                  ))}
+                                </ul>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </li>
+                    )
+                  })}
                 </ul>
               </div>
             ) : null}
