@@ -28,7 +28,7 @@ function normalizeSubjectUpdates(subjectUpdates: SchoolWeekOverlaySubjectUpdate[
   }))
 }
 
-function buildSpecialSchoolTitle(action: SchoolWeekOverlayDayAction, band: NorwegianGradeBand): string {
+export function buildSpecialSchoolTitle(action: SchoolWeekOverlayDayAction, band: NorwegianGradeBand): string {
   if (action.action === 'replace_school_block') {
     return calendarReplaceSchoolBlockTitle(action, band)
   }
