@@ -291,6 +291,53 @@ describe('TankestrømPage primærflyt-smoke', () => {
     expect(screen.queryByText('Slik blir skole-uken')).toBeNull()
   })
 
+  it('classLocations: per-klasse «Sted» vises i forslags-preview (familiens klasse uthevet)', async () => {
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(
+      makeSingleEventBundle({
+        personId: 'stellan',
+        end: '19:00',
+        metadata: {
+          classLocations: [
+            { classCode: '2STA', room: '332-40', teacher: 'Andreas Vågen' },
+            { classCode: '2STC', room: '332-50', teacher: 'Marte Hermanrud' },
+          ],
+        },
+      })
+    )
+    const user = userEvent.setup()
+    render(
+      <TankestrømPage onBack={() => undefined} people={stellanOgIda} createEvent={vi.fn()} createTask={vi.fn()} />
+    )
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'eksamensoppsett')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    // Per-klasse-lista rendres fra metadata.classLocations (location er null på tekst-stien):
+    expect(await screen.findByText('Rom 332-50 · Lærer Marte Hermanrud')).toBeTruthy()
+    // Stellans klasse (2STC) uthevet som full blokk; 2STA (ingen familie-match) komprimert
+    // til én dempet inline-enhet i den lille flyt-blokken:
+    expect(screen.getByText('2STC').className).toContain('font-semibold')
+    const unitA = screen.getByText('2STA · Rom 332-40 · Lærer Andreas Vågen')
+    expect(unitA.parentElement?.className).toContain('opacity-60')
+    expect(unitA.parentElement?.className).toContain('text-[10px]')
+  })
+
+  it('classLocations fraværende → flat «Sted»-fallback uendret', async () => {
+    vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(
+      makeSingleEventBundle({ personId: 'person-a', end: '19:00', location: 'Gymsalen' })
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: /Eller lim inn tekst/i }))
+    await user.type(screen.getByPlaceholderText(/Lim inn ukeplan/i), 'vanlig dokument')
+    await user.click(screen.getByRole('button', { name: 'Analyser tekst' }))
+
+    await screen.findByText('Foreslåtte hendelser')
+    expect(screen.getByText('Gymsalen')).toBeTruthy()
+  })
+
   it('Fiks 1 ikke-regresjon: dokument uten overlay → ingen overlay-lagring (updatePerson ikke kalt)', async () => {
     vi.mocked(analyzeTextWithTankestrom).mockResolvedValueOnce(
       makeSingleEventBundle({ personId: 'person-a', end: '19:00' })

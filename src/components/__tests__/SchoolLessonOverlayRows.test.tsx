@@ -25,18 +25,17 @@ describe('LessonOverlayBoxReadOnly (import-preview, Opsjon A)', () => {
     expect(screen.getByText('Les s.10')).toBeTruthy()
   })
 
-  it('umatchet fag (Spansk) → tom-tilstand, ikke plassert under naturfag-raden', () => {
-    render(
+  it('umatchet fag (Spansk) → INGEN boks i det hele tatt (Punkt 5: renere enn tom-tilstands-tekst)', () => {
+    const { container } = render(
       <LessonOverlayBoxReadOnly
         lesson={naturfag}
         overlayDayAction={enrich([{ subjectKey: 'Spansk', sections: { lekse: ['Gloser'] } }])}
       />
     )
-    expect(screen.getByText('Ingen fagspesifikke tillegg for denne raden.')).toBeTruthy()
-    expect(screen.queryByText('Spansk')).toBeNull()
+    expect(container.innerHTML).toBe('')
   })
 
-  it('replace-dag viser alle linjer flatt under «erstatningsdag»-header', () => {
+  it('replace-dag viser alle linjer flatt — uten «Uke-overlay»-header (Punkt 5)', () => {
     render(
       <LessonOverlayBoxReadOnly
         lesson={undefined}
@@ -45,7 +44,18 @@ describe('LessonOverlayBoxReadOnly (import-preview, Opsjon A)', () => {
       />
     )
     expect(screen.getByText('Heldagsprøve')).toBeTruthy()
-    expect(screen.getByText('Uke-overlay for erstatningsdag')).toBeTruthy()
+    expect(screen.queryByText(/Uke-overlay/)).toBeNull()
+  })
+
+  it('matchet rad viser innhold uten header (Punkt 5)', () => {
+    render(
+      <LessonOverlayBoxReadOnly
+        lesson={naturfag}
+        overlayDayAction={enrich([{ subjectKey: 'Naturfag', sections: { lekse: ['Les s.10'] } }])}
+      />
+    )
+    expect(screen.getByText('Les s.10')).toBeTruthy()
+    expect(screen.queryByText(/Uke-overlay/)).toBeNull()
   })
 })
 

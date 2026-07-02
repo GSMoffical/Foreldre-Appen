@@ -27,6 +27,8 @@ import {
 } from '../../lib/tankestromCalendarUpdateDiff'
 import { CalendarUpdateCandidates } from './CalendarUpdateCandidates'
 import { ClassHighlightedText, deriveActiveChildClassCode } from './classHighlight'
+import { ClassLocationList } from '../../components/ClassLocationList'
+import { buildFamilyClassCodeSet, extractClassLocations } from '../../lib/classLocations'
 import { deriveSchoolDayHeading, isSchoolDayEvent } from '../../lib/schoolDayHeading'
 import type { Event, Task, Person, EmbeddedScheduleSegment, EventMetadata } from '../../types'
 import type { PortalEventProposal } from './types'
@@ -165,14 +167,14 @@ function SingleEventDetailSection({
       </p>
       {text != null && (
         <p className="mt-1 break-words text-caption leading-snug text-zinc-800">
-          <ClassHighlightedText text={text} fallback={text} childClassCode={childClassCode} />
+          <ClassHighlightedText text={text} fallback={text} childClassCode={childClassCode} mode="spans" />
         </p>
       )}
       {items && items.length > 0 && (
         <ul className="mt-1.5 list-disc space-y-1 pl-4 text-caption leading-snug text-zinc-800 sm:text-caption">
           {items.map((n, i) => (
             <li key={`${n}-${i}`} className="break-words pl-0.5">
-              <ClassHighlightedText text={n} fallback={n} childClassCode={childClassCode} />
+              <ClassHighlightedText text={n} fallback={n} childClassCode={childClassCode} mode="spans" />
             </li>
           ))}
         </ul>
@@ -187,12 +189,14 @@ function SingleEventDetails({
   location,
   notes,
   childClassCode,
+  familyClassCodes,
 }: {
   metadata: EventMetadata | undefined
   title: string
   location: string
   notes: string
   childClassCode?: string
+  familyClassCodes: Set<string>
 }) {
   const meta = readTankestromScheduleDetailsFromMetadata(metadata, [title])
   const freeNotes = notes.trim()
@@ -204,6 +208,9 @@ function SingleEventDetails({
   // de ikke havner som én rå linje under «Notater». Ren presentasjon (rører ikke draft/persist).
   const sections = parseSingleEventNoteSections(allNotes)
 
+  // Per-klasse-lokasjon er PRIMÆRKILDEN for sted; flat location er upålitelig fallback
+  // (alltid null på tekst/docx/pdf-stien). Forgren på classLocations-TILSTEDEVÆRELSE.
+  const classLocations = extractClassLocations(metadata)
   const loc = location.trim()
   // Eksplisitt location-felt vinner som «Sted»; ellers vis møtested parset fra notatene.
   const placeLabel = loc ? 'Sted' : sections.meetingPlace ? 'Møtested' : ''
@@ -212,6 +219,7 @@ function SingleEventDetails({
   const hasHighlightData =
     meta.highlights.length > 0 || meta.timeWindowSummaries.length > 0 || meta.bringItems.length > 0
   const hasAnything =
+    classLocations.length > 0 ||
     !!placeValue ||
     hasHighlightData ||
     sections.practical.length > 0 ||
@@ -235,9 +243,16 @@ function SingleEventDetails({
           childClassCode={childClassCode}
         />
       )}
-      {placeValue && (
+      {classLocations.length > 0 ? (
+        <div>
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[10px]">
+            Sted
+          </p>
+          <ClassLocationList classLocations={classLocations} familyClassCodes={familyClassCodes} />
+        </div>
+      ) : placeValue ? (
         <SingleEventDetailSection label={placeLabel} text={placeValue} childClassCode={childClassCode} />
-      )}
+      ) : null}
       {sections.practical.length > 0 && (
         <SingleEventDetailSection
           label="Praktisk info"
@@ -510,6 +525,11 @@ export function TankestrømPage({
       ),
     [people, chosenPersonIds],
   )
+
+  // Per-klasse-lokasjon (classLocations): uthev ALLE klasser som matcher et familie-barn —
+  // flerbarns-familier skal se begge barnas klasser løftet, ikke bare én «aktiv» (derfor
+  // ikke deriveActiveChildClassCode, som gir undefined ved flere distinkte koder).
+  const familyClassCodes = useMemo(() => buildFamilyClassCodeSet(people), [people])
 
   // Tomtilstand: analyse ferdig (bundle satt, ikke i gang, ingen feil), men ingenting brukbart å vise.
   // Skoleprofil/uke-overlay regnes som brukbart resultat (vises ikke som «fant ingenting»).
@@ -972,6 +992,7 @@ export function TankestrømPage({
                       location={location}
                       notes={notes}
                       childClassCode={activeChildClassCode}
+                      familyClassCodes={familyClassCodes}
                     />
                   )}
                   <CalendarUpdateCandidates

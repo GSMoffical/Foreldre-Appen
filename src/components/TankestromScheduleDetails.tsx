@@ -132,7 +132,7 @@ export function TankestromScheduleDetails({
           <ul className="mt-1.5 list-disc space-y-1 pl-4 text-caption leading-snug text-zinc-800 sm:text-caption">
             {normalized.notes.map((n, i) => (
               <li key={`${n}-${i}`} className="break-words pl-0.5">
-                <ClassHighlightedText text={n} fallback={n} childClassCode={childClassCode} />
+                <ClassHighlightedText text={n} fallback={n} childClassCode={childClassCode} mode="spans" />
               </li>
             ))}
           </ul>

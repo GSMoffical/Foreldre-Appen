@@ -306,6 +306,19 @@ export type TankestromTimeWindowSummary = {
   tentative?: boolean
 }
 
+/**
+ * Per-klasse-lokasjon fra Tankestrøm-analysen (klasse → rom → lærer), f.eks. eksamensoppsett
+ * der hver klasse har eget rom/faglærer. Server-kontrakt: `event.metadata.classLocations`;
+ * `room` er BAR kode («332-40», uten «rom »-prefiks), fraværende felt UTELATES (aldri null).
+ * Primærkilde for sted-visning — flat `location` er upålitelig fallback (alltid null på
+ * tekst/docx/pdf-stien). Utheving (isPrimary) beregnes i frontend, lagres ikke.
+ */
+export interface ClassLocation {
+  classCode: string;
+  room?: string;
+  teacher?: string;
+}
+
 export interface EventMetadata {
   transport?: TransportInfo;
   /** Participant person ids for multi-person activities.
@@ -333,6 +346,8 @@ export interface EventMetadata {
   __originalStart?: string;
   /** Migreringsfri kobling til et spesifikt fag/time i barnets timeplan. */
   schoolContext?: SchoolContext;
+  /** Per-klasse rom/lærer fra analysen (primærkilde for sted; flat `location` er fallback). */
+  classLocations?: ClassLocation[];
   /**
    * Migreringsfri markør som får dagen til å avvike fra normal skoleblokk (prøve, fri, tur, senere oppmøte).
    * Leses av `buildBackgroundEventsForDate` sammen med dagens events.

@@ -7,15 +7,20 @@ import { Fragment } from 'react'
  * linjer — uten å fjerne noe.
  */
 const CLASS_CODE_RE = /\b\d{1,2}\s?(?:st|im|yf|pb|el|hs|sf|mk|id|na|ss|rm|dh|ba|tip|ho)[a-f]\b/i
-/** Klassekode + ev. umiddelbart etterfølgende klokkeslett, så «2STB 10.00» dempes som én enhet. */
+/** Klassekode + ev. umiddelbart etterfølgende klokkeslett ELLER tidsrom («-»/«–»), så både
+ *  «2STB 10.00» og «2STA 13.10-13.40» dempes som ÉN enhet (før ble range-slutten stående plain). */
 const CLASS_CODE_WITH_TIME_SRC =
-  '\\b\\d{1,2}\\s?(?:st|im|yf|pb|el|hs|sf|mk|id|na|ss|rm|dh|ba|tip|ho)[a-f]\\b(?:\\s*\\d{1,2}[:.]\\d{2})?'
+  '\\b\\d{1,2}\\s?(?:st|im|yf|pb|el|hs|sf|mk|id|na|ss|rm|dh|ba|tip|ho)[a-f]\\b(?:\\s*\\d{1,2}[:.]\\d{2}(?:\\s*[–-]\\s*\\d{1,2}[:.]\\d{2})?)?'
 
 function normalizeNorwegianLetters(input: string): string {
   return input.toLowerCase().replace(/å/g, 'a').replace(/ø/g, 'o').replace(/æ/g, 'e')
 }
 
-function normalizeClassCode(code: string): string {
+/**
+ * Normaliser en klassekode for sammenligning: små bokstaver, å/ø/æ-fold, uten whitespace.
+ * Eksportert som felles sannhetskilde — brukes også av classLocations-matchingen (isPrimary).
+ */
+export function normalizeClassCode(code: string): string {
   return normalizeNorwegianLetters(code).replace(/\s+/g, '')
 }
 
@@ -70,6 +75,79 @@ export function segmentByClass(
   return { segments, hasClassCodes }
 }
 
+/** Bindetekst mellom nabo-koder («2STA, 2STC og 2STE») — kun da koalesceres kodene til én gruppe. */
+const CONNECTOR_ONLY_RE = /^(?:\s|,|&|\+|\/|\bog\b|\beller\b)*$/i
+
+/**
+ * Variant B — EKTE segment-demping (opt-in for notat-tekst; `segmentByClass` er uendret default):
+ * hvert span går fra en klassekode til NESTE kode ELLER en setningsgrense, slik at «2STA Anette
+ * og Andreas» dempes HELT (ikke bare koden).
+ *
+ * - Tekst før første kode er alltid plain.
+ * - Setningsgrense-vakt: [.!?;] er kun grense når neste ikke-blanke tegn er STOR bokstav eller
+ *   streng-slutt — så «13.10» (punktum+siffer) og «kl.»/«f.eks.» ikke deler spanet, mens
+ *   «… Mari. Husk gymtøy» redder felles-halen som plain.
+ * - Bindetekst-gruppering («barnets-klasse-også-nevnt»-regelen): nabo-koder med KUN bindetekst
+ *   imellom (og/,/&/+/eller) koalesceres til én gruppe som er `own` hvis NOEN kode er barnets —
+ *   så «2STA og 2STC møter i rom 12» og pulje-lister («2STA, 2STC og 2STE») aldri dempes for barnet.
+ * - Invariant (som segmentByClass): segmentene slått sammen gir alltid input uendret.
+ */
+export function segmentByClassSpans(
+  text: string,
+  childClassCode: string | undefined,
+): { segments: ClassSegment[]; hasClassCodes: boolean } {
+  const child = childClassCode ? normalizeClassCode(childClassCode) : ''
+  const codeRe = new RegExp(CLASS_CODE_RE.source, 'gi')
+  const hits: Array<{ start: number; end: number; code: string }> = []
+  let m: RegExpExecArray | null
+  while ((m = codeRe.exec(text)) !== null) {
+    hits.push({ start: m.index, end: m.index + m[0].length, code: normalizeClassCode(m[0]) })
+    if (m[0].length === 0) codeRe.lastIndex++ // defensiv mot tom-match-loop
+  }
+  if (hits.length === 0) return { segments: [{ text, kind: 'plain' }], hasClassCodes: false }
+
+  // Koalescér nabo-koder med ren bindetekst imellom til grupper.
+  const groups: Array<{ start: number; end: number; codes: string[] }> = []
+  let cur = { start: hits[0]!.start, end: hits[0]!.end, codes: [hits[0]!.code] }
+  for (let i = 1; i < hits.length; i++) {
+    const h = hits[i]!
+    if (CONNECTOR_ONLY_RE.test(text.slice(cur.end, h.start))) {
+      cur.end = h.end
+      cur.codes.push(h.code)
+    } else {
+      groups.push(cur)
+      cur = { start: h.start, end: h.end, codes: [h.code] }
+    }
+  }
+  groups.push(cur)
+
+  const segments: ClassSegment[] = []
+  let last = 0
+  for (let g = 0; g < groups.length; g++) {
+    const grp = groups[g]!
+    if (grp.start > last) segments.push({ text: text.slice(last, grp.start), kind: 'plain' })
+    const limit = g + 1 < groups.length ? groups[g + 1]!.start : text.length
+    // Span slutter ved neste gruppe ELLER første setningsterminator med stor bokstav/slutt etter.
+    let spanEnd = limit
+    for (let i = grp.end; i < limit; i++) {
+      const ch = text[i]
+      if (ch === '.' || ch === '!' || ch === '?' || ch === ';') {
+        let j = i + 1
+        while (j < text.length && /\s/.test(text[j]!)) j++
+        if (j >= text.length || /[A-ZÆØÅ]/.test(text[j]!)) {
+          spanEnd = i + 1
+          break
+        }
+      }
+    }
+    const kind: ClassSegmentKind = child && grp.codes.includes(child) ? 'own' : 'other'
+    segments.push({ text: text.slice(grp.start, spanEnd), kind })
+    last = spanEnd
+  }
+  if (last < text.length) segments.push({ text: text.slice(last), kind: 'plain' })
+  return { segments, hasClassCodes: true }
+}
+
 /** True når uthevingen skal slå inn: barn satt + linja har minst én klassekode. */
 export function shouldHighlightClasses(text: string, childClassCode: string | undefined): boolean {
   if (!childClassCode?.trim()) return false
@@ -108,14 +186,19 @@ export function ClassHighlightedText({
   text,
   fallback,
   childClassCode,
+  mode = 'tokens',
 }: {
   text: string
   fallback: string
   childClassCode: string | undefined
+  /** 'tokens' (default, uendret) = kun koden(+tid) markeres; 'spans' = HELE klasse-segmentet
+   *  dempes (variant B) — opt-in for notat-tekst, ikke korte labels. */
+  mode?: 'tokens' | 'spans'
 }) {
   const child = childClassCode?.trim()
   if (!child) return <>{fallback}</>
-  const { segments, hasClassCodes } = segmentByClass(collapseNotesForDisplay(text), child)
+  const segmenter = mode === 'spans' ? segmentByClassSpans : segmentByClass
+  const { segments, hasClassCodes } = segmenter(collapseNotesForDisplay(text), child)
   if (!hasClassCodes) return <>{fallback}</>
   return (
     <>

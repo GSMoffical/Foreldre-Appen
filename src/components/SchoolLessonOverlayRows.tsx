@@ -57,24 +57,16 @@ export function LessonOverlayBoxReadOnly({
   const matched = isReplaceDay
     ? overlayDayAction.subjectUpdates.map((update, updateIndex) => ({ update, updateIndex }))
     : overlayUpdatesForLesson(lesson, overlayDayAction.subjectUpdates)
+  // Punkt 5: ingen «Uke-overlay»-header, og ingen boks når raden mangler matchende innhold —
+  // rader uten relevans viser ingenting (renere enn en tom-tilstands-tekst).
+  if (matched.length === 0) return null
   return (
     <div className="mt-2 rounded-md border border-indigo-200 bg-indigo-50/70 p-2">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-900">
-        {isReplaceDay ? 'Uke-overlay for erstatningsdag' : 'Uke-overlay'}
-      </p>
-      {matched.length > 0 ? (
-        <ul className="mt-1 space-y-1">
-          {matched.map(({ update, updateIndex }) => (
-            <OverlayUpdateReadOnly key={`${updateIndex}-${update.subjectKey}`} update={update} />
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-1 text-caption text-indigo-900/80">
-          {isReplaceDay
-            ? 'Ingen seksjoner registrert for erstatningsdagen.'
-            : 'Ingen fagspesifikke tillegg for denne raden.'}
-        </p>
-      )}
+      <ul className="space-y-1">
+        {matched.map(({ update, updateIndex }) => (
+          <OverlayUpdateReadOnly key={`${updateIndex}-${update.subjectKey}`} update={update} />
+        ))}
+      </ul>
     </div>
   )
 }
@@ -92,7 +84,7 @@ export function OverlayUnmatchedFallback({
   return (
     <div className="mt-2">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-900">
-        Uke-overlay (ikke koblet til spesifikk time)
+        Ellers denne dagen
       </p>
       <ul className="mt-1 space-y-1.5">
         {unplaced.map((u, idx) => (

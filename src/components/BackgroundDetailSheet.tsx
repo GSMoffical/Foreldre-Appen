@@ -32,6 +32,7 @@ import {
   overlaySubjectUpdatesUnmatchedByLessons,
   overlayUpdatesForLesson,
 } from '../lib/schoolWeekOverlayLessonMatch'
+import { ClassHighlightedText } from '../features/tankestrom/classHighlight'
 import {
   OVERLAY_SECTION_KEYS,
   OVERLAY_SECTION_LABELS,
@@ -267,6 +268,8 @@ export function BackgroundDetailSheet({
 
   const person = people.find((p) => p.id === event.personId)
   if (!person) return null
+  // Klassekode-utheving i skole-item-notater: blokken tilhører ETT barn → entydig kode.
+  const childClassCode = person.relevanceProfile?.school?.classCode
   const isSchool = event.metadata?.backgroundKind === 'school'
   const weekOverlayDayAction = isSchool ? normalizeOverlayDayAction(event) : null
   const weekOverlayMeta = isSchool ? normalizeOverlayMeta(event) : null
@@ -441,7 +444,12 @@ export function BackgroundDetailSheet({
                               <p className="truncate text-caption font-semibold text-zinc-900">{sev.title}</p>
                               {sev.notes?.trim() ? (
                                 <p className="mt-0.5 line-clamp-2 text-caption leading-snug text-zinc-500">
-                                  {sev.notes.trim()}
+                                  <ClassHighlightedText
+                                    text={sev.notes.trim()}
+                                    fallback={sev.notes.trim()}
+                                    childClassCode={childClassCode}
+                                    mode="spans"
+                                  />
                                 </p>
                               ) : null}
                             </div>
@@ -449,16 +457,15 @@ export function BackgroundDetailSheet({
                         ))}
                       </ul>
                     ) : null}
-                    {isSchool && weekOverlayDayAction?.subjectUpdates?.length ? (
+                    {/* Punkt 5: ingen «Uke-overlay»-header per rad, og boksen rendres KUN når raden
+                        faktisk har matchende innhold — rader uten relevans viser ingenting. */}
+                    {isSchool &&
+                    weekOverlayDayAction?.subjectUpdates?.length &&
+                    (isReplaceDay
+                      ? weekOverlayDayAction.subjectUpdates.length > 0
+                      : overlayUpdatesForLesson(r.lesson, weekOverlayDayAction.subjectUpdates).length > 0) ? (
                       <div className="mt-2 rounded-md border border-indigo-200 bg-indigo-50/70 p-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-900">
-                          {isReplaceDay ? 'Uke-overlay for erstatningsdag' : 'Uke-overlay'}
-                        </p>
-                        {(isReplaceDay
-                          ? weekOverlayDayAction.subjectUpdates.map((update, updateIndex) => ({ update, updateIndex }))
-                          : overlayUpdatesForLesson(r.lesson, weekOverlayDayAction.subjectUpdates)
-                        ).length > 0 ? (
-                          <ul className="mt-1 space-y-1">
+                        <ul className="space-y-1">
                             {(isReplaceDay
                               ? weekOverlayDayAction.subjectUpdates.map((update, updateIndex) => ({ update, updateIndex }))
                               : overlayUpdatesForLesson(r.lesson, weekOverlayDayAction.subjectUpdates)
@@ -596,13 +603,6 @@ export function BackgroundDetailSheet({
                               }
                             )}
                           </ul>
-                        ) : (
-                          <p className="mt-1 text-caption text-indigo-900/80">
-                            {isReplaceDay
-                              ? 'Ingen seksjoner registrert for erstatningsdagen.'
-                              : 'Ingen fagspesifikke tillegg for denne raden.'}
-                          </p>
-                        )}
                       </div>
                     ) : null}
                     {conflicts.length > 0 ? (
@@ -723,7 +723,12 @@ export function BackgroundDetailSheet({
                           </div>
                           {sev.notes?.trim() ? (
                             <p className="mt-0.5 line-clamp-2 text-caption leading-snug text-zinc-500">
-                              {sev.notes.trim()}
+                              <ClassHighlightedText
+                                text={sev.notes.trim()}
+                                fallback={sev.notes.trim()}
+                                childClassCode={childClassCode}
+                                mode="spans"
+                              />
                             </p>
                           ) : null}
                         </div>
@@ -735,7 +740,7 @@ export function BackgroundDetailSheet({
             ) : null}
             {isSchool && weekOverlayUnplacedUpdates.length > 0 ? (
               <div className="mt-4">
-                <p className={typSectionCap}>Uke-overlay (ikke koblet til spesifikk time)</p>
+                <p className={typSectionCap}>Ellers denne dagen</p>
                 <ul className="mt-2 space-y-1.5">
                   {weekOverlayUnplacedUpdates.map((u, idx) => {
                     // Fiks 2b: vis også seksjons-innholdet (lekse/beskjed osv.), ikke bare fag-etiketten,

@@ -13,6 +13,8 @@ import { calendarUnspecifiedTimeLabel, formatCalendarEventTimeLabel } from '../l
 import { formatTime, formatTimeRange, durationMinutes } from '../lib/time'
 import { useFamily } from '../context/FamilyContext'
 import { getParticipantPeople } from '../lib/eventParticipants'
+import { ClassLocationList } from './ClassLocationList'
+import { buildFamilyClassCodeSet, extractClassLocations } from '../lib/classLocations'
 import { TankestromScheduleDetails } from './TankestromScheduleDetails'
 import { readTankestromScheduleDetailsFromMetadata } from '../lib/tankestromScheduleDetails'
 import {
@@ -129,6 +131,8 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
   const pickupPerson =
     transport?.pickupBy != null ? people.find((p) => p.id === transport.pickupBy) : undefined
   const primaryPerson = people.find((p) => p.id === event.personId)
+  // Per-klasse-lokasjon (klasse→rom→lærer) fra analysen — primærkilde for «Sted» under.
+  const classLocations = extractClassLocations(event.metadata)
   const isChildEvent =
     primaryPerson?.memberKind === 'child' || participants.some((p) => p.memberKind === 'child')
   const showTransportSection =
@@ -351,11 +355,21 @@ export function EventDetailSheet({ event, date, onClose, onEdit, onDelete, onDup
           {isRecurring && (
             <p className="mt-1 text-caption font-semibold text-synkaTeal">Gjentakende hendelse</p>
           )}
-          {event.location && (
+          {/* Per-klasse-lokasjon er primærkilden når analysen fant klasse→rom→lærer-struktur;
+              flat location er upålitelig fallback (alltid null på tekst/docx/pdf-stien). */}
+          {classLocations.length > 0 ? (
+            <div className="mt-3">
+              <p className="text-body-sm font-medium text-synkaNavy/70">Sted:</p>
+              <ClassLocationList
+                classLocations={classLocations}
+                familyClassCodes={buildFamilyClassCodeSet(people)}
+              />
+            </div>
+          ) : event.location ? (
             <p className="mt-3 text-body-sm text-synkaNavy/70">
               <span className="font-medium">Sted:</span> {event.location}
             </p>
-          )}
+          ) : null}
           {shouldShowPlainDescription(event) && (
             <p className="mt-2 text-body-sm text-zinc-600">
               <span className="font-medium">Notater:</span> {event.notes}
