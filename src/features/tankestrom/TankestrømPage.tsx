@@ -4,8 +4,11 @@ import { SectionDots } from '../../components/SectionDots'
 import { OverlayImportPreview } from './OverlayImportPreview'
 import { SchoolBlockImportPreview } from './SchoolBlockImportPreview'
 import { buildSchoolBlockPreviewDays } from './schoolBlockPreview'
-import { CanonicalSchoolImportPreview } from './CanonicalSchoolImportPreview'
+import { CanonicalSchoolImportPreview, type ShadowReviewBinding } from './CanonicalSchoolImportPreview'
 import { buildCanonicalSchoolImportPlan } from '../../lib/canonicalSchoolImportPlan'
+import { useShadowReview } from './useShadowReview'
+import { isShadowModeEnabled } from '../../lib/shadowMode'
+import { useEffectiveUserId } from '../../context/EffectiveUserIdContext'
 import { TankestromScheduleDetails } from '../../components/TankestromScheduleDetails'
 import { UploadFileList } from '../../components/UploadFileList'
 import { btnPrimaryPill } from '../../lib/ui'
@@ -579,6 +582,27 @@ export function TankestrømPage({
   )
   const hasSchoolBlockPreview = schoolBlockPreviewDays.length > 0
   const hasSchoolPreview = hasCanonicalPlan || hasSchoolBlockPreview
+
+  // ---- Shadow Synka v0 (opt-in) — prediction ≠ ground truth ≠ current state ----
+  // Oppretter ett immutabelt analysis run etter gyldig canonical prediction (FØR review). Muterer
+  // ALDRI predictionSnapshot og påvirker IKKE ordinær import. No-op når Shadow Mode er AV.
+  const { effectiveUserId } = useEffectiveUserId()
+  const shadowEnabled = isShadowModeEnabled()
+  const shadowChildMemberId =
+    schoolBlockPreviewChild?.id ?? bundle?.canonicalSchoolContentDraft?.personId ?? null
+  const shadowReview = useShadowReview({
+    enabled: shadowEnabled,
+    plan: hasCanonicalPlan ? canonicalPlan : null,
+    draft: bundle?.canonicalSchoolContentDraft,
+    importRunId: bundle?.provenance.importRunId,
+    childMemberId: shadowChildMemberId,
+    userId: effectiveUserId,
+  })
+  const shadowChildCandidates = useMemo(() => people.filter((p) => p.memberKind === 'child'), [people])
+  const shadowReviewBinding: ShadowReviewBinding | undefined =
+    shadowEnabled && hasCanonicalPlan
+      ? { review: shadowReview, predictedChild: schoolBlockPreviewChild, candidates: shadowChildCandidates }
+      : undefined
   // Importknappen (Del 8): canonical draft ELLER legacy overlay gjør skoleimport lagringsbar.
   const canSaveExplicitSchool = hasCanonicalPlan || hasSchoolOverlayProposal
   // Eksplisitt skole uten importerbar overlay → blokkeringstilstand (ingen event-fallback).
@@ -948,7 +972,7 @@ export function TankestrømPage({
             2) ellers schoolBlockProposal (dagsoperasjoner mot lagret timeplan),
             3) ellers den eldre overlay-previewen (fallback). */}
         {hasCanonicalPlan && canonicalPlan ? (
-          <CanonicalSchoolImportPreview plan={canonicalPlan} child={schoolBlockPreviewChild} />
+          <CanonicalSchoolImportPreview plan={canonicalPlan} child={schoolBlockPreviewChild} shadowReview={shadowReviewBinding} />
         ) : hasSchoolBlockPreview ? (
           <SchoolBlockImportPreview days={schoolBlockPreviewDays} child={schoolBlockPreviewChild} />
         ) : bundle?.schoolWeekOverlayProposal ? (

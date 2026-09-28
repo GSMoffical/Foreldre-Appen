@@ -19,6 +19,8 @@ interface ImportMetaEnv {
   readonly VITE_DEBUG_SCHOOL_IMPORT?: string
   /** Sett til `true` for å vise import-debug-panelet for Tankestrøm (også utenfor DEV). */
   readonly VITE_SHOW_TANKESTROM_DEBUG?: string
+  /** Shadow Synka v0 — opt-in pilot review. `true` = på. Default av. */
+  readonly VITE_SHADOW_MODE?: string
 }
 
 interface ImportMeta {

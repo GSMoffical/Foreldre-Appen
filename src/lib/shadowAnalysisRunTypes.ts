@@ -16,15 +16,30 @@ export const SHADOW_ANALYSIS_RUN_SCHEMA_VERSION = '1.0.0'
 export type ShadowReviewVerdict = 'approve' | 'correct' | 'reject'
 
 /**
- * Per-item ground truth (fylles av PR2). Refererer canonical `itemId`; `dayId` er
- * valgfri for dag-scopede fakta. `correctedText` er en minimal korreksjonsbærer —
- * full editor kommer i PR2, men kontrakten låser oss ikke til kun tekst.
+ * KOMPLETT korrigert representasjon av de bruker-reviewbare SEMANTISKE feltene for ett item
+ * (Del 8/10). Eksplisitt whitelist — IKKE en kopi av hele CanonicalSchoolContentItem. Bevisst
+ * UTELATT (metadata/prediction-identitet, ikke bruker-redigerbart): itemId, sourceId, sourceRef,
+ * evidence, confidence, reviewFlags, placement, audienceEntries. Ved `correct` lagres HELE denne
+ * (ikke en delta/patch), slik at senere field-level sammenligning mot prediksjonen er mulig.
+ */
+export interface ShadowCorrectedItemSnapshot {
+  contentType: string
+  subjectKey: string | null
+  /** Synlig tekst slik brukeren mener den skal være. */
+  lines: string[]
+  start: string | null
+  end: string | null
+}
+
+/**
+ * Per-item ground truth. Refererer canonical `itemId` (stabil identitet); `dayId` er valgfri for
+ * dag-scopede fakta. Ved `verdict === 'correct'` skal `correctedSnapshot` være satt (komplett).
  */
 export interface ShadowItemReview {
   itemId: string
   dayId?: string
   verdict: ShadowReviewVerdict
-  correctedText?: string
+  correctedSnapshot?: ShadowCorrectedItemSnapshot
   reviewedAt: string
 }
 

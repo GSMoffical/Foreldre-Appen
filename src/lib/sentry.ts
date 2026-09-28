@@ -67,6 +67,11 @@ export type TankestromSentryBreadcrumbMessage =
   | 'tankestrom_analysis_started'
   | 'tankestrom_analysis_failed'
   | 'tankestrom_import_preview_render_failed'
+  // Shadow Synka v0 — operasjonell diagnostikk (PII-fri: aldri sourceText/barnenavn/skoleinnhold).
+  | 'shadow_run_created'
+  | 'shadow_review_started'
+  | 'shadow_review_completed'
+  | 'shadow_review_save_failed'
 
 /**
  * Adds a breadcrumb to the current Sentry event trail.
