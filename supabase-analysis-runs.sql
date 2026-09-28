@@ -37,8 +37,11 @@ CREATE TABLE public.analysis_runs (
 );
 
 -- 2) Indexes
-CREATE INDEX idx_analysis_runs_user            ON public.analysis_runs (user_id);
-CREATE INDEX idx_analysis_runs_user_import_run ON public.analysis_runs (user_id, tankestrom_import_run_id);
+CREATE INDEX idx_analysis_runs_user ON public.analysis_runs (user_id);
+-- UNIQUE: idempotens — samme tenant + samme Tankestrøm importRunId gir maks ETT run.
+-- ensureShadowAnalysisRun() stoler på denne (insert → ved 23505 hentes eksisterende run).
+CREATE UNIQUE INDEX idx_analysis_runs_user_import_run
+  ON public.analysis_runs (user_id, tankestrom_import_run_id);
 
 -- 3) Before-update trigger: lock ownership + snapshot, bump updated_at.
 --    prediction_snapshot og tankestrom_import_run_id er immutable etter opprettelse

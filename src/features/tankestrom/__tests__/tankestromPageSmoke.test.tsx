@@ -41,6 +41,13 @@ vi.mock('../../../lib/tankestromApi', async (importOriginal) => {
   }
 })
 
+// TankestrømPage bruker useEffectiveUserId (tenant-id for Shadow Mode). Siden siden mountes uten
+// app-providere her, mockes context-hooken (samme mønster som FamilieScreen.test.tsx). Shadow Mode
+// er default AV i test, så Shadow-flyten er uansett inaktiv.
+vi.mock('../../../context/EffectiveUserIdContext', () => ({
+  useEffectiveUserId: () => ({ effectiveUserId: 'test-owner', isLinked: false }),
+}))
+
 import { analyzeTextWithTankestrom, analyzeDocumentWithTankestrom } from '../../../lib/tankestromApi'
 
 /** Enkelthendelse-bundle (ikke cup/embedded) for rich-single-event-tester. */

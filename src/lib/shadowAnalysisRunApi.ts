@@ -103,6 +103,59 @@ export async function createShadowAnalysisRun(
   return mapShadowAnalysisRunRow(data as AnalysisRunRow)
 }
 
+/** Postgres unique_violation — brukes til idempotens på (user_id, tankestrom_import_run_id). */
+function isUniqueViolation(err: unknown): boolean {
+  return !!err && typeof err === 'object' && (err as { code?: string }).code === '23505'
+}
+
+/** Henter eksisterende run for (tenant, importRunId), eller null. */
+export async function fetchShadowAnalysisRunByImportRun(
+  userId: string,
+  tankestromImportRunId: string
+): Promise<ShadowAnalysisRun | null> {
+  const { data, error } = await supabase
+    .from('analysis_runs')
+    .select(ANALYSIS_RUN_COLUMNS)
+    .eq('user_id', userId)
+    .eq('tankestrom_import_run_id', tankestromImportRunId)
+    .maybeSingle()
+  if (error) {
+    console.error('[shadowAnalysisRunApi] fetchShadowAnalysisRunByImportRun error', error)
+    return null
+  }
+  return data ? mapShadowAnalysisRunRow(data as AnalysisRunRow) : null
+}
+
+export type EnsureShadowAnalysisRunResult =
+  | { ok: true; run: ShadowAnalysisRun; created: boolean }
+  | { ok: false; reason: 'create_failed' | 'invalid_snapshot' }
+
+/**
+ * Idempotent opprettelse på (user_id, tankestrom_import_run_id): samme tenant + samme Tankestrøm
+ * importRunId → maksimalt ett run. Prøver insert; ved unique_violation hentes eksisterende run
+ * (created=false). ANDRE databasefeil skjules ALDRI som idempotens → { ok:false, create_failed }.
+ * Krever UNIQUE-index i supabase-analysis-runs.sql.
+ */
+export async function ensureShadowAnalysisRun(
+  input: CreateShadowAnalysisRunInput
+): Promise<EnsureShadowAnalysisRunResult> {
+  const { data, error } = await supabase
+    .from('analysis_runs')
+    .insert(buildShadowAnalysisRunInsert(input))
+    .select(ANALYSIS_RUN_COLUMNS)
+    .single()
+  if (!error) {
+    const run = mapShadowAnalysisRunRow(data as AnalysisRunRow)
+    return run ? { ok: true, run, created: true } : { ok: false, reason: 'invalid_snapshot' }
+  }
+  if (isUniqueViolation(error)) {
+    const existing = await fetchShadowAnalysisRunByImportRun(input.userId, input.tankestromImportRunId)
+    if (existing) return { ok: true, run: existing, created: false }
+  }
+  console.error('[shadowAnalysisRunApi] ensureShadowAnalysisRun error', error)
+  return { ok: false, reason: 'create_failed' }
+}
+
 export async function fetchShadowAnalysisRun(id: string): Promise<ShadowAnalysisRun | null> {
   const { data, error } = await supabase
     .from('analysis_runs')
