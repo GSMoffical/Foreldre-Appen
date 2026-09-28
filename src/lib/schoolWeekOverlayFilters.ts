@@ -1,3 +1,4 @@
+import { isSchoolImportContentDebugEnabled } from './schoolImportDebug'
 import type { SchoolWeekOverlaySubjectUpdate } from '../types'
 
 export function filterSubjectUpdatesByLanguageTrack(
@@ -16,7 +17,7 @@ export function filterSubjectUpdatesByLanguageTrack(
       const sectionLines = Object.values(u.sections ?? {}).flatMap((v) => v ?? [])
       if (sectionLines.length === 0) return true
       const ok = sectionLines.some((line) => line.toLocaleLowerCase('nb-NO').includes(track))
-      if (!ok && (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true')) {
+      if (!ok && (isSchoolImportContentDebugEnabled())) {
         console.debug('[tankestrom overlay filter]', {
           subjectKey: u.subjectKey,
           childLessonSubcategoryTrack: track,

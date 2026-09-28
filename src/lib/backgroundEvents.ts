@@ -1,3 +1,4 @@
+import { isSchoolImportContentDebugEnabled } from './schoolImportDebug'
 import type {
   Event,
   NorwegianGradeBand,
@@ -259,7 +260,7 @@ export function buildBackgroundEventsForDate(
         }
         if (weekOverlayDay.action.action === 'replace_school_block') {
           const replaceTitle = buildSpecialSchoolTitle(weekOverlayDay.action, band)
-          if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+          if (isSchoolImportContentDebugEnabled()) {
             console.debug('[overlay replace block]', {
               overlayApplyReplaceCreatedBlock: true,
               overlayApplyReplaceTitle: replaceTitle,

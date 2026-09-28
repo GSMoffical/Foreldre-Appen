@@ -1,3 +1,4 @@
+import { isSchoolImportContentDebugEnabled } from './schoolImportDebug'
 import type { EmbeddedScheduleSegment } from '../types'
 import type { PortalEventProposal, PortalProposalItem, PortalTaskProposal } from '../features/tankestrom/types'
 import { addCalendarDaysOslo } from './osloCalendar'
@@ -22,7 +23,7 @@ const MAX_SEGMENTS = 15
 const MAX_NOTES_LEN = 220
 
 function debugEnabled(): boolean {
-  return import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+  return isSchoolImportContentDebugEnabled()
 }
 
 const ZERO_WIDTH_CHARS = /[\u200B-\u200D\uFEFF]/g

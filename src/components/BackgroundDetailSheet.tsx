@@ -1,3 +1,4 @@
+import { isSchoolImportContentDebugEnabled } from '../lib/schoolImportDebug'
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import type {
@@ -383,7 +384,7 @@ export function BackgroundDetailSheet({
       ? overlaySubjectUpdatesUnmatchedByLessons(weekOverlayDayAction.subjectUpdates, overlayLessonSlots)
       : weekOverlayDayAction?.subjectUpdates ?? []
         )
-  if ((import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') && isSchool && isReplaceDay) {
+  if ((isSchoolImportContentDebugEnabled()) && isSchool && isReplaceDay) {
     console.debug('[detail sheet replace]', {
       detailSheetReplaceModeEnabled: true,
       detailSheetLessonRowsSuppressed: true,

@@ -1,3 +1,4 @@
+import { isSchoolImportContentDebugEnabled } from './schoolImportDebug'
 /**
  * Brukerrettet ordlyd for «betinget» programpunkter i Tankestrøm-review og innebygd program.
  * Ett enkelt variant-sett (v1) – ingen ny tolkningslogikk, kun presentasjon.
@@ -31,7 +32,7 @@ export function tankestromConditionalTitleSuffixAlreadyPresent(title: string): b
 }
 
 export function logTankestromConditionalCopyDebug(payload: Record<string, unknown>): void {
-  if (!import.meta.env.DEV && import.meta.env.VITE_DEBUG_SCHOOL_IMPORT !== 'true') return
+  if (!isSchoolImportContentDebugEnabled()) return
   console.debug('[tankestrom conditional copy]', {
     conditionalUiCopyVariantUsed: TANKESTROM_CONDITIONAL_UI_VARIANT,
     ...payload,

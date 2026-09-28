@@ -1,3 +1,4 @@
+import { isSchoolImportContentDebugEnabled } from './schoolImportDebug'
 import type { PortalEventProposal, PortalProposalItem, PortalTaskProposal } from '../features/tankestrom/types'
 import { normalizeImportTime } from './tankestromImportTime'
 
@@ -615,7 +616,7 @@ export function dedupeNearDuplicateCalendarProposals(items: PortalProposalItem[]
   const { out: pass1, removed: pass1Removed } = dedupeSameCalendarDayAndSlot(afterFlight)
   const { next: pass2, hoisted, hoistLog } = collapseWeekendSharedParentTasks(pass1, 12)
 
-  const dbg = import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+  const dbg = isSchoolImportContentDebugEnabled()
   if (dbg) {
     console.debug('[tankestrom review dedupe]', {
       tankestromReviewItemsBefore: before,

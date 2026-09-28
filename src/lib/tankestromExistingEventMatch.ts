@@ -1,3 +1,4 @@
+import { isSchoolImportContentDebugEnabled } from './schoolImportDebug'
 import type { Event, EventMetadata, PersonId } from '../types'
 import type { PortalEventProposal } from '../features/tankestrom/types'
 import {
@@ -485,7 +486,7 @@ export function findConservativeExistingEventMatch(
   importPersonId: string,
   anchoredExisting: readonly AnchoredExistingEvent[]
 ): ExistingEventMatchResult {
-  const dbg = import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+  const dbg = isSchoolImportContentDebugEnabled()
 
   if (proposal.kind !== 'event') {
     if (dbg)

@@ -1,3 +1,4 @@
+import { isSchoolImportContentDebugEnabled } from './schoolImportDebug'
 import type { NorwegianGradeBand, SchoolLessonSlot, SchoolWeekOverlaySubjectUpdate } from '../types'
 import {
   inferSubjectKeyFromText,
@@ -533,7 +534,7 @@ export function applyClientOrphanFallbackToSubjectUpdates(
   }
   if (orphanLinesBefore.length === 0) return updatesIn
 
-  const dbg = import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+  const dbg = isSchoolImportContentDebugEnabled()
   const assignmentLog: Array<{
     line: string
     outcome: 'assigned' | 'keep_other' | 'drop_admin'

@@ -1,3 +1,4 @@
+import { isSchoolImportContentDebugEnabled } from './schoolImportDebug'
 import type { Event } from '../types'
 import { getEventEndDate, isForegroundEvent } from './eventLayer'
 import { getEventParticipantIds } from './schedule'
@@ -42,7 +43,7 @@ export async function cleanupParallelClusterDayRowsAfterEmbeddedParentUpdate(opt
   importPersonId: string
   programDates: readonly string[]
 }): Promise<ClusterCleanupResult> {
-  const dbg = import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+  const dbg = isSchoolImportContentDebugEnabled()
   const deletedIds: string[] = []
   const deletedAnchors: { date: string; eventId: string }[] = []
 
