@@ -1,3 +1,4 @@
+import { isSchoolImportContentDebugEnabled } from '../lib/schoolImportDebug'
 import { useEffect, useMemo, useRef } from 'react'
 import type { ChildSchoolProfile, NorwegianGradeBand, SchoolLessonSlot, WeekdayMonFri } from '../types'
 import {
@@ -86,7 +87,7 @@ export function SchoolProfileFields({ value, onChange }: SchoolProfileFieldsProp
   const subjects = useMemo(() => SUBJECTS_BY_BAND[band], [band])
   const defaultLessonMinutes = band.startsWith('vg') ? 45 : 60
   const lessonStartRefs = useRef<Record<string, HTMLInputElement | null>>({})
-  const debugSchoolImport = import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+  const debugSchoolImport = isSchoolImportContentDebugEnabled()
   const harmonizeRunRef = useRef(0)
 
   useEffect(() => {

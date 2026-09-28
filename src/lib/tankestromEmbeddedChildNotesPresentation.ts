@@ -3,6 +3,7 @@
  * Høydepunkter: klokkeslett fra notat (prioritert) sortert og deduplisert; segment-vindu undertrykkes når konkrete tider finnes i tekst.
  */
 
+import { isSchoolImportContentDebugEnabled } from './schoolImportDebug'
 import type { EmbeddedScheduleSegment } from '../types'
 import { semanticTitleCore } from './tankestromImportDedupe'
 import { normalizeNotesDedupeKey, stripRedundantHighlightsForReviewDisplay } from './tankestromReviewNotesDisplay'
@@ -172,7 +173,7 @@ export function resolveEmbeddedScheduleSegmentTimesForCalendarExport(
   /** True når `end` kun er en layout-/plassholder (f.eks. start+60), ikke faktisk kjent slutt fra kilden. */
   usesSyntheticLayoutEnd: boolean
 } {
-  const dbg = import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+  const dbg = isSchoolImportContentDebugEnabled()
   const log = (payload: Record<string, unknown>) => {
     if (dbg) console.debug('[tankestrom embedded schedule child export time]', payload)
   }
@@ -561,7 +562,7 @@ function suppressParentLikeNoteLine(line: string, parentTitle?: string): boolean
 }
 
 function logChildNotesDebug(payload: Record<string, unknown>): void {
-  if (!import.meta.env.DEV && import.meta.env.VITE_DEBUG_SCHOOL_IMPORT !== 'true') return
+  if (!isSchoolImportContentDebugEnabled()) return
   console.debug('[tankestrom embedded child notes presentation]', payload)
 }
 
@@ -979,7 +980,7 @@ export function tryDeriveOppmoteStartFromSegmentNotes(
   seg: EmbeddedScheduleSegment,
   opts?: { childProposalId?: string }
 ): { displayClock: string; anchorHm: string; offsetMinutes: number } | null {
-  const dbg = import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+  const dbg = isSchoolImportContentDebugEnabled()
   const log = (payload: Record<string, unknown>) => {
     if (dbg) console.debug('[tankestrom embedded child derived start]', payload)
   }

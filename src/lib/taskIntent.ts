@@ -1,3 +1,4 @@
+import { isSchoolImportContentDebugEnabled } from './schoolImportDebug'
 import type { TaskIntent } from '../types'
 
 export const TASK_INTENT_VALUES: readonly TaskIntent[] = ['must_do', 'can_help'] as const
@@ -31,7 +32,7 @@ export function suggestTaskIntentFromTitleAndNotes(title: string, notes?: string
   let text = raw.toLocaleLowerCase('nb-NO')
   text = text.replace(/^fra:\s*[^\n]*(\n\n|\n)?/i, '')
 
-  const dbg = import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true'
+  const dbg = isSchoolImportContentDebugEnabled()
 
   /** Tydelig felles plikt / alle må følge opp */
   const strongObligation =

@@ -1,3 +1,4 @@
+import { isSchoolImportContentDebugEnabled } from './schoolImportDebug'
 import type { EmbeddedScheduleSegment } from '../types'
 import type { PortalEventProposal, PortalProposalItem } from '../features/tankestrom/types'
 import { normalizeImportTime } from './tankestromImportTime'
@@ -300,7 +301,7 @@ export function foldLegacyArrangementChildSegments(items: PortalProposalItem[]):
       title: embeddedScheduleChildTitleForReview(p.event.title, seg, arrangementDateContextBlob),
     }))
     const childTitlesAfter = mergedNormalized.map((seg) => seg.title)
-    if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_SCHOOL_IMPORT === 'true') {
+    if (isSchoolImportContentDebugEnabled()) {
       console.info('[Tankestrom arrangement child title builder debug]', {
         parentProposalId: p.proposalId,
         parentTitle: p.event.title,
